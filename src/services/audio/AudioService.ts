@@ -2,7 +2,7 @@
 
 import type { AudioEventMap, AudioEventName, AudioListener } from './types'
 
-class AudioService {
+export class AudioService {
   private static instance: AudioService | null = null
 
   private audio: HTMLAudioElement
