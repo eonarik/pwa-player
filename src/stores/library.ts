@@ -573,9 +573,9 @@ export const useLibraryStore = defineStore('library', () => {
       }
 
       // Обновляем кэш
-      const root = rootFolder.value
-      if (root?.remotePath) {
-        await saveYandexCache(root.remotePath)
+      const rootFolder = rootFolderId.value ? folders.value[rootFolderId.value] : null
+      if (rootFolder?.remotePath) {
+        await saveYandexCache(rootFolder.remotePath)
       }
     } finally {
       isLoading.value = false
