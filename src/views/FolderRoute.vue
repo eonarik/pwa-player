@@ -1,13 +1,14 @@
 <!-- src/views/FolderRoute.vue -->
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
-import { folderIdFromPath, ROOT_FOLDER_ID } from '@/services/library/id'
+import type { Folder } from '@/types/library'
 import FolderView from '@/components/library/FolderView.vue'
 
 const route = useRoute()
+const router = useRouter()
 const library = useLibraryStore()
 const { hasLibrary } = storeToRefs(library)
 
@@ -18,21 +19,42 @@ const pathSegments = computed<string[]>(() => {
   return []
 })
 
+/** Путь в формате библиотеки: 'Rock/2020/OK Computer' или '' для корня */
 const folderPath = computed(() => pathSegments.value.join('/'))
 
-const folderId = computed(() =>
-  folderPath.value === '' ? ROOT_FOLDER_ID : folderIdFromPath(folderPath.value),
-)
+/**
+ * Ищем папку по `path`, а не по «синтетическому» id.
+ * Это работает и для локальной библиотеки, и для Яндекс.Диска —
+ * у них разные схемы id, но один и тот же `path`.
+ */
+const currentFolder = computed<Folder | null>(() => {
+  if (folderPath.value === '') {
+    if (!library.rootFolderId) return null
+    return library.getFolder(library.rootFolderId)
+  }
+  return Object.values(library.folders).find((f) => f.path === folderPath.value) ?? null
+})
 
-const folderExists = computed(() => Boolean(library.folders[folderId.value]))
+const folderExists = computed(() => Boolean(currentFolder.value))
 
-// Синхронизация URL → стор (без редиректов)
 watch(
-  [folderId, hasLibrary],
+  [currentFolder, hasLibrary],
   () => {
-    if (!hasLibrary.value) return
-    if (!folderExists.value) return
-    library.setCurrentFolder(folderId.value)
+    if (!hasLibrary.value) {
+      // Библиотеки нет — на главную, там выберем источник
+      router.replace({ name: 'home' })
+      return
+    }
+
+    if (!folderExists.value) {
+      // Папка не найдена — редирект в корень библиотеки.
+      // Библиотеку НЕ трогаем: clear() здесь был бы разрушительным.
+      console.warn(`[folder-route] path "${folderPath.value}" not found, going to root`)
+      router.replace({ name: 'folder', params: { path: [] } })
+      return
+    }
+
+    library.setCurrentFolder(currentFolder.value!.id)
   },
   { immediate: true },
 )
@@ -40,19 +62,5 @@ watch(
 
 <template>
   <FolderView v-if="hasLibrary && folderExists" />
-
-  <div
-    v-else-if="hasLibrary && !folderExists"
-    class="flex h-full flex-col items-center justify-center gap-3 text-sm text-zinc-500"
-  >
-    <p>Папка не найдена</p>
-    <RouterLink
-      :to="{ name: 'folder', params: { path: [] } }"
-      class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-emerald-400"
-    >
-      К библиотеке
-    </RouterLink>
-  </div>
-
   <div v-else class="flex h-full items-center justify-center text-sm text-zinc-500">Загрузка…</div>
 </template>

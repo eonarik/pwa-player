@@ -243,6 +243,25 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.pause()
   }
 
+  /**
+   * Полная остановка: пауза, очистка очереди, сброс текущего трека.
+   * Используется при смене источника библиотеки или явном «стоп».
+   */
+  function stop(): void {
+    audioService.unload()
+    audioService.pause()
+    audioService.seek(0)
+
+    queue.value = []
+    currentIndex.value = -1
+    currentTrack.value = null
+    currentTime.value = 0
+    duration.value = 0
+    isPlaying.value = false
+
+    stopTimeLoop()
+  }
+
   function toggle() {
     if (isPlaying.value) pause()
     else play()
@@ -432,6 +451,7 @@ export const usePlayerStore = defineStore('player', () => {
     playAt,
     play,
     pause,
+    stop,
     toggle,
     next,
     prev,

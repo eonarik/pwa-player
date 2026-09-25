@@ -82,6 +82,21 @@ export class AudioService {
     this.audio.load()
   }
 
+  /**
+   * Полная выгрузка текущего источника.
+   * Останавливает воспроизведение, ревокает objectURL, снимает src.
+   */
+  unload(): void {
+    this.audio.pause()
+    this.audio.removeAttribute('src')
+    this.audio.load()
+
+    if (this.currentObjectUrl) {
+      URL.revokeObjectURL(this.currentObjectUrl)
+      this.currentObjectUrl = null
+    }
+  }
+
   // --- Управление воспроизведением -------------------------------------
 
   async play(): Promise<void> {

@@ -13,13 +13,28 @@ function goToFolder(folderPath: string) {
   router.push({ name: 'folder', params: { path: segments } })
 }
 
+/**
+ * Кнопка «Назад» ведёт себя как браузерная:
+ * использует history.back(), если есть куда возвращаться.
+ * Иначе — fallback на родительскую папку через replace,
+ * чтобы не плодить записи в истории.
+ */
 function goUp() {
+  const hasHistory = typeof window !== 'undefined' && Boolean(window.history.state?.back)
+
+  if (hasHistory) {
+    router.back()
+    return
+  }
+
+  // Fallback: пользователь пришёл по прямой ссылке — ведём к родителю
   const crumbs = breadcrumbs.value
   if (crumbs.length < 2) return
   const parent = crumbs[crumbs.length - 2]
-  if (parent?.path) {
-    goToFolder(parent.path)
-  }
+  if (!parent) return
+
+  const segments = parent.path.split('/').filter(Boolean)
+  router.replace({ name: 'folder', params: { path: segments } })
 }
 </script>
 

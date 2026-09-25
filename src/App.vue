@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
+import { loadLastSource } from '@/services/persistence/lastSource'
 import PlayerControls from '@/components/player/PlayerControls.vue'
 
 const router = useRouter()
@@ -49,12 +50,28 @@ function goToRoot() {
 }
 
 onMounted(async () => {
-  console.log('[app] starting restore')
-  try {
-    await library.restore()
-    console.log('[app] library restore done, hasLibrary:', library.hasLibrary)
-  } catch (err) {
-    console.error('[app] library restore failed', err)
+  const lastSource = await loadLastSource()
+  console.info('[app] last source:', lastSource)
+
+  let libraryRestored = false
+
+  if (lastSource === 'yandex') {
+    // Пробуем Яндекс.Диск из кэша
+    libraryRestored = await library.restoreYandexFromCache()
+    // Если кэша нет или он протух — фолбэк на локальную
+    if (!libraryRestored) {
+      libraryRestored = await library.restore()
+    }
+  } else if (lastSource === 'local') {
+    libraryRestored = await library.restore()
+  } else {
+    // lastSource нет — пробуем локальную (на случай, если она есть в IDB)
+    libraryRestored = await library.restore()
+  }
+
+  if (libraryRestored) {
+    console.info('[app] library restored, going to folder view')
+    router.replace({ name: 'folder', params: { path: [] } })
   }
 
   const playerRestored = await player.restore()
@@ -64,10 +81,8 @@ onMounted(async () => {
 
 <template>
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-zinc-900 text-zinc-100">
-    <header class="flex items-center gap-2 border-b border-zinc-800 p-3">
-      <!-- Кнопка «Главная» — всегда видна, ведёт на выбор папки -->
+    <header class="flex items-center gap-3 border-b border-zinc-800 p-3">
       <button
-        type="button"
         class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
         title="На главную (выбор папки)"
         @click="goHome"
@@ -78,7 +93,6 @@ onMounted(async () => {
         <span>Главная</span>
       </button>
 
-      <!-- Кнопка «К библиотеке» — только когда есть библиотека -->
       <button
         v-if="library.hasLibrary"
         type="button"

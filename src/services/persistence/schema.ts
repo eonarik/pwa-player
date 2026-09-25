@@ -12,6 +12,6 @@
  * При загрузке приложения: если сохранённая версия != текущей,
  * все данные в IDB удаляются перед первым чтением.
  */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 1
 
 export const SCHEMA_VERSION_KEY = 'player:schemaVersion'

@@ -4,12 +4,25 @@ import { defineStore } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
 import { fileSystemService } from '@/services/filesystem/FileSystemService'
 import { libraryPersistenceService } from '@/services/persistence/LibraryPersistenceService'
+import { yandexLibraryPersistenceService } from '@/services/persistence/YandexLibraryPersistenceService'
+import { yandexDiskService } from '@/services/yandex/YandexDiskService'
+import { mapWithConcurrency } from '@/services/yandex/concurrency'
+import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import type {
   PersistedLibrary,
   PersistedFolder,
   PersistedTrack,
 } from '@/services/persistence/libraryTypes'
+import type {
+  PersistedYandexFolder,
+  PersistedYandexTrack,
+  PersistedYandexLibrary,
+} from '@/services/persistence/yandexTypes'
 import type { Folder, LibraryTrack } from '@/types/library'
+import { saveLastSource } from '@/services/persistence/lastSource'
+
+/** Сколько папок на Диске обходим параллельно */
+const YANDEX_CONCURRENCY = 5
 
 export const useLibraryStore = defineStore('library', () => {
   // --- Состояние ------------------------------------------------------
@@ -19,17 +32,14 @@ export const useLibraryStore = defineStore('library', () => {
   const rootFolderId = ref<string | null>(null)
   const rootFolderName = ref<string | null>(null)
 
-  /** Текущая папка, в которой находится пользователь (зеркало URL) */
   const currentFolderId = ref<string | null>(null)
 
-  /** Флаг загрузки — пока идёт сканирование */
+  const source = ref<'local' | 'yandex' | null>(null)
+
   const isLoading = ref(false)
   const loadProgress = ref({ folders: 0, tracks: 0 })
 
-  /** Флаг восстановления — пока читаем из IDB */
   const isRestoring = ref(false)
-
-  /** Нужно ли запросить права — выставляется, если restore упёрся в permission */
   const needsPermission = ref(false)
 
   // --- Computed -------------------------------------------------------
@@ -72,33 +82,32 @@ export const useLibraryStore = defineStore('library', () => {
     return Boolean(folder && folder.parentId)
   })
 
-  // --- Сериализация ---------------------------------------------------
+  // --- Сериализация локальной библиотеки ------------------------------
 
-  /**
-   * Сериализация библиотеки в plain-объект для IDB.
-   *
-   * ВАЖНО: используем toRaw, потому что folders.value — это deep reactive proxy.
-   * FileSystemHandle внутри proxy нельзя склонировать через structuredClone,
-   * и IDB выбросит DataCloneError.
-   */
-  function toPersistedLibrary(): PersistedLibrary {
-    const persistedFolders: PersistedFolder[] = Object.values(folders.value).map((folder) => {
+  function toPersistedLibrary(): PersistedLibrary | null {
+    if (source.value !== 'local') return null
+
+    const persistedFolders: PersistedFolder[] = []
+    for (const folder of Object.values(folders.value)) {
+      if (!folder.handle) continue
       const raw = toRaw(folder)
-      return {
+      persistedFolders.push({
         id: raw.id,
         name: raw.name,
         parentId: raw.parentId,
         path: raw.path,
-        handle: toRaw(raw.handle),
+        handle: toRaw(raw.handle!),
         childFolderIds: [...raw.childFolderIds],
         trackIds: [...raw.trackIds],
         totalTrackCount: raw.totalTrackCount,
-      }
-    })
+      })
+    }
 
-    const persistedTracks: PersistedTrack[] = Object.values(tracks.value).map((track) => {
+    const persistedTracks: PersistedTrack[] = []
+    for (const track of Object.values(tracks.value)) {
+      if (!track.handle) continue
       const raw = toRaw(track)
-      return {
+      persistedTracks.push({
         id: raw.id,
         folderId: raw.folderId,
         title: raw.title,
@@ -111,9 +120,9 @@ export const useLibraryStore = defineStore('library', () => {
         codec: raw.codec,
         filename: raw.filename,
         path: raw.path!,
-        handle: toRaw(raw.handle),
-      }
-    })
+        handle: toRaw(raw.handle!),
+      })
+    }
 
     return {
       folders: persistedFolders,
@@ -124,27 +133,21 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  // --- Сохранение -----------------------------------------------------
-
   async function save(): Promise<void> {
     if (!hasLibrary.value) return
-    await libraryPersistenceService.save(toPersistedLibrary())
+    const persisted = toPersistedLibrary()
+    if (!persisted) return
+    await libraryPersistenceService.save(persisted)
   }
 
-  // --- Восстановление -------------------------------------------------
+  // --- Восстановление локальной библиотеки ----------------------------
 
-  /**
-   * Восстанавливает библиотеку из IDB.
-   * Пересоздаёт File-объекты через handle.getFile().
-   * Возвращает true, если что-то восстановлено.
-   */
   async function restore(): Promise<boolean> {
     isRestoring.value = true
     try {
       const persisted = await libraryPersistenceService.load()
       if (!persisted || persisted.folders.length === 0) return false
 
-      // Пересобираем папки
       const newFolders: Record<string, Folder> = {}
       for (const f of persisted.folders) {
         newFolders[f.id] = {
@@ -156,10 +159,10 @@ export const useLibraryStore = defineStore('library', () => {
           childFolderIds: [...f.childFolderIds],
           trackIds: [...f.trackIds],
           totalTrackCount: f.totalTrackCount,
+          source: 'local',
         }
       }
 
-      // Пересобираем треки
       const newTracks: Record<string, LibraryTrack> = {}
       const failedTrackIds: string[] = []
 
@@ -192,14 +195,12 @@ export const useLibraryStore = defineStore('library', () => {
         }),
       )
 
-      // Все треки битые → вероятно, потеряны права
       if (persisted.tracks.length > 0 && Object.keys(newTracks).length === 0) {
         console.warn('[library] all tracks failed to restore — likely permission lost')
         needsPermission.value = true
         return false
       }
 
-      // Убираем битые из folder.trackIds
       if (failedTrackIds.length > 0) {
         const failedSet = new Set(failedTrackIds)
         for (const folder of Object.values(newFolders)) {
@@ -207,13 +208,13 @@ export const useLibraryStore = defineStore('library', () => {
         }
       }
 
-      // --- Восстанавливаем обложки: одна обложка на папку ---
       await restoreCovers(newFolders, newTracks)
 
       folders.value = newFolders
       tracks.value = newTracks
       rootFolderId.value = persisted.rootFolderId
       rootFolderName.value = persisted.rootFolderName
+      source.value = 'local'
       needsPermission.value = false
 
       return true
@@ -222,15 +223,13 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /**
-   * Ищет обложку для каждой папки и назначает её всем трекам папки.
-   * Параллельно, с ограничением — findCoverInDirectory делает обход директории.
-   */
   async function restoreCovers(
     newFolders: Record<string, Folder>,
     newTracks: Record<string, LibraryTrack>,
   ): Promise<void> {
-    const foldersWithTracks = Object.values(newFolders).filter((f) => f.trackIds.length > 0)
+    const foldersWithTracks = Object.values(newFolders).filter(
+      (f) => f.trackIds.length > 0 && f.handle,
+    )
     if (foldersWithTracks.length === 0) return
 
     const COVER_CONCURRENCY = 6
@@ -239,6 +238,7 @@ export const useLibraryStore = defineStore('library', () => {
     const worker = async (): Promise<void> => {
       while (cursor < foldersWithTracks.length) {
         const folder = foldersWithTracks[cursor++]!
+        if (!folder.handle) continue
         try {
           const coverFile = await fileSystemService.findCoverInDirectory(folder.handle)
           if (!coverFile) continue
@@ -259,10 +259,6 @@ export const useLibraryStore = defineStore('library', () => {
     )
   }
 
-  /**
-   * Повторная попытка восстановления после запроса прав.
-   * Вызывать из UI по клику — тогда будет user gesture, и requestPermission сработает.
-   */
   async function retryRestoreAfterPermission(): Promise<boolean> {
     const persisted = await libraryPersistenceService.load()
     if (!persisted) return false
@@ -276,7 +272,7 @@ export const useLibraryStore = defineStore('library', () => {
     return restore()
   }
 
-  // --- Actions --------------------------------------------------------
+  // --- Локальная загрузка ---------------------------------------------
 
   async function loadFromHandle(handle: FileSystemDirectoryHandle): Promise<void> {
     isLoading.value = true
@@ -289,7 +285,7 @@ export const useLibraryStore = defineStore('library', () => {
 
       const newFolders: Record<string, Folder> = {}
       for (const folder of collected.folders) {
-        newFolders[folder.id] = folder
+        newFolders[folder.id] = { ...folder, source: 'local' }
       }
 
       const newTracks: Record<string, LibraryTrack> = {}
@@ -302,18 +298,349 @@ export const useLibraryStore = defineStore('library', () => {
       rootFolderId.value = collected.rootFolderId
       rootFolderName.value = collected.rootFolderName
       currentFolderId.value = collected.rootFolderId
+      source.value = 'local'
       needsPermission.value = false
 
       await save()
+      await saveLastSource('local')
     } finally {
       isLoading.value = false
     }
   }
 
+  // --- Яндекс.Диск ----------------------------------------------------
+
   /**
-   * Обновляет currentFolderId. Вызывается из FolderRoute при синхронизации URL → стор.
-   * НЕ пушит URL — это делает компонент.
+   * Загружает библиотеку из Яндекс.Диска.
+   * Если есть свежий кэш и forceRefresh=false — восстанавливает из него.
    */
+  async function loadFromYandexDisk(
+    rootPath: string,
+    options: { forceRefresh?: boolean } = {},
+  ): Promise<void> {
+    const { forceRefresh = false } = options
+
+    // --- 1. Пробуем кэш ---
+    if (!forceRefresh) {
+      const cached = await yandexLibraryPersistenceService.load()
+      if (cached && yandexLibraryPersistenceService.isFresh(cached)) {
+        console.info('[library] using cached Yandex.Disk library')
+        restoreFromYandexCache(cached)
+        return
+      }
+    }
+
+    // --- 2. Сканируем заново ---
+    isLoading.value = true
+    loadProgress.value = { folders: 0, tracks: 0 }
+
+    try {
+      const newFolders: Record<string, Folder> = {}
+      const newTracks: Record<string, LibraryTrack> = {}
+
+      const normalizedPath = rootPath.startsWith('disk:') ? rootPath : `disk:${rootPath}`
+      const rootId = folderIdFromPath(`yandex:${normalizedPath}`)
+
+      const updateProgress = (): void => {
+        loadProgress.value = {
+          folders: Object.keys(newFolders).length,
+          tracks: Object.keys(newTracks).length,
+        }
+      }
+
+      const walk = async (
+        remotePath: string,
+        folderId: string,
+        parentId: string | null,
+        pathPrefix: string,
+      ): Promise<Folder> => {
+        const response = await yandexDiskService.listResources(remotePath)
+
+        const childFolderIds: string[] = []
+        const trackIds: string[] = []
+        const subDirs: typeof response.items = []
+
+        for (const item of response.items) {
+          if (item.type === 'dir') {
+            subDirs.push(item)
+          } else if (item.isAudio) {
+            const trackPath = pathPrefix ? `${pathPrefix}/${item.name}` : item.name
+            const trackId = trackIdFromPath(`yandex:${item.path}`)
+            newTracks[trackId] = {
+              id: trackId,
+              folderId,
+              filename: item.name,
+              path: trackPath,
+              remotePath: item.path,
+              source: yandexDiskService.buildDownloadUrl(item.path),
+              title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
+              artist: 'Yandex Disk',
+              album: pathPrefix || 'Yandex Disk',
+            }
+            trackIds.push(trackId)
+          }
+        }
+
+        updateProgress()
+
+        const childFolders = await mapWithConcurrency(subDirs, YANDEX_CONCURRENCY, async (item) => {
+          const childPath = pathPrefix ? `${pathPrefix}/${item.name}` : item.name
+          const childId = folderIdFromPath(`yandex:${item.path}`)
+          const child = await walk(item.path, childId, folderId, childPath)
+          newFolders[child.id] = child
+          return child
+        })
+
+        for (const child of childFolders) {
+          childFolderIds.push(child.id)
+        }
+
+        const childTotal = childFolders.reduce((sum, f) => sum + f.totalTrackCount, 0)
+
+        return {
+          id: folderId,
+          name:
+            remotePath === 'disk:/'
+              ? 'Yandex Disk'
+              : remotePath.split('/').filter(Boolean).pop() || 'Yandex Disk',
+          parentId,
+          path: pathPrefix,
+          remotePath,
+          childFolderIds,
+          trackIds,
+          totalTrackCount: trackIds.length + childTotal,
+          source: 'yandex',
+        }
+      }
+
+      const rootFolder = await walk(normalizedPath, rootId, null, '')
+      newFolders[rootFolder.id] = rootFolder
+
+      folders.value = newFolders
+      tracks.value = newTracks
+      rootFolderId.value = rootFolder.id
+      rootFolderName.value = 'Yandex Disk'
+      currentFolderId.value = rootFolder.id
+      source.value = 'yandex'
+      needsPermission.value = false
+
+      // --- 3. Сохраняем в кэш ---
+      await saveYandexCache(normalizedPath)
+      await saveLastSource('yandex')
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /** Сохраняет текущую библиотеку Диска в IDB */
+  async function saveYandexCache(rootPath: string): Promise<void> {
+    if (source.value !== 'yandex' || !rootFolderId.value) return
+
+    const persistedFolders: PersistedYandexFolder[] = Object.values(folders.value).map((f) => ({
+      id: f.id,
+      name: f.name,
+      parentId: f.parentId,
+      path: f.path,
+      remotePath: f.remotePath ?? '',
+      childFolderIds: [...f.childFolderIds],
+      trackIds: [...f.trackIds],
+      totalTrackCount: f.totalTrackCount,
+    }))
+
+    const persistedTracks: PersistedYandexTrack[] = []
+    for (const t of Object.values(tracks.value)) {
+      if (!t.remotePath) continue
+      persistedTracks.push({
+        id: t.id,
+        folderId: t.folderId,
+        filename: t.filename,
+        path: t.path!,
+        remotePath: t.remotePath,
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+      })
+    }
+
+    await yandexLibraryPersistenceService.save({
+      folders: persistedFolders,
+      tracks: persistedTracks,
+      rootFolderId: rootFolderId.value,
+      rootFolderName: rootFolderName.value ?? 'Yandex Disk',
+      rootPath,
+      savedAt: Date.now(),
+    })
+  }
+
+  /**
+   * Точечно обновляет содержимое текущей папки на Яндекс.Диске.
+   * Не трогает подпапки вглубь — только треки и список дочерних папок.
+   *
+   * Логика:
+   * - Запрашиваем `/resources?path=<folder.remotePath>`.
+   * - Обновляем `folder.trackIds`, `folder.childFolderIds`.
+   * - Новые треки добавляем в `tracks`, исчезнувшие — удаляем.
+   * - Папки, которых нет в `folders`, создаём «пустыми» (загрузятся при заходе).
+   * - Обновляем кэш.
+   */
+  async function refreshCurrentYandexFolder(): Promise<void> {
+    if (source.value !== 'yandex') {
+      console.warn('[library] refreshCurrentYandexFolder: not a Yandex library')
+      return
+    }
+
+    const folder = currentFolder.value
+    if (!folder || !folder.remotePath) {
+      console.warn('[library] refreshCurrentYandexFolder: no remotePath on current folder')
+      return
+    }
+
+    isLoading.value = true
+    try {
+      const response = await yandexDiskService.listResources(folder.remotePath)
+
+      const newTrackIds: string[] = []
+      const newChildFolderIds: string[] = []
+      const subDirs: typeof response.items = []
+
+      for (const item of response.items) {
+        if (item.type === 'dir') {
+          subDirs.push(item)
+        } else if (item.isAudio) {
+          const trackId = trackIdFromPath(`yandex:${item.path}`)
+          const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
+
+          if (!tracks.value[trackId]) {
+            tracks.value[trackId] = {
+              id: trackId,
+              folderId: folder.id,
+              filename: item.name,
+              path: trackPath,
+              remotePath: item.path,
+              source: yandexDiskService.buildDownloadUrl(item.path),
+              title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
+              artist: 'Yandex Disk',
+              album: folder.path || 'Yandex Disk',
+            }
+          }
+          newTrackIds.push(trackId)
+        }
+      }
+
+      // Папки: обновляем только список id.
+      // Существующие папки вглубь не трогаем — обновятся при заходе.
+      for (const item of subDirs) {
+        const childId = folderIdFromPath(`yandex:${item.path}`)
+        const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
+
+        if (!folders.value[childId]) {
+          folders.value[childId] = {
+            id: childId,
+            name: item.name,
+            parentId: folder.id,
+            path: childPath,
+            remotePath: item.path,
+            childFolderIds: [],
+            trackIds: [],
+            totalTrackCount: 0,
+            source: 'yandex',
+          }
+        }
+        newChildFolderIds.push(childId)
+      }
+
+      // Убираем треки, которых больше нет на Диске
+      const removedTrackIds = folder.trackIds.filter((id) => !newTrackIds.includes(id))
+      for (const id of removedTrackIds) {
+        const t = tracks.value[id]
+        if (t?.coverUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(t.coverUrl)
+        }
+        delete tracks.value[id]
+      }
+
+      // Убираем подпапки, которых больше нет
+      const removedFolderIds = folder.childFolderIds.filter((id) => !newChildFolderIds.includes(id))
+      for (const id of removedFolderIds) {
+        delete folders.value[id]
+      }
+
+      // Обновляем папку
+      folders.value[folder.id] = {
+        ...folder,
+        trackIds: newTrackIds,
+        childFolderIds: newChildFolderIds,
+      }
+
+      // Обновляем кэш
+      const root = rootFolder.value
+      if (root?.remotePath) {
+        await saveYandexCache(root.remotePath)
+      }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /** Восстанавливает библиотеку Диска из кэша */
+  function restoreFromYandexCache(cached: PersistedYandexLibrary): void {
+    const newFolders: Record<string, Folder> = {}
+    for (const f of cached.folders) {
+      newFolders[f.id] = {
+        id: f.id,
+        name: f.name,
+        parentId: f.parentId,
+        path: f.path,
+        remotePath: f.remotePath,
+        childFolderIds: [...f.childFolderIds],
+        trackIds: [...f.trackIds],
+        totalTrackCount: f.totalTrackCount,
+        source: 'yandex',
+      }
+    }
+
+    const newTracks: Record<string, LibraryTrack> = {}
+    for (const t of cached.tracks) {
+      newTracks[t.id] = {
+        id: t.id,
+        folderId: t.folderId,
+        filename: t.filename,
+        path: t.path,
+        remotePath: t.remotePath,
+        source: yandexDiskService.buildDownloadUrl(t.remotePath),
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+      }
+    }
+
+    folders.value = newFolders
+    tracks.value = newTracks
+    rootFolderId.value = cached.rootFolderId
+    rootFolderName.value = cached.rootFolderName
+    currentFolderId.value = cached.rootFolderId
+    source.value = 'yandex'
+    needsPermission.value = false
+
+    void saveLastSource('yandex')
+  }
+
+  /**
+   * Пробует восстановить библиотеку Яндекс.Диска из кэша.
+   * Возвращает true, если удалось.
+   */
+  async function restoreYandexFromCache(): Promise<boolean> {
+    const cached = await yandexLibraryPersistenceService.load()
+    if (!cached || !yandexLibraryPersistenceService.isFresh(cached)) {
+      return false
+    }
+    console.info('[library] auto-restoring Yandex.Disk library from cache')
+    restoreFromYandexCache(cached)
+    return true
+  }
+
+  // --- Общие операции -------------------------------------------------
+
   function setCurrentFolder(folderId: string): void {
     if (!folders.value[folderId]) {
       console.warn(`[library] folder ${folderId} not found`)
@@ -334,12 +661,12 @@ export const useLibraryStore = defineStore('library', () => {
     rootFolderId.value = null
     rootFolderName.value = null
     currentFolderId.value = null
+    source.value = null
     needsPermission.value = false
 
+    // Локальный кэш чистим, кэш Диска — оставляем
     void libraryPersistenceService.clear()
   }
-
-  // --- Вспомогательные ------------------------------------------------
 
   function getTrack(id: string): LibraryTrack | null {
     return tracks.value[id] ?? null
@@ -350,18 +677,17 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   return {
-    // state
     folders,
     tracks,
     rootFolderId,
     rootFolderName,
     currentFolderId,
+    source,
     isLoading,
     isRestoring,
     needsPermission,
     loadProgress,
 
-    // computed
     hasLibrary,
     currentFolder,
     currentSubfolders,
@@ -369,8 +695,10 @@ export const useLibraryStore = defineStore('library', () => {
     breadcrumbs,
     canGoUp,
 
-    // actions
     loadFromHandle,
+    loadFromYandexDisk,
+    restoreYandexFromCache,
+    refreshCurrentYandexFolder,
     setCurrentFolder,
     clear,
     save,

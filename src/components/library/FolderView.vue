@@ -10,9 +10,8 @@ import TrackList from './TrackList.vue'
 
 const library = useLibraryStore()
 const player = usePlayerStore()
-const { currentTracks, currentFolder, currentSubfolders } = storeToRefs(library)
+const { currentTracks, currentFolder, currentSubfolders, source, isLoading } = storeToRefs(library)
 
-// LibraryTrack extends Track, так что приведение бесплатное
 const tracks = computed(() => currentTracks.value)
 
 const hasTracks = computed(() => tracks.value.length > 0)
@@ -26,11 +25,14 @@ function playAll() {
   if (tracks.value.length === 0) return
   player.setQueue(tracks.value, 0)
 }
+
+async function refreshFolder() {
+  await library.refreshCurrentYandexFolder()
+}
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка: breadcrumbs + счётчики + «Играть всё» -->
     <div
       class="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3"
     >
@@ -45,6 +47,16 @@ function playAll() {
         </span>
 
         <button
+          v-if="source === 'yandex'"
+          type="button"
+          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-50"
+          :disabled="isLoading"
+          @click="refreshFolder"
+        >
+          {{ isLoading ? 'Обновление…' : 'Обновить' }}
+        </button>
+
+        <button
           v-if="hasTracks"
           type="button"
           class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
@@ -55,7 +67,6 @@ function playAll() {
       </div>
     </div>
 
-    <!-- Папки: свой скролл, не более 40% высоты -->
     <div
       v-if="hasFolders"
       class="shrink-0 overflow-y-auto border-b border-zinc-800"
@@ -64,14 +75,10 @@ function playAll() {
       <FolderList />
     </div>
 
-    <!-- Треки: занимают оставшееся место, свой скролл внутри TrackList.
-         min-h-0 критично — без него flex-элемент не сожмётся ниже контента,
-         и внутренний overflow-y-auto не заработает -->
     <div v-if="hasTracks" class="min-h-0 flex-1">
       <TrackList :key="currentFolder?.id" :tracks="tracks" @select="onSelectTrack" />
     </div>
 
-    <!-- Заглушка, если в папке ничего нет -->
     <div
       v-else-if="!hasFolders"
       class="flex flex-1 items-center justify-center text-sm text-zinc-500"
