@@ -25,7 +25,9 @@ interface YandexResource {
 }
 
 interface YandexResourcesResponse {
+  path?: string
   _embedded?: {
+    path?: string
     items: YandexResource[]
     total: number
     limit: number
