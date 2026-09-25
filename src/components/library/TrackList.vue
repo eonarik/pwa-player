@@ -6,6 +6,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useVirtualList } from '@/composables/useVirtualList'
 import { useItemHeight } from '@/composables/useItemHeight'
 import TrackListItem from './TrackListItem.vue'
+import TrackActions from './TrackActions.vue'
 import type { Track } from '@/types/track'
 
 const props = defineProps<{
@@ -31,20 +32,17 @@ const { totalHeight, visibleItems, offsetY, scrollToIndex } = useVirtualList({
   containerRef,
 })
 
-// Индекс текущего трека в этом списке (или -1)
 function getCurrentIndex(): number {
   const id = currentTrack.value?.id
   if (!id) return -1
   return props.tracks.findIndex((t) => t.id === id)
 }
 
-// Автоскролл к текущему треку при его смене
 watch(currentTrack, () => {
   const idx = getCurrentIndex()
   if (idx >= 0) scrollToIndex(idx)
 })
 
-// Хелпер для проверки «этот трек сейчас играет»
 function isCurrent(track: Track): boolean {
   return currentTrack.value?.id === track.id
 }
@@ -56,7 +54,8 @@ function isCurrent(track: Track): boolean {
   </div>
 
   <div v-else ref="containerRef" class="h-full overflow-y-auto">
-    <!-- Скрытый эталон для измерения высоты -->
+    <!-- Скрытый эталон для измерения высоты.
+         Без actions — чтобы кнопки не влияли на измерение. -->
     <div
       ref="measureRef"
       class="pointer-events-none invisible absolute left-0 top-0 w-full"
@@ -82,7 +81,11 @@ function isCurrent(track: Track): boolean {
           :is-current="isCurrent(track)"
           :is-playing="isPlaying"
           @select="(i: number) => emit('select', i)"
-        />
+        >
+          <template #actions>
+            <TrackActions :track="track" />
+          </template>
+        </TrackListItem>
       </div>
     </div>
   </div>

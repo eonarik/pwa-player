@@ -9,10 +9,13 @@ import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
 import { loadLastSource } from '@/services/persistence/lastSource'
 import PlayerControls from '@/components/player/PlayerControls.vue'
+import { usePlaylistsStore } from './stores/playlists'
+import { useHistoryStore } from './stores/history'
 
 const router = useRouter()
 const player = usePlayerStore()
 const library = useLibraryStore()
+const history = useHistoryStore()
 const { currentTrack, isPlaying } = storeToRefs(player)
 
 useKeyboardShortcuts({
@@ -49,7 +52,12 @@ function goToRoot() {
   router.push({ name: 'folder', params: { path: [] } })
 }
 
+const playlists = usePlaylistsStore()
+
 onMounted(async () => {
+  await playlists.restore()
+  await history.restore()
+
   const lastSource = await loadLastSource()
   console.info('[app] last source:', lastSource)
 
@@ -70,13 +78,25 @@ onMounted(async () => {
   }
 
   if (libraryRestored) {
-    console.info('[app] library restored, going to folder view')
-    router.replace({ name: 'folder', params: { path: [] } })
+    console.info('[app] library restored')
+    // Редиректим на корень библиотеки только если мы на главной.
+    // Если пользователь был в плейлисте или конкретной папке — оставляем как есть.
+    if (router.currentRoute.value.name === 'home') {
+      router.replace({ name: 'folder', params: { path: [] } })
+    }
   }
 
   const playerRestored = await player.restore()
   if (playerRestored) console.log('[player] restored')
 })
+
+function goToPlaylists() {
+  router.push({ name: 'playlists' })
+}
+
+function goToHistory() {
+  router.push({ name: 'history' })
+}
 </script>
 
 <template>
@@ -99,7 +119,32 @@ onMounted(async () => {
         class="rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
         @click="goToRoot"
       >
-        ← К библиотеке
+        << <span class="hidden md:inline">К библиотеке</span>
+      </button>
+
+      <button
+        type="button"
+        class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
+        title="Плейлисты"
+        @click="goToPlaylists"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+          <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span class="hidden md:inline">Плейлисты</span>
+      </button>
+
+      <button
+        type="button"
+        class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
+        title="История"
+        @click="goToHistory"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+        <span class="hidden md:inline">История</span>
       </button>
 
       <span v-if="library.isLoading" class="ml-2 text-sm text-zinc-500">

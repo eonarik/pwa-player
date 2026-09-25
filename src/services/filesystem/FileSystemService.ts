@@ -5,6 +5,7 @@ import type { FileEntry, PermissionMode } from './types'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { folderIdFromPath, trackIdFromPath, ROOT_FOLDER_ID } from '@/services/library/id'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
+import { compareStrings } from '@/utils/sort'
 
 const HANDLE_KEY = 'player:directoryHandle'
 
@@ -126,6 +127,7 @@ export class FileSystemService {
         }
       }
 
+      subdirs.sort((a, b) => compareStrings(a.path, b.path))
       await Promise.all(subdirs.map((sub) => walk(sub.handle, sub.path)))
     }
 
@@ -167,8 +169,9 @@ export class FileSystemService {
         }
       }
 
-      fileEntries.sort((a, b) => a.name.localeCompare(b.name))
-      dirEntries.sort((a, b) => a.name.localeCompare(b.name))
+      // Сортируем с учётом локали и числовой сортировки
+      fileEntries.sort((a, b) => compareStrings(a.name, b.name))
+      dirEntries.sort((a, b) => compareStrings(a.name, b.name))
 
       // 2. Ищем обложку один раз на папку (если в ней есть треки)
       const coverFile = fileEntries.length > 0 ? await this.findCoverInDirectory(handle) : null
@@ -193,8 +196,6 @@ export class FileSystemService {
             filename: file.name,
             path: trackPath,
             handle: fileHandle,
-            // directoryHandle — та директория, в которой лежит файл.
-            // Нужен для восстановления обложек при restore плеера.
             directoryHandle: handle,
             source: file,
             ...metadata,
@@ -225,6 +226,7 @@ export class FileSystemService {
         childFolderIds: childFolders.map((f) => f.id),
         trackIds,
         totalTrackCount: trackIds.length + childTotal,
+        source: 'local',
       }
       folders.push(folder)
 

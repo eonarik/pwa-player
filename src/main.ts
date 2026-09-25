@@ -22,6 +22,7 @@ import router from './router'
 import { schemaService } from '@/services/persistence/SchemaService'
 
 import './assets/main.css'
+import { usePlaylistsStore } from './stores/playlists.ts'
 
 async function bootstrap() {
   try {
@@ -36,6 +37,11 @@ async function bootstrap() {
   const app = createApp(App)
   app.use(createPinia())
   app.use(router)
+
+  // Восстановить плейлисты до маунта
+  const playlists = usePlaylistsStore()
+  await playlists.restore()
+
   app.mount('#app')
 }
 

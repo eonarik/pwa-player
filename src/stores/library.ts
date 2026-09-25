@@ -20,6 +20,7 @@ import type {
 } from '@/services/persistence/yandexTypes'
 import type { Folder, LibraryTrack } from '@/types/library'
 import { saveLastSource } from '@/services/persistence/lastSource'
+import { sortBy, trackSortKey } from '@/utils/sort'
 
 /** Сколько папок на Диске обходим параллельно */
 const YANDEX_CONCURRENCY = 5
@@ -54,17 +55,19 @@ export const useLibraryStore = defineStore('library', () => {
   const currentSubfolders = computed<Folder[]>(() => {
     const folder = currentFolder.value
     if (!folder) return []
-    return folder.childFolderIds
+    const list = folder.childFolderIds
       .map((id) => folders.value[id])
       .filter((f): f is Folder => Boolean(f))
+    return sortBy(list, (f) => f.name)
   })
 
   const currentTracks = computed<LibraryTrack[]>(() => {
     const folder = currentFolder.value
     if (!folder) return []
-    return folder.trackIds
+    const list = folder.trackIds
       .map((id) => tracks.value[id])
       .filter((t): t is LibraryTrack => Boolean(t))
+    return sortBy(list, trackSortKey)
   })
 
   const breadcrumbs = computed<Folder[]>(() => {

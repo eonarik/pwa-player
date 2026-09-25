@@ -1,5 +1,7 @@
 // src/services/yandex/YandexDiskService.ts
 
+import { compareStrings } from '@/utils/sort'
+
 const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? ''
 
 export interface YandexItem {
@@ -43,7 +45,6 @@ export class YandexDiskService {
     }
   }
 
-  /** Конфиг прокси (путь к музыке по умолчанию и т.п.) */
   async getConfig(): Promise<YandexConfig> {
     const res = await fetch(`${PROXY_URL}/api/config`)
     if (!res.ok) {
@@ -53,10 +54,8 @@ export class YandexDiskService {
   }
 
   async listResources(path = '/'): Promise<YandexResourcesResponse> {
-    const url = new URL(`${PROXY_URL}/api/disk/resources`)
-    url.searchParams.set('path', path)
-
-    const response = await fetch(url.toString())
+    const params = new URLSearchParams({ path })
+    const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`)
     if (!response.ok) {
       const error = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
         error?: string
@@ -64,13 +63,17 @@ export class YandexDiskService {
       throw new Error(error.error ?? `HTTP ${response.status}`)
     }
 
-    return response.json() as Promise<YandexResourcesResponse>
+    const data = (await response.json()) as YandexResourcesResponse
+
+    // Яндекс сортирует по-своему (не numeric), пересортируем на клиенте
+    data.items.sort((a, b) => compareStrings(a.name, b.name))
+
+    return data
   }
 
   buildDownloadUrl(path: string): string {
-    const url = new URL(`${PROXY_URL}/api/disk/download`)
-    url.searchParams.set('path', path)
-    return url.toString()
+    const params = new URLSearchParams({ path })
+    return `${PROXY_URL}/api/disk/download?${params.toString()}`
   }
 }
 

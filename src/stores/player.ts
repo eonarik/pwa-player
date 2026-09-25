@@ -10,6 +10,7 @@ import { persistenceService } from '@/services/persistence/PersistenceService'
 import { restoreTracks } from '@/services/persistence/restore'
 import type { Track } from '@/types/track'
 import type { FileEntry } from '@/services/filesystem/types'
+import { useHistoryStore } from './history'
 
 export const usePlayerStore = defineStore('player', () => {
   // --- Состояние ------------------------------------------------------
@@ -94,6 +95,13 @@ export const usePlayerStore = defineStore('player', () => {
       console.error('[player] audio error:', message)
       isPlaying.value = false
       stopTimeLoop()
+    }),
+    // Записываем в историю при каждом play
+    audioService.on('play', () => {
+      const track = currentTrack.value
+      if (track) {
+        useHistoryStore().recordPlay(track)
+      }
     }),
   )
 

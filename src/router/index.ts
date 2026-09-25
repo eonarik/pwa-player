@@ -1,8 +1,9 @@
-// src/router/index.ts
-
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import FolderRoute from '@/views/FolderRoute.vue'
+import PlaylistsView from '@/views/PlaylistsView.vue'
+import PlaylistRoute from '@/views/PlaylistRoute.vue'
+import HistoryView from '@/views/HistoryView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,8 +20,24 @@ const router = createRouter({
       props: true,
     },
     {
+      path: '/playlists',
+      name: 'playlists',
+      component: PlaylistsView,
+    },
+    {
+      path: '/playlists/:id',
+      name: 'playlist',
+      component: PlaylistRoute,
+      props: true,
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: HistoryView,
     },
   ],
 })
