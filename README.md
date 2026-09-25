@@ -1,54 +1,100 @@
-# cuei-player
+# Cuei Player
 
-This template should help get you started developing with Vue 3 in Vite.
+Офлайн PWA-плеер для локальной музыкальной библиотеки. Работает напрямую с файловой системой пользователя через File System Access API — без загрузки файлов на сервер, без аккаунтов, без интернета.
 
-## Recommended IDE Setup
+## Возможности
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Прямой доступ к папкам.** Выбор папки через системный диалог, рекурсивное сканирование подпапок.
+- **Навигация по библиотеке.** Хлебные крошки, переход в подпапки, возврат к корню.
+- **Чтение метаданных.** ID3-теги, обложки из тегов и из файлов `folder.jpg` / `cover.jpg` в папках.
+- **Воспроизведение.** Очередь, shuffle, repeat (off / all / one), громкость, seek.
+- **Медиа-клавиши.** Media Session API — управление с локскрина и наушников.
+- **Горячие клавиши.** Space, стрелки, N/P для навигации, M для mute.
+- **Виртуализация.** Список треков рендерит только видимые элементы через `requestAnimationFrame` и `ResizeObserver`.
+- **Персистентность.** Библиотека, очередь и позиция воспроизведения сохраняются в IndexedDB и восстанавливаются после перезапуска.
+- **Офлайн.** После первой загрузки приложение работает без сети.
 
-## Recommended Browser Setup
+## Требования
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+**Браузер:** Chrome 86+, Edge 86+, Opera 72+ на десктопе.
 
-## Type Support for `.vue` Imports in TS
+**Не поддерживается:**
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+- Firefox — нет File System Access API.
+- Safari — нет File System Access API.
+- Мобильные браузеры — API недоступен ни на iOS, ни на Android.
 
-## Customize configuration
+## Установка и запуск
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+```bash
+# Клонировать репозиторий
+git clone <url>
+cd cuei-player
 
-## Project Setup
-
-```sh
+# Установить зависимости
+yarn install
+# или
 npm install
+
+# Запустить dev-сервер
+yarn dev
+
+# Собрать production-сборку
+yarn build
+
+# Прогнать тесты
+yarn test:unit --run
+
+# Линтер
+yarn lint
 ```
 
-### Compile and Hot-Reload for Development
+## Ключевые архитектурные решения
 
-```sh
-npm run dev
+**Нормализованная библиотека.** Папки и треки хранятся плоскими `Record<string, Folder>` и `Record<string, LibraryTrack>`, а не деревом. Связи — через parentId и childFolderIds / trackIds. Это удобнее для виртуализации и сериализации.
+
+**Разделение стора плеера и библиотеки.** player ничего не знает про библиотеку — он работает с очередью `Track[]`. Библиотека живёт отдельно и наполняет очередь через setQueue. Это позволяет позже добавить другие источники (плейлисты, Яндекс.Диск).
+
+**URL как источник правды для навигации.** Текущая папка определяется URL (`/folder/путь/к/папке`). Стор `library.currentFolderId`— зеркало URL. Это даёт работающие `back/forward`, закладки и восстановление после перезапуска.
+
+**Виртуализация без фиксированной высоты.** Высота элемента измеряется через ResizeObserver на скрытом эталоне. Меняешь дизайн `TrackListItem` — виртуализация подстраивается сама.
+
+## Тесты
+
+```bash
+yarn test:unit --run         # однократный прогон
+yarn test:unit               # watch-режим
+yarn test:unit --ui          # UI-режим Vitest (если установлен @vitest/ui)
 ```
 
-### Type-Check, Compile and Minify for Production
+## Технологии
 
-```sh
-npm run build
-```
+- Vue 3 + Composition API
+- Vite — сборка
+- TypeScript
+- Pinia — состояние
+- Vue Router
+- Tailwind CSS v4
+- music-metadata-browser — парсинг тегов
+- idb-keyval — IndexedDB
+- Vitest + @vue/test-utils — тесты
+- File System Access API — доступ к файлам
+- Media Session API
+- Web Audio API — потенциально для визуализации
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+## Roadmap
 
-```sh
-npm run test:unit
-```
+[x] Навигация по папкам с breadcrumbs
+[x] Персистентность библиотеки и плеера
+[x] Тесты
+[] Поиск по библиотеке
+[] Панель очереди
+[] Плейлисты
+[] Яндекс.Диск через Node-прокси
+[] PWA-манифест и Service Worker
+[] Визуализация (Web Audio API)
+[] Глобальный поиск по всем папкам
 
-### Lint with [ESLint](https://eslint.org/)
+## Лицензия
 
-```sh
-npm run lint
-```
+MIT
