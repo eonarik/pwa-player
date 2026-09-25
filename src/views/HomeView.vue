@@ -223,7 +223,7 @@ function openLibrary() {
     <!-- Библиотеки нет: онбординг -->
     <template v-else>
       <div class="max-w-md text-center">
-        <p class="text-lg font-medium text-zinc-100">Cuei Player</p>
+        <p class="text-lg font-medium text-zinc-100">CUEI Media Player</p>
         <p class="mt-1 text-sm">Локальный офлайн-плеер с поддержкой облачных источников</p>
       </div>
 

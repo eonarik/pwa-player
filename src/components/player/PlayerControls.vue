@@ -28,7 +28,7 @@ function onVolumeInput(e: Event) {
 
 <template>
   <footer
-    class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-4 py-3"
+    class="grid grid-cols-[1fr_auto] items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-4 py-3 md:grid-cols-[1fr_auto_1fr]"
   >
     <!-- Левая часть: текущий трек -->
     <div class="flex min-w-0 items-center gap-3">
@@ -122,7 +122,7 @@ function onVolumeInput(e: Event) {
     </div>
 
     <!-- Правая часть: громкость -->
-    <div class="flex items-center justify-end gap-2">
+    <div class="hidden items-center justify-end gap-2 md:flex">
       <button
         type="button"
         class="rounded-full p-2 text-zinc-400 transition hover:text-zinc-100"

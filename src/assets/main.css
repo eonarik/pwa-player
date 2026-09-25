@@ -1,5 +1,36 @@
 @import 'tailwindcss';
 
+/* Отключает overscroll / rubber-band эффект на мобильных */
+html,
+body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* Запрещает выделение текста при долгом тапе на элементах UI,
+   но оставляет его для контента (например, для копирования названия трека) */
+button,
+a,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Растягиваем фон на всю область экрана, включая safe-area под notch */
+html {
+  background: #18181b; /* zinc-900 */
+}
+
+/* Верхний/нижний отступ для iPhone notch и home-indicator */
+.app-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.app-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 @keyframes indeterminate {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }

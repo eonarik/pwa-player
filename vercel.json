@@ -1,0 +1,17 @@
+{
+  "services": {
+    "frontend": {
+      "root": ".",
+      "buildCommand": "yarn build",
+      "outputDirectory": "dist"
+    },
+    "backend": {
+      "root": "server/",
+      "entrypoint": "src/index.ts"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
+  ]
+}

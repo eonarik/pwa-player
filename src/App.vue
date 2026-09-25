@@ -81,7 +81,7 @@ onMounted(async () => {
 
 <template>
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-zinc-900 text-zinc-100">
-    <header class="flex items-center gap-3 border-b border-zinc-800 p-3">
+    <header class="app-safe-top flex items-center gap-3 border-b border-zinc-800 p-3">
       <button
         class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
         title="На главную (выбор папки)"
@@ -90,7 +90,7 @@ onMounted(async () => {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
           <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" />
         </svg>
-        <span>Главная</span>
+        <span class="hidden md:inline">Главная</span>
       </button>
 
       <button
@@ -116,5 +116,7 @@ onMounted(async () => {
     </main>
 
     <PlayerControls />
+
+    <div class="app-safe-bottom"></div>
   </div>
 </template>
