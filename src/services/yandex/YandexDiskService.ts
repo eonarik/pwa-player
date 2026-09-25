@@ -1,6 +1,6 @@
 // src/services/yandex/YandexDiskService.ts
 
-const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? 'http://localhost:3000'
+const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? ''
 
 export interface YandexItem {
   path: string
@@ -36,7 +36,7 @@ export class YandexDiskService {
 
   async ping(): Promise<boolean> {
     try {
-      const res = await fetch(`${PROXY_URL}/health`)
+      const res = await fetch(`${PROXY_URL}/api/health`)
       return res.ok
     } catch {
       return false

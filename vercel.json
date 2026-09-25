@@ -1,13 +1,10 @@
 {
   "services": {
-    "frontend": {
-      "root": ".",
-      "buildCommand": "yarn build",
-      "outputDirectory": "dist"
-    },
+    "frontend": { "root": "." },
     "backend": {
       "root": "server/",
-      "entrypoint": "src/index.ts"
+      "entrypoint": "src/index.mjs",
+      "framework": "express"
     }
   },
   "rewrites": [
