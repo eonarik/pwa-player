@@ -44,7 +44,13 @@ app.get('/api/config', (_req, res) => {
   })
 })
 
-app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`)
-  console.log(`[server] CORS origin: ${FRONTEND_ORIGIN}`)
-})
+// Экспорт для serverless (Vercel, Netlify Functions и т.д.)
+export default app
+
+// Локальный запуск — только если не в Vercel
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT ?? 3000)
+  app.listen(PORT, () => {
+    console.log(`[server] listening on http://localhost:${PORT}`)
+  })
+}
