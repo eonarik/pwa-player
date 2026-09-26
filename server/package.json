@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.mjs",
-    "build": "tsc",
     "start": "node dist/index.js"
   },
   "dependencies": {

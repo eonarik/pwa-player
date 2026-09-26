@@ -1,7 +1,6 @@
 // server/src/auth/routes.ts
 
 import { Router } from 'express'
-import type { Request } from 'express'
 import { loadSettings } from '../settings/client.js'
 import { createToken, validateToken } from './jwt.js'
 
@@ -35,7 +34,7 @@ authRouter.get('/auth/check', (req, res) => {
 })
 
 /** Извлекает токен из заголовка или query-параметра */
-export function extractToken(req: Request): string | null {
+export function extractToken(req) {
   // 1. Заголовок Authorization: Bearer <token>
   const header = req.headers.authorization
   if (header) {

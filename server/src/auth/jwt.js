@@ -5,12 +5,8 @@ import crypto from 'node:crypto'
 const SECRET = process.env.AUTH_SECRET ?? 'insecure-default-change-me'
 const TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 дней
 
-interface TokenPayload {
-  exp: number
-}
-
-export function createToken(): string {
-  const payload: TokenPayload = {
+export function createToken() {
+  const payload = {
     exp: Date.now() + TTL_MS,
   }
   const payloadStr = Buffer.from(JSON.stringify(payload)).toString('base64url')
@@ -18,7 +14,7 @@ export function createToken(): string {
   return `${payloadStr}.${signature}`
 }
 
-export function validateToken(token: string): boolean {
+export function validateToken(token) {
   const [payloadStr, signature] = token.split('.')
   if (!payloadStr || !signature) return false
 
@@ -27,7 +23,7 @@ export function validateToken(token: string): boolean {
   if (signature !== expected) return false
 
   try {
-    const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString()) as TokenPayload
+    const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString())
     return payload.exp > Date.now()
   } catch {
     return false

@@ -3,7 +3,7 @@
 import { authService } from '@/services/auth/AuthService'
 import { compareStrings } from '@/utils/sort'
 
-const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? ''
+const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
 
 export interface YandexItem {
   path: string
@@ -91,6 +91,32 @@ export class YandexDiskService {
     const token = authService.getToken()
     if (token) params.set('token', token)
     return `${PROXY_URL}/api/disk/download?${params.toString()}`
+  }
+
+  /**
+   * Ищет обложку трека через прокси (Deezer → iTunes fallback).
+   * Возвращает URL обложки или null.
+   */
+  async getCover(artist: string, title: string): Promise<string | null> {
+    if (!title) return null // title обязателен
+
+    try {
+      const params = new URLSearchParams({ title })
+      // Не отправляем artist, если это фолбэк "Yandex Disk"
+      if (artist && artist !== 'Yandex Disk') {
+        params.set('artist', artist)
+      }
+
+      const res = await fetch(`${PROXY_URL}/api/cover?${params.toString()}`)
+
+      if (!res.ok) return null
+
+      const data = (await res.json()) as { coverUrl: string | null }
+      return data.coverUrl
+    } catch (err) {
+      console.warn(`[yandex] failed to fetch cover for "${artist} - ${title}"`, err)
+      return null
+    }
   }
 }
 

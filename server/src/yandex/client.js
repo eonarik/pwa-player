@@ -3,16 +3,13 @@
 const YANDEX_API = 'https://cloud-api.yandex.net/v1/disk'
 
 export class YandexApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
+  constructor(status, message) {
     super(message)
     this.name = 'YandexApiError'
   }
 }
 
-function getToken(): string {
+function getToken() {
   const token = process.env.YANDEX_TOKEN
   if (!token) {
     throw new Error('YANDEX_TOKEN is not set')
@@ -24,10 +21,7 @@ function getToken(): string {
  * Обёртка над fetch к API Яндекс.Диска.
  * Добавляет OAuth-токен и обрабатывает ошибки.
  */
-export async function yandexFetch(
-  endpoint: string,
-  params: Record<string, string | number> = {},
-): Promise<Response> {
+export async function yandexFetch(endpoint, params = {}) {
   const url = new URL(`${YANDEX_API}${endpoint}`)
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, String(value))
@@ -44,7 +38,7 @@ export async function yandexFetch(
     // Пробуем прочитать тело ошибки от Яндекса
     let message = `Yandex API error: ${response.status}`
     try {
-      const body = (await response.json()) as { message?: string; description?: string }
+      const body = await response.json()
       message = body.message || body.description || message
     } catch {
       // ignore parse errors

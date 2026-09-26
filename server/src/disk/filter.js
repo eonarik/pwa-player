@@ -1,12 +1,5 @@
 // server/src/disk/filter.ts
 
-export interface YandexItem {
-  path: string
-  name: string
-  type: 'dir' | 'file'
-  [key: string]: unknown
-}
-
 /**
  * Фильтрует список элементов, оставляя только те, которые доступны без авторизации.
  *
@@ -21,11 +14,7 @@ export interface YandexItem {
  * @param currentPath — путь, который запросили (например, '/')
  * @param publicFolders — из .settings.json
  */
-export function filterPublicItems(
-  items: YandexItem[],
-  currentPath: string,
-  publicFolders: string[],
-): YandexItem[] {
+export function filterPublicItems(items, currentPath, publicFolders) {
   // Всё публично
   if (publicFolders.some((p) => p === '/' || p === '')) {
     return items
@@ -52,6 +41,6 @@ export function filterPublicItems(
   })
 }
 
-function normalizePath(path: string): string {
+function normalizePath(path) {
   return path.replace(/^disk:/, '').replace(/\/+$/, '') || '/'
 }

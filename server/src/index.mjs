@@ -4,6 +4,7 @@ import cors from 'cors'
 import { diskRouter } from './disk/routes.js'
 import { authRouter } from './auth/routes.js'
 import { configRouter } from './config/routes.js'
+import { coverRouter } from './cover/routes.js'
 
 const app = express()
 
@@ -23,6 +24,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api', authRouter)
 app.use('/api', configRouter)
+app.use('/api', coverRouter)
 app.use('/api/disk', diskRouter)
 
 export default app

@@ -2,19 +2,13 @@
 
 import { yandexFetch, YandexApiError } from '../yandex/client.js'
 
-export interface DiskSettings {
-  password: string
-  /** Пути относительно YANDEX_MUSIC_PATH. Пример: ['/Логии', '/Public'] */
-  publicFolders: string[]
-}
-
 const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000 // 5 минут
 
-let cachedSettings: DiskSettings | null = null
+let cachedSettings = null
 let cachedAt = 0
 
 /** Полный путь до .settings.json на Диске */
-function getSettingsPath(): string {
+function getSettingsPath() {
   const root = process.env.YANDEX_MUSIC_PATH ?? '/'
   const normalizedRoot = root.startsWith('disk:') ? root.replace(/^disk:/, '') : root
   const cleanRoot = normalizedRoot.replace(/\/+$/, '') // без хвостового /
@@ -27,7 +21,7 @@ function getSettingsPath(): string {
  * Кэширует в памяти на 5 минут.
  * Если файла нет — возвращает null.
  */
-export async function loadSettings(): Promise<DiskSettings | null> {
+export async function loadSettings() {
   const now = Date.now()
   if (cachedSettings && now - cachedAt < SETTINGS_CACHE_TTL_MS) {
     return cachedSettings
@@ -39,7 +33,7 @@ export async function loadSettings(): Promise<DiskSettings | null> {
     const metaResponse = await yandexFetch('/resources/download', {
       path: settingsPath,
     })
-    const meta = (await metaResponse.json()) as { href?: string }
+    const meta = await metaResponse.json()
 
     if (!meta.href) {
       cachedSettings = null
@@ -60,12 +54,12 @@ export async function loadSettings(): Promise<DiskSettings | null> {
     }
 
     const text = await fileResponse.text()
-    const parsed = JSON.parse(text) as Partial<DiskSettings>
+    const parsed = JSON.parse(text)
 
     cachedSettings = {
       password: typeof parsed.password === 'string' ? parsed.password : '',
       publicFolders: Array.isArray(parsed.publicFolders)
-        ? parsed.publicFolders.filter((p): p is string => typeof p === 'string')
+        ? parsed.publicFolders.filter((p) => typeof p === 'string')
         : [],
     }
     cachedAt = now
@@ -82,13 +76,13 @@ export async function loadSettings(): Promise<DiskSettings | null> {
   }
 }
 
-export function invalidateSettingsCache(): void {
+export function invalidateSettingsCache() {
   cachedSettings = null
   cachedAt = 0
 }
 
 /** Полный путь на Диске до корня музыки, например 'disk:/лежни' */
-export function getMusicRootPath(): string {
+export function getMusicRootPath() {
   const root = process.env.YANDEX_MUSIC_PATH ?? '/'
   const normalized = root.startsWith('disk:') ? root : `disk:${root}`
   // Убираем хвостовой слэш, если он не корень
@@ -105,7 +99,7 @@ export function getMusicRootPath(): string {
  * - '' в publicFolders или '/' → всё публично.
  * - Иначе — путь должен начинаться с одного из publicFolders.
  */
-export function isPathPublic(path: string, publicFolders: string[]): boolean {
+export function isPathPublic(path, publicFolders) {
   if (publicFolders.length === 0) return false
 
   // Короткое замыкание: если есть '/' или '' — всё публично

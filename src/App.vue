@@ -5,12 +5,13 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
+import { usePlaylistsStore } from '@/stores/playlists'
+import { useHistoryStore } from '@/stores/history'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
+import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { loadLastSource } from '@/services/persistence/lastSource'
 import PlayerControls from '@/components/player/PlayerControls.vue'
-import { usePlaylistsStore } from './stores/playlists'
-import { useHistoryStore } from './stores/history'
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -42,7 +43,7 @@ useMediaSession({
 
 watchEffect(() => {
   const t = currentTrack.value
-  document.title = t ? `${t.title} — ${t.artist}` : 'PWA Player'
+  document.title = t ? `${t.title} — ${t.artist}` : 'CUEI Media Player'
 })
 
 function goHome() {
@@ -53,41 +54,6 @@ function goToRoot() {
   router.push({ name: 'folder', params: { path: [] } })
 }
 
-onMounted(async () => {
-  await history.restore()
-
-  const lastSource = await loadLastSource()
-  console.info('[app] last source:', lastSource)
-
-  let libraryRestored = false
-
-  if (lastSource === 'yandex') {
-    // Пробуем Яндекс.Диск из кэша
-    libraryRestored = await library.restoreYandexFromCache()
-    // Если кэша нет или он протух — фолбэк на локальную
-    if (!libraryRestored) {
-      libraryRestored = await library.restore()
-    }
-  } else if (lastSource === 'local') {
-    libraryRestored = await library.restore()
-  } else {
-    // lastSource нет — пробуем локальную (на случай, если она есть в IDB)
-    libraryRestored = await library.restore()
-  }
-
-  if (libraryRestored) {
-    console.info('[app] library restored')
-    // Редиректим на корень библиотеки только если мы на главной.
-    // Если пользователь был в плейлисте или конкретной папке — оставляем как есть.
-    if (router.currentRoute.value.name === 'home') {
-      router.replace({ name: 'folder', params: { path: [] } })
-    }
-  }
-
-  const playerRestored = await player.restore()
-  if (playerRestored) console.log('[player] restored')
-})
-
 function goToPlaylists() {
   router.push({ name: 'playlists' })
 }
@@ -95,6 +61,43 @@ function goToPlaylists() {
 function goToHistory() {
   router.push({ name: 'history' })
 }
+
+onMounted(async () => {
+  // 1. Обложки — сначала, потому что нужны при восстановлении библиотеки
+  await coverPersistenceService.load()
+
+  // 2. История
+  await history.restore()
+
+  // 3. Источник библиотеки
+  const lastSource = await loadLastSource()
+  console.info('[app] last source:', lastSource)
+
+  let libraryRestored = false
+
+  if (lastSource === 'yandex') {
+    libraryRestored = await library.restoreYandexFromCache()
+    if (!libraryRestored) {
+      libraryRestored = await library.restore()
+    }
+  } else if (lastSource === 'local') {
+    libraryRestored = await library.restore()
+  } else {
+    libraryRestored = await library.restore()
+  }
+
+  if (libraryRestored) {
+    console.info('[app] library restored')
+    // Редиректим на корень библиотеки только если мы на главной.
+    if (router.currentRoute.value.name === 'home') {
+      router.replace({ name: 'folder', params: { path: [] } })
+    }
+  }
+
+  // 4. Плеер
+  const playerRestored = await player.restore()
+  if (playerRestored) console.log('[player] restored')
+})
 </script>
 
 <template>
@@ -117,7 +120,7 @@ function goToHistory() {
         class="rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
         @click="goToRoot"
       >
-        << <span class="hidden md:inline">К библиотеке</span>
+        ← <span class="hidden md:inline">К библиотеке</span>
       </button>
 
       <button
@@ -159,7 +162,5 @@ function goToHistory() {
     </main>
 
     <PlayerControls />
-
-    <div class="app-safe-bottom"></div>
   </div>
 </template>

@@ -5,6 +5,7 @@ import { computed, ref, toRaw } from 'vue'
 import { fileSystemService } from '@/services/filesystem/FileSystemService'
 import { libraryPersistenceService } from '@/services/persistence/LibraryPersistenceService'
 import { yandexLibraryPersistenceService } from '@/services/persistence/YandexLibraryPersistenceService'
+import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { yandexDiskService } from '@/services/yandex/YandexDiskService'
 import { mapWithConcurrency } from '@/services/yandex/concurrency'
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
@@ -24,6 +25,8 @@ import { sortBy, trackSortKey } from '@/utils/sort'
 
 /** Сколько папок на Диске обходим параллельно */
 const YANDEX_CONCURRENCY = 5
+/** Сколько обложек ищем параллельно */
+const COVER_CONCURRENCY = 3
 
 export const useLibraryStore = defineStore('library', () => {
   // --- Состояние ------------------------------------------------------
@@ -39,6 +42,13 @@ export const useLibraryStore = defineStore('library', () => {
 
   const isLoading = ref(false)
   const loadProgress = ref({ folders: 0, tracks: 0 })
+
+  /** Отдельный флаг для загрузки обложек — не блокирует UI библиотеки */
+  const isLoadingCovers = ref(false)
+  const coverProgress = ref({ done: 0, total: 0 })
+
+  /** Версия кэша обложек — инкрементируется при изменениях, чтобы триггерить computed */
+  const coversVersion = ref(0)
 
   const isRestoring = ref(false)
   const needsPermission = ref(false)
@@ -84,6 +94,38 @@ export const useLibraryStore = defineStore('library', () => {
     const folder = currentFolder.value
     return Boolean(folder && folder.parentId)
   })
+
+  /** Сколько треков в текущей папке без обложки */
+  const tracksWithoutCovers = computed(() => {
+    return currentTracks.value.filter((t) => !t.coverUrl).length
+  })
+
+  /** Статистика по обложкам в текущей папке */
+  const coverStats = computed(() => {
+    void coversVersion.value
+
+    let checked = 0
+    let found = 0
+
+    for (const track of currentTracks.value) {
+      const cached = coverPersistenceService.get(track.id)
+      if (cached === undefined) continue // не искали
+      checked++
+      if (cached !== null) found++
+    }
+
+    return {
+      total: checked,
+      checked,
+      found,
+    }
+  })
+
+  // --- Вспомогательные ------------------------------------------------
+
+  function bumpCoversVersion(): void {
+    coversVersion.value++
+  }
 
   // --- Сериализация локальной библиотеки ------------------------------
 
@@ -174,6 +216,8 @@ export const useLibraryStore = defineStore('library', () => {
           try {
             const file = await t.handle.getFile()
             const folder = newFolders[t.folderId]
+            const cachedCover = coverPersistenceService.get(t.id)
+
             newTracks[t.id] = {
               id: t.id,
               folderId: t.folderId,
@@ -190,6 +234,7 @@ export const useLibraryStore = defineStore('library', () => {
               handle: t.handle,
               directoryHandle: folder?.handle,
               source: file,
+              coverUrl: cachedCover ?? undefined,
             }
           } catch (err) {
             console.warn(`[library] can't restore file for "${t.title}"`, err)
@@ -220,12 +265,14 @@ export const useLibraryStore = defineStore('library', () => {
       source.value = 'local'
       needsPermission.value = false
 
+      bumpCoversVersion()
       return true
     } finally {
       isRestoring.value = false
     }
   }
 
+  /** Ищет обложку в папке (`folder.jpg`) и применяет её ко всем трекам папки */
   async function restoreCovers(
     newFolders: Record<string, Folder>,
     newTracks: Record<string, LibraryTrack>,
@@ -235,7 +282,7 @@ export const useLibraryStore = defineStore('library', () => {
     )
     if (foldersWithTracks.length === 0) return
 
-    const COVER_CONCURRENCY = 6
+    const COVER_FOLDER_CONCURRENCY = 6
     let cursor = 0
 
     const worker = async (): Promise<void> => {
@@ -249,7 +296,7 @@ export const useLibraryStore = defineStore('library', () => {
           const coverUrl = URL.createObjectURL(coverFile)
           for (const trackId of folder.trackIds) {
             const track = newTracks[trackId]
-            if (track) track.coverUrl = coverUrl
+            if (track && !track.coverUrl) track.coverUrl = coverUrl
           }
         } catch (err) {
           console.warn(`[library] can't restore cover for folder "${folder.name}"`, err)
@@ -258,7 +305,9 @@ export const useLibraryStore = defineStore('library', () => {
     }
 
     await Promise.all(
-      Array.from({ length: Math.min(COVER_CONCURRENCY, foldersWithTracks.length) }, () => worker()),
+      Array.from({ length: Math.min(COVER_FOLDER_CONCURRENCY, foldersWithTracks.length) }, () =>
+        worker(),
+      ),
     )
   }
 
@@ -293,7 +342,11 @@ export const useLibraryStore = defineStore('library', () => {
 
       const newTracks: Record<string, LibraryTrack> = {}
       for (const track of collected.tracks) {
-        newTracks[track.id] = track
+        const cachedCover = coverPersistenceService.get(track.id)
+        newTracks[track.id] = {
+          ...track,
+          coverUrl: track.coverUrl ?? cachedCover ?? undefined,
+        }
       }
 
       folders.value = newFolders
@@ -304,6 +357,8 @@ export const useLibraryStore = defineStore('library', () => {
       source.value = 'local'
       needsPermission.value = false
 
+      bumpCoversVersion()
+
       await save()
       await saveLastSource('local')
     } finally {
@@ -313,17 +368,12 @@ export const useLibraryStore = defineStore('library', () => {
 
   // --- Яндекс.Диск ----------------------------------------------------
 
-  /**
-   * Загружает библиотеку из Яндекс.Диска.
-   * Если есть свежий кэш и forceRefresh=false — восстанавливает из него.
-   */
   async function loadFromYandexDisk(
     rootPath: string,
     options: { forceRefresh?: boolean } = {},
   ): Promise<void> {
     const { forceRefresh = false } = options
 
-    // --- 1. Пробуем кэш ---
     if (!forceRefresh) {
       const cached = await yandexLibraryPersistenceService.load()
       if (cached && yandexLibraryPersistenceService.isFresh(cached)) {
@@ -333,7 +383,6 @@ export const useLibraryStore = defineStore('library', () => {
       }
     }
 
-    // --- 2. Сканируем заново ---
     isLoading.value = true
     loadProgress.value = { folders: 0, tracks: 0 }
 
@@ -369,6 +418,8 @@ export const useLibraryStore = defineStore('library', () => {
           } else if (item.isAudio) {
             const trackPath = pathPrefix ? `${pathPrefix}/${item.name}` : item.name
             const trackId = trackIdFromPath(`yandex:${item.path}`)
+            const cachedCover = coverPersistenceService.get(trackId)
+
             newTracks[trackId] = {
               id: trackId,
               folderId,
@@ -379,6 +430,7 @@ export const useLibraryStore = defineStore('library', () => {
               title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
               artist: 'Yandex Disk',
               album: pathPrefix || 'Yandex Disk',
+              coverUrl: cachedCover ?? undefined,
             }
             trackIds.push(trackId)
           }
@@ -427,7 +479,8 @@ export const useLibraryStore = defineStore('library', () => {
       source.value = 'yandex'
       needsPermission.value = false
 
-      // --- 3. Сохраняем в кэш ---
+      bumpCoversVersion()
+
       await saveYandexCache(normalizedPath)
       await saveLastSource('yandex')
     } finally {
@@ -435,7 +488,6 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /** Сохраняет текущую библиотеку Диска в IDB */
   async function saveYandexCache(rootPath: string): Promise<void> {
     if (source.value !== 'yandex' || !rootFolderId.value) return
 
@@ -475,17 +527,6 @@ export const useLibraryStore = defineStore('library', () => {
     })
   }
 
-  /**
-   * Точечно обновляет содержимое текущей папки на Яндекс.Диске.
-   * Не трогает подпапки вглубь — только треки и список дочерних папок.
-   *
-   * Логика:
-   * - Запрашиваем `/resources?path=<folder.remotePath>`.
-   * - Обновляем `folder.trackIds`, `folder.childFolderIds`.
-   * - Новые треки добавляем в `tracks`, исчезнувшие — удаляем.
-   * - Папки, которых нет в `folders`, создаём «пустыми» (загрузятся при заходе).
-   * - Обновляем кэш.
-   */
   async function refreshCurrentYandexFolder(): Promise<void> {
     if (source.value !== 'yandex') {
       console.warn('[library] refreshCurrentYandexFolder: not a Yandex library')
@@ -514,6 +555,7 @@ export const useLibraryStore = defineStore('library', () => {
           const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
 
           if (!tracks.value[trackId]) {
+            const cachedCover = coverPersistenceService.get(trackId)
             tracks.value[trackId] = {
               id: trackId,
               folderId: folder.id,
@@ -524,14 +566,13 @@ export const useLibraryStore = defineStore('library', () => {
               title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
               artist: 'Yandex Disk',
               album: folder.path || 'Yandex Disk',
+              coverUrl: cachedCover ?? undefined,
             }
           }
           newTrackIds.push(trackId)
         }
       }
 
-      // Папки: обновляем только список id.
-      // Существующие папки вглубь не трогаем — обновятся при заходе.
       for (const item of subDirs) {
         const childId = folderIdFromPath(`yandex:${item.path}`)
         const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
@@ -552,7 +593,6 @@ export const useLibraryStore = defineStore('library', () => {
         newChildFolderIds.push(childId)
       }
 
-      // Убираем треки, которых больше нет на Диске
       const removedTrackIds = folder.trackIds.filter((id) => !newTrackIds.includes(id))
       for (const id of removedTrackIds) {
         const t = tracks.value[id]
@@ -562,20 +602,19 @@ export const useLibraryStore = defineStore('library', () => {
         delete tracks.value[id]
       }
 
-      // Убираем подпапки, которых больше нет
       const removedFolderIds = folder.childFolderIds.filter((id) => !newChildFolderIds.includes(id))
       for (const id of removedFolderIds) {
         delete folders.value[id]
       }
 
-      // Обновляем папку
       folders.value[folder.id] = {
         ...folder,
         trackIds: newTrackIds,
         childFolderIds: newChildFolderIds,
       }
 
-      // Обновляем кэш
+      bumpCoversVersion()
+
       const rootFolder = rootFolderId.value ? folders.value[rootFolderId.value] : null
       if (rootFolder?.remotePath) {
         await saveYandexCache(rootFolder.remotePath)
@@ -585,7 +624,107 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /** Восстанавливает библиотеку Диска из кэша */
+  /**
+   * Ищет обложки для треков текущей папки через прокси (Deezer + iTunes).
+   */
+  async function fetchCoversForCurrentFolder(): Promise<void> {
+    const folder = currentFolder.value
+    if (!folder) return
+
+    const tracksToFetch = currentTracks.value.filter((t) => !t.coverUrl)
+    if (tracksToFetch.length === 0) return
+
+    const toFetch: LibraryTrack[] = []
+    for (const track of tracksToFetch) {
+      const cached = coverPersistenceService.get(track.id)
+      if (cached !== undefined) {
+        if (cached !== null) {
+          const existing = tracks.value[track.id]
+          if (existing) existing.coverUrl = cached
+        }
+        continue
+      }
+      toFetch.push(track)
+    }
+
+    if (toFetch.length === 0) {
+      bumpCoversVersion()
+      return
+    }
+
+    isLoadingCovers.value = true
+    coverProgress.value = { done: 0, total: toFetch.length }
+
+    try {
+      const results: Array<{ trackId: string; coverUrl: string | null }> = []
+      let cursor = 0
+
+      const worker = async (): Promise<void> => {
+        while (cursor < toFetch.length) {
+          const track = toFetch[cursor++]!
+          const coverUrl = await yandexDiskService.getCover(track.artist, track.title)
+
+          results.push({ trackId: track.id, coverUrl })
+
+          if (coverUrl) {
+            const existing = tracks.value[track.id]
+            if (existing) existing.coverUrl = coverUrl
+          }
+
+          coverProgress.value = {
+            done: coverProgress.value.done + 1,
+            total: toFetch.length,
+          }
+        }
+      }
+
+      await Promise.all(
+        Array.from({ length: Math.min(COVER_CONCURRENCY, toFetch.length) }, () => worker()),
+      )
+
+      await coverPersistenceService.setMany(results)
+
+      if (source.value === 'yandex') {
+        const root = rootFolderId.value ? folders.value[rootFolderId.value] : null
+        if (root?.remotePath) {
+          await saveYandexCache(root.remotePath)
+        }
+      }
+
+      bumpCoversVersion()
+    } finally {
+      isLoadingCovers.value = false
+      coverProgress.value = { done: 0, total: 0 }
+    }
+  }
+
+  /**
+   * Сбрасывает «не найдено» для треков текущей папки.
+   * После этого кнопка «Найти обложки» снова увидит их как «без обложки».
+   */
+  async function resetCoversForCurrentFolder(): Promise<void> {
+    const folder = currentFolder.value
+    if (!folder) return
+
+    // Все треки папки
+    const trackIds = currentTracks.value.map((t) => t.id)
+    if (trackIds.length === 0) return
+
+    // 1. Удаляем из кэша
+    await coverPersistenceService.resetForTracks(trackIds)
+
+    // 2. Сбрасываем coverUrl у треков, которые получили его из API
+    //    (только URL, не blob — blob-обложки из folder.jpg не трогаем)
+    for (const track of currentTracks.value) {
+      if (track.coverUrl && !track.coverUrl.startsWith('blob:')) {
+        const existing = tracks.value[track.id]
+        if (existing) existing.coverUrl = undefined
+      }
+    }
+
+    bumpCoversVersion()
+  }
+
   function restoreFromYandexCache(cached: PersistedYandexLibrary): void {
     const newFolders: Record<string, Folder> = {}
     for (const f of cached.folders) {
@@ -604,6 +743,7 @@ export const useLibraryStore = defineStore('library', () => {
 
     const newTracks: Record<string, LibraryTrack> = {}
     for (const t of cached.tracks) {
+      const cachedCover = coverPersistenceService.get(t.id)
       newTracks[t.id] = {
         id: t.id,
         folderId: t.folderId,
@@ -614,6 +754,7 @@ export const useLibraryStore = defineStore('library', () => {
         title: t.title,
         artist: t.artist,
         album: t.album,
+        coverUrl: cachedCover ?? undefined,
       }
     }
 
@@ -625,13 +766,10 @@ export const useLibraryStore = defineStore('library', () => {
     source.value = 'yandex'
     needsPermission.value = false
 
+    bumpCoversVersion()
     void saveLastSource('yandex')
   }
 
-  /**
-   * Пробует восстановить библиотеку Яндекс.Диска из кэша.
-   * Возвращает true, если удалось.
-   */
   async function restoreYandexFromCache(): Promise<boolean> {
     const cached = await yandexLibraryPersistenceService.load()
     if (!cached || !yandexLibraryPersistenceService.isFresh(cached)) {
@@ -667,7 +805,6 @@ export const useLibraryStore = defineStore('library', () => {
     source.value = null
     needsPermission.value = false
 
-    // Локальный кэш чистим, кэш Диска — оставляем
     void libraryPersistenceService.clear()
   }
 
@@ -690,6 +827,8 @@ export const useLibraryStore = defineStore('library', () => {
     isRestoring,
     needsPermission,
     loadProgress,
+    isLoadingCovers,
+    coverProgress,
 
     hasLibrary,
     currentFolder,
@@ -697,11 +836,15 @@ export const useLibraryStore = defineStore('library', () => {
     currentTracks,
     breadcrumbs,
     canGoUp,
+    tracksWithoutCovers,
+    coverStats,
 
     loadFromHandle,
     loadFromYandexDisk,
     restoreYandexFromCache,
     refreshCurrentYandexFolder,
+    fetchCoversForCurrentFolder,
+    resetCoversForCurrentFolder,
     setCurrentFolder,
     clear,
     save,

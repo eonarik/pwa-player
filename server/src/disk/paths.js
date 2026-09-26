@@ -5,7 +5,7 @@ import { getMusicRootPath } from '../settings/client.js'
 /**
  * Преобразует клиентский путь (относительно корня музыки) в полный путь на Яндекс.Диске.
  */
-export function resolveDiskPath(clientPath: string): string {
+export function resolveDiskPath(clientPath) {
   const root = getMusicRootPath()
   const clean = clientPath
     .replace(/^disk:/, '')
@@ -19,7 +19,7 @@ export function resolveDiskPath(clientPath: string): string {
  * Преобразует полный путь на Яндекс.Диске в клиентский (относительный).
  * Если путь не внутри корня — возвращает как есть.
  */
-export function toClientPath(diskPath: string): string {
+export function toClientPath(diskPath) {
   const root = getMusicRootPath()
   if (diskPath === root) return '/'
   if (diskPath.startsWith(root + '/')) {
