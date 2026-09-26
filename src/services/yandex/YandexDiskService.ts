@@ -1,5 +1,6 @@
 // src/services/yandex/YandexDiskService.ts
 
+import { authService } from '@/services/auth/AuthService'
 import { compareStrings } from '@/utils/sort'
 
 const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? ''
@@ -23,7 +24,16 @@ export interface YandexResourcesResponse {
 }
 
 export interface YandexConfig {
-  musicPath: string
+  hasSettings: boolean
+  publicFolders: string[]
+}
+
+/** Специальная ошибка для 401 — UI показывает экран логина */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('Authorization required')
+    this.name = 'AuthRequiredError'
+  }
 }
 
 export class YandexDiskService {
@@ -55,7 +65,15 @@ export class YandexDiskService {
 
   async listResources(path = '/'): Promise<YandexResourcesResponse> {
     const params = new URLSearchParams({ path })
-    const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`)
+
+    const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`, {
+      headers: authService.authHeaders(),
+    })
+
+    if (response.status === 401) {
+      throw new AuthRequiredError()
+    }
+
     if (!response.ok) {
       const error = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
         error?: string
@@ -64,15 +82,14 @@ export class YandexDiskService {
     }
 
     const data = (await response.json()) as YandexResourcesResponse
-
-    // Яндекс сортирует по-своему (не numeric), пересортируем на клиенте
     data.items.sort((a, b) => compareStrings(a.name, b.name))
-
     return data
   }
 
   buildDownloadUrl(path: string): string {
     const params = new URLSearchParams({ path })
+    const token = authService.getToken()
+    if (token) params.set('token', token)
     return `${PROXY_URL}/api/disk/download?${params.toString()}`
   }
 }

@@ -2,6 +2,9 @@
 
 import { Router } from 'express'
 import { yandexFetch, YandexApiError } from '../yandex/client.js'
+import { checkAccess } from '../middleware/requireAuth.js'
+import { resolveDiskPath, toClientPath } from './paths.js'
+import { filterPublicItems, YandexItem } from './filter.js'
 
 export const diskRouter = Router()
 
@@ -17,11 +20,7 @@ interface YandexResource {
   path: string
   name: string
   type: 'dir' | 'file'
-  size?: number
-  mime_type?: string
-  media_type?: string
-  created?: string
-  modified?: string
+  [key: string]: unknown
 }
 
 interface YandexResourcesResponse {
@@ -35,13 +34,25 @@ interface YandexResourcesResponse {
   }
 }
 
-/**
- * GET /api/disk/resources?path=/Music
- * Список файлов и папок. Отдаёт «сырой» ответ Яндекса,
- * но добавляет поле `isAudio` к каждому файлу.
- */
 diskRouter.get('/resources', async (req, res) => {
-  const path = typeof req.query.path === 'string' ? req.query.path : '/'
+  const clientPath = typeof req.query.path === 'string' ? req.query.path : '/'
+
+  const access = await checkAccess(req, clientPath)
+  if (!access.allowed || !access.settings) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+
+  // Не авторизован: пускаем только корень (с фильтрацией) и публичные папки
+  if (!access.authenticated) {
+    const isRoot = clientPath === '/' || clientPath === '' || clientPath === 'disk:/'
+    if (!isRoot && !access.isPublic) {
+      res.status(401).json({ error: 'Authorization required' })
+      return
+    }
+  }
+
+  const path = resolveDiskPath(clientPath)
 
   try {
     const response = await yandexFetch('/resources', {
@@ -51,34 +62,46 @@ diskRouter.get('/resources', async (req, res) => {
     })
     const data = (await response.json()) as YandexResourcesResponse
 
-    // Обогащаем: помечаем аудиофайлы
-    const items = data._embedded?.items ?? []
-    const enriched = items.map((item) => ({
+    let items = (data._embedded?.items ?? []).map((item) => ({
       ...item,
+      path: toClientPath(item.path),
       isAudio: item.type === 'file' && isAudioFile(item.name),
-    }))
+    })) as YandexItem[]
+
+    // Не авторизован — фильтруем по публичным папкам
+    if (!access.authenticated) {
+      items = filterPublicItems(items, clientPath, access.settings.publicFolders)
+    }
 
     res.json({
-      path: data._embedded?.path ?? path,
-      total: data._embedded?.total ?? 0,
-      items: enriched,
+      path: clientPath,
+      total: items.length,
+      items,
     })
   } catch (err) {
     handleError(err, res)
   }
 })
-
-/**
- * GET /api/disk/download?path=/Music/track.mp3
- * Стримит файл из Яндекс.Диска.
- */
 diskRouter.get('/download', async (req, res) => {
-  const path = typeof req.query.path === 'string' ? req.query.path : ''
-
-  if (!path) {
+  const clientPath = typeof req.query.path === 'string' ? req.query.path : ''
+  if (!clientPath) {
     res.status(400).json({ error: 'path is required' })
     return
   }
+
+  const access = await checkAccess(req, clientPath)
+  if (!access.allowed) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+
+  // Не авторизован → проверяем, что путь публичен
+  if (!access.authenticated && !access.isPublic) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+
+  const path = resolveDiskPath(clientPath)
 
   try {
     const metaResponse = await yandexFetch('/resources/download', { path })
@@ -90,9 +113,7 @@ diskRouter.get('/download', async (req, res) => {
     }
 
     const fileResponse = await fetch(meta.href, {
-      headers: {
-        Authorization: `OAuth ${process.env.YANDEX_TOKEN}`,
-      },
+      headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
     })
 
     if (!fileResponse.ok || !fileResponse.body) {
@@ -103,9 +124,7 @@ diskRouter.get('/download', async (req, res) => {
     const contentType = fileResponse.headers.get('Content-Type') || 'audio/mpeg'
     const contentLength = fileResponse.headers.get('Content-Length')
     res.setHeader('Content-Type', contentType)
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength)
-    }
+    if (contentLength) res.setHeader('Content-Length', contentLength)
     res.setHeader('Accept-Ranges', 'bytes')
     res.setHeader('Cache-Control', 'public, max-age=3600')
 

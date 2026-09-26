@@ -4,6 +4,7 @@ import { onMounted, onUnmounted } from 'vue'
 
 interface KeyboardOptions {
   onToggle: () => void
+  onToggleMute: () => void
   onNext: () => void
   onPrev: () => void
   onSeekBy: (delta: number) => void
@@ -67,8 +68,7 @@ export function useKeyboardShortcuts(options: KeyboardOptions) {
 
       case 'KeyM':
         e.preventDefault()
-        // mute — отдельное действие, но здесь просто toggle через volumeBy
-        // (см. ниже — лучше передать отдельный колбэк)
+        options.onToggleMute()
         break
     }
   }

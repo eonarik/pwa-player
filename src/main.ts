@@ -22,7 +22,7 @@ import router from './router'
 import { schemaService } from '@/services/persistence/SchemaService'
 
 import './assets/main.css'
-import { usePlaylistsStore } from './stores/playlists.ts'
+import { usePlaylistsStore } from './stores/playlists'
 
 async function bootstrap() {
   try {

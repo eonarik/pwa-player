@@ -20,6 +20,7 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 
 useKeyboardShortcuts({
   onToggle: () => player.toggle(),
+  onToggleMute: () => player.toggleMute(),
   onNext: () => player.next(),
   onPrev: () => player.prev(),
   onSeekBy: (delta) => player.seekBy(delta),
@@ -52,10 +53,7 @@ function goToRoot() {
   router.push({ name: 'folder', params: { path: [] } })
 }
 
-const playlists = usePlaylistsStore()
-
 onMounted(async () => {
-  await playlists.restore()
   await history.restore()
 
   const lastSource = await loadLastSource()

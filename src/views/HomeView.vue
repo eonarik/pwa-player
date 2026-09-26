@@ -4,11 +4,13 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { fileSystemService } from '@/services/filesystem/FileSystemService'
-import { yandexDiskService } from '@/services/yandex/YandexDiskService'
+import { yandexDiskService, AuthRequiredError } from '@/services/yandex/YandexDiskService'
+import { authService } from '@/services/auth/AuthService'
 import { yandexLibraryPersistenceService } from '@/services/persistence/YandexLibraryPersistenceService'
 import { saveLastSource } from '@/services/persistence/lastSource'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
+import LoginModal from '@/components/auth/LoginModal.vue'
 
 const router = useRouter()
 const library = useLibraryStore()
@@ -19,32 +21,36 @@ const isYandexLoading = ref(false)
 const yandexError = ref<string | null>(null)
 const isMenuOpen = ref(false)
 
-/** Читаемая метка источника */
+const showLogin = ref(false)
+const loginMandatory = ref(false)
+const yandexConfig = ref<{ hasSettings: boolean; publicFolders: string[] } | null>(null)
+
 const sourceLabel = computed(() => {
   if (source.value === 'yandex') return 'Яндекс.Диск'
   if (source.value === 'local') return rootFolderName.value ?? 'Локальная папка'
   return null
 })
 
-/** Иконка источника (можно заменить на реальный компонент) */
 const sourceIcon = computed(() => (source.value === 'yandex' ? '☁' : '📁'))
 
-/** Понятный глагол для primary-кнопки */
 const openButtonLabel = computed(() => {
   if (source.value === 'yandex') return 'Открыть Яндекс.Диск'
   return 'Открыть библиотеку'
 })
+
+// --- Локальная папка ---------------------------------------------------
 
 async function pickFolder() {
   const handle = await fileSystemService.pickDirectory()
   if (!handle) return
 
   library.clear()
-  player.stop()
-
+  player.setQueue([], 0)
   await library.loadFromHandle(handle)
   router.replace({ name: 'folder', params: { path: [] } })
 }
+
+// --- Яндекс.Диск -------------------------------------------------------
 
 async function connectYandexDisk() {
   yandexError.value = null
@@ -56,35 +62,83 @@ async function connectYandexDisk() {
     return
   }
 
-  let defaultPath = '/'
+  let config
   try {
-    const config = await yandexDiskService.getConfig()
-    defaultPath = config.musicPath
+    config = await yandexDiskService.getConfig()
   } catch (err) {
-    console.warn('[home] failed to fetch yandex config, using "/"', err)
+    yandexError.value = 'Не удалось получить конфиг сервера'
+    return
   }
 
+  yandexConfig.value = config
+
+  // Нет .settings.json на диске — доступа нет
+  if (!config.hasSettings) {
+    yandexError.value = 'Сервер не настроен. Обратитесь к администратору.'
+    return
+  }
+
+  // Уже авторизован — грузим сразу
+  if (authService.isAuthenticated()) {
+    const valid = await authService.check()
+    if (valid) {
+      await loadYandexDisk()
+      return
+    }
+  }
+
+  // Не авторизован — показываем модалку
+  loginMandatory.value = config.publicFolders.length === 0
+  showLogin.value = true
+}
+
+/** Загрузка библиотеки Диска */
+async function loadYandexDisk() {
   library.clear()
-  player.stop()
+  player.setQueue([], 0)
 
   isYandexLoading.value = true
   try {
-    await library.loadFromYandexDisk(defaultPath)
+    await library.loadFromYandexDisk('/', { forceRefresh: false })
     router.replace({ name: 'folder', params: { path: [] } })
   } catch (err) {
+    if (err instanceof AuthRequiredError) {
+      // Сессия истекла — показываем логин снова
+      loginMandatory.value = true
+      showLogin.value = true
+      return
+    }
     yandexError.value = err instanceof Error ? err.message : 'Ошибка загрузки'
   } finally {
     isYandexLoading.value = false
   }
 }
 
-function disconnectYandexDisk() {
-  library.clear()
-  player.stop()
-  void saveLastSource(null)
-  isMenuOpen.value = false
-  router.replace({ name: 'home' })
+/** Юзер успешно вошёл */
+function onLoginSuccess() {
+  showLogin.value = false
+  loadYandexDisk()
 }
+
+/** Юзер закрыл модалку без пароля */
+function onLoginCancel() {
+  showLogin.value = false
+
+  const config = yandexConfig.value
+  if (!config) return
+
+  if (config.publicFolders.length === 0) {
+    // Нет публичных — снова модалка, обязательная
+    loginMandatory.value = true
+    showLogin.value = true
+    return
+  }
+
+  // Есть публичные — грузим с корня. Приватные будут недоступны.
+  loadYandexDisk()
+}
+
+// --- Общее -------------------------------------------------------------
 
 async function forgetYandexCache() {
   const confirmed = window.confirm(
@@ -93,8 +147,18 @@ async function forgetYandexCache() {
   if (!confirmed) return
 
   await yandexLibraryPersistenceService.clear()
+  authService.logout()
   library.clear()
-  player.stop()
+  player.setQueue([], 0)
+  void saveLastSource(null)
+  isMenuOpen.value = false
+  router.replace({ name: 'home' })
+}
+
+function logout() {
+  authService.logout()
+  library.clear()
+  player.setQueue([], 0)
   void saveLastSource(null)
   isMenuOpen.value = false
   router.replace({ name: 'home' })
@@ -102,9 +166,7 @@ async function forgetYandexCache() {
 
 async function restoreAccess() {
   const ok = await library.retryRestoreAfterPermission()
-  if (ok) {
-    router.replace({ name: 'folder', params: { path: [] } })
-  }
+  if (ok) router.replace({ name: 'folder', params: { path: [] } })
 }
 
 function openLibrary() {
@@ -114,12 +176,10 @@ function openLibrary() {
 
 <template>
   <div class="flex h-full flex-col items-center justify-center gap-6 px-6 text-zinc-400">
-    <!-- Восстановление -->
     <template v-if="isRestoring">
       <p class="text-sm">Восстановление библиотеки…</p>
     </template>
 
-    <!-- Нужны права -->
     <template v-else-if="needsPermission">
       <p class="text-sm">Нет доступа к сохранённой папке</p>
       <button
@@ -131,7 +191,6 @@ function openLibrary() {
       </button>
     </template>
 
-    <!-- Загрузка Диска -->
     <template v-else-if="isYandexLoading">
       <div class="flex w-64 flex-col items-center gap-3">
         <p class="text-sm text-zinc-300">Сканирование Яндекс.Диска…</p>
@@ -146,7 +205,6 @@ function openLibrary() {
       </div>
     </template>
 
-    <!-- Библиотека загружена: показать источник + открыть -->
     <template v-else-if="hasLibrary">
       <div class="flex flex-col items-center gap-2">
         <div class="text-3xl">{{ sourceIcon }}</div>
@@ -162,7 +220,6 @@ function openLibrary() {
         {{ openButtonLabel }}
       </button>
 
-      <!-- Меню действий -->
       <div class="relative">
         <button
           type="button"
@@ -194,14 +251,24 @@ function openLibrary() {
             Подключить Яндекс.Диск
           </button>
 
-          <button
-            v-if="source === 'yandex'"
-            type="button"
-            class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-            @click="disconnectYandexDisk"
-          >
-            Отключиться от Диска
-          </button>
+          <template v-if="source === 'yandex'">
+            <button
+              v-if="authService.isAuthenticated()"
+              type="button"
+              class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+              @click="logout"
+            >
+              Выйти из аккаунта
+            </button>
+            <button
+              v-else
+              type="button"
+              class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+              @click="((showLogin = true), (loginMandatory = false))"
+            >
+              Войти для доступа к приватным папкам
+            </button>
+          </template>
 
           <div class="border-t border-zinc-800" />
 
@@ -220,7 +287,6 @@ function openLibrary() {
       </p>
     </template>
 
-    <!-- Библиотеки нет: онбординг -->
     <template v-else>
       <div class="max-w-md text-center">
         <p class="text-lg font-medium text-zinc-100">CUEI Media Player</p>
@@ -251,5 +317,13 @@ function openLibrary() {
         {{ yandexError }}
       </p>
     </template>
+
+    <!-- Модалка логина -->
+    <LoginModal
+      v-if="showLogin"
+      :mandatory="loginMandatory"
+      @success="onLoginSuccess"
+      @cancel="onLoginCancel"
+    />
   </div>
 </template>

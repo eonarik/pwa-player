@@ -42,7 +42,7 @@ function toggleFavorite() {
 function openMenu() {
   if (!buttonRef.value) return
   const rect = buttonRef.value.getBoundingClientRect()
-  const MENU_WIDTH = 256 // w-56 = 14rem = 224px
+  const MENU_WIDTH = 256 // w-64 = 16rem = 256px
   const menuLeft = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
   menuPosition.value = {
     top: rect.bottom + 4,

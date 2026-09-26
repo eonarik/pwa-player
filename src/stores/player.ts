@@ -76,6 +76,10 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.on('play', () => {
       isPlaying.value = true
       startTimeLoop()
+      const track = currentTrack.value
+      if (track) {
+        useHistoryStore().recordPlay(track)
+      }
     }),
     audioService.on('pause', () => {
       isPlaying.value = false
@@ -95,13 +99,6 @@ export const usePlayerStore = defineStore('player', () => {
       console.error('[player] audio error:', message)
       isPlaying.value = false
       stopTimeLoop()
-    }),
-    // Записываем в историю при каждом play
-    audioService.on('play', () => {
-      const track = currentTrack.value
-      if (track) {
-        useHistoryStore().recordPlay(track)
-      }
     }),
   )
 
