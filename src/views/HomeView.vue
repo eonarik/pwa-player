@@ -17,14 +17,6 @@ const library = useLibraryStore()
 const player = usePlayerStore()
 const { needsPermission, isRestoring, hasLibrary, rootFolderName, source } = storeToRefs(library)
 
-const isYandexLoading = ref(false)
-const yandexError = ref<string | null>(null)
-const isMenuOpen = ref(false)
-
-const showLogin = ref(false)
-const loginMandatory = ref(false)
-const yandexConfig = ref<{ hasSettings: boolean; publicFolders: string[] } | null>(null)
-
 const sourceLabel = computed(() => {
   if (source.value === 'yandex') return 'Яндекс.Диск'
   if (source.value === 'local') return rootFolderName.value ?? 'Локальная папка'
@@ -52,44 +44,65 @@ async function pickFolder() {
 
 // --- Яндекс.Диск -------------------------------------------------------
 
+// --- Состояние загрузки -----------------------------------------------
+
+const isYandexLoading = ref(false)
+const yandexError = ref<string | null>(null)
+const isMenuOpen = ref(false)
+
+const showLogin = ref(false)
+const loginMandatory = ref(false)
+const yandexConfig = ref<{ hasSettings: boolean; publicFolders: string[] } | null>(null)
+
+// --- Подключение к Яндекс.Диску ---------------------------------------
+
 async function connectYandexDisk() {
+  // Защита от повторного нажатия: если уже идёт — игнорируем
+  if (isYandexLoading.value) return
+
   yandexError.value = null
+  isYandexLoading.value = true
 
-  const alive = await yandexDiskService.ping()
-  if (!alive) {
-    yandexError.value =
-      'Прокси-сервер недоступен. Запустите `cd server && yarn dev` и попробуйте снова.'
-    return
-  }
-
-  let config
   try {
-    config = await yandexDiskService.getConfig()
-  } catch (err) {
-    yandexError.value = 'Не удалось получить конфиг сервера'
-    return
-  }
-
-  yandexConfig.value = config
-
-  // Нет .settings.json на диске — доступа нет
-  if (!config.hasSettings) {
-    yandexError.value = 'Сервер не настроен. Обратитесь к администратору.'
-    return
-  }
-
-  // Уже авторизован — грузим сразу
-  if (authService.isAuthenticated()) {
-    const valid = await authService.check()
-    if (valid) {
-      await loadYandexDisk()
+    // 1. Проверка, что прокси жив
+    const alive = await yandexDiskService.ping()
+    if (!alive) {
+      yandexError.value =
+        'Прокси-сервер недоступен. Проверьте соединение и попробуйте снова.'
       return
     }
-  }
 
-  // Не авторизован — показываем модалку
-  loginMandatory.value = config.publicFolders.length === 0
-  showLogin.value = true
+    // 2. Конфиг
+    let config
+    try {
+      config = await yandexDiskService.getConfig()
+    } catch {
+      yandexError.value = 'Не удалось получить конфиг сервера'
+      return
+    }
+
+    yandexConfig.value = config
+
+    if (!config.hasSettings) {
+      yandexError.value = 'Сервер не настроен. Обратитесь к администратору.'
+      return
+    }
+
+    // 3. Уже авторизован?
+    if (authService.isAuthenticated()) {
+      const valid = await authService.check()
+      if (valid) {
+        await loadYandexDisk()
+        return
+      }
+    }
+
+    // 4. Показать модалку логина
+    loginMandatory.value = config.publicFolders.length === 0
+    showLogin.value = true
+  } finally {
+    isYandexLoading.value = false
+  }
 }
 
 /** Загрузка библиотеки Диска */
@@ -182,11 +195,9 @@ function openLibrary() {
 
     <template v-else-if="needsPermission">
       <p class="text-sm">Нет доступа к сохранённой папке</p>
-      <button
-        type="button"
+      <button type="button"
         class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-emerald-400"
-        @click="restoreAccess"
-      >
+        @click="restoreAccess">
         Восстановить доступ
       </button>
     </template>
@@ -195,9 +206,7 @@ function openLibrary() {
       <div class="flex w-64 flex-col items-center gap-3">
         <p class="text-sm text-zinc-300">Сканирование Яндекс.Диска…</p>
         <div class="h-1 w-full overflow-hidden rounded-full bg-zinc-800">
-          <div
-            class="h-full w-1/3 animate-[indeterminate_1.5s_ease-in-out_infinite] bg-emerald-500"
-          />
+          <div class="h-full w-1/3 animate-[indeterminate_1.5s_ease-in-out_infinite] bg-emerald-500" />
         </div>
         <p class="text-xs text-zinc-500">
           {{ library.loadProgress.folders }} папок · {{ library.loadProgress.tracks }} треков
@@ -212,71 +221,52 @@ function openLibrary() {
         <p class="text-lg font-medium text-zinc-100">{{ sourceLabel }}</p>
       </div>
 
-      <button
-        type="button"
+      <button type="button"
         class="rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-emerald-400"
-        @click="openLibrary"
-      >
+        @click="openLibrary">
         {{ openButtonLabel }}
       </button>
 
       <div class="relative">
-        <button
-          type="button"
+        <button type="button"
           class="rounded-lg px-3 py-1.5 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200"
-          @click="isMenuOpen = !isMenuOpen"
-        >
+          @click="isMenuOpen = !isMenuOpen">
           Сменить источник
           <span class="ml-1 text-zinc-600">{{ isMenuOpen ? '▴' : '▾' }}</span>
         </button>
 
-        <div
-          v-if="isMenuOpen"
-          class="absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg"
-        >
-          <button
-            type="button"
+        <div v-if="isMenuOpen"
+          class="absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg">
+          <button type="button"
             class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-            @click="pickFolder"
-          >
+            @click="pickFolder">
             Выбрать локальную папку
           </button>
 
-          <button
-            v-if="source !== 'yandex'"
-            type="button"
+          <button v-if="source !== 'yandex'" type="button"
             class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-            @click="connectYandexDisk"
-          >
+            @click="connectYandexDisk">
             Подключить Яндекс.Диск
           </button>
 
           <template v-if="source === 'yandex'">
-            <button
-              v-if="authService.isAuthenticated()"
-              type="button"
+            <button v-if="authService.isAuthenticated()" type="button"
               class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-              @click="logout"
-            >
+              @click="logout">
               Выйти из аккаунта
             </button>
-            <button
-              v-else
-              type="button"
+            <button v-else type="button"
               class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-              @click="((showLogin = true), (loginMandatory = false))"
-            >
+              @click="((showLogin = true), (loginMandatory = false))">
               Войти для доступа к приватным папкам
             </button>
           </template>
 
           <div class="border-t border-zinc-800" />
 
-          <button
-            type="button"
+          <button type="button"
             class="block w-full px-4 py-2.5 text-left text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-400"
-            @click="forgetYandexCache"
-          >
+            @click="forgetYandexCache">
             Сбросить кэш Диска
           </button>
         </div>
@@ -294,22 +284,18 @@ function openLibrary() {
       </div>
 
       <div class="flex flex-col items-center gap-3">
-        <button
-          type="button"
+        <button type="button"
           class="rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-emerald-400"
-          @click="pickFolder"
-        >
+          @click="pickFolder">
           Выбрать папку на компьютере
         </button>
 
         <p class="text-xs text-zinc-600">или</p>
 
-        <button
-          type="button"
-          class="rounded-lg border border-zinc-700 px-6 py-2.5 text-sm text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100"
-          @click="connectYandexDisk"
-        >
-          Подключить Яндекс.Диск
+        <button type="button" :disabled="isYandexLoading"
+          class="rounded-lg border border-zinc-700 px-6 py-2.5 text-sm text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="connectYandexDisk">
+          {{ isYandexLoading ? 'Подключение…' : 'Подключить Яндекс.Диск' }}
         </button>
       </div>
 
@@ -319,11 +305,6 @@ function openLibrary() {
     </template>
 
     <!-- Модалка логина -->
-    <LoginModal
-      v-if="showLogin"
-      :mandatory="loginMandatory"
-      @success="onLoginSuccess"
-      @cancel="onLoginCancel"
-    />
+    <LoginModal v-if="showLogin" :mandatory="loginMandatory" @success="onLoginSuccess" @cancel="onLoginCancel" />
   </div>
 </template>

@@ -1,3 +1,4 @@
+// oxlint-disable unicorn/no-new-array
 // src/services/yandex/concurrency.ts
 
 /**

@@ -4,6 +4,7 @@ import { authService } from '@/services/auth/AuthService'
 import { compareStrings } from '@/utils/sort'
 
 const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
+const REQUEST_TIMEOUT_MS = 10_000
 
 export interface YandexItem {
   path: string
@@ -48,7 +49,9 @@ export class YandexDiskService {
 
   async ping(): Promise<boolean> {
     try {
-      const res = await fetch(`${PROXY_URL}/api/health`)
+      const res = await fetch(`${PROXY_URL}/api/health`, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
       return res.ok
     } catch {
       return false
@@ -56,7 +59,9 @@ export class YandexDiskService {
   }
 
   async getConfig(): Promise<YandexConfig> {
-    const res = await fetch(`${PROXY_URL}/api/config`)
+    const res = await fetch(`${PROXY_URL}/api/config`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
     if (!res.ok) {
       throw new Error(`Failed to fetch config: HTTP ${res.status}`)
     }
@@ -67,6 +72,7 @@ export class YandexDiskService {
     const params = new URLSearchParams({ path })
 
     const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: authService.authHeaders(),
     })
 
@@ -98,16 +104,17 @@ export class YandexDiskService {
    * Возвращает URL обложки или null.
    */
   async getCover(artist: string, title: string): Promise<string | null> {
-    if (!title) return null // title обязателен
+    if (!title) return null
 
     try {
       const params = new URLSearchParams({ title })
-      // Не отправляем artist, если это фолбэк "Yandex Disk"
       if (artist && artist !== 'Yandex Disk') {
         params.set('artist', artist)
       }
 
-      const res = await fetch(`${PROXY_URL}/api/cover?${params.toString()}`)
+      const res = await fetch(`${PROXY_URL}/api/cover?${params.toString()}`, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
 
       if (!res.ok) return null
 

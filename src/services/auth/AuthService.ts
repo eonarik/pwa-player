@@ -2,6 +2,7 @@
 
 const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? ''
 const TOKEN_KEY = 'player:authToken'
+const AUTH_TIMEOUT_MS = 10_000
 
 export class AuthService {
   private static instance: AuthService | null = null
@@ -33,6 +34,7 @@ export class AuthService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
+        signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
       })
 
       if (!res.ok) return false
@@ -60,6 +62,7 @@ export class AuthService {
     try {
       const res = await fetch(`${PROXY_URL}/api/auth/check`, {
         headers: { Authorization: `Bearer ${this.token}` },
+        signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
       })
       if (!res.ok) {
         this.logout()
