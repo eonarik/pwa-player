@@ -525,6 +525,9 @@ export const useLibraryStore = defineStore('library', () => {
   /**
    * Рекурсивно обновляет текущую папку и всё её поддерево.
    * НЕ трогает родительские папки и соседние ветки.
+   *
+   * `totalTrackCount` пересчитывается снизу вверх: сначала обходим
+   * детей (они возвращают свой total), потом записываем родителя.
    */
   async function refreshCurrentYandexFolderRecursive(): Promise<void> {
     if (source.value !== 'yandex') {
@@ -549,8 +552,8 @@ export const useLibraryStore = defineStore('library', () => {
         }
       }
 
-      const walk = async (folder: Folder): Promise<void> => {
-        if (!folder.remotePath) return
+      const walk = async (folder: Folder): Promise<number> => {
+        if (!folder.remotePath) return 0
 
         const response = await yandexDiskService.listResources(folder.remotePath)
 
@@ -625,17 +628,24 @@ export const useLibraryStore = defineStore('library', () => {
           delete folders.value[id]
         }
 
+        updateProgress()
+
+        // Обходим детей — каждый вернёт свой totalTrackCount
+        let childTotal = 0
+        for (const child of childFolders) {
+          childTotal += await walk(child)
+        }
+
+        const total = newTrackIds.length + childTotal
+
         folders.value[folder.id] = {
           ...folder,
           trackIds: newTrackIds,
           childFolderIds: newChildFolderIds,
+          totalTrackCount: total,
         }
 
-        updateProgress()
-
-        for (const child of childFolders) {
-          await walk(child)
-        }
+        return total
       }
 
       await walk(rootFolder)
