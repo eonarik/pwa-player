@@ -43,11 +43,9 @@ export const useLibraryStore = defineStore('library', () => {
   const isLoading = ref(false)
   const loadProgress = ref({ folders: 0, tracks: 0 })
 
-  /** Отдельный флаг для загрузки обложек — не блокирует UI библиотеки */
   const isLoadingCovers = ref(false)
   const coverProgress = ref({ done: 0, total: 0 })
 
-  /** Версия кэша обложек — инкрементируется при изменениях, чтобы триггерить computed */
   const coversVersion = ref(0)
 
   const isRestoring = ref(false)
@@ -95,12 +93,10 @@ export const useLibraryStore = defineStore('library', () => {
     return Boolean(folder && folder.parentId)
   })
 
-  /** Сколько треков в текущей папке без обложки */
   const tracksWithoutCovers = computed(() => {
     return currentTracks.value.filter((t) => !t.coverUrl).length
   })
 
-  /** Статистика по обложкам в текущей папке */
   const coverStats = computed(() => {
     void coversVersion.value
 
@@ -109,7 +105,7 @@ export const useLibraryStore = defineStore('library', () => {
 
     for (const track of currentTracks.value) {
       const cached = coverPersistenceService.get(track.id)
-      if (cached === undefined) continue // не искали
+      if (cached === undefined) continue
       checked++
       if (cached !== null) found++
     }
@@ -272,7 +268,6 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /** Ищет обложку в папке (`folder.jpg`) и применяет её ко всем трекам папки */
   async function restoreCovers(
     newFolders: Record<string, Folder>,
     newTracks: Record<string, LibraryTrack>,
@@ -527,101 +522,155 @@ export const useLibraryStore = defineStore('library', () => {
     })
   }
 
-  async function refreshCurrentYandexFolder(): Promise<void> {
+  /**
+   * Рекурсивно обновляет текущую папку и всё её поддерево.
+   * НЕ трогает родительские папки и соседние ветки.
+   */
+  async function refreshCurrentYandexFolderRecursive(): Promise<void> {
     if (source.value !== 'yandex') {
-      console.warn('[library] refreshCurrentYandexFolder: not a Yandex library')
+      console.warn('[library] refreshCurrentYandexFolderRecursive: not a Yandex library')
       return
     }
 
-    const folder = currentFolder.value
-    if (!folder || !folder.remotePath) {
-      console.warn('[library] refreshCurrentYandexFolder: no remotePath on current folder')
+    const rootFolder = currentFolder.value
+    if (!rootFolder || !rootFolder.remotePath) {
+      console.warn('[library] refreshCurrentYandexFolderRecursive: no remotePath')
       return
     }
 
     isLoading.value = true
+    loadProgress.value = { folders: 0, tracks: 0 }
+
     try {
-      const response = await yandexDiskService.listResources(folder.remotePath)
+      const updateProgress = (): void => {
+        loadProgress.value = {
+          folders: Object.keys(folders.value).length,
+          tracks: Object.keys(tracks.value).length,
+        }
+      }
 
-      const newTrackIds: string[] = []
-      const newChildFolderIds: string[] = []
-      const subDirs: typeof response.items = []
+      const walk = async (folder: Folder): Promise<void> => {
+        if (!folder.remotePath) return
 
-      for (const item of response.items) {
-        if (item.type === 'dir') {
-          subDirs.push(item)
-        } else if (item.isAudio) {
-          const trackId = trackIdFromPath(`yandex:${item.path}`)
-          const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
+        const response = await yandexDiskService.listResources(folder.remotePath)
 
-          if (!tracks.value[trackId]) {
-            const cachedCover = coverPersistenceService.get(trackId)
-            tracks.value[trackId] = {
-              id: trackId,
-              folderId: folder.id,
-              filename: item.name,
-              path: trackPath,
-              remotePath: item.path,
-              source: yandexDiskService.buildDownloadUrl(item.path),
-              title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
-              artist: 'Yandex Disk',
-              album: folder.path || 'Yandex Disk',
-              coverUrl: cachedCover ?? undefined,
+        const newTrackIds: string[] = []
+        const newChildFolderIds: string[] = []
+        const subDirs: typeof response.items = []
+
+        for (const item of response.items) {
+          if (item.type === 'dir') {
+            subDirs.push(item)
+          } else if (item.isAudio) {
+            const trackId = trackIdFromPath(`yandex:${item.path}`)
+            const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
+
+            if (!tracks.value[trackId]) {
+              const cachedCover = coverPersistenceService.get(trackId)
+              tracks.value[trackId] = {
+                id: trackId,
+                folderId: folder.id,
+                filename: item.name,
+                path: trackPath,
+                remotePath: item.path,
+                source: yandexDiskService.buildDownloadUrl(item.path),
+                title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
+                artist: 'Yandex Disk',
+                album: folder.path || 'Yandex Disk',
+                coverUrl: cachedCover ?? undefined,
+              }
             }
-          }
-          newTrackIds.push(trackId)
-        }
-      }
-
-      for (const item of subDirs) {
-        const childId = folderIdFromPath(`yandex:${item.path}`)
-        const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
-
-        if (!folders.value[childId]) {
-          folders.value[childId] = {
-            id: childId,
-            name: item.name,
-            parentId: folder.id,
-            path: childPath,
-            remotePath: item.path,
-            childFolderIds: [],
-            trackIds: [],
-            totalTrackCount: 0,
-            source: 'yandex',
+            newTrackIds.push(trackId)
           }
         }
-        newChildFolderIds.push(childId)
-      }
 
-      const removedTrackIds = folder.trackIds.filter((id) => !newTrackIds.includes(id))
-      for (const id of removedTrackIds) {
-        const t = tracks.value[id]
-        if (t?.coverUrl?.startsWith('blob:')) {
-          URL.revokeObjectURL(t.coverUrl)
+        const childFolders: Folder[] = []
+        for (const item of subDirs) {
+          const childId = folderIdFromPath(`yandex:${item.path}`)
+          const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
+
+          let childFolder = folders.value[childId]
+          if (!childFolder) {
+            childFolder = {
+              id: childId,
+              name: item.name,
+              parentId: folder.id,
+              path: childPath,
+              remotePath: item.path,
+              childFolderIds: [],
+              trackIds: [],
+              totalTrackCount: 0,
+              source: 'yandex',
+            }
+            folders.value[childId] = childFolder
+          }
+
+          newChildFolderIds.push(childId)
+          childFolders.push(childFolder)
         }
-        delete tracks.value[id]
+
+        const removedTrackIds = folder.trackIds.filter((id) => !newTrackIds.includes(id))
+        for (const id of removedTrackIds) {
+          const t = tracks.value[id]
+          if (t?.coverUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(t.coverUrl)
+          }
+          delete tracks.value[id]
+        }
+
+        const removedFolderIds = folder.childFolderIds.filter(
+          (id) => !newChildFolderIds.includes(id),
+        )
+        for (const id of removedFolderIds) {
+          delete folders.value[id]
+        }
+
+        folders.value[folder.id] = {
+          ...folder,
+          trackIds: newTrackIds,
+          childFolderIds: newChildFolderIds,
+        }
+
+        updateProgress()
+
+        for (const child of childFolders) {
+          await walk(child)
+        }
       }
 
-      const removedFolderIds = folder.childFolderIds.filter((id) => !newChildFolderIds.includes(id))
-      for (const id of removedFolderIds) {
-        delete folders.value[id]
-      }
-
-      folders.value[folder.id] = {
-        ...folder,
-        trackIds: newTrackIds,
-        childFolderIds: newChildFolderIds,
-      }
+      await walk(rootFolder)
 
       bumpCoversVersion()
 
-      const rootFolder = rootFolderId.value ? folders.value[rootFolderId.value] : null
-      if (rootFolder?.remotePath) {
-        await saveYandexCache(rootFolder.remotePath)
+      const root = rootFolderId.value ? folders.value[rootFolderId.value] : null
+      if (root?.remotePath) {
+        await saveYandexCache(root.remotePath)
       }
     } finally {
       isLoading.value = false
     }
+  }
+
+  /**
+   * Рекурсивно собирает все треки в папке и её подпапках.
+   * Порядок: сначала треки самой папки, потом — рекурсивно из подпапок.
+   */
+  function getAllTracksInFolderRecursive(folderId: string): LibraryTrack[] {
+    const folder = folders.value[folderId]
+    if (!folder) return []
+
+    const result: LibraryTrack[] = []
+
+    for (const trackId of folder.trackIds) {
+      const track = tracks.value[trackId]
+      if (track) result.push(track)
+    }
+
+    for (const childId of folder.childFolderIds) {
+      result.push(...getAllTracksInFolderRecursive(childId))
+    }
+
+    return result
   }
 
   /**
@@ -700,28 +749,15 @@ export const useLibraryStore = defineStore('library', () => {
 
   /**
    * Сбрасывает «не найдено» для треков текущей папки.
-   * После этого кнопка «Найти обложки» снова увидит их как «без обложки».
    */
   async function resetCoversForCurrentFolder(): Promise<void> {
     const folder = currentFolder.value
     if (!folder) return
 
-    // Все треки папки
-    const trackIds = currentTracks.value.map((t) => t.id)
+    const trackIds = currentTracks.value.filter((t) => !t.coverUrl).map((t) => t.id)
     if (trackIds.length === 0) return
 
-    // 1. Удаляем из кэша
-    await coverPersistenceService.resetForTracks(trackIds)
-
-    // 2. Сбрасываем coverUrl у треков, которые получили его из API
-    //    (только URL, не blob — blob-обложки из folder.jpg не трогаем)
-    for (const track of currentTracks.value) {
-      if (track.coverUrl && !track.coverUrl.startsWith('blob:')) {
-        const existing = tracks.value[track.id]
-        if (existing) existing.coverUrl = undefined
-      }
-    }
-
+    await coverPersistenceService.resetNotFound(trackIds)
     bumpCoversVersion()
   }
 
@@ -842,7 +878,8 @@ export const useLibraryStore = defineStore('library', () => {
     loadFromHandle,
     loadFromYandexDisk,
     restoreYandexFromCache,
-    refreshCurrentYandexFolder,
+    refreshCurrentYandexFolderRecursive,
+    getAllTracksInFolderRecursive,
     fetchCoversForCurrentFolder,
     resetCoversForCurrentFolder,
     setCurrentFolder,

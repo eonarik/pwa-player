@@ -1,6 +1,6 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
-import { watchEffect, onMounted } from 'vue'
+import { watchEffect, onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
@@ -17,7 +17,44 @@ const router = useRouter()
 const player = usePlayerStore()
 const library = useLibraryStore()
 const history = useHistoryStore()
-const { currentTrack, isPlaying } = storeToRefs(player)
+const { currentTrack, isPlaying, queue } = storeToRefs(player)
+
+// --- Меню хедера ------------------------------------------------------
+
+const isNavMenuOpen = ref(false)
+
+const queueBadge = computed(() => (queue.value.length > 0 ? String(queue.value.length) : ''))
+
+function closeNavMenu() {
+  isNavMenuOpen.value = false
+}
+
+function goHome() {
+  isNavMenuOpen.value = false
+  router.push({ name: 'home' })
+}
+
+function goToRoot() {
+  isNavMenuOpen.value = false
+  router.push({ name: 'folder', params: { path: [] } })
+}
+
+function goToPlaylists() {
+  isNavMenuOpen.value = false
+  router.push({ name: 'playlists' })
+}
+
+function goToHistory() {
+  isNavMenuOpen.value = false
+  router.push({ name: 'history' })
+}
+
+function goToQueue() {
+  isNavMenuOpen.value = false
+  router.push({ name: 'queue' })
+}
+
+// --- Горячие клавиши, медиа-сессия, заголовок -------------------------
 
 useKeyboardShortcuts({
   onToggle: () => player.toggle(),
@@ -46,21 +83,7 @@ watchEffect(() => {
   document.title = t ? `${t.title} — ${t.artist}` : 'CUEI Media Player'
 })
 
-function goHome() {
-  router.push({ name: 'home' })
-}
-
-function goToRoot() {
-  router.push({ name: 'folder', params: { path: [] } })
-}
-
-function goToPlaylists() {
-  router.push({ name: 'playlists' })
-}
-
-function goToHistory() {
-  router.push({ name: 'history' })
-}
+// --- Восстановление при старте ----------------------------------------
 
 onMounted(async () => {
   // 1. Обложки — сначала, потому что нужны при восстановлении библиотеки
@@ -105,48 +128,73 @@ onMounted(async () => {
     <header class="app-safe-top flex items-center gap-3 border-b border-zinc-800 p-3">
       <button
         class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
-        title="На главную (выбор папки)"
-        @click="goHome"
-      >
+        title="На главную (выбор источника)" @click="goHome">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
           <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" />
         </svg>
         <span class="hidden md:inline">Главная</span>
       </button>
 
-      <button
-        v-if="library.hasLibrary"
-        type="button"
+      <button v-if="library.hasLibrary" type="button"
         class="rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
-        @click="goToRoot"
-      >
+        @click="goToRoot">
         ← <span class="hidden md:inline">К библиотеке</span>
       </button>
 
-      <button
-        type="button"
-        class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
-        title="Плейлисты"
-        @click="goToPlaylists"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <span class="hidden md:inline">Плейлисты</span>
-      </button>
+      <!-- Меню навигации: Плейлисты / История / Очередь -->
+      <div class="relative">
+        <button type="button"
+          class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
+          :aria-expanded="isNavMenuOpen" aria-haspopup="menu" title="Меню" @click="isNavMenuOpen = !isNavMenuOpen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <span class="hidden md:inline">Меню</span>
 
-      <button
-        type="button"
-        class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
-        title="История"
-        @click="goToHistory"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 6v6l4 2" />
-        </svg>
-        <span class="hidden md:inline">История</span>
-      </button>
+          <!-- Бейдж с количеством треков в очереди -->
+          <span v-if="queueBadge"
+            class="ml-0.5 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
+            {{ queueBadge }}
+          </span>
+        </button>
+
+        <!-- Дропдаун -->
+        <div v-if="isNavMenuOpen"
+          class="absolute left-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg"
+          role="menu">
+          <button type="button"
+            class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+            role="menuitem" @click="goToPlaylists">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+              <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Плейлисты
+          </button>
+
+          <button type="button"
+            class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+            role="menuitem" @click="goToHistory">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            История
+          </button>
+
+          <button type="button"
+            class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+            role="menuitem" @click="goToQueue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+              <path d="M4 6h16M4 12h10M4 18h6" />
+            </svg>
+            <span class="flex-1">Очередь</span>
+            <span v-if="queueBadge"
+              class="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
+              {{ queueBadge }}
+            </span>
+          </button>
+        </div>
+      </div>
 
       <span v-if="library.isLoading" class="ml-2 text-sm text-zinc-500">
         Сканирование… {{ library.loadProgress.folders }} папок,
@@ -155,6 +203,9 @@ onMounted(async () => {
       <span v-else-if="library.rootFolderName" class="ml-2 truncate text-sm text-zinc-500">
         {{ library.rootFolderName }}
       </span>
+
+      <!-- Закрытие меню по клику вне -->
+      <div v-if="isNavMenuOpen" class="fixed inset-0 z-20" aria-hidden="true" @click="closeNavMenu" />
     </header>
 
     <main class="overflow-hidden">

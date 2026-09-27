@@ -267,6 +267,41 @@ export const usePlayerStore = defineStore('player', () => {
     stopTimeLoop()
   }
 
+  /**
+   * Удаляет трек из очереди по индексу.
+   * - Если удалили играющий — играем следующий (или предыдущий, если был последним).
+   * - Если удалили до текущего — сдвигаем currentIndex, не трогая воспроизведение.
+   * - Если удалили после текущего — ничего не меняется.
+   */
+  function removeFromQueue(index: number): void {
+    if (index < 0 || index >= queue.value.length) return
+
+    const wasCurrent = index === currentIndex.value
+    const wasBeforeCurrent = index < currentIndex.value
+
+    queue.value = queue.value.filter((_, i) => i !== index)
+
+    if (queue.value.length === 0) {
+      stop()
+      return
+    }
+
+    if (wasCurrent) {
+      // Удалили играющий — играем следующий (или последний, если был последним)
+      const nextIndex = Math.min(index, queue.value.length - 1)
+      playAt(nextIndex)
+    } else if (wasBeforeCurrent) {
+      currentIndex.value = currentIndex.value - 1
+      currentTrack.value = queue.value[currentIndex.value] ?? null
+    }
+    // Удалили после текущего — currentIndex остался валидным
+  }
+
+  /** Полная очистка очереди. Семантический алиас stop() для UI. */
+  function clearQueue(): void {
+    stop()
+  }
+
   function toggle() {
     if (isPlaying.value) pause()
     else play()
@@ -457,6 +492,8 @@ export const usePlayerStore = defineStore('player', () => {
     play,
     pause,
     stop,
+    removeFromQueue,
+    clearQueue,
     toggle,
     next,
     prev,
