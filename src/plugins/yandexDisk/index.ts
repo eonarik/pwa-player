@@ -11,9 +11,9 @@ import type { PersistedYandexFolder, PersistedYandexLibrary, PersistedYandexTrac
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { authService } from '@/services/auth/AuthService'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
+import { type DownloadResult } from '../types'
 
 const YANDEX_CONCURRENCY = 5
-const COVER_CONCURRENCY = 3
 const ROOT_REMOTE_PATH = 'disk:/'
 
 const yandexPlugin: LibrarySource = {
@@ -116,7 +116,7 @@ const yandexPlugin: LibrarySource = {
 
   canDownload: true,
 
-  async download(): Promise<never> {
+  async download(): Promise<DownloadResult> {
     throw new Error('[yandex-plugin] download not implemented yet')
   },
 

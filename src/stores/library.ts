@@ -3,7 +3,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
-import { yandexDiskService } from '@/services/yandex/YandexDiskService'
+import { coverService } from '@/services/covers/CoverService'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { sortBy, trackSortKey } from '@/utils/sort'
 import type { LibraryWriter } from '@/plugins/types'
@@ -161,7 +161,7 @@ export const useLibraryStore = defineStore('library', () => {
       const worker = async (): Promise<void> => {
         while (cursor < toFetch.length) {
           const track = toFetch[cursor++]!
-          const coverUrl = await yandexDiskService.getCover(track.artist, track.title)
+          const coverUrl = await coverService.fetch(track.artist, track.title)
 
           results.push({ trackId: track.id, coverUrl })
 

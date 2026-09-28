@@ -1,4 +1,4 @@
-// src/plugins/yandex/persistence.ts
+// src/plugins/yandexDisk/persistence.ts
 
 import { get, set, del } from 'idb-keyval'
 import type { PersistedYandexLibrary } from './types'

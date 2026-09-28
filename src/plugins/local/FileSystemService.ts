@@ -6,6 +6,7 @@ import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { folderIdFromPath, trackIdFromPath, ROOT_FOLDER_ID } from '@/services/library/id'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
 import { compareStrings } from '@/utils/sort'
+import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 
 const HANDLE_KEY = 'player:directoryHandle'
 
@@ -91,50 +92,6 @@ export class FileSystemService {
     }
   }
 
-  // --- Обход папки: плоский список файлов ------------------------------
-
-  /**
-   * @deprecated Используй collectLibrary. Оставлено для тестов и обратной совместимости.
-   */
-  async collectAudioFiles(
-    dirHandle: FileSystemDirectoryHandle,
-    onProgress?: (count: number, path: string) => void,
-  ): Promise<FileEntry[]> {
-    const results: FileEntry[] = []
-
-    const walk = async (handle: FileSystemDirectoryHandle, pathPrefix: string): Promise<void> => {
-      const filePromises: Promise<FileEntry | null>[] = []
-      const subdirs: { handle: FileSystemDirectoryHandle; path: string }[] = []
-
-      for await (const entry of handle.values()) {
-        if (entry.kind === 'file') {
-          if (this.isAudioFile(entry.name)) {
-            filePromises.push(this.entryToFileEntry(entry, handle, pathPrefix))
-          }
-        } else {
-          subdirs.push({
-            handle: entry,
-            path: pathPrefix ? `${pathPrefix}/${entry.name}` : entry.name,
-          })
-        }
-      }
-
-      const files = await Promise.all(filePromises)
-      for (const entry of files) {
-        if (entry) {
-          results.push(entry)
-          onProgress?.(results.length, entry.path)
-        }
-      }
-
-      subdirs.sort((a, b) => compareStrings(a.path, b.path))
-      await Promise.all(subdirs.map((sub) => walk(sub.handle, sub.path)))
-    }
-
-    await walk(dirHandle, '')
-    return results
-  }
-
   // --- Обход папки: нормализованная библиотека -------------------------
 
   /**
@@ -171,7 +128,7 @@ export class FileSystemService {
       fileEntries.sort((a, b) => compareStrings(a.name, b.name))
       dirEntries.sort((a, b) => compareStrings(a.name, b.name))
 
-      const coverFile = fileEntries.length > 0 ? await this.findCoverInDirectory(handle) : null
+      const coverFile = fileEntries.length > 0 ? await findCoverInDirectory(handle) : null
 
       const localTracks = await Promise.all(
         fileEntries.map(async (fileHandle): Promise<LibraryTrack> => {
@@ -282,31 +239,6 @@ export class FileSystemService {
       }
     } catch (err) {
       console.warn(`[local-plugin] failed to read ${handle.name}`, err)
-      return null
-    }
-  }
-
-  async findCoverInDirectory(dirHandle: FileSystemDirectoryHandle): Promise<File | null> {
-    const priority = ['folder.jpg', 'folder.png', 'cover.jpg', 'cover.png']
-    const priorityIndex = new Map(priority.map((name, i) => [name, i]))
-    let best: { handle: FileSystemFileHandle; rank: number } | null = null
-
-    for await (const entry of dirHandle.values()) {
-      if (entry.kind !== 'file') continue
-      const lower = entry.name.toLowerCase()
-      const rank = priorityIndex.get(lower)
-      if (rank === undefined) continue
-      if (!best || rank < best.rank) {
-        best = { handle: entry, rank }
-      }
-      if (rank === 0) break
-    }
-
-    if (!best) return null
-    try {
-      return await best.handle.getFile()
-    } catch (err) {
-      console.warn(`[local-plugin] failed to read cover ${best.handle.name}`, err)
       return null
     }
   }

@@ -1,4 +1,4 @@
-// src/plugins/yandex/types.ts
+// src/plugins/yandexDisk/types.ts
 
 /**
  * Сохранённая папка Яндекс.Диска.

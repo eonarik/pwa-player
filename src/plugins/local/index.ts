@@ -7,6 +7,7 @@ import { fileSystemService } from './FileSystemService'
 import { localPersistenceService } from './persistence'
 import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack } from './types'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
+import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 
 const PLUGIN_ID = 'local'
 
@@ -223,7 +224,7 @@ async function restoreCoversFromFolders(
       const folder = foldersWithTracks[cursor++]!
       if (!folder.handle) continue
       try {
-        const coverFile = await fileSystemService.findCoverInDirectory(folder.handle)
+        const coverFile = await findCoverInDirectory(folder.handle)
         if (!coverFile) continue
 
         const coverUrl = URL.createObjectURL(coverFile)

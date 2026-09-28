@@ -12,7 +12,9 @@ import { coverPersistenceService } from '@/services/persistence/CoverPersistence
 import { getPlugins, loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import PlayerControls from '@/components/player/PlayerControls.vue'
-import ModalHost from "./services/ui/ModalHost.vue"
+import ModalHost from '@/components/ui/ModalHost.vue'
+import ToastHost from "./components/ui/ToastHost.vue"
+import { usePwaUpdate } from "./composables/usePwaUpdate.ts"
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -102,6 +104,8 @@ onMounted(async () => {
     isBootstrapping.value = false
   }
 })
+
+usePwaUpdate()
 </script>
 
 <template>
@@ -182,6 +186,8 @@ onMounted(async () => {
     </main>
 
     <PlayerControls />
+
     <ModalHost />
+    <ToastHost />
   </div>
 </template>

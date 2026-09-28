@@ -3,19 +3,11 @@
 import { createPluginStorage } from './storage'
 import { createLibraryWriter } from '@/stores/library'
 import { modalService } from '@/services/ui/ModalService'
+import { toastService } from '@/services/ui/ToastService'
+import { coverService } from '@/services/covers/CoverService'
 import type { PluginContext } from './types'
 
 const contexts = new Map<string, PluginContext>()
-
-function createToastStub(): PluginContext['showToast'] {
-  return () => {
-    console.warn('[plugins] showToast stub called (not implemented yet)')
-  }
-}
-
-function createFetchCoverStub(): PluginContext['fetchCover'] {
-  return async () => null
-}
 
 export function createPluginContext(pluginId: string): PluginContext {
   const cached = contexts.get(pluginId)
@@ -25,8 +17,10 @@ export function createPluginContext(pluginId: string): PluginContext {
     writer: createLibraryWriter(),
     storage: createPluginStorage(pluginId),
     showModal: (options) => modalService.show(options),
-    showToast: createToastStub(),
-    fetchCover: createFetchCoverStub(),
+    showToast: (message, type = 'info') => {
+      toastService.show(message, type)
+    },
+    fetchCover: (artist, title) => coverService.fetch(artist, title),
     proxyUrl: import.meta.env.VITE_DISK_PROXY_URL ?? '',
   }
 

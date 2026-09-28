@@ -1,7 +1,6 @@
 // src/plugins/types.ts
 
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
-import type { Track } from '@/types/track'
 
 /**
  * Манифест плагина. Живёт рядом с кодом плагина (manifest.ts).
@@ -182,4 +181,4 @@ export interface ModalOptions {
 
 // --- Экспорт типа Track для удобства ---------------------------------
 
-export type { Track, LibraryTrack, Folder, CollectedLibrary }
+export type { LibraryTrack, Folder, CollectedLibrary }

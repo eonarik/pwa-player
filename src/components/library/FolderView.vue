@@ -1,6 +1,6 @@
 <!-- src/components/library/FolderView.vue -->
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
@@ -35,9 +35,11 @@ const coversSearched = computed(() => coverStats.value.checked > 0)
 const canRefresh = ref(false)
 
 // Проверяем при смене папки — есть ли у плагина refreshFolder
-library.$subscribe(() => {
-  void checkRefreshSupport()
-})
+watch(
+  () => currentFolder.value?.source,
+  () => void checkRefreshSupport(),
+  { immediate: true },
+)
 
 async function checkRefreshSupport() {
   const pluginId = currentFolder.value?.source
@@ -52,8 +54,6 @@ async function checkRefreshSupport() {
     canRefresh.value = false
   }
 }
-
-void checkRefreshSupport()
 
 const isRefreshing = ref(false)
 
