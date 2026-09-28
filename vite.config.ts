@@ -20,7 +20,8 @@ export default defineConfig({
     // vueDevTools(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
+      // registerType: 'prompt', // TODO: установить в новой итерации
       injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
