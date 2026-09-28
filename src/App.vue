@@ -5,13 +5,14 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
-import { usePlaylistsStore } from '@/stores/playlists'
 import { useHistoryStore } from '@/stores/history'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
-import { loadLastSource } from '@/services/persistence/lastSource'
+import { getPlugins, loadPlugin } from '@/plugins/registry'
+import { createPluginContext } from '@/plugins/context'
 import PlayerControls from '@/components/player/PlayerControls.vue'
+import ModalHost from "./services/ui/ModalHost.vue"
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -32,11 +33,6 @@ function closeNavMenu() {
 function goHome() {
   isNavMenuOpen.value = false
   router.push({ name: 'home' })
-}
-
-function goToRoot() {
-  isNavMenuOpen.value = false
-  router.push({ name: 'folder', params: { path: [] } })
 }
 
 function goToPlaylists() {
@@ -85,41 +81,26 @@ watchEffect(() => {
 
 // --- Восстановление при старте ----------------------------------------
 
+const isBootstrapping = ref(true)
 onMounted(async () => {
-  // 1. Обложки — сначала, потому что нужны при восстановлении библиотеки
-  await coverPersistenceService.load()
-
-  // 2. История
-  await history.restore()
-
-  // 3. Источник библиотеки
-  const lastSource = await loadLastSource()
-  console.info('[app] last source:', lastSource)
-
-  let libraryRestored = false
-
-  if (lastSource === 'yandex') {
-    libraryRestored = await library.restoreYandexFromCache()
-    if (!libraryRestored) {
-      libraryRestored = await library.restore()
+  try {
+    await coverPersistenceService.load()
+    await history.restore()
+    for (const manifest of getPlugins()) {
+      try {
+        const plugin = await loadPlugin(manifest.id)
+        const context = createPluginContext(manifest.id)
+        const restored = await plugin.restoreFromCache(context)
+        if (restored) console.info(`[app] restored source: ${manifest.id}`)
+      } catch (err) {
+        console.warn(`[app] failed to restore source "${manifest.id}"`, err)
+      }
     }
-  } else if (lastSource === 'local') {
-    libraryRestored = await library.restore()
-  } else {
-    libraryRestored = await library.restore()
+    const playerRestored = await player.restore()
+    if (playerRestored) console.log('[player] restored')
+  } finally {
+    isBootstrapping.value = false
   }
-
-  if (libraryRestored) {
-    console.info('[app] library restored')
-    // Редиректим на корень библиотеки только если мы на главной.
-    if (router.currentRoute.value.name === 'home') {
-      router.replace({ name: 'folder', params: { path: [] } })
-    }
-  }
-
-  // 4. Плеер
-  const playerRestored = await player.restore()
-  if (playerRestored) console.log('[player] restored')
 })
 </script>
 
@@ -135,13 +116,6 @@ onMounted(async () => {
         <span class="hidden md:inline">Главная</span>
       </button>
 
-      <button v-if="library.hasLibrary" type="button"
-        class="rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
-        @click="goToRoot">
-        ← <span class="hidden md:inline">К библиотеке</span>
-      </button>
-
-      <!-- Меню навигации: Плейлисты / История / Очередь -->
       <div class="relative">
         <button type="button"
           class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
@@ -150,15 +124,12 @@ onMounted(async () => {
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           <span class="hidden md:inline">Меню</span>
-
-          <!-- Бейдж с количеством треков в очереди -->
           <span v-if="queueBadge"
             class="ml-0.5 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
             {{ queueBadge }}
           </span>
         </button>
 
-        <!-- Дропдаун -->
         <div v-if="isNavMenuOpen"
           class="absolute left-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg"
           role="menu">
@@ -196,22 +167,21 @@ onMounted(async () => {
         </div>
       </div>
 
-      <span v-if="library.isLoading" class="ml-2 text-sm text-zinc-500">
-        Сканирование… {{ library.loadProgress.folders }} папок,
-        {{ library.loadProgress.tracks }} треков
-      </span>
-      <span v-else-if="library.rootFolderName" class="ml-2 truncate text-sm text-zinc-500">
-        {{ library.rootFolderName }}
+      <span v-if="library.hasLibrary" class="ml-2 truncate text-sm text-zinc-500">
+        {{ library.currentFolder?.name ?? 'Библиотека' }}
       </span>
 
-      <!-- Закрытие меню по клику вне -->
       <div v-if="isNavMenuOpen" class="fixed inset-0 z-20" aria-hidden="true" @click="closeNavMenu" />
     </header>
 
     <main class="overflow-hidden">
-      <RouterView />
+      <RouterView v-if="!isBootstrapping" />
+      <div v-else class="flex h-full items-center justify-center text-sm text-zinc-500">
+        Загрузка…
+      </div>
     </main>
 
     <PlayerControls />
+    <ModalHost />
   </div>
 </template>

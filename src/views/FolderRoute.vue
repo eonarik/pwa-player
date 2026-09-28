@@ -12,6 +12,8 @@ const router = useRouter()
 const library = useLibraryStore()
 const { hasLibrary } = storeToRefs(library)
 
+const pluginId = computed(() => String(route.params.pluginId ?? ''))
+
 const pathSegments = computed<string[]>(() => {
   const raw = route.params.path
   if (Array.isArray(raw)) return raw.filter(Boolean)
@@ -19,38 +21,52 @@ const pathSegments = computed<string[]>(() => {
   return []
 })
 
-/** Путь в формате библиотеки: 'Rock/2020/OK Computer' или '' для корня */
 const folderPath = computed(() => pathSegments.value.join('/'))
 
 /**
- * Ищем папку по `path`, а не по «синтетическому» id.
- * Это работает и для локальной библиотеки, и для Яндекс.Диска —
- * у них разные схемы id, но один и тот же `path`.
+ * Ищем папку:
+ * - Если путь пустой → корень этого плагина (parentId === null, source === pluginId).
+ * - Если путь непустой → папку с таким path внутри этого плагина.
  */
 const currentFolder = computed<Folder | null>(() => {
+  const pid = pluginId.value
+  if (!pid) return null
+
   if (folderPath.value === '') {
-    if (!library.rootFolderId) return null
-    return library.getFolder(library.rootFolderId)
+    return (
+      Object.values(library.folders).find(
+        (f) => f.source === pid && f.parentId === null,
+      ) ?? null
+    )
   }
-  return Object.values(library.folders).find((f) => f.path === folderPath.value) ?? null
+
+  return (
+    Object.values(library.folders).find(
+      (f) => f.source === pid && f.path === folderPath.value,
+    ) ?? null
+  )
 })
 
 const folderExists = computed(() => Boolean(currentFolder.value))
 
 watch(
-  [currentFolder, hasLibrary],
+  [currentFolder, hasLibrary, pluginId],
   () => {
+    if (!pluginId.value) {
+      router.replace({ name: 'home' })
+      return
+    }
+
     if (!hasLibrary.value) {
-      // Библиотеки нет — на главную, там выберем источник
       router.replace({ name: 'home' })
       return
     }
 
     if (!folderExists.value) {
-      // Папка не найдена — редирект в корень библиотеки.
-      // Библиотеку НЕ трогаем: clear() здесь был бы разрушительным.
-      console.warn(`[folder-route] path "${folderPath.value}" not found, going to root`)
-      router.replace({ name: 'folder', params: { path: [] } })
+      console.warn(
+        `[folder-route] plugin="${pluginId.value}" path="${folderPath.value}" not found, going home`,
+      )
+      router.replace({ name: 'home' })
       return
     }
 
