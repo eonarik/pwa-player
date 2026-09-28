@@ -150,6 +150,7 @@ export const useLibraryStore = defineStore('library', () => {
       const raw = toRaw(track)
       persistedTracks.push({
         id: raw.id,
+        pluginId: raw.pluginId,
         folderId: raw.folderId,
         title: raw.title,
         artist: raw.artist,
@@ -216,6 +217,7 @@ export const useLibraryStore = defineStore('library', () => {
 
             newTracks[t.id] = {
               id: t.id,
+              pluginId: t.pluginId,
               folderId: t.folderId,
               title: t.title,
               artist: t.artist,
@@ -340,6 +342,7 @@ export const useLibraryStore = defineStore('library', () => {
         const cachedCover = coverPersistenceService.get(track.id)
         newTracks[track.id] = {
           ...track,
+          pluginId: 'local',
           coverUrl: track.coverUrl ?? cachedCover ?? undefined,
         }
       }
@@ -417,6 +420,7 @@ export const useLibraryStore = defineStore('library', () => {
 
             newTracks[trackId] = {
               id: trackId,
+              pluginId: 'yandex',
               folderId,
               filename: item.name,
               path: trackPath,
@@ -502,6 +506,7 @@ export const useLibraryStore = defineStore('library', () => {
       if (!t.remotePath) continue
       persistedTracks.push({
         id: t.id,
+        pluginId: t.pluginId,
         folderId: t.folderId,
         filename: t.filename,
         path: t.path!,
@@ -572,6 +577,7 @@ export const useLibraryStore = defineStore('library', () => {
               const cachedCover = coverPersistenceService.get(trackId)
               tracks.value[trackId] = {
                 id: trackId,
+                pluginId: 'yandex',
                 folderId: folder.id,
                 filename: item.name,
                 path: trackPath,
@@ -630,7 +636,6 @@ export const useLibraryStore = defineStore('library', () => {
 
         updateProgress()
 
-        // Обходим детей — каждый вернёт свой totalTrackCount
         let childTotal = 0
         for (const child of childFolders) {
           childTotal += await walk(child)
@@ -661,10 +666,6 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /**
-   * Рекурсивно собирает все треки в папке и её подпапках.
-   * Порядок: сначала треки самой папки, потом — рекурсивно из подпапок.
-   */
   function getAllTracksInFolderRecursive(folderId: string): LibraryTrack[] {
     const folder = folders.value[folderId]
     if (!folder) return []
@@ -683,9 +684,6 @@ export const useLibraryStore = defineStore('library', () => {
     return result
   }
 
-  /**
-   * Ищет обложки для треков текущей папки через прокси (Deezer + iTunes).
-   */
   async function fetchCoversForCurrentFolder(): Promise<void> {
     const folder = currentFolder.value
     if (!folder) return
@@ -757,9 +755,6 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /**
-   * Сбрасывает «не найдено» для треков текущей папки.
-   */
   async function resetCoversForCurrentFolder(): Promise<void> {
     const folder = currentFolder.value
     if (!folder) return
@@ -792,6 +787,7 @@ export const useLibraryStore = defineStore('library', () => {
       const cachedCover = coverPersistenceService.get(t.id)
       newTracks[t.id] = {
         id: t.id,
+        pluginId: t.pluginId,
         folderId: t.folderId,
         filename: t.filename,
         path: t.path,

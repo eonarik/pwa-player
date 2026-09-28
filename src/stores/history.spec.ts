@@ -8,7 +8,6 @@ import { HISTORY_MAX_SIZE } from '@/types/history'
 import type { PlayHistoryEntry } from '@/types/history'
 import type { Track } from '@/types/track'
 
-// vi.hoisted — потому что vi.mock хойстится наверх файла
 const { mockPersistence } = vi.hoisted(() => ({
   mockPersistence: {
     save: vi.fn<(entries: PlayHistoryEntry[]) => Promise<void>>(() => Promise.resolve()),
@@ -26,6 +25,7 @@ vi.mock('@/services/persistence/HistoryPersistenceService', () => ({
 function makeTrack(id: string, overrides: Partial<Track> = {}): Track {
   return {
     id,
+    pluginId: 'local',
     source: `https://example.com/${id}.mp3`,
     filename: `${id}.mp3`,
     title: `Track ${id}`,
@@ -35,7 +35,6 @@ function makeTrack(id: string, overrides: Partial<Track> = {}): Track {
   }
 }
 
-/** Дать watch с deep: true отработать */
 async function flushWatch() {
   await nextTick()
   await nextTick()
@@ -49,8 +48,6 @@ describe('useHistoryStore', () => {
     mockPersistence.save.mockResolvedValue(undefined)
     mockPersistence.clear.mockResolvedValue(undefined)
   })
-
-  // --- Пустое состояние -----------------------------------------------
 
   describe('пустое состояние', () => {
     it('entries = []', () => {
@@ -74,8 +71,6 @@ describe('useHistoryStore', () => {
     })
   })
 
-  // --- recordPlay -----------------------------------------------------
-
   describe('recordPlay', () => {
     it('добавляет новую запись', () => {
       const store = useHistoryStore()
@@ -86,6 +81,12 @@ describe('useHistoryStore', () => {
       expect(store.entries[0]!.title).toBe('Track t1')
       expect(store.entries[0]!.artist).toBe('Artist')
       expect(store.entries[0]!.album).toBe('Album')
+    })
+
+    it('сохраняет pluginId из трека', () => {
+      const store = useHistoryStore()
+      store.recordPlay(makeTrack('t1', { pluginId: 'yandex' }))
+      expect(store.entries[0]!.pluginId).toBe('yandex')
     })
 
     it('сохраняет remotePath, если он есть', () => {
@@ -153,8 +154,6 @@ describe('useHistoryStore', () => {
     })
   })
 
-  // --- вытеснение при превышении лимита -------------------------------
-
   describe('вытеснение при превышении HISTORY_MAX_SIZE', () => {
     it('не превышает HISTORY_MAX_SIZE после множества записей', () => {
       const store = useHistoryStore()
@@ -167,19 +166,14 @@ describe('useHistoryStore', () => {
     it('вытесняет самые старые по playedAt', async () => {
       const store = useHistoryStore()
 
-      // Заполняем лимит, каждый раз с небольшой паузой,
-      // чтобы playedAt гарантированно различались
       for (let i = 0; i < HISTORY_MAX_SIZE; i++) {
         store.recordPlay(makeTrack(`old${i}`))
-        // каждые 100 записей — пауза, чтобы playedAt не сбились в одну мс
         if (i % 100 === 0) await new Promise((r) => setTimeout(r, 1))
       }
 
-      // Первый трек — самый старый, должен вытесниться первым
       const firstTrackId = store.entries[0]!.trackId
       expect(firstTrackId).toBe('old0')
 
-      // Добавляем новый — должно вытеснить old0
       store.recordPlay(makeTrack('new'))
 
       const ids = store.entries.map((e) => e.trackId)
@@ -196,8 +190,6 @@ describe('useHistoryStore', () => {
       expect(store.entries.length).toBe(10)
     })
   })
-
-  // --- sortedHistory --------------------------------------------------
 
   describe('sortedHistory', () => {
     it('сортирует по playedAt desc (свежие первыми)', async () => {
@@ -226,8 +218,6 @@ describe('useHistoryStore', () => {
       expect(store.sortedHistory[0]!.trackId).toBe('t1')
     })
   })
-
-  // --- uniqueHistory --------------------------------------------------
 
   describe('uniqueHistory', () => {
     it('дедуплицирует по trackId, оставляя свежую запись', async () => {
@@ -266,8 +256,6 @@ describe('useHistoryStore', () => {
     })
   })
 
-  // --- isEmpty --------------------------------------------------------
-
   describe('isEmpty', () => {
     it('true при пустой истории', () => {
       const store = useHistoryStore()
@@ -287,8 +275,6 @@ describe('useHistoryStore', () => {
       expect(store.isEmpty).toBe(true)
     })
   })
-
-  // --- getEntry -------------------------------------------------------
 
   describe('getEntry', () => {
     it('возвращает запись по trackId', () => {
@@ -314,8 +300,6 @@ describe('useHistoryStore', () => {
     })
   })
 
-  // --- clear ----------------------------------------------------------
-
   describe('clear', () => {
     it('обнуляет entries и вызывает persistence.clear', () => {
       const store = useHistoryStore()
@@ -336,8 +320,6 @@ describe('useHistoryStore', () => {
       expect(mockPersistence.clear).toHaveBeenCalledTimes(2)
     })
   })
-
-  // --- restore --------------------------------------------------------
 
   describe('restore', () => {
     it('возвращает false при пустом IDB', async () => {
@@ -364,6 +346,7 @@ describe('useHistoryStore', () => {
       mockPersistence.load.mockResolvedValue([
         {
           trackId: 't1',
+          pluginId: 'local',
           title: 'Track 1',
           artist: 'Artist',
           album: 'Album',
@@ -371,6 +354,7 @@ describe('useHistoryStore', () => {
         },
         {
           trackId: 't2',
+          pluginId: 'local',
           title: 'Track 2',
           artist: 'Artist',
           album: 'Album',
@@ -409,8 +393,6 @@ describe('useHistoryStore', () => {
     })
   })
 
-  // --- save / автосохранение ------------------------------------------
-
   describe('save', () => {
     it('сохраняет plain-объекты', async () => {
       const store = useHistoryStore()
@@ -447,8 +429,6 @@ describe('useHistoryStore', () => {
     })
   })
 
-  // --- несколько последовательных recordPlay -------------------------
-
   describe('последовательные recordPlay', () => {
     it('порядок entries соответствует порядку добавления', () => {
       const store = useHistoryStore()
@@ -465,7 +445,6 @@ describe('useHistoryStore', () => {
       store.recordPlay(makeTrack('t2'))
       store.recordPlay(makeTrack('t1'))
 
-      // t1 остаётся на первой позиции (мы не перемещаем в конец)
       expect(store.entries.map((e) => e.trackId)).toEqual(['t1', 't2'])
     })
   })

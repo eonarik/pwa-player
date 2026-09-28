@@ -10,27 +10,20 @@ import type { Track } from '@/types/track'
 export const usePlaylistsStore = defineStore('playlists', () => {
   // --- Состояние ------------------------------------------------------
 
-  /**
-   * Record, а не Map — чтобы Vue reactivity работала без сюрпризов
-   * и чтобы сериализовать в IDB было проще.
-   */
   const playlists = ref<Record<string, Playlist>>({})
 
   const isRestoring = ref(false)
 
   // --- Computed -------------------------------------------------------
 
-  /** Список плейлистов, отсортированный по дате обновления (свежие сверху) */
   const sortedPlaylists = computed<Playlist[]>(() => {
     return Object.values(playlists.value).sort((a, b) => b.updatedAt - a.updatedAt)
   })
 
-  /** Избранное как отдельный computed — часто нужно */
   const favorites = computed<Playlist | null>(() => {
     return playlists.value[FAVORITES_PLAYLIST_ID] ?? null
   })
 
-  /** Множество trackId, которые в избранном. Для быстрой проверки в UI */
   const favoriteTrackIds = computed<Set<string>>(() => {
     const fav = favorites.value
     if (!fav) return new Set()
@@ -66,7 +59,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     await playlistPersistenceService.save(plain)
   }
 
-  /** Автосохранение при любом изменении playlists */
   watch(
     playlists,
     () => {
@@ -77,7 +69,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
 
   // --- Внутренние хелперы ---------------------------------------------
 
-  /** Гарантирует существование «Избранного» */
   function ensureFavorites(): void {
     if (!playlists.value[FAVORITES_PLAYLIST_ID]) {
       const now = Date.now()
@@ -93,10 +84,10 @@ export const usePlaylistsStore = defineStore('playlists', () => {
 
   /** Снимок трека для плейлиста */
   function toSnapshot(track: Track): PlaylistTrackSnapshot {
-    // LibraryTrack имеет remotePath, Track — нет. Проверяем «мягко».
     const remotePath = (track as { remotePath?: string }).remotePath
     return {
       trackId: track.id,
+      pluginId: track.pluginId,
       title: track.title,
       artist: track.artist,
       album: track.album,
@@ -107,7 +98,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
 
   // --- Действия -------------------------------------------------------
 
-  /** Создать новый плейлист. Возвращает его id */
   function createPlaylist(name: string): string {
     const id = `playlist:${crypto.randomUUID()}`
     const now = Date.now()
@@ -121,7 +111,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     return id
   }
 
-  /** Переименовать плейлист. Избранное переименовать нельзя */
   function renamePlaylist(id: string, name: string): void {
     if (id === FAVORITES_PLAYLIST_ID) {
       console.warn('[playlists] cannot rename favorites')
@@ -133,7 +122,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     playlist.updatedAt = Date.now()
   }
 
-  /** Удалить плейлист. Избранное удалить нельзя */
   function deletePlaylist(id: string): void {
     if (id === FAVORITES_PLAYLIST_ID) {
       console.warn('[playlists] cannot delete favorites')
@@ -142,7 +130,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     delete playlists.value[id]
   }
 
-  /** Добавить трек в плейлист. Идемпотентно — дубликаты не создаются */
   function addTrackToPlaylist(playlistId: string, track: Track): boolean {
     const playlist = playlists.value[playlistId]
     if (!playlist) return false
@@ -155,7 +142,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     return true
   }
 
-  /** Удалить трек из плейлиста */
   function removeTrackFromPlaylist(playlistId: string, trackId: string): boolean {
     const playlist = playlists.value[playlistId]
     if (!playlist) return false
@@ -170,12 +156,10 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     return false
   }
 
-  /** Проверить, есть ли трек в избранном */
   function isFavorite(trackId: string): boolean {
     return favoriteTrackIds.value.has(trackId)
   }
 
-  /** Toggle избранного для трека */
   function toggleFavorite(track: Track): boolean {
     ensureFavorites()
     if (isFavorite(track.id)) {
@@ -187,12 +171,10 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     }
   }
 
-  /** Получить плейлист по id */
   function getPlaylist(id: string): Playlist | null {
     return playlists.value[id] ?? null
   }
 
-  /** Очистить всё (например, при сбросе) */
   function clear(): void {
     playlists.value = {}
     void playlistPersistenceService.clear()
@@ -200,16 +182,13 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   }
 
   return {
-    // state
     playlists,
     isRestoring,
 
-    // computed
     sortedPlaylists,
     favorites,
     favoriteTrackIds,
 
-    // actions
     restore,
     save,
     createPlaylist,

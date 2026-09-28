@@ -8,7 +8,6 @@ import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import type { Playlist } from '@/types/playlist'
 import type { Track } from '@/types/track'
 
-// vi.hoisted — потому что vi.mock хойстится наверх файла
 const { mockPersistence } = vi.hoisted(() => ({
   mockPersistence: {
     save: vi.fn<(playlists: Playlist[]) => Promise<void>>(() => Promise.resolve()),
@@ -26,6 +25,7 @@ vi.mock('@/services/persistence/PlaylistPersistenceService', () => ({
 function makeTrack(id: string, overrides: Partial<Track> = {}): Track {
   return {
     id,
+    pluginId: 'local',
     source: `https://example.com/${id}.mp3`,
     filename: `${id}.mp3`,
     title: `Track ${id}`,
@@ -35,7 +35,6 @@ function makeTrack(id: string, overrides: Partial<Track> = {}): Track {
   }
 }
 
-/** Вспомогательный вызов: дать watch с deep: true отработать */
 async function flushWatch() {
   await nextTick()
   await nextTick()
@@ -49,8 +48,6 @@ describe('usePlaylistsStore', () => {
     mockPersistence.save.mockResolvedValue(undefined)
     mockPersistence.clear.mockResolvedValue(undefined)
   })
-
-  // --- Пустое состояние -----------------------------------------------
 
   describe('пустое состояние', () => {
     it('playlists = {}', () => {
@@ -73,8 +70,6 @@ describe('usePlaylistsStore', () => {
       expect(store.favoriteTrackIds.size).toBe(0)
     })
   })
-
-  // --- createPlaylist -------------------------------------------------
 
   describe('createPlaylist', () => {
     it('создаёт плейлист и возвращает id', () => {
@@ -110,8 +105,6 @@ describe('usePlaylistsStore', () => {
       expect(id1).not.toBe(id2)
     })
   })
-
-  // --- renamePlaylist -------------------------------------------------
 
   describe('renamePlaylist', () => {
     it('переименовывает пользовательский плейлист', () => {
@@ -150,8 +143,6 @@ describe('usePlaylistsStore', () => {
     })
   })
 
-  // --- deletePlaylist -------------------------------------------------
-
   describe('deletePlaylist', () => {
     it('удаляет пользовательский плейлист', () => {
       const store = usePlaylistsStore()
@@ -172,8 +163,6 @@ describe('usePlaylistsStore', () => {
       expect(() => store.deletePlaylist('playlist:missing')).not.toThrow()
     })
   })
-
-  // --- addTrackToPlaylist ---------------------------------------------
 
   describe('addTrackToPlaylist', () => {
     it('добавляет трек и возвращает true', () => {
@@ -226,6 +215,16 @@ describe('usePlaylistsStore', () => {
       expect(store.playlists[id]!.tracks[0]!.remotePath).toBe('disk:/Music/a.mp3')
     })
 
+    it('сохраняет pluginId из трека', () => {
+      const store = usePlaylistsStore()
+      const id = store.createPlaylist('X')
+      const track = makeTrack('t1', { pluginId: 'yandex' })
+
+      store.addTrackToPlaylist(id, track)
+
+      expect(store.playlists[id]!.tracks[0]!.pluginId).toBe('yandex')
+    })
+
     it('snapshot без remotePath, если трек локальный', () => {
       const store = usePlaylistsStore()
       const id = store.createPlaylist('X')
@@ -246,8 +245,6 @@ describe('usePlaylistsStore', () => {
       expect(addedAt).toBeLessThanOrEqual(after)
     })
   })
-
-  // --- removeTrackFromPlaylist ----------------------------------------
 
   describe('removeTrackFromPlaylist', () => {
     it('удаляет трек и возвращает true', () => {
@@ -282,8 +279,6 @@ describe('usePlaylistsStore', () => {
       expect(store.playlists[id]!.updatedAt).toBe(before)
     })
   })
-
-  // --- toggleFavorite / isFavorite ------------------------------------
 
   describe('toggleFavorite', () => {
     it('создаёт «Избранное» при первом добавлении', () => {
@@ -322,8 +317,6 @@ describe('usePlaylistsStore', () => {
     })
   })
 
-  // --- getPlaylist ----------------------------------------------------
-
   describe('getPlaylist', () => {
     it('возвращает плейлист по id', () => {
       const store = usePlaylistsStore()
@@ -337,8 +330,6 @@ describe('usePlaylistsStore', () => {
       expect(store.getPlaylist('playlist:missing')).toBe(null)
     })
   })
-
-  // --- sortedPlaylists ------------------------------------------------
 
   describe('sortedPlaylists', () => {
     it('сортирует по updatedAt desc (свежие первыми)', async () => {
@@ -358,7 +349,6 @@ describe('usePlaylistsStore', () => {
       await new Promise((r) => setTimeout(r, 5))
       store.createPlaylist('B')
 
-      // id1 — самый старый, в конце
       expect(store.sortedPlaylists[store.sortedPlaylists.length - 1]!.id).toBe(id1)
 
       await new Promise((r) => setTimeout(r, 5))
@@ -367,8 +357,6 @@ describe('usePlaylistsStore', () => {
       expect(store.sortedPlaylists[0]!.id).toBe(id1)
     })
   })
-
-  // --- restore --------------------------------------------------------
 
   describe('restore', () => {
     it('создаёт «Избранное», если IDB пуст', async () => {
@@ -397,7 +385,6 @@ describe('usePlaylistsStore', () => {
 
       expect(store.playlists['playlist:a']).toBeDefined()
       expect(store.playlists['playlist:a']!.name).toBe('A')
-      // «Избранное» всё равно создаётся
       expect(store.playlists[FAVORITES_PLAYLIST_ID]).toBeDefined()
     })
 
@@ -424,8 +411,6 @@ describe('usePlaylistsStore', () => {
       expect(store.isRestoring).toBe(false)
     })
   })
-
-  // --- save / автосохранение ------------------------------------------
 
   describe('save', () => {
     it('сохраняет plain-объекты (не reactive proxy)', async () => {
@@ -464,8 +449,6 @@ describe('usePlaylistsStore', () => {
     })
   })
 
-  // --- clear ----------------------------------------------------------
-
   describe('clear', () => {
     it('обнуляет playlists и вызывает persistence.clear', () => {
       const store = usePlaylistsStore()
@@ -474,9 +457,7 @@ describe('usePlaylistsStore', () => {
       store.clear()
 
       expect(mockPersistence.clear).toHaveBeenCalled()
-      // «Избранное» создаётся заново
       expect(store.playlists[FAVORITES_PLAYLIST_ID]).toBeDefined()
-      // Пользовательский плейлист удалён
       const ids = Object.keys(store.playlists)
       expect(ids.length).toBe(1)
       expect(ids[0]).toBe(FAVORITES_PLAYLIST_ID)

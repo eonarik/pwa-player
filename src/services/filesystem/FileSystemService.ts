@@ -192,6 +192,7 @@ export class FileSystemService {
 
           return {
             id: trackId,
+            pluginId: 'local',
             folderId: id,
             filename: file.name,
             path: trackPath,

@@ -21,6 +21,10 @@ export interface PersistedYandexFolder {
  */
 export interface PersistedYandexTrack {
   id: string
+
+  /** id плагина-источника: всегда 'yandex' */
+  pluginId: string
+
   folderId: string
   filename: string
   path: string

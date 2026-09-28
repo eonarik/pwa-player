@@ -12,6 +12,7 @@ import type { Track } from '@/types/track'
 export async function restoreTrack(persisted: PersistedTrack): Promise<Track | null> {
   const base: Omit<Track, 'source'> = {
     id: persisted.id,
+    pluginId: persisted.pluginId,
     title: persisted.title,
     artist: persisted.artist,
     album: persisted.album,
@@ -23,7 +24,7 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     filename: persisted.filename,
     path: persisted.path,
     handle: persisted.handle,
-    directoryHandle: persisted.directoryHandle, // ← добавить
+    directoryHandle: persisted.directoryHandle,
   }
 
   if (!persisted.handle) {

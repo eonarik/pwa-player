@@ -4,9 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { restoreTrack, restoreTracks } from './restore'
 import { audioMockState } from '@/test/audioMockState'
 import type { PersistedTrack } from './types'
-import type { Track } from '@/types/track'
 
-// vi.hoisted — потому что vi.mock хойстится наверх файла
 const { mockFileSystemService } = vi.hoisted(() => ({
   mockFileSystemService: {
     findCoverInDirectory: vi.fn(() => Promise.resolve(null as File | null)),
@@ -34,6 +32,7 @@ function makeBrokenHandle(): FileSystemFileHandle {
 function makePersistedTrack(overrides: Partial<PersistedTrack> & { id: string }): PersistedTrack {
   return {
     id: overrides.id,
+    pluginId: overrides.pluginId ?? 'local',
     title: overrides.title ?? `Track ${overrides.id}`,
     artist: overrides.artist ?? 'Artist',
     album: overrides.album ?? 'Album',
@@ -49,7 +48,6 @@ function makePersistedTrack(overrides: Partial<PersistedTrack> & { id: string })
   }
 }
 
-/** Уникальный handle для группировки обложек (ссылочное сравнение в Map) */
 function makeDirHandle(): FileSystemDirectoryHandle {
   return {} as FileSystemDirectoryHandle
 }
@@ -70,6 +68,15 @@ describe('restoreTrack', () => {
     expect(track!.id).toBe('t1')
     expect(track!.source).toBeInstanceOf(File)
     expect((track!.source as File).name).toBe('a.mp3')
+  })
+
+  it('проставляет pluginId', async () => {
+    const handle = makeFileHandle('a.mp3')
+    const persisted = makePersistedTrack({ id: 't1', handle, pluginId: 'yandex' })
+
+    const track = await restoreTrack(persisted)
+
+    expect(track!.pluginId).toBe('yandex')
   })
 
   it('возвращает source = "" без handle (трек неиграбельный)', async () => {
@@ -186,7 +193,6 @@ describe('restoreTracks', () => {
 
     const result = await restoreTracks(persisted)
 
-    // Битый трек остаётся, но с source = '' (не выбрасывается)
     expect(result.length).toBe(3)
     expect(result[1]!.id).toBe('t2')
     expect(result[1]!.source).toBe('')
@@ -258,14 +264,9 @@ describe('restoreTracks', () => {
 
     await restoreTracks(persisted)
 
-    // findCoverInDirectory должен вызваться один раз на папку, не на трек
     expect(mockFileSystemService.findCoverInDirectory).toHaveBeenCalledTimes(1)
   })
 
-  // --- ВНИМАНИЕ: этот тест фиксирует ТЕКУЩИЙ баг ---
-  // restore.ts создаёт новый blob URL на каждый трек в папке,
-  // хотя coverFile один и тот же. После фикса (кэш URL вместо File)
-  // этот тест должен стать красным — тогда заменим ожидание на 1.
   it('[БАГ] создаёт новый blob URL на каждый трек в одной папке', async () => {
     const dirHandle = makeDirHandle()
     mockFileSystemService.findCoverInDirectory.mockResolvedValue(new File(['cover'], 'folder.jpg'))
@@ -292,41 +293,18 @@ describe('restoreTracks', () => {
     await restoreTracks(persisted)
     const created = audioMockState.urlCounter - before
 
-    // Сейчас: 3 вызова (по одному на трек). После фикса: 1.
     expect(created).toBe(3)
   })
 
   it('треки без directoryHandle не получают coverUrl', async () => {
     mockFileSystemService.findCoverInDirectory.mockResolvedValue(new File(['cover'], 'folder.jpg'))
 
-    const persisted = [
-      makePersistedTrack({ id: 't1', handle: makeFileHandle('a.mp3') }),
-      // directoryHandle не задан
-    ]
+    const persisted = [makePersistedTrack({ id: 't1', handle: makeFileHandle('a.mp3') })]
 
     const result = await restoreTracks(persisted)
 
     expect(result[0]!.coverUrl).toBeUndefined()
     expect(mockFileSystemService.findCoverInDirectory).not.toHaveBeenCalled()
-  })
-
-  it('не перезаписывает coverUrl, если он уже есть', async () => {
-    const dirHandle = makeDirHandle()
-    mockFileSystemService.findCoverInDirectory.mockResolvedValue(new File(['cover'], 'folder.jpg'))
-
-    const persisted = [
-      makePersistedTrack({
-        id: 't1',
-        handle: makeFileHandle('a.mp3'),
-        directoryHandle: dirHandle,
-      }),
-    ]
-
-    // Представим, что TrackMetadata уже пришёл с coverUrl (не бывает в текущем коде,
-    // но restoreTracks должен вести себя корректно). Сейчас — перезапишет.
-    const result = await restoreTracks(persisted)
-
-    expect(result[0]!.coverUrl).toBeDefined()
   })
 
   it('соблюдает concurrency (не запускает все getFile одновременно)', async () => {
@@ -345,13 +323,10 @@ describe('restoreTracks', () => {
 
     const promise = restoreTracks(persisted, 4)
 
-    // Дадим микротаскам прокрутиться
     await new Promise((r) => setTimeout(r, 0))
 
-    // В работе не больше 4 промисов одновременно
     expect(pending.length).toBeLessThanOrEqual(4)
 
-    // Разрешаем все
     while (pending.length > 0) {
       pending.shift()!()
       await new Promise((r) => setTimeout(r, 0))

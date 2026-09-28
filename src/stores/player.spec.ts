@@ -4,11 +4,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePlayerStore } from './player'
+import type { PersistedState, PersistedTrack } from '@/services/persistence/types'
+import type { Track } from '@/types/track'
 
-// vi.hoisted выполняется до всех импортов и vi.mock — сюда кладём моки
 const { mockAudioService, mockPersistenceService, mockRestoreTracks, mockMetadataService } =
   vi.hoisted(() => {
-    // Хранилище подписок: event → Set<handler>
     const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
 
     const mockAudioService = {
@@ -26,15 +26,12 @@ const { mockAudioService, mockPersistenceService, mockRestoreTracks, mockMetadat
           listeners.get(event)?.delete(handler)
         }
       }),
-      /** Тестовый хелпер: эмулировать событие */
       __emit(event: string, payload?: unknown) {
         listeners.get(event)?.forEach((h) => h(payload))
       },
-      /** Тестовый хелпер: очистить все подписки */
       __resetListeners() {
         listeners.clear()
       },
-      // Поля-состояния
       currentTime: 0,
       duration: 0,
       paused: true,
@@ -47,11 +44,13 @@ const { mockAudioService, mockPersistenceService, mockRestoreTracks, mockMetadat
       mockPersistenceService: {
         scheduleSave: vi.fn(),
         saveNow: vi.fn(() => Promise.resolve()),
-        load: vi.fn<() => Promise<unknown>>(() => Promise.resolve(null)),
+        load: vi.fn<() => Promise<PersistedState | null>>(() => Promise.resolve(null)),
         clear: vi.fn(() => Promise.resolve()),
-        toPersisted: vi.fn((t: unknown) => t),
+        toPersisted: vi.fn((t: Track) => t as unknown as PersistedTrack),
       },
-      mockRestoreTracks: vi.fn<() => Promise<unknown>>(() => Promise.resolve([])),
+      mockRestoreTracks: vi.fn<(persisted: PersistedTrack[]) => Promise<Track[]>>(() =>
+        Promise.resolve([]),
+      ),
       mockMetadataService: {
         revokeCover: vi.fn(),
       },
@@ -84,6 +83,7 @@ vi.mock('@/services/persistence/restore', () => ({
 
 interface TestTrack {
   id: string
+  pluginId: string
   source: string
   filename: string
   title: string
@@ -94,6 +94,7 @@ interface TestTrack {
 function makeTrack(id: string, title = `Track ${id}`): TestTrack {
   return {
     id,
+    pluginId: 'local',
     source: `https://example.com/${id}.mp3`,
     filename: `${id}.mp3`,
     title,
@@ -106,7 +107,6 @@ describe('usePlayerStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
 
-    // Сбрасываем все моки и состояние
     vi.clearAllMocks()
     mockAudioService.__resetListeners()
     mockAudioService.currentTime = 0
@@ -118,8 +118,6 @@ describe('usePlayerStore', () => {
     mockPersistenceService.load.mockResolvedValue(null)
     mockRestoreTracks.mockResolvedValue([])
   })
-
-  // --- setQueue -------------------------------------------------------
 
   describe('setQueue', () => {
     it('устанавливает очередь и играет первый трек', () => {
@@ -175,8 +173,6 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- next -----------------------------------------------------------
-
   describe('next', () => {
     it('переключает на следующий трек', () => {
       const store = usePlayerStore()
@@ -205,7 +201,7 @@ describe('usePlayerStore', () => {
     it('возвращается в начало при repeat all', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
-      store.cycleRepeat() // off → all
+      store.cycleRepeat()
       store.next()
       vi.clearAllMocks()
 
@@ -226,8 +222,6 @@ describe('usePlayerStore', () => {
       store.setQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')] as never)
       store.toggleShuffle()
 
-      // Math.random() = 0 → idx = 0. Текущий = 0. Значит цикл повторится.
-      // Math.random() = 0.5 → idx = 1. Это не текущий — выходим.
       const randomSpy = vi.spyOn(Math, 'random')
       randomSpy.mockReturnValueOnce(0).mockReturnValueOnce(0.5)
 
@@ -237,8 +231,6 @@ describe('usePlayerStore', () => {
       randomSpy.mockRestore()
     })
   })
-
-  // --- prev -----------------------------------------------------------
 
   describe('prev', () => {
     it('перематывает в начало, если прошло больше 3 секунд', () => {
@@ -284,7 +276,7 @@ describe('usePlayerStore', () => {
     it('на первом треке с repeat all переходит на последний', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')] as never)
-      store.cycleRepeat() // off → all
+      store.cycleRepeat()
       mockAudioService.currentTime = 1
       vi.clearAllMocks()
 
@@ -301,13 +293,11 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- removeFromQueue ------------------------------------------------
-
   describe('removeFromQueue', () => {
     it('удаляет текущий трек (не последний) и играет следующий', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')] as never)
-      store.next() // currentIndex = 1 (b)
+      store.next()
       vi.clearAllMocks()
 
       store.removeFromQueue(1)
@@ -322,7 +312,7 @@ describe('usePlayerStore', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')] as never)
       store.next()
-      store.next() // currentIndex = 2 (c)
+      store.next()
       vi.clearAllMocks()
 
       store.removeFromQueue(2)
@@ -336,7 +326,7 @@ describe('usePlayerStore', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')] as never)
       store.next()
-      store.next() // currentIndex = 2 (c)
+      store.next()
       vi.clearAllMocks()
 
       store.removeFromQueue(0)
@@ -344,7 +334,6 @@ describe('usePlayerStore', () => {
       expect(store.queue.map((t) => t.id)).toEqual(['b', 'c'])
       expect(store.currentIndex).toBe(1)
       expect(store.currentTrack?.id).toBe('c')
-      // Воспроизведение не перезапускается
       expect(mockAudioService.load).not.toHaveBeenCalled()
       expect(mockAudioService.play).not.toHaveBeenCalled()
     })
@@ -352,7 +341,7 @@ describe('usePlayerStore', () => {
     it('удаляет трек после текущего и не меняет currentIndex', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')] as never)
-      store.next() // currentIndex = 1 (b)
+      store.next()
       vi.clearAllMocks()
 
       store.removeFromQueue(2)
@@ -389,8 +378,6 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- clearQueue -----------------------------------------------------
-
   describe('clearQueue', () => {
     it('полностью очищает очередь и вызывает audioService.unload', () => {
       const store = usePlayerStore()
@@ -405,8 +392,6 @@ describe('usePlayerStore', () => {
       expect(mockAudioService.unload).toHaveBeenCalled()
     })
   })
-
-  // --- stop -----------------------------------------------------------
 
   describe('stop', () => {
     it('сбрасывает всё состояние и вызывает audioService.unload/pause/seek', () => {
@@ -428,8 +413,6 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- hasNext / hasPrev ---------------------------------------------
-
   describe('hasNext / hasPrev', () => {
     it('hasNext: true, если есть следующий трек', () => {
       const store = usePlayerStore()
@@ -448,7 +431,7 @@ describe('usePlayerStore', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
       store.next()
-      store.cycleRepeat() // → all
+      store.cycleRepeat()
       expect(store.hasNext).toBe(true)
     })
 
@@ -483,12 +466,10 @@ describe('usePlayerStore', () => {
     it('hasPrev: true на первом с repeat all', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
-      store.cycleRepeat() // → all
+      store.cycleRepeat()
       expect(store.hasPrev).toBe(true)
     })
   })
-
-  // --- cycleRepeat / toggleShuffle ------------------------------------
 
   describe('cycleRepeat', () => {
     it('циклится off → all → one → off', () => {
@@ -514,8 +495,6 @@ describe('usePlayerStore', () => {
       expect(store.shuffle).toBe(false)
     })
   })
-
-  // --- volume / seek --------------------------------------------------
 
   describe('setVolume', () => {
     it('вызывает audioService.setVolume', () => {
@@ -565,14 +544,12 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- handleTrackEnd через событие ended -----------------------------
-
   describe('handleTrackEnd (через audioService.on("ended"))', () => {
     it('при repeat one перезапускает текущий трек', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
       store.cycleRepeat()
-      store.cycleRepeat() // → one
+      store.cycleRepeat()
       vi.clearAllMocks()
 
       mockAudioService.__emit('ended')
@@ -585,7 +562,7 @@ describe('usePlayerStore', () => {
     it('при repeat off на последнем треке останавливает воспроизведение', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
-      store.next() // currentIndex = 1
+      store.next()
       vi.clearAllMocks()
 
       mockAudioService.__emit('ended')
@@ -608,8 +585,8 @@ describe('usePlayerStore', () => {
     it('при repeat all на последнем треке возвращается к первому', () => {
       const store = usePlayerStore()
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
-      store.next() // currentIndex = 1
-      store.cycleRepeat() // → all
+      store.next()
+      store.cycleRepeat()
       vi.clearAllMocks()
 
       mockAudioService.__emit('ended')
@@ -618,8 +595,6 @@ describe('usePlayerStore', () => {
       expect(store.currentTrack?.id).toBe('a')
     })
   })
-
-  // --- play при пустом currentTrack -----------------------------------
 
   describe('play', () => {
     it('запускает первый трек, если currentTrack = null, а очередь не пуста', () => {
@@ -644,8 +619,6 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- progress -------------------------------------------------------
-
   describe('progress', () => {
     it('0, если duration = 0', () => {
       const store = usePlayerStore()
@@ -659,8 +632,6 @@ describe('usePlayerStore', () => {
       expect(store.progress).toBe(0.25)
     })
   })
-
-  // --- restore --------------------------------------------------------
 
   describe('restore', () => {
     it('возвращает false при пустом state', async () => {
@@ -692,13 +663,13 @@ describe('usePlayerStore', () => {
 
     it('восстанавливает состояние и загружает трек', async () => {
       const store = usePlayerStore()
-      const persistedTrack = {
+      const persistedTrack: PersistedTrack = {
         id: 'a',
+        pluginId: 'local',
         title: 'Track A',
         artist: 'Artist',
         album: 'Album',
         filename: 'a.mp3',
-        source: 'file://a.mp3',
       }
       mockPersistenceService.load.mockResolvedValue({
         tracks: [persistedTrack],
@@ -710,7 +681,9 @@ describe('usePlayerStore', () => {
         shuffle: true,
         savedAt: Date.now(),
       })
-      mockRestoreTracks.mockResolvedValue([{ ...persistedTrack, source: 'file://a.mp3' }])
+      mockRestoreTracks.mockResolvedValue([
+        { ...persistedTrack, source: 'file://a.mp3' } as unknown as Track,
+      ])
 
       const result = await store.restore()
 
@@ -728,13 +701,13 @@ describe('usePlayerStore', () => {
 
     it('seek применяется после loadedmetadata', async () => {
       const store = usePlayerStore()
-      const persistedTrack = {
+      const persistedTrack: PersistedTrack = {
         id: 'a',
+        pluginId: 'local',
         title: 'Track A',
         artist: 'Artist',
         album: 'Album',
         filename: 'a.mp3',
-        source: 'file://a.mp3',
       }
       mockPersistenceService.load.mockResolvedValue({
         tracks: [persistedTrack],
@@ -746,7 +719,9 @@ describe('usePlayerStore', () => {
         shuffle: false,
         savedAt: Date.now(),
       })
-      mockRestoreTracks.mockResolvedValue([{ ...persistedTrack, source: 'file://a.mp3' }])
+      mockRestoreTracks.mockResolvedValue([
+        { ...persistedTrack, source: 'file://a.mp3' } as unknown as Track,
+      ])
 
       await store.restore()
       vi.clearAllMocks()
@@ -757,14 +732,11 @@ describe('usePlayerStore', () => {
     })
   })
 
-  // --- $dispose -------------------------------------------------------
-
   describe('$dispose', () => {
     it('снимает все подписки на audioService', () => {
       const store = usePlayerStore()
       store.$dispose()
 
-      // После dispose событие ended не должно вызывать handleTrackEnd
       store.setQueue([makeTrack('a'), makeTrack('b')] as never)
       vi.clearAllMocks()
       store.next()
@@ -772,7 +744,6 @@ describe('usePlayerStore', () => {
 
       mockAudioService.__emit('ended')
 
-      // currentIndex не изменился от ended, потому что подписка снята
       expect(store.currentIndex).toBe(indexAfterNext)
     })
   })

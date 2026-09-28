@@ -1,6 +1,11 @@
 // src/services/persistence/types.ts
+
 export interface PersistedTrack {
   id: string
+
+  /** id плагина-источника: 'local', 'yandex', ... */
+  pluginId: string
+
   title: string
   artist: string
   album: string
@@ -13,8 +18,9 @@ export interface PersistedTrack {
   path?: string
   /** FileSystemFileHandle — сериализуется браузером */
   handle?: FileSystemFileHandle
-  // coverUrl НЕ сохраняем — blob URL невалиден между сессиями
+  /** Хэндл директории — для восстановления обложек */
   directoryHandle?: FileSystemDirectoryHandle
+  // coverUrl НЕ сохраняем — blob URL невалиден между сессиями
 }
 
 export interface PersistedState {

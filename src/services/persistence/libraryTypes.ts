@@ -23,6 +23,10 @@ export interface PersistedFolder {
  */
 export interface PersistedTrack {
   id: string
+
+  /** id плагина-источника: 'local', 'yandex', ... */
+  pluginId: string
+
   folderId: string
   title: string
   artist: string

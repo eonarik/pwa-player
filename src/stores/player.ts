@@ -231,9 +231,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime.value = 0
 
     audioService.load(track.source)
-    audioService.play().catch(() => {
-      // play() уже эмитит error, здесь просто глушим необработанный промис
-    })
+    audioService.play().catch(() => {})
   }
 
   function play() {
@@ -435,6 +433,7 @@ export const usePlayerStore = defineStore('player', () => {
 
     return entries.map((entry, i) => ({
       id: crypto.randomUUID(),
+      pluginId: 'local',
       source: entry.file,
       filename: entry.file.name,
       path: entry.path,

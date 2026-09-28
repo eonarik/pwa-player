@@ -17,6 +17,8 @@ if (typeof window.process === 'undefined') {
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
+import '@/plugins/registry'
+
 import App from './App.vue'
 import router from './router'
 import { schemaService } from '@/services/persistence/SchemaService'
