@@ -83,6 +83,7 @@ export class PersistenceService {
     const raw = toRaw(track)
     return {
       id: raw.id,
+      pluginId: raw.pluginId,
       title: raw.title,
       artist: raw.artist,
       album: raw.album,

@@ -1,5 +1,4 @@
-// oxlint-disable unicorn/no-new-array
-// src/services/yandex/concurrency.ts
+// src/plugins/yandexDisk/concurrency.ts
 
 /**
  * Прогоняет fn по всем items, но не более concurrency одновременно.

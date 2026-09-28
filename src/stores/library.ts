@@ -1,30 +1,14 @@
 // src/stores/library.ts
 
 import { defineStore } from 'pinia'
-import { computed, ref, toRaw } from 'vue'
-import { fileSystemService } from '@/services/filesystem/FileSystemService'
-import { libraryPersistenceService } from '@/services/persistence/LibraryPersistenceService'
-import { yandexLibraryPersistenceService } from '@/services/persistence/YandexLibraryPersistenceService'
+import { computed, ref } from 'vue'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
-import { yandexDiskService } from '@/services/yandex/YandexDiskService'
-import { mapWithConcurrency } from '@/services/yandex/concurrency'
-import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
-import type {
-  PersistedLibrary,
-  PersistedFolder,
-  PersistedTrack,
-} from '@/services/persistence/libraryTypes'
-import type {
-  PersistedYandexFolder,
-  PersistedYandexTrack,
-  PersistedYandexLibrary,
-} from '@/services/persistence/yandexTypes'
-import type { Folder, LibraryTrack } from '@/types/library'
-import { saveLastSource } from '@/services/persistence/lastSource'
+import { coverService } from '@/services/covers/CoverService'
+import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
 import { sortBy, trackSortKey } from '@/utils/sort'
+import type { LibraryWriter } from '@/plugins/types'
+import { librarySaveService } from '@/services/library/LibrarySaveService'
 
-/** Сколько папок на Диске обходим параллельно */
-const YANDEX_CONCURRENCY = 5
 /** Сколько обложек ищем параллельно */
 const COVER_CONCURRENCY = 3
 
@@ -33,27 +17,19 @@ export const useLibraryStore = defineStore('library', () => {
 
   const folders = ref<Record<string, Folder>>({})
   const tracks = ref<Record<string, LibraryTrack>>({})
-  const rootFolderId = ref<string | null>(null)
-  const rootFolderName = ref<string | null>(null)
 
+  /** Что открыто сейчас. null = главная (список плагинов) */
   const currentFolderId = ref<string | null>(null)
 
-  const source = ref<'local' | 'yandex' | null>(null)
-
-  const isLoading = ref(false)
-  const loadProgress = ref({ folders: 0, tracks: 0 })
+  /** Версия обложек — триггер для пересчёта coverStats */
+  const coversVersion = ref(0)
 
   const isLoadingCovers = ref(false)
   const coverProgress = ref({ done: 0, total: 0 })
 
-  const coversVersion = ref(0)
-
-  const isRestoring = ref(false)
-  const needsPermission = ref(false)
-
   // --- Computed -------------------------------------------------------
 
-  const hasLibrary = computed(() => rootFolderId.value !== null)
+  const hasLibrary = computed(() => Object.keys(folders.value).length > 0)
 
   const currentFolder = computed<Folder | null>(() => {
     if (!currentFolderId.value) return null
@@ -123,548 +99,16 @@ export const useLibraryStore = defineStore('library', () => {
     coversVersion.value++
   }
 
-  // --- Сериализация локальной библиотеки ------------------------------
+  // --- Общие операции -------------------------------------------------
 
-  function toPersistedLibrary(): PersistedLibrary | null {
-    if (source.value !== 'local') return null
-
-    const persistedFolders: PersistedFolder[] = []
-    for (const folder of Object.values(folders.value)) {
-      if (!folder.handle) continue
-      const raw = toRaw(folder)
-      persistedFolders.push({
-        id: raw.id,
-        name: raw.name,
-        parentId: raw.parentId,
-        path: raw.path,
-        handle: toRaw(raw.handle!),
-        childFolderIds: [...raw.childFolderIds],
-        trackIds: [...raw.trackIds],
-        totalTrackCount: raw.totalTrackCount,
-      })
-    }
-
-    const persistedTracks: PersistedTrack[] = []
-    for (const track of Object.values(tracks.value)) {
-      if (!track.handle) continue
-      const raw = toRaw(track)
-      persistedTracks.push({
-        id: raw.id,
-        folderId: raw.folderId,
-        title: raw.title,
-        artist: raw.artist,
-        album: raw.album,
-        year: raw.year,
-        trackNumber: raw.trackNumber,
-        genre: raw.genre,
-        duration: raw.duration,
-        codec: raw.codec,
-        filename: raw.filename,
-        path: raw.path!,
-        handle: toRaw(raw.handle!),
-      })
-    }
-
-    return {
-      folders: persistedFolders,
-      tracks: persistedTracks,
-      rootFolderId: rootFolderId.value ?? '',
-      rootFolderName: rootFolderName.value ?? '',
-      savedAt: Date.now(),
-    }
-  }
-
-  async function save(): Promise<void> {
-    if (!hasLibrary.value) return
-    const persisted = toPersistedLibrary()
-    if (!persisted) return
-    await libraryPersistenceService.save(persisted)
-  }
-
-  // --- Восстановление локальной библиотеки ----------------------------
-
-  async function restore(): Promise<boolean> {
-    isRestoring.value = true
-    try {
-      const persisted = await libraryPersistenceService.load()
-      if (!persisted || persisted.folders.length === 0) return false
-
-      const newFolders: Record<string, Folder> = {}
-      for (const f of persisted.folders) {
-        newFolders[f.id] = {
-          id: f.id,
-          name: f.name,
-          parentId: f.parentId,
-          path: f.path,
-          handle: f.handle,
-          childFolderIds: [...f.childFolderIds],
-          trackIds: [...f.trackIds],
-          totalTrackCount: f.totalTrackCount,
-          source: 'local',
-        }
-      }
-
-      const newTracks: Record<string, LibraryTrack> = {}
-      const failedTrackIds: string[] = []
-
-      await Promise.all(
-        persisted.tracks.map(async (t) => {
-          try {
-            const file = await t.handle.getFile()
-            const folder = newFolders[t.folderId]
-            const cachedCover = coverPersistenceService.get(t.id)
-
-            newTracks[t.id] = {
-              id: t.id,
-              folderId: t.folderId,
-              title: t.title,
-              artist: t.artist,
-              album: t.album,
-              year: t.year,
-              trackNumber: t.trackNumber,
-              genre: t.genre,
-              duration: t.duration,
-              codec: t.codec,
-              filename: t.filename,
-              path: t.path,
-              handle: t.handle,
-              directoryHandle: folder?.handle,
-              source: file,
-              coverUrl: cachedCover ?? undefined,
-            }
-          } catch (err) {
-            console.warn(`[library] can't restore file for "${t.title}"`, err)
-            failedTrackIds.push(t.id)
-          }
-        }),
-      )
-
-      if (persisted.tracks.length > 0 && Object.keys(newTracks).length === 0) {
-        console.warn('[library] all tracks failed to restore — likely permission lost')
-        needsPermission.value = true
-        return false
-      }
-
-      if (failedTrackIds.length > 0) {
-        const failedSet = new Set(failedTrackIds)
-        for (const folder of Object.values(newFolders)) {
-          folder.trackIds = folder.trackIds.filter((id) => !failedSet.has(id))
-        }
-      }
-
-      await restoreCovers(newFolders, newTracks)
-
-      folders.value = newFolders
-      tracks.value = newTracks
-      rootFolderId.value = persisted.rootFolderId
-      rootFolderName.value = persisted.rootFolderName
-      source.value = 'local'
-      needsPermission.value = false
-
-      bumpCoversVersion()
-      return true
-    } finally {
-      isRestoring.value = false
-    }
-  }
-
-  async function restoreCovers(
-    newFolders: Record<string, Folder>,
-    newTracks: Record<string, LibraryTrack>,
-  ): Promise<void> {
-    const foldersWithTracks = Object.values(newFolders).filter(
-      (f) => f.trackIds.length > 0 && f.handle,
-    )
-    if (foldersWithTracks.length === 0) return
-
-    const COVER_FOLDER_CONCURRENCY = 6
-    let cursor = 0
-
-    const worker = async (): Promise<void> => {
-      while (cursor < foldersWithTracks.length) {
-        const folder = foldersWithTracks[cursor++]!
-        if (!folder.handle) continue
-        try {
-          const coverFile = await fileSystemService.findCoverInDirectory(folder.handle)
-          if (!coverFile) continue
-
-          const coverUrl = URL.createObjectURL(coverFile)
-          for (const trackId of folder.trackIds) {
-            const track = newTracks[trackId]
-            if (track && !track.coverUrl) track.coverUrl = coverUrl
-          }
-        } catch (err) {
-          console.warn(`[library] can't restore cover for folder "${folder.name}"`, err)
-        }
-      }
-    }
-
-    await Promise.all(
-      Array.from({ length: Math.min(COVER_FOLDER_CONCURRENCY, foldersWithTracks.length) }, () =>
-        worker(),
-      ),
-    )
-  }
-
-  async function retryRestoreAfterPermission(): Promise<boolean> {
-    const persisted = await libraryPersistenceService.load()
-    if (!persisted) return false
-
-    const rootFolder = persisted.folders.find((f) => f.id === persisted.rootFolderId)
-    if (!rootFolder) return false
-
-    const granted = await fileSystemService.verifyPermission(rootFolder.handle, 'read')
-    if (!granted) return false
-
-    return restore()
-  }
-
-  // --- Локальная загрузка ---------------------------------------------
-
-  async function loadFromHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-    isLoading.value = true
-    loadProgress.value = { folders: 0, tracks: 0 }
-
-    try {
-      const collected = await fileSystemService.collectLibrary(handle, (f, t) => {
-        loadProgress.value = { folders: f, tracks: t }
-      })
-
-      const newFolders: Record<string, Folder> = {}
-      for (const folder of collected.folders) {
-        newFolders[folder.id] = { ...folder, source: 'local' }
-      }
-
-      const newTracks: Record<string, LibraryTrack> = {}
-      for (const track of collected.tracks) {
-        const cachedCover = coverPersistenceService.get(track.id)
-        newTracks[track.id] = {
-          ...track,
-          coverUrl: track.coverUrl ?? cachedCover ?? undefined,
-        }
-      }
-
-      folders.value = newFolders
-      tracks.value = newTracks
-      rootFolderId.value = collected.rootFolderId
-      rootFolderName.value = collected.rootFolderName
-      currentFolderId.value = collected.rootFolderId
-      source.value = 'local'
-      needsPermission.value = false
-
-      bumpCoversVersion()
-
-      await save()
-      await saveLastSource('local')
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  // --- Яндекс.Диск ----------------------------------------------------
-
-  async function loadFromYandexDisk(
-    rootPath: string,
-    options: { forceRefresh?: boolean } = {},
-  ): Promise<void> {
-    const { forceRefresh = false } = options
-
-    if (!forceRefresh) {
-      const cached = await yandexLibraryPersistenceService.load()
-      if (cached && yandexLibraryPersistenceService.isFresh(cached)) {
-        console.info('[library] using cached Yandex.Disk library')
-        restoreFromYandexCache(cached)
-        return
-      }
-    }
-
-    isLoading.value = true
-    loadProgress.value = { folders: 0, tracks: 0 }
-
-    try {
-      const newFolders: Record<string, Folder> = {}
-      const newTracks: Record<string, LibraryTrack> = {}
-
-      const normalizedPath = rootPath.startsWith('disk:') ? rootPath : `disk:${rootPath}`
-      const rootId = folderIdFromPath(`yandex:${normalizedPath}`)
-
-      const updateProgress = (): void => {
-        loadProgress.value = {
-          folders: Object.keys(newFolders).length,
-          tracks: Object.keys(newTracks).length,
-        }
-      }
-
-      const walk = async (
-        remotePath: string,
-        folderId: string,
-        parentId: string | null,
-        pathPrefix: string,
-      ): Promise<Folder> => {
-        const response = await yandexDiskService.listResources(remotePath)
-
-        const childFolderIds: string[] = []
-        const trackIds: string[] = []
-        const subDirs: typeof response.items = []
-
-        for (const item of response.items) {
-          if (item.type === 'dir') {
-            subDirs.push(item)
-          } else if (item.isAudio) {
-            const trackPath = pathPrefix ? `${pathPrefix}/${item.name}` : item.name
-            const trackId = trackIdFromPath(`yandex:${item.path}`)
-            const cachedCover = coverPersistenceService.get(trackId)
-
-            newTracks[trackId] = {
-              id: trackId,
-              folderId,
-              filename: item.name,
-              path: trackPath,
-              remotePath: item.path,
-              source: yandexDiskService.buildDownloadUrl(item.path),
-              title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
-              artist: 'Yandex Disk',
-              album: pathPrefix || 'Yandex Disk',
-              coverUrl: cachedCover ?? undefined,
-            }
-            trackIds.push(trackId)
-          }
-        }
-
-        updateProgress()
-
-        const childFolders = await mapWithConcurrency(subDirs, YANDEX_CONCURRENCY, async (item) => {
-          const childPath = pathPrefix ? `${pathPrefix}/${item.name}` : item.name
-          const childId = folderIdFromPath(`yandex:${item.path}`)
-          const child = await walk(item.path, childId, folderId, childPath)
-          newFolders[child.id] = child
-          return child
-        })
-
-        for (const child of childFolders) {
-          childFolderIds.push(child.id)
-        }
-
-        const childTotal = childFolders.reduce((sum, f) => sum + f.totalTrackCount, 0)
-
-        return {
-          id: folderId,
-          name:
-            remotePath === 'disk:/'
-              ? 'Yandex Disk'
-              : remotePath.split('/').filter(Boolean).pop() || 'Yandex Disk',
-          parentId,
-          path: pathPrefix,
-          remotePath,
-          childFolderIds,
-          trackIds,
-          totalTrackCount: trackIds.length + childTotal,
-          source: 'yandex',
-        }
-      }
-
-      const rootFolder = await walk(normalizedPath, rootId, null, '')
-      newFolders[rootFolder.id] = rootFolder
-
-      folders.value = newFolders
-      tracks.value = newTracks
-      rootFolderId.value = rootFolder.id
-      rootFolderName.value = 'Yandex Disk'
-      currentFolderId.value = rootFolder.id
-      source.value = 'yandex'
-      needsPermission.value = false
-
-      bumpCoversVersion()
-
-      await saveYandexCache(normalizedPath)
-      await saveLastSource('yandex')
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  async function saveYandexCache(rootPath: string): Promise<void> {
-    if (source.value !== 'yandex' || !rootFolderId.value) return
-
-    const persistedFolders: PersistedYandexFolder[] = Object.values(folders.value).map((f) => ({
-      id: f.id,
-      name: f.name,
-      parentId: f.parentId,
-      path: f.path,
-      remotePath: f.remotePath ?? '',
-      childFolderIds: [...f.childFolderIds],
-      trackIds: [...f.trackIds],
-      totalTrackCount: f.totalTrackCount,
-    }))
-
-    const persistedTracks: PersistedYandexTrack[] = []
-    for (const t of Object.values(tracks.value)) {
-      if (!t.remotePath) continue
-      persistedTracks.push({
-        id: t.id,
-        folderId: t.folderId,
-        filename: t.filename,
-        path: t.path!,
-        remotePath: t.remotePath,
-        title: t.title,
-        artist: t.artist,
-        album: t.album,
-      })
-    }
-
-    await yandexLibraryPersistenceService.save({
-      folders: persistedFolders,
-      tracks: persistedTracks,
-      rootFolderId: rootFolderId.value,
-      rootFolderName: rootFolderName.value ?? 'Yandex Disk',
-      rootPath,
-      savedAt: Date.now(),
-    })
-  }
-
-  /**
-   * Рекурсивно обновляет текущую папку и всё её поддерево.
-   * НЕ трогает родительские папки и соседние ветки.
-   *
-   * `totalTrackCount` пересчитывается снизу вверх: сначала обходим
-   * детей (они возвращают свой total), потом записываем родителя.
-   */
-  async function refreshCurrentYandexFolderRecursive(): Promise<void> {
-    if (source.value !== 'yandex') {
-      console.warn('[library] refreshCurrentYandexFolderRecursive: not a Yandex library')
+  function setCurrentFolder(folderId: string): void {
+    if (!folders.value[folderId]) {
+      console.warn(`[library] folder ${folderId} not found`)
       return
     }
-
-    const rootFolder = currentFolder.value
-    if (!rootFolder || !rootFolder.remotePath) {
-      console.warn('[library] refreshCurrentYandexFolderRecursive: no remotePath')
-      return
-    }
-
-    isLoading.value = true
-    loadProgress.value = { folders: 0, tracks: 0 }
-
-    try {
-      const updateProgress = (): void => {
-        loadProgress.value = {
-          folders: Object.keys(folders.value).length,
-          tracks: Object.keys(tracks.value).length,
-        }
-      }
-
-      const walk = async (folder: Folder): Promise<number> => {
-        if (!folder.remotePath) return 0
-
-        const response = await yandexDiskService.listResources(folder.remotePath)
-
-        const newTrackIds: string[] = []
-        const newChildFolderIds: string[] = []
-        const subDirs: typeof response.items = []
-
-        for (const item of response.items) {
-          if (item.type === 'dir') {
-            subDirs.push(item)
-          } else if (item.isAudio) {
-            const trackId = trackIdFromPath(`yandex:${item.path}`)
-            const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
-
-            if (!tracks.value[trackId]) {
-              const cachedCover = coverPersistenceService.get(trackId)
-              tracks.value[trackId] = {
-                id: trackId,
-                folderId: folder.id,
-                filename: item.name,
-                path: trackPath,
-                remotePath: item.path,
-                source: yandexDiskService.buildDownloadUrl(item.path),
-                title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
-                artist: 'Yandex Disk',
-                album: folder.path || 'Yandex Disk',
-                coverUrl: cachedCover ?? undefined,
-              }
-            }
-            newTrackIds.push(trackId)
-          }
-        }
-
-        const childFolders: Folder[] = []
-        for (const item of subDirs) {
-          const childId = folderIdFromPath(`yandex:${item.path}`)
-          const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
-
-          let childFolder = folders.value[childId]
-          if (!childFolder) {
-            childFolder = {
-              id: childId,
-              name: item.name,
-              parentId: folder.id,
-              path: childPath,
-              remotePath: item.path,
-              childFolderIds: [],
-              trackIds: [],
-              totalTrackCount: 0,
-              source: 'yandex',
-            }
-            folders.value[childId] = childFolder
-          }
-
-          newChildFolderIds.push(childId)
-          childFolders.push(childFolder)
-        }
-
-        const removedTrackIds = folder.trackIds.filter((id) => !newTrackIds.includes(id))
-        for (const id of removedTrackIds) {
-          const t = tracks.value[id]
-          if (t?.coverUrl?.startsWith('blob:')) {
-            URL.revokeObjectURL(t.coverUrl)
-          }
-          delete tracks.value[id]
-        }
-
-        const removedFolderIds = folder.childFolderIds.filter(
-          (id) => !newChildFolderIds.includes(id),
-        )
-        for (const id of removedFolderIds) {
-          delete folders.value[id]
-        }
-
-        updateProgress()
-
-        // Обходим детей — каждый вернёт свой totalTrackCount
-        let childTotal = 0
-        for (const child of childFolders) {
-          childTotal += await walk(child)
-        }
-
-        const total = newTrackIds.length + childTotal
-
-        folders.value[folder.id] = {
-          ...folder,
-          trackIds: newTrackIds,
-          childFolderIds: newChildFolderIds,
-          totalTrackCount: total,
-        }
-
-        return total
-      }
-
-      await walk(rootFolder)
-
-      bumpCoversVersion()
-
-      const root = rootFolderId.value ? folders.value[rootFolderId.value] : null
-      if (root?.remotePath) {
-        await saveYandexCache(root.remotePath)
-      }
-    } finally {
-      isLoading.value = false
-    }
+    currentFolderId.value = folderId
   }
 
-  /**
-   * Рекурсивно собирает все треки в папке и её подпапках.
-   * Порядок: сначала треки самой папки, потом — рекурсивно из подпапок.
-   */
   function getAllTracksInFolderRecursive(folderId: string): LibraryTrack[] {
     const folder = folders.value[folderId]
     if (!folder) return []
@@ -683,9 +127,6 @@ export const useLibraryStore = defineStore('library', () => {
     return result
   }
 
-  /**
-   * Ищет обложки для треков текущей папки через прокси (Deezer + iTunes).
-   */
   async function fetchCoversForCurrentFolder(): Promise<void> {
     const folder = currentFolder.value
     if (!folder) return
@@ -721,7 +162,7 @@ export const useLibraryStore = defineStore('library', () => {
       const worker = async (): Promise<void> => {
         while (cursor < toFetch.length) {
           const track = toFetch[cursor++]!
-          const coverUrl = await yandexDiskService.getCover(track.artist, track.title)
+          const coverUrl = await coverService.fetch(track.artist, track.title)
 
           results.push({ trackId: track.id, coverUrl })
 
@@ -742,14 +183,6 @@ export const useLibraryStore = defineStore('library', () => {
       )
 
       await coverPersistenceService.setMany(results)
-
-      if (source.value === 'yandex') {
-        const root = rootFolderId.value ? folders.value[rootFolderId.value] : null
-        if (root?.remotePath) {
-          await saveYandexCache(root.remotePath)
-        }
-      }
-
       bumpCoversVersion()
     } finally {
       isLoadingCovers.value = false
@@ -757,9 +190,6 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  /**
-   * Сбрасывает «не найдено» для треков текущей папки.
-   */
   async function resetCoversForCurrentFolder(): Promise<void> {
     const folder = currentFolder.value
     if (!folder) return
@@ -771,71 +201,6 @@ export const useLibraryStore = defineStore('library', () => {
     bumpCoversVersion()
   }
 
-  function restoreFromYandexCache(cached: PersistedYandexLibrary): void {
-    const newFolders: Record<string, Folder> = {}
-    for (const f of cached.folders) {
-      newFolders[f.id] = {
-        id: f.id,
-        name: f.name,
-        parentId: f.parentId,
-        path: f.path,
-        remotePath: f.remotePath,
-        childFolderIds: [...f.childFolderIds],
-        trackIds: [...f.trackIds],
-        totalTrackCount: f.totalTrackCount,
-        source: 'yandex',
-      }
-    }
-
-    const newTracks: Record<string, LibraryTrack> = {}
-    for (const t of cached.tracks) {
-      const cachedCover = coverPersistenceService.get(t.id)
-      newTracks[t.id] = {
-        id: t.id,
-        folderId: t.folderId,
-        filename: t.filename,
-        path: t.path,
-        remotePath: t.remotePath,
-        source: yandexDiskService.buildDownloadUrl(t.remotePath),
-        title: t.title,
-        artist: t.artist,
-        album: t.album,
-        coverUrl: cachedCover ?? undefined,
-      }
-    }
-
-    folders.value = newFolders
-    tracks.value = newTracks
-    rootFolderId.value = cached.rootFolderId
-    rootFolderName.value = cached.rootFolderName
-    currentFolderId.value = cached.rootFolderId
-    source.value = 'yandex'
-    needsPermission.value = false
-
-    bumpCoversVersion()
-    void saveLastSource('yandex')
-  }
-
-  async function restoreYandexFromCache(): Promise<boolean> {
-    const cached = await yandexLibraryPersistenceService.load()
-    if (!cached || !yandexLibraryPersistenceService.isFresh(cached)) {
-      return false
-    }
-    console.info('[library] auto-restoring Yandex.Disk library from cache')
-    restoreFromYandexCache(cached)
-    return true
-  }
-
-  // --- Общие операции -------------------------------------------------
-
-  function setCurrentFolder(folderId: string): void {
-    if (!folders.value[folderId]) {
-      console.warn(`[library] folder ${folderId} not found`)
-      return
-    }
-    currentFolderId.value = folderId
-  }
-
   function clear(): void {
     for (const track of Object.values(tracks.value)) {
       if (track.coverUrl?.startsWith('blob:')) {
@@ -845,13 +210,7 @@ export const useLibraryStore = defineStore('library', () => {
 
     folders.value = {}
     tracks.value = {}
-    rootFolderId.value = null
-    rootFolderName.value = null
     currentFolderId.value = null
-    source.value = null
-    needsPermission.value = false
-
-    void libraryPersistenceService.clear()
   }
 
   function getTrack(id: string): LibraryTrack | null {
@@ -863,19 +222,15 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   return {
+    // state
     folders,
     tracks,
-    rootFolderId,
-    rootFolderName,
     currentFolderId,
-    source,
-    isLoading,
-    isRestoring,
-    needsPermission,
-    loadProgress,
+
     isLoadingCovers,
     coverProgress,
 
+    // computed
     hasLibrary,
     currentFolder,
     currentSubfolders,
@@ -885,19 +240,169 @@ export const useLibraryStore = defineStore('library', () => {
     tracksWithoutCovers,
     coverStats,
 
-    loadFromHandle,
-    loadFromYandexDisk,
-    restoreYandexFromCache,
-    refreshCurrentYandexFolderRecursive,
+    // actions
+    setCurrentFolder,
     getAllTracksInFolderRecursive,
     fetchCoversForCurrentFolder,
     resetCoversForCurrentFolder,
-    setCurrentFolder,
     clear,
-    save,
-    restore,
-    retryRestoreAfterPermission,
     getTrack,
     getFolder,
   }
 })
+
+// --- LibraryWriter для плагинов --------------------------------------
+
+/**
+ * Фабрика LibraryWriter.
+ *
+ * Вызывается из `createPluginContext` в `src/plugins/context.ts`.
+ * Плагин не импортирует library.ts напрямую — только получает writer
+ * через PluginContext.
+ *
+ * `setLibrary` заменяет папки и треки ТОЛЬКО указанного sourceId.
+ * Чужие плагины не трогаются.
+ */
+export function createLibraryWriter(): LibraryWriter {
+  function store() {
+    return useLibraryStore()
+  }
+
+  return {
+    setLibrary(collected: CollectedLibrary, sourceId: string): void {
+      const s = store()
+
+      // Удаляем старые папки и треки этого плагина
+      for (const [id, folder] of Object.entries(s.folders)) {
+        if (folder.source === sourceId) delete s.folders[id]
+      }
+      for (const [id, track] of Object.entries(s.tracks)) {
+        if (track.pluginId === sourceId) {
+          if (track.coverUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(track.coverUrl)
+          }
+          delete s.tracks[id]
+        }
+      }
+
+      // Добавляем новые
+      for (const folder of collected.folders) {
+        s.folders[folder.id] = { ...folder, source: sourceId }
+      }
+      for (const track of collected.tracks) {
+        s.tracks[track.id] = { ...track, pluginId: sourceId }
+      }
+    },
+
+    removeFolders(folderIds: string[]): void {
+      const s = store()
+      for (const id of folderIds) {
+        delete s.folders[id]
+      }
+    },
+
+    removeBySource(sourceId: string): void {
+      const s = store()
+      for (const [id, folder] of Object.entries(s.folders)) {
+        if (folder.source === sourceId) delete s.folders[id]
+      }
+      for (const [id, track] of Object.entries(s.tracks)) {
+        if (track.pluginId === sourceId) {
+          if (track.coverUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(track.coverUrl)
+          }
+          delete s.tracks[id]
+        }
+      }
+    },
+
+    updateTrackOrigin(trackId: string, origin: TrackOrigin): void {
+      const s = store()
+      const track = s.tracks[trackId]
+      if (!track) return
+      s.tracks[trackId] = { ...track, origin }
+      if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    updateTrackSource(trackId: string, source: string | File): void {
+      const s = store()
+      const track = s.tracks[trackId]
+      if (!track) return
+      s.tracks[trackId] = { ...track, source }
+      if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    updateTrackDuration(trackId: string, duration: number): void {
+      const s = store()
+      const track = s.tracks[trackId]
+      if (!track) return
+      if (track.duration === duration) return
+      s.tracks[trackId] = { ...track, duration }
+      if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    addTracks(tracks: LibraryTrack[], sourceId: string): void {
+      const s = store()
+      for (const track of tracks) {
+        s.tracks[track.id] = { ...track, pluginId: sourceId }
+      }
+      librarySaveService.scheduleSave(sourceId)
+    },
+
+    removeTracks(trackIds: string[]): void {
+      const s = store()
+      const pluginIds = new Set<string>()
+      for (const id of trackIds) {
+        const track = s.tracks[id]
+        if (track?.coverUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(track.coverUrl)
+        }
+        if (track?.pluginId) pluginIds.add(track.pluginId)
+        delete s.tracks[id]
+      }
+      for (const pluginId of pluginIds) {
+        librarySaveService.scheduleSave(pluginId)
+      }
+    },
+
+    addFolders(folders: Folder[], sourceId: string): void {
+      const s = store()
+      for (const folder of folders) {
+        s.folders[folder.id] = { ...folder, source: sourceId }
+      }
+      librarySaveService.scheduleSave(sourceId)
+    },
+
+    updateFolder(folderId: string, patch: Partial<Folder>): void {
+      const s = store()
+      const existing = s.folders[folderId]
+      if (!existing) return
+      s.folders[folderId] = { ...existing, ...patch }
+      if (existing.source) librarySaveService.scheduleSave(existing.source)
+    },
+
+    getFolder(folderId: string): Folder | null {
+      return store().folders[folderId] ?? null
+    },
+
+    getTrack(trackId: string): LibraryTrack | null {
+      return store().tracks[trackId] ?? null
+    },
+
+    getFoldersBySource(sourceId: string): Folder[] {
+      return Object.values(store().folders).filter((f) => f.source === sourceId)
+    },
+
+    getTracksBySource(sourceId: string): LibraryTrack[] {
+      return Object.values(store().tracks).filter((t) => t.pluginId === sourceId)
+    },
+
+    getCurrentFolderId(): string | null {
+      return store().currentFolderId
+    },
+
+    setCurrentFolder(folderId: string): void {
+      store().currentFolderId = folderId
+    },
+  }
+}

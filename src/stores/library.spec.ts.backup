@@ -1,4 +1,3 @@
-// oxlint-disable vitest/require-mock-type-parameters
 // src/stores/library.spec.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -7,8 +6,6 @@ import { useLibraryStore } from './library'
 import { ROOT_FOLDER_ID, folderIdFromPath } from '@/services/library/id'
 import type { Folder, LibraryTrack } from '@/types/library'
 import type { PersistedLibrary } from '@/services/persistence/libraryTypes'
-
-// vi.hoisted — потому что vi.mock хойстится наверх файла
 
 const {
   mockLibraryPersistenceService,
@@ -96,6 +93,7 @@ function makeTrack(
 ): LibraryTrack {
   return {
     id,
+    pluginId: overrides.pluginId ?? 'local',
     folderId,
     filename: `${id}.mp3`,
     path: `folder/${id}.mp3`,
@@ -577,6 +575,7 @@ describe('useLibraryStore', () => {
         tracks: [
           {
             id: 'track:1',
+            pluginId: 'local',
             folderId: ROOT_FOLDER_ID,
             title: 'Song',
             artist: 'Artist',
@@ -597,6 +596,7 @@ describe('useLibraryStore', () => {
       expect(store.hasLibrary).toBe(true)
       expect(store.rootFolderName).toBe('Music')
       expect(store.tracks['track:1']?.title).toBe('Song')
+      expect(store.tracks['track:1']?.pluginId).toBe('local')
       expect(store.tracks['track:1']?.source).toBeInstanceOf(File)
     })
 
@@ -622,6 +622,7 @@ describe('useLibraryStore', () => {
         tracks: [
           {
             id: 'track:good',
+            pluginId: 'local',
             folderId: ROOT_FOLDER_ID,
             title: 'Good',
             artist: 'A',
@@ -634,6 +635,7 @@ describe('useLibraryStore', () => {
           },
           {
             id: 'track:bad',
+            pluginId: 'local',
             folderId: ROOT_FOLDER_ID,
             title: 'Bad',
             artist: 'A',
@@ -676,6 +678,7 @@ describe('useLibraryStore', () => {
         tracks: [
           {
             id: 'track:a',
+            pluginId: 'local',
             folderId: ROOT_FOLDER_ID,
             title: 'A',
             artist: 'A',
@@ -703,7 +706,6 @@ describe('useLibraryStore', () => {
     it('пересчитывает totalTrackCount снизу вверх', async () => {
       const store = useLibraryStore()
 
-      // Сетапим yandex-состояние: корень → папка A → папка A1
       const root = makeFolder({
         id: 'folder:yandex:disk:/Music',
         name: 'Music',
@@ -744,10 +746,6 @@ describe('useLibraryStore', () => {
       store.currentFolderId = root.id
       store.source = 'yandex'
 
-      // Мок ответов Диска:
-      // /Music  → папка A
-      // /Music/A → папка A1
-      // /Music/A/A1 → 3 трека
       mockYandexDiskService.listResources.mockImplementation((path: string) => {
         if (path === 'disk:/Music') {
           return Promise.resolve({
@@ -779,7 +777,6 @@ describe('useLibraryStore', () => {
 
       await store.refreshCurrentYandexFolderRecursive()
 
-      // Снизу вверх: A1 = 3, A = 3, Music = 3
       expect(store.folders[a1.id]?.totalTrackCount).toBe(3)
       expect(store.folders[a.id]?.totalTrackCount).toBe(3)
       expect(store.folders[root.id]?.totalTrackCount).toBe(3)
@@ -837,7 +834,6 @@ describe('useLibraryStore', () => {
 
       await store.refreshCurrentYandexFolderRecursive()
 
-      // root: 1 свой + 1 в A = 2; A: 1 свой = 1
       expect(store.folders[root.id]?.totalTrackCount).toBe(2)
       expect(store.folders[a.id]?.totalTrackCount).toBe(1)
     })
@@ -858,7 +854,7 @@ describe('useLibraryStore', () => {
       store.tracks['track:yandex:disk:/Music/old.mp3'] = makeTrack(
         'track:yandex:disk:/Music/old.mp3',
         root.id,
-        { remotePath: 'disk:/Music/old.mp3' },
+        { pluginId: 'yandex', remotePath: 'disk:/Music/old.mp3' },
       )
       store.rootFolderId = root.id
       store.currentFolderId = root.id
@@ -930,6 +926,7 @@ describe('useLibraryStore', () => {
         tracks: [
           {
             id: 'track:yandex:disk:/Music/a.mp3',
+            pluginId: 'yandex',
             folderId: 'folder:yandex:disk:/Music',
             filename: 'a.mp3',
             path: 'a.mp3',

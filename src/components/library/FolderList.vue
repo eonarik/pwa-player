@@ -22,7 +22,10 @@ function formatCount(n: number): string {
 
 function openFolder(folder: Folder) {
   const segments = folder.path.split('/').filter(Boolean)
-  router.push({ name: 'folder', params: { path: segments } })
+  router.push({
+    name: 'folder',
+    params: { pluginId: folder.source ?? '', path: segments },
+  })
 }
 
 function playFolder(folder: Folder) {
@@ -72,22 +75,22 @@ function toggleFolderPlayback(folder: Folder) {
   <div v-if="currentSubfolders.length > 0" class="flex flex-col gap-0.5 px-2 py-2">
     <div v-for="folder in currentSubfolders" :key="folder.id"
       class="flex items-center gap-3 rounded-lg px-3 py-2 transition" :class="isFolderActive(folder)
-          ? 'bg-emerald-500/10 text-emerald-400'
-          : isPlayingFromFolder(folder)
-            ? 'bg-emerald-500/5 text-emerald-400/80'
-            : 'text-zinc-300 hover:bg-zinc-800/60'
+        ? 'bg-emerald-500/10 text-emerald-400'
+        : isPlayingFromFolder(folder)
+          ? 'bg-emerald-500/5 text-emerald-400/80'
+          : 'text-zinc-300 hover:bg-zinc-800/60'
         ">
       <!-- Иконка: папка / play / pause -->
       <button type="button"
         class="group/icon relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition" :class="isPlayingFromFolder(folder)
-            ? 'bg-emerald-500/20'
-            : 'bg-zinc-800 hover:bg-emerald-500/20'
+          ? 'bg-emerald-500/20'
+          : 'bg-zinc-800 hover:bg-emerald-500/20'
           " :aria-label="isFolderActive(folder)
             ? `Пауза`
             : isPlayingFromFolder(folder)
               ? `Продолжить`
               : `Играть папку ${folder.name}`
-          " @click.stop="toggleFolderPlayback(folder)">
+            " @click.stop="toggleFolderPlayback(folder)">
         <!-- Иконка папки: показывается, если трек не из этой папки -->
         <svg v-if="!isPlayingFromFolder(folder)" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" class="h-5 w-5 text-zinc-500 transition group-hover/icon:opacity-0">
@@ -122,8 +125,8 @@ function toggleFolderPlayback(folder: Folder) {
 
       <!-- Стрелка -->
       <button type="button" class="shrink-0 rounded-md p-1 transition" :class="isPlayingFromFolder(folder)
-          ? 'text-emerald-400/60 hover:bg-emerald-500/20 hover:text-emerald-400'
-          : 'text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400'
+        ? 'text-emerald-400/60 hover:bg-emerald-500/20 hover:text-emerald-400'
+        : 'text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400'
         " :aria-label="`Открыть папку ${folder.name}`" @click="openFolder(folder)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
           <path d="M9 18l6-6-6-6" />

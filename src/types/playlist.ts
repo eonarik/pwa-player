@@ -11,6 +11,10 @@
 export interface PlaylistTrackSnapshot {
   /** Полный trackId в формате библиотеки: 'track:yandex:disk:/...' */
   trackId: string
+
+  /** id плагина-источника: 'local', 'yandex', ... */
+  pluginId: string
+
   title: string
   artist: string
   album?: string

@@ -1,3 +1,5 @@
+// src/plugins/local/fsTypes.ts
+
 export interface FileEntry {
   handle: FileSystemFileHandle
   /** Хэндл директории, в которой лежит файл */

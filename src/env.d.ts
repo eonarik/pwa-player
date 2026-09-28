@@ -1,6 +1,7 @@
 // src/env.d.ts
 
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 import type { Buffer as BufferType } from 'buffer'
 import type processType from 'process'

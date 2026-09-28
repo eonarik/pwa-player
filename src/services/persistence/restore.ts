@@ -1,17 +1,13 @@
 // src/services/persistence/restore.ts
 
-import { fileSystemService } from '../filesystem/FileSystemService'
+import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 import type { PersistedTrack } from './types'
 import type { Track } from '@/types/track'
 
-/**
- * Восстанавливает Track из PersistedTrack.
- * Пытается получить актуальный File через handle.
- * Если handle нет или доступ потерян — возвращает трек без source (его нельзя играть).
- */
 export async function restoreTrack(persisted: PersistedTrack): Promise<Track | null> {
   const base: Omit<Track, 'source'> = {
     id: persisted.id,
+    pluginId: persisted.pluginId,
     title: persisted.title,
     artist: persisted.artist,
     album: persisted.album,
@@ -23,11 +19,10 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     filename: persisted.filename,
     path: persisted.path,
     handle: persisted.handle,
-    directoryHandle: persisted.directoryHandle, // ← добавить
+    directoryHandle: persisted.directoryHandle,
   }
 
   if (!persisted.handle) {
-    // Нет handle — трек неиграбельный, но показываем как «битый»
     return { ...base, source: '' }
   }
 
@@ -40,10 +35,6 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
   }
 }
 
-/**
- * Восстанавливает весь список.
- * Параллельно, но с ограничением — getFile() на 1000 файлах задушит вкладку.
- */
 async function restoreBaseTracks(persisted: PersistedTrack[], concurrency = 8): Promise<Track[]> {
   const results: Track[] = new Array(persisted.length)
   let cursor = 0
@@ -67,18 +58,20 @@ export async function restoreTracks(
 ): Promise<Track[]> {
   const tracks = await restoreBaseTracks(persisted, concurrency)
 
-  // Группируем по directoryHandle и ищем обложки
-  const coverCache = new Map<FileSystemDirectoryHandle, File | null>()
+  // Кэшируем URL, а не File. Один folder.jpg → один blob URL на папку.
+  const coverCache = new Map<FileSystemDirectoryHandle, string | null>()
 
   for (const track of tracks) {
     if (!track.directoryHandle) continue
+
     if (!coverCache.has(track.directoryHandle)) {
-      const cover = await fileSystemService.findCoverInDirectory(track.directoryHandle)
-      coverCache.set(track.directoryHandle, cover)
+      const coverFile = await findCoverInDirectory(track.directoryHandle)
+      coverCache.set(track.directoryHandle, coverFile ? URL.createObjectURL(coverFile) : null)
     }
-    const cover = coverCache.get(track.directoryHandle)
-    if (cover) {
-      track.coverUrl = URL.createObjectURL(cover)
+
+    const coverUrl = coverCache.get(track.directoryHandle)
+    if (coverUrl) {
+      track.coverUrl = coverUrl
     }
   }
 

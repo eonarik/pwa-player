@@ -1,12 +1,15 @@
 <!-- src/components/library/FolderView.vue -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
+import { loadPlugin } from '@/plugins/registry'
+import { createPluginContext } from '@/plugins/context'
 import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
+import FolderDownloadButton from "./FolderDownloadButton.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -15,8 +18,6 @@ const {
   currentTracks,
   currentFolder,
   currentSubfolders,
-  source,
-  isLoading,
   isLoadingCovers,
   coverProgress,
   tracksWithoutCovers,
@@ -31,6 +32,67 @@ const hasFolders = computed(() => currentSubfolders.value.length > 0)
 const coversNotSearched = computed(() => coverStats.value.checked === 0)
 const coversSearched = computed(() => coverStats.value.checked > 0)
 
+/** Умеет ли текущий источник обновляться */
+const canRefresh = ref(false)
+// Проверяем при смене папки — есть ли у плагина refreshFolder
+watch(
+  () => currentFolder.value?.source,
+  () => void checkRefreshSupport(),
+  { immediate: true },
+)
+
+async function checkRefreshSupport() {
+  const pluginId = currentFolder.value?.source
+  if (!pluginId) {
+    canRefresh.value = false
+    return
+  }
+  try {
+    const plugin = await loadPlugin(pluginId)
+    canRefresh.value = typeof plugin.refreshFolder === 'function'
+  } catch {
+    canRefresh.value = false
+  }
+}
+
+const canDownload = ref(false)
+watch(
+  () => currentFolder.value?.source,
+  async (sourceId) => {
+    if (!sourceId) {
+      canDownload.value = false
+      return
+    }
+    try {
+      const plugin = await loadPlugin(sourceId)
+      canDownload.value = plugin.canDownload
+    } catch {
+      canDownload.value = false
+    }
+  },
+  { immediate: true },
+)
+
+const isRefreshing = ref(false)
+
+async function refreshFolder() {
+  const folder = currentFolder.value
+  if (!folder || !folder.source) return
+
+  try {
+    const plugin = await loadPlugin(folder.source)
+    if (!plugin.refreshFolder) return
+
+    isRefreshing.value = true
+    const context = createPluginContext(folder.source)
+    await plugin.refreshFolder(context, folder.id)
+  } catch (err) {
+    console.error('[folder-view] refresh failed', err)
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
 function onSelectTrack(index: number) {
   player.setQueue(tracks.value, index)
 }
@@ -38,10 +100,6 @@ function onSelectTrack(index: number) {
 function playAll() {
   if (tracks.value.length === 0) return
   player.setQueue(tracks.value, 0)
-}
-
-async function refreshFolder() {
-  await library.refreshCurrentYandexFolderRecursive()
 }
 
 async function fetchCovers() {
@@ -66,10 +124,10 @@ async function resetCovers() {
           <template v-if="!hasFolders && !hasTracks">пусто</template>
         </span>
 
-        <button v-if="source === 'yandex'" type="button"
+        <button v-if="canRefresh" type="button"
           class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-50"
-          :disabled="isLoading" @click="refreshFolder">
-          {{ isLoading ? 'Обновление…' : 'Обновить' }}
+          :disabled="isRefreshing" @click="refreshFolder">
+          {{ isRefreshing ? 'Обновление…' : 'Обновить' }}
         </button>
 
         <template v-if="hasTracks">
@@ -103,6 +161,8 @@ async function resetCovers() {
             </button>
           </template>
         </template>
+
+        <FolderDownloadButton v-if="canDownload && currentFolder" :folder-id="currentFolder.id" />
 
         <button v-if="hasTracks" type="button"
           class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"

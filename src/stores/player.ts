@@ -3,14 +3,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef, watch } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
-import { metadataService } from '@/services/metadata/MetadataService'
-import { getParentFolderName } from '@/services/metadata/utils'
-import { fileSystemService } from '@/services/filesystem/FileSystemService'
 import { persistenceService } from '@/services/persistence/PersistenceService'
 import { restoreTracks } from '@/services/persistence/restore'
 import type { Track } from '@/types/track'
-import type { FileEntry } from '@/services/filesystem/types'
 import { useHistoryStore } from './history'
+import { createLibraryWriter } from './library'
 
 export const usePlayerStore = defineStore('player', () => {
   // --- Состояние ------------------------------------------------------
@@ -25,8 +22,6 @@ export const usePlayerStore = defineStore('player', () => {
   const repeatMode = ref<'off' | 'one' | 'all'>('off')
   const shuffle = ref(false)
 
-  // shallowRef — потому что мы не мутируем треки, а заменяем целиком.
-  // Это дешевле для Vue и не создаёт лишних proxy.
   const currentTrack = shallowRef<Track | null>(null)
 
   // --- rAF-цикл для currentTime ---------------------------------------
@@ -36,12 +31,9 @@ export const usePlayerStore = defineStore('player', () => {
   function startTimeLoop() {
     if (rafId !== null) return
     const tick = () => {
-      // Округляем до 0.1 — ререндеры раз в 100мс вместо 16мс
       const t = Math.round(audioService.currentTime * 10) / 10
       if (t !== currentTime.value) currentTime.value = t
 
-      // Если трек закончился — rAF всё равно не остановится, поэтому
-      // проверяем paused и сами гасим цикл
       if (audioService.paused && !isPlaying.value) {
         stopTimeLoop()
         return
@@ -60,17 +52,22 @@ export const usePlayerStore = defineStore('player', () => {
 
   // --- Подписка на события сервиса ------------------------------------
 
-  // unsubscribe-функции, чтобы снять всё при dispose стора
   const unsubscribers: Array<() => void> = []
+  const libraryWriter = createLibraryWriter()
 
   unsubscribers.push(
     audioService.on('loadedmetadata', ({ duration: d }) => {
       duration.value = d
-      // Обновляем длительность в треке, если она отличается
+
       const idx = currentIndex.value
       const track = queue.value[idx]
       if (track && Math.abs((track.duration ?? 0) - d) > 0.5) {
         queue.value[idx] = { ...track, duration: d }
+
+        // Обновляем duration в библиотеке (если это LibraryTrack с pluginId)
+        if (track.pluginId) {
+          libraryWriter.updateTrackDuration(track.id, d)
+        }
       }
     }),
     audioService.on('play', () => {
@@ -83,8 +80,6 @@ export const usePlayerStore = defineStore('player', () => {
     }),
     audioService.on('pause', () => {
       isPlaying.value = false
-      // Не гасим цикл сразу — вдруг это seek во время паузы.
-      // Цикл сам остановится на следующем кадре.
     }),
     audioService.on('ended', () => {
       isPlaying.value = false
@@ -127,7 +122,6 @@ export const usePlayerStore = defineStore('player', () => {
     if (saveScheduled) return
     saveScheduled = true
 
-    // Микротаск-дебаунс: соберём все изменения в один вызов
     queueMicrotask(() => {
       saveScheduled = false
       persistenceService.scheduleSave({
@@ -147,7 +141,6 @@ export const usePlayerStore = defineStore('player', () => {
     deep: false,
   })
 
-  // Сохранение при закрытии — важно для currentTime
   if (typeof window !== 'undefined') {
     const flush = () => {
       persistenceService.saveNow({
@@ -174,9 +167,6 @@ export const usePlayerStore = defineStore('player', () => {
     const state = await persistenceService.load()
     if (!state || state.tracks.length === 0) return false
 
-    // Освобождаем старые обложки
-    queue.value.forEach((t) => metadataService.revokeCover(t.coverUrl))
-
     const tracks = await restoreTracks(state.tracks)
     if (tracks.length === 0) return false
 
@@ -188,17 +178,13 @@ export const usePlayerStore = defineStore('player', () => {
     repeatMode.value = state.repeatMode
     shuffle.value = state.shuffle
 
-    // Восстанавливаем громкость в AudioService
     audioService.setVolume(state.volume)
     audioService.setMuted(state.muted)
 
-    // Загружаем трек, но НЕ играем и не seek'аем сразу —
-    // seek нужно делать после loadedmetadata
     const track = tracks[state.currentIndex]
     if (track && track.source) {
       audioService.load(track.source)
 
-      // Ждём метаданные, потом seek
       const unsub = audioService.on('loadedmetadata', () => {
         audioService.seek(state.currentTime)
         unsub()
@@ -231,9 +217,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime.value = 0
 
     audioService.load(track.source)
-    audioService.play().catch(() => {
-      // play() уже эмитит error, здесь просто глушим необработанный промис
-    })
+    audioService.play().catch(() => {})
   }
 
   function play() {
@@ -248,10 +232,6 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.pause()
   }
 
-  /**
-   * Полная остановка: пауза, очистка очереди, сброс текущего трека.
-   * Используется при смене источника библиотеки или явном «стоп».
-   */
   function stop(): void {
     audioService.unload()
     audioService.pause()
@@ -267,12 +247,6 @@ export const usePlayerStore = defineStore('player', () => {
     stopTimeLoop()
   }
 
-  /**
-   * Удаляет трек из очереди по индексу.
-   * - Если удалили играющий — играем следующий (или предыдущий, если был последним).
-   * - Если удалили до текущего — сдвигаем currentIndex, не трогая воспроизведение.
-   * - Если удалили после текущего — ничего не меняется.
-   */
   function removeFromQueue(index: number): void {
     if (index < 0 || index >= queue.value.length) return
 
@@ -287,17 +261,14 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     if (wasCurrent) {
-      // Удалили играющий — играем следующий (или последний, если был последним)
       const nextIndex = Math.min(index, queue.value.length - 1)
       playAt(nextIndex)
     } else if (wasBeforeCurrent) {
       currentIndex.value = currentIndex.value - 1
       currentTrack.value = queue.value[currentIndex.value] ?? null
     }
-    // Удалили после текущего — currentIndex остался валидным
   }
 
-  /** Полная очистка очереди. Семантический алиас stop() для UI. */
   function clearQueue(): void {
     stop()
   }
@@ -320,7 +291,6 @@ export const usePlayerStore = defineStore('player', () => {
     } else if (repeatMode.value === 'all') {
       playAt(0)
     } else {
-      // конец очереди, repeat off
       isPlaying.value = false
     }
   }
@@ -328,7 +298,6 @@ export const usePlayerStore = defineStore('player', () => {
   function prev() {
     if (queue.value.length === 0) return
 
-    // UX-правило: если трек играет больше 3 сек — prev перематывает в начало
     if (audioService.currentTime > 3) {
       audioService.seek(0)
       return
@@ -350,7 +319,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   function seek(time: number) {
     audioService.seek(time)
-    // Сразу подтягиваем currentTime, чтобы UI не ждал следующего кадра
     currentTime.value = Math.round(audioService.currentTime * 10) / 10
   }
 
@@ -399,65 +367,6 @@ export const usePlayerStore = defineStore('player', () => {
     next()
   }
 
-  async function parseEntries(entries: FileEntry[], rootFolderName?: string): Promise<Track[]> {
-    // уникальные директории
-    const uniqueDirs = new Map<FileSystemDirectoryHandle, FileEntry[]>()
-    for (const entry of entries) {
-      const list = uniqueDirs.get(entry.directoryHandle) ?? []
-      list.push(entry)
-      uniqueDirs.set(entry.directoryHandle, list)
-    }
-
-    // обложки параллельно
-    const coverCache = new Map<FileSystemDirectoryHandle, File | null>()
-    const dirs = Array.from(uniqueDirs.keys())
-    const COVER_CONCURRENCY = 8
-    let cursor = 0
-    const coverWorker = async (): Promise<void> => {
-      while (cursor < dirs.length) {
-        const dir = dirs[cursor++]!
-        coverCache.set(dir, await fileSystemService.findCoverInDirectory(dir))
-      }
-    }
-    await Promise.all(
-      Array.from({ length: Math.min(COVER_CONCURRENCY, dirs.length) }, () => coverWorker()),
-    )
-
-    // метаданные
-    const parsed = await metadataService.readMany(
-      entries.map((e) => ({
-        file: e.file,
-        folderName: getParentFolderName(e.path),
-        coverFile: coverCache.get(e.directoryHandle) ?? null,
-      })),
-      { rootFolderName, concurrency: 4 },
-    )
-
-    return entries.map((entry, i) => ({
-      id: crypto.randomUUID(),
-      source: entry.file,
-      filename: entry.file.name,
-      path: entry.path,
-      handle: entry.handle,
-      directoryHandle: entry.directoryHandle,
-      ...parsed[i]!,
-    }))
-  }
-
-  async function addFiles(entries: FileEntry[], rootFolderName?: string): Promise<void> {
-    const tracks = await parseEntries(entries, rootFolderName)
-    queue.value = [...queue.value, ...tracks]
-  }
-
-  async function setFiles(entries: FileEntry[], rootFolderName?: string): Promise<void> {
-    queue.value.forEach((t) => metadataService.revokeCover(t.coverUrl))
-    const tracks = await parseEntries(entries, rootFolderName)
-    queue.value = tracks
-    // Сбрасываем текущий трек, потому что объекты треков — новые
-    currentIndex.value = -1
-    currentTrack.value = null
-  }
-
   // --- Очистка --------------------------------------------------------
 
   function $dispose() {
@@ -467,7 +376,6 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   return {
-    // state
     queue,
     currentIndex,
     currentTrack,
@@ -479,14 +387,10 @@ export const usePlayerStore = defineStore('player', () => {
     repeatMode,
     shuffle,
 
-    // computed
     hasNext,
     hasPrev,
     progress,
 
-    // actions
-    addFiles,
-    setFiles,
     setQueue,
     playAt,
     play,
@@ -506,7 +410,6 @@ export const usePlayerStore = defineStore('player', () => {
     toggleShuffle,
     restore,
 
-    // lifecycle
     $dispose,
   }
 })

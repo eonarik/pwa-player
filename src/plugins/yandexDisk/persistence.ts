@@ -1,21 +1,21 @@
-// src/services/persistence/YandexLibraryPersistenceService.ts
+// src/plugins/yandexDisk/persistence.ts
 
 import { get, set, del } from 'idb-keyval'
-import type { PersistedYandexLibrary } from './yandexTypes'
+import type { PersistedYandexLibrary } from './types'
 
 const YANDEX_LIBRARY_KEY = 'player:yandexLibrary'
 
 /** Кэш живёт 24 часа */
 export const YANDEX_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
-export class YandexLibraryPersistenceService {
-  private static instance: YandexLibraryPersistenceService | null = null
+export class YandexPersistenceService {
+  private static instance: YandexPersistenceService | null = null
 
-  static getInstance(): YandexLibraryPersistenceService {
-    if (!YandexLibraryPersistenceService.instance) {
-      YandexLibraryPersistenceService.instance = new YandexLibraryPersistenceService()
+  static getInstance(): YandexPersistenceService {
+    if (!YandexPersistenceService.instance) {
+      YandexPersistenceService.instance = new YandexPersistenceService()
     }
-    return YandexLibraryPersistenceService.instance
+    return YandexPersistenceService.instance
   }
 
   async save(library: PersistedYandexLibrary): Promise<void> {
@@ -25,7 +25,7 @@ export class YandexLibraryPersistenceService {
         savedAt: Date.now(),
       })
     } catch (err) {
-      console.error('[YandexLibraryPersistenceService] failed to save', err)
+      console.error('[yandex-plugin] failed to save library', err)
       throw err
     }
   }
@@ -35,12 +35,11 @@ export class YandexLibraryPersistenceService {
       const data = await get<PersistedYandexLibrary>(YANDEX_LIBRARY_KEY)
       return data ?? null
     } catch (err) {
-      console.error('[YandexLibraryPersistenceService] failed to load', err)
+      console.error('[yandex-plugin] failed to load library', err)
       return null
     }
   }
 
-  /** Свежий ли кэш (не старше TTL) */
   isFresh(library: PersistedYandexLibrary): boolean {
     return Date.now() - library.savedAt < YANDEX_CACHE_TTL_MS
   }
@@ -50,4 +49,4 @@ export class YandexLibraryPersistenceService {
   }
 }
 
-export const yandexLibraryPersistenceService = YandexLibraryPersistenceService.getInstance()
+export const yandexPersistenceService = YandexPersistenceService.getInstance()

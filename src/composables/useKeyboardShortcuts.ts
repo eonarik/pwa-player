@@ -15,19 +15,36 @@ interface KeyboardOptions {
 
 /**
  * Глобальные горячие клавиши плеера.
- * Игнорирует события внутри input/textarea/contenteditable.
+ * Игнорирует события внутри input/textarea/contenteditable,
+ * а также Space на сфокусированных кнопках/ссылках — иначе
+ * сработает и наш хендлер, и браузерный click.
  */
 export function useKeyboardShortcuts(options: KeyboardOptions) {
   function isEditableTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
     const tag = target.tagName
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+    if (target.isContentEditable) return true
+    // jsdom не реализует isContentEditable, поэтому проверяем атрибут
+    return target.closest('[contenteditable="true"], [contenteditable=""]') !== null
+  }
+
+  /**
+   * Space на кнопке/ссылке вызывает браузерный click.
+   * Если мы тоже обработаем Space — будет двойное срабатывание.
+   */
+  function isButtonLikeTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false
+    const tag = target.tagName
+    return tag === 'BUTTON' || tag === 'A'
   }
 
   function handler(e: KeyboardEvent) {
-    // Игнорируем, если фокус в поле ввода или нажат модификатор
     if (isEditableTarget(e.target)) return
     if (e.ctrlKey || e.metaKey || e.altKey) return
+
+    // Space на кнопке — отдаём браузеру, он сделает click
+    if (e.code === 'Space' && isButtonLikeTarget(e.target)) return
 
     switch (e.code) {
       case 'Space':
@@ -37,7 +54,6 @@ export function useKeyboardShortcuts(options: KeyboardOptions) {
 
       case 'ArrowRight':
         e.preventDefault()
-        // Shift даёт «длинный» seek
         options.onSeekBy(e.shiftKey ? 30 : 5)
         break
 

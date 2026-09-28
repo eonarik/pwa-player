@@ -1,5 +1,3 @@
-// src/services/metadata/types.ts
-
 export interface TrackMetadata {
   title: string
   artist: string
