@@ -7,6 +7,7 @@ import { persistenceService } from '@/services/persistence/PersistenceService'
 import { restoreTracks } from '@/services/persistence/restore'
 import type { Track } from '@/types/track'
 import { useHistoryStore } from './history'
+import { createLibraryWriter } from './library'
 
 export const usePlayerStore = defineStore('player', () => {
   // --- Состояние ------------------------------------------------------
@@ -52,14 +53,21 @@ export const usePlayerStore = defineStore('player', () => {
   // --- Подписка на события сервиса ------------------------------------
 
   const unsubscribers: Array<() => void> = []
+  const libraryWriter = createLibraryWriter()
 
   unsubscribers.push(
     audioService.on('loadedmetadata', ({ duration: d }) => {
       duration.value = d
+
       const idx = currentIndex.value
       const track = queue.value[idx]
       if (track && Math.abs((track.duration ?? 0) - d) > 0.5) {
         queue.value[idx] = { ...track, duration: d }
+
+        // Обновляем duration в библиотеке (если это LibraryTrack с pluginId)
+        if (track.pluginId) {
+          libraryWriter.updateTrackDuration(track.id, d)
+        }
       }
     }),
     audioService.on('play', () => {

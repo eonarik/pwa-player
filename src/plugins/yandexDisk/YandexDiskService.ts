@@ -7,7 +7,6 @@ import type { YandexConfig, YandexResourcesResponse } from './types'
 const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
 const REQUEST_TIMEOUT_MS = 10_000
 
-/** Специальная ошибка для 401 — UI показывает экран логина */
 export class AuthRequiredError extends Error {
   constructor() {
     super('Authorization required')
@@ -49,25 +48,35 @@ export class YandexDiskService {
   async listResources(path = '/'): Promise<YandexResourcesResponse> {
     const params = new URLSearchParams({ path })
 
-    const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`, {
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: authService.authHeaders(),
-    })
+    try {
+      const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: authService.authHeaders(),
+      })
 
-    if (response.status === 401) {
-      throw new AuthRequiredError()
-    }
-
-    if (!response.ok) {
-      const error = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
-        error?: string
+      if (response.status === 401) {
+        throw new AuthRequiredError()
       }
-      throw new Error(error.error ?? `HTTP ${response.status}`)
-    }
 
-    const data = (await response.json()) as YandexResourcesResponse
-    data.items.sort((a, b) => compareStrings(a.name, b.name))
-    return data
+      if (!response.ok) {
+        const error = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
+          error?: string
+        }
+        throw new Error(error.error ?? `HTTP ${response.status}`)
+      }
+
+      const data = (await response.json()) as YandexResourcesResponse
+      data.items.sort((a, b) => compareStrings(a.name, b.name))
+      return data
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'TimeoutError') {
+        throw new Error(`Таймаут запроса к Диску: ${path}`)
+      }
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        throw new Error(`Сервер недоступен: ${path}`)
+      }
+      throw err
+    }
   }
 
   buildDownloadUrl(path: string): string {

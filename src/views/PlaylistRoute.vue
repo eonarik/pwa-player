@@ -10,6 +10,7 @@ import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
 import type { LibraryTrack } from '@/types/library'
+import PlaylistDownloadButton from "@/components/library/PlaylistDownloadButton.vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -134,6 +135,8 @@ function isCurrent(track: LibraryTrack): boolean {
             </template>
             <template v-else> {{ resolvedTracks.length }} треков </template>
           </span>
+
+          <PlaylistDownloadButton v-if="hasTracks" :tracks="resolvedTracks" />
 
           <button v-if="hasTracks" type="button"
             class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"

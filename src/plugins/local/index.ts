@@ -2,7 +2,6 @@
 
 import type { LibrarySource, LoadOptions, PluginContext } from '../types'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
-import type { Track } from '@/types/track'
 import { fileSystemService } from './FileSystemService'
 import { localPersistenceService } from './persistence'
 import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack } from './types'
@@ -142,7 +141,7 @@ const localPlugin: LibrarySource = {
 
   // --- Стриминг -------------------------------------------------------
 
-  buildStreamUrl(track: Track): string {
+  buildStreamUrl(track: LibraryTrack): string {
     if (typeof track.source === 'string') {
       return track.source
     }

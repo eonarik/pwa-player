@@ -1,6 +1,7 @@
 // src/plugins/types.ts
 
-import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
+import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
+import type { Track } from '@/types/track'
 
 /**
  * Манифест плагина. Живёт рядом с кодом плагина (manifest.ts).
@@ -51,13 +52,54 @@ export interface LibrarySource {
 
   buildStreamUrl(track: LibraryTrack): string
 
+  // --- Скачивание ---------------------------------------------------
+
+  /**
+   * Умеет ли источник скачивать треки на устройство.
+   * У локального — false (файлы уже на устройстве).
+   */
   readonly canDownload: boolean
 
-  download?(
+  /**
+   * URL для скачивания файла (может отличаться от buildStreamUrl —
+   * например, download endpoint без Range-запросов).
+   * Опционален: если не задан — используется buildStreamUrl.
+   */
+  buildDownloadUrl?(track: LibraryTrack): string
+
+  /**
+   * Скачать один трек.
+   * targetDir — папка ЭТОГО источника внутри общего спейса.
+   * Плагин сам решает структуру внутри.
+   */
+  downloadTrack?(
     context: PluginContext,
-    tracks: LibraryTrack[],
-    options: DownloadOptions,
-  ): Promise<DownloadResult>
+    track: LibraryTrack,
+    options: DownloadTrackOptions,
+  ): Promise<DownloadedTrackInfo>
+
+  /**
+   * Удалить скачанный файл с устройства.
+   * targetDir — папка ЭТОГО источника внутри общего спейса.
+   * Для 'downloaded' — удаляет файл, трек остаётся в источнике.
+   * Для 'only-local' — удаляет и файл, и трек.
+   */
+  removeDownloaded?(
+    context: PluginContext,
+    track: LibraryTrack,
+    targetDir: FileSystemDirectoryHandle,
+  ): Promise<void>
+
+  /**
+   * Сканирует папку скачивания, сопоставляет файлы с библиотекой.
+   * Возвращает отчёт.
+   */
+  scanDownloadDir?(
+    context: PluginContext,
+    targetDir: FileSystemDirectoryHandle,
+  ): Promise<ScanResult>
+
+  saveCache?(context: PluginContext): Promise<void>
 
   disconnect(context: PluginContext): Promise<void>
 }
@@ -70,23 +112,42 @@ export interface LoadOptions {
 
 // --- Скачивание ------------------------------------------------------
 
-export interface DownloadOptions {
+export interface DownloadTrackOptions {
+  /** Папка ЭТОГО источника внутри общего спейса */
   targetDir: FileSystemDirectoryHandle
-  subPath: string
-  onProgress?: (done: number, total: number, currentName: string) => void
+  /** Прогресс: байт записано / всего байт (0 = неизвестно) */
+  onProgress?: (written: number, total: number) => void
+  /** Сигнал отмены */
   signal?: AbortSignal
-  onConflict?: ConflictPolicy
-  resolveConflict?: (name: string) => Promise<ConflictResolution>
 }
 
-export type ConflictPolicy = 'ask' | 'skip' | 'overwrite' | 'rename'
-export type ConflictResolution = 'skip' | 'overwrite' | 'rename' | 'rename-all'
+export interface DownloadedTrackInfo {
+  /** Относительный путь внутри targetDir */
+  relativePath: string
+  /** Размер файла в байтах */
+  size: number
+}
 
-export interface DownloadResult {
-  downloaded: number
-  skipped: number
-  failed: Array<{ track: LibraryTrack; error: string }>
-  aborted: boolean
+/**
+ * Результат сканирования папки скачивания.
+ */
+export interface ScanResult {
+  /**
+   * trackId → относительный путь внутри targetDir.
+   * Треки, которые есть и в библиотеке, и в папке.
+   */
+  downloaded: Map<string, string>
+
+  /**
+   * Файлы в папке, которым нет соответствия в библиотеке.
+   * Путь — относительный от targetDir.
+   */
+  onlyLocal: Array<{ relativePath: string; filename: string }>
+
+  /**
+   * trackId треков, помеченных как 'downloaded', но файла нет.
+   */
+  missing: string[]
 }
 
 // --- Контекст плагина ------------------------------------------------
@@ -103,6 +164,12 @@ export interface PluginContext {
   fetchCover(artist: string, title: string): Promise<string | null>
 
   readonly proxyUrl: string
+
+  /**
+   * Папка скачивания для этого плагина (если общий спейс выбран).
+   * Возвращает null, если спейс не выбран.
+   */
+  getDownloadDir(): Promise<FileSystemDirectoryHandle | null>
 }
 
 // --- LibraryWriter ---------------------------------------------------
@@ -139,6 +206,9 @@ export interface LibraryWriter {
   /** Удалить все папки и треки плагина */
   removeBySource(sourceId: string): void
 
+  /** Обновить origin трека */
+  updateTrackOrigin(trackId: string, origin: TrackOrigin): void
+
   /** Прочитать папку */
   getFolder(folderId: string): Folder | null
 
@@ -156,6 +226,21 @@ export interface LibraryWriter {
 
   /** Установить текущую папку */
   setCurrentFolder(folderId: string): void
+
+  /** Обновить origin трека */
+  updateTrackOrigin(trackId: string, origin: TrackOrigin): void
+
+  /** Обновить source трека (например, на File из папки скачивания) */
+  updateTrackSource(trackId: string, source: string | File): void
+
+  /** Обновить origin трека */
+  updateTrackOrigin(trackId: string, origin: TrackOrigin): void
+
+  /** Обновить source трека (например, на File из папки скачивания) */
+  updateTrackSource(trackId: string, source: string | File): void
+
+  /** Обновить duration трека (когда узнали из metadata) */
+  updateTrackDuration(trackId: string, duration: number): void
 }
 
 // --- PluginStorage ---------------------------------------------------
@@ -181,4 +266,4 @@ export interface ModalOptions {
 
 // --- Экспорт типа Track для удобства ---------------------------------
 
-export type { LibraryTrack, Folder, CollectedLibrary }
+export type { Track, LibraryTrack, Folder, CollectedLibrary }

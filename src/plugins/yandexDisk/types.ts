@@ -1,5 +1,7 @@
 // src/plugins/yandexDisk/types.ts
 
+import type { TrackOrigin } from '@/types/library'
+
 /**
  * Сохранённая папка Яндекс.Диска.
  * Нет handle — у Диска его нет.
@@ -17,11 +19,10 @@ export interface PersistedYandexFolder {
 
 /**
  * Сохранённый трек Яндекс.Диска.
- * source не сохраняется — восстанавливается из remotePath через buildDownloadUrl().
+ * source не сохраняется — восстанавливается из remotePath.
  */
 export interface PersistedYandexTrack {
   id: string
-  /** Всегда 'yandex' */
   pluginId: string
   folderId: string
   filename: string
@@ -30,6 +31,9 @@ export interface PersistedYandexTrack {
   title: string
   artist: string
   album: string
+  origin?: TrackOrigin
+  /** Длительность, если узнали (при воспроизведении или скачивании) */
+  duration?: number
 }
 
 export interface PersistedYandexLibrary {
@@ -41,17 +45,11 @@ export interface PersistedYandexLibrary {
   savedAt: number
 }
 
-/**
- * Конфиг, который бэкенд отдаёт для Яндекс.Диска.
- */
 export interface YandexConfig {
   hasSettings: boolean
   publicFolders: string[]
 }
 
-/**
- * Элемент ответа /api/disk/resources.
- */
 export interface YandexItem {
   path: string
   name: string

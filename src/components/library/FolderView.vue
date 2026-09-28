@@ -9,6 +9,7 @@ import { createPluginContext } from '@/plugins/context'
 import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
+import FolderDownloadButton from "./FolderDownloadButton.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -33,7 +34,6 @@ const coversSearched = computed(() => coverStats.value.checked > 0)
 
 /** Умеет ли текущий источник обновляться */
 const canRefresh = ref(false)
-
 // Проверяем при смене папки — есть ли у плагина refreshFolder
 watch(
   () => currentFolder.value?.source,
@@ -54,6 +54,24 @@ async function checkRefreshSupport() {
     canRefresh.value = false
   }
 }
+
+const canDownload = ref(false)
+watch(
+  () => currentFolder.value?.source,
+  async (sourceId) => {
+    if (!sourceId) {
+      canDownload.value = false
+      return
+    }
+    try {
+      const plugin = await loadPlugin(sourceId)
+      canDownload.value = plugin.canDownload
+    } catch {
+      canDownload.value = false
+    }
+  },
+  { immediate: true },
+)
 
 const isRefreshing = ref(false)
 
@@ -143,6 +161,8 @@ async function resetCovers() {
             </button>
           </template>
         </template>
+
+        <FolderDownloadButton v-if="canDownload && currentFolder" :folder-id="currentFolder.id" />
 
         <button v-if="hasTracks" type="button"
           class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"

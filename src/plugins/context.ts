@@ -5,6 +5,7 @@ import { createLibraryWriter } from '@/stores/library'
 import { modalService } from '@/services/ui/ModalService'
 import { toastService } from '@/services/ui/ToastService'
 import { coverService } from '@/services/covers/CoverService'
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import type { PluginContext } from './types'
 
 const contexts = new Map<string, PluginContext>()
@@ -22,6 +23,10 @@ export function createPluginContext(pluginId: string): PluginContext {
     },
     fetchCover: (artist, title) => coverService.fetch(artist, title),
     proxyUrl: import.meta.env.VITE_DISK_PROXY_URL ?? '',
+    getDownloadDir: async () => {
+      if (!downloadSpaceService.hasSpace.value) return null
+      return downloadSpaceService.getPluginDir(pluginId)
+    },
   }
 
   contexts.set(pluginId, context)

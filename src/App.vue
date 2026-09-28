@@ -15,6 +15,9 @@ import PlayerControls from '@/components/player/PlayerControls.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
 import ToastHost from "./components/ui/ToastHost.vue"
 import { usePwaUpdate } from "./composables/usePwaUpdate.ts"
+import { syncService } from "./services/download/SyncService.ts"
+import { toastService } from "./services/ui/ToastService.ts"
+import { downloadSpaceService } from "./services/download/DownloadSpaceService.ts"
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -86,8 +89,16 @@ watchEffect(() => {
 const isBootstrapping = ref(true)
 onMounted(async () => {
   try {
+    // 1. Обложки
     await coverPersistenceService.load()
+
+    // 2. Спейс скачивания (handle из IDB)
+    await downloadSpaceService.load()
+
+    // 3. История
     await history.restore()
+
+    // 4. Плагины — восстановление из кэша
     for (const manifest of getPlugins()) {
       try {
         const plugin = await loadPlugin(manifest.id)
@@ -98,8 +109,27 @@ onMounted(async () => {
         console.warn(`[app] failed to restore source "${manifest.id}"`, err)
       }
     }
+
+    // 5. Плеер
     const playerRestored = await player.restore()
     if (playerRestored) console.log('[player] restored')
+
+    // 6. Синхронизация папки скачивания
+    // Запускается после восстановления, потому что нужен getTracksBySource.
+    // Не блокирует UI — скан идёт в фоне.
+    void syncService
+      .syncAll()
+      .then((reports) => {
+        console.info('[app] sync done', reports)
+        if (syncService.issueCount.value > 0) {
+          toastService.info(
+            `Проблемные треки: ${syncService.issueCount.value}`,
+          )
+        }
+      })
+      .catch((err) => {
+        console.warn('[app] sync failed', err)
+      })
   } finally {
     isBootstrapping.value = false
   }

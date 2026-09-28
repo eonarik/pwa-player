@@ -25,6 +25,12 @@ import { schemaService } from '@/services/persistence/SchemaService'
 
 import './assets/main.css'
 import { usePlaylistsStore } from './stores/playlists'
+import { useLibraryStore } from './stores/library.ts'
+import { usePlayerStore } from './stores/player.ts'
+import { downloadOrchestrator } from './services/download/DownloadOrchestrator.ts'
+import { syncService } from './services/download/SyncService.ts'
+import { downloadSpaceService } from './services/download/DownloadSpaceService.ts'
+import { librarySaveService } from './services/library/LibrarySaveService.ts'
 
 async function bootstrap() {
   try {
@@ -45,6 +51,31 @@ async function bootstrap() {
   await playlists.restore()
 
   app.mount('#app')
+
+  window.addEventListener('beforeunload', () => {
+    void librarySaveService.flushAll()
+  })
+  window.addEventListener('pagehide', () => {
+    void librarySaveService.flushAll()
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      void librarySaveService.flushAll()
+    }
+  })
+
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__library = useLibraryStore
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__player = usePlayerStore
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__downloads = downloadOrchestrator
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__sync = syncService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__space = downloadSpaceService
+  }
 }
 
 bootstrap()

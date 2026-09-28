@@ -3,6 +3,14 @@
 import type { Track } from './track'
 
 /**
+ * Происхождение трека в источнике.
+ * - 'remote'     — трек есть в источнике, локальной копии нет
+ * - 'downloaded' — трек есть в источнике и скачан на устройство
+ * - 'only-local' — файл есть только в папке скачивания, в источнике его нет
+ */
+export type TrackOrigin = 'remote' | 'downloaded' | 'only-local'
+
+/**
  * Папка в библиотеке.
  * Хранится в нормализованном виде: parentId + childFolderIds + trackIds.
  */
@@ -49,11 +57,16 @@ export interface LibraryTrack extends Track {
    * Заполняется только для треков из Диска. Нужен для восстановления source из кэша.
    */
   remotePath?: string
+  /**
+   * Происхождение трека: в облаке / скачан / только локально.
+   * Опционально: если не задано — считается 'remote'.
+   */
+  origin?: TrackOrigin
 }
 
 /**
  * Промежуточный результат обхода папки.
- * Возвращается из FileSystemService.collectLibrary.
+ * Возвращается плагином при load/restoreFromCache.
  */
 export interface CollectedLibrary {
   folders: Folder[]

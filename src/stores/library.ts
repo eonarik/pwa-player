@@ -4,9 +4,10 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { coverService } from '@/services/covers/CoverService'
-import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
+import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
 import { sortBy, trackSortKey } from '@/utils/sort'
 import type { LibraryWriter } from '@/plugins/types'
+import { librarySaveService } from '@/services/library/LibrarySaveService'
 
 /** Сколько обложек ищем параллельно */
 const COVER_CONCURRENCY = 3
@@ -293,38 +294,6 @@ export function createLibraryWriter(): LibraryWriter {
       }
     },
 
-    updateFolder(folderId: string, patch: Partial<Folder>): void {
-      const s = store()
-      const existing = s.folders[folderId]
-      if (!existing) return
-      s.folders[folderId] = { ...existing, ...patch }
-    },
-
-    addFolders(folders: Folder[], sourceId: string): void {
-      const s = store()
-      for (const folder of folders) {
-        s.folders[folder.id] = { ...folder, source: sourceId }
-      }
-    },
-
-    addTracks(tracks: LibraryTrack[], sourceId: string): void {
-      const s = store()
-      for (const track of tracks) {
-        s.tracks[track.id] = { ...track, pluginId: sourceId }
-      }
-    },
-
-    removeTracks(trackIds: string[]): void {
-      const s = store()
-      for (const id of trackIds) {
-        const track = s.tracks[id]
-        if (track?.coverUrl?.startsWith('blob:')) {
-          URL.revokeObjectURL(track.coverUrl)
-        }
-        delete s.tracks[id]
-      }
-    },
-
     removeFolders(folderIds: string[]): void {
       const s = store()
       for (const id of folderIds) {
@@ -345,6 +314,71 @@ export function createLibraryWriter(): LibraryWriter {
           delete s.tracks[id]
         }
       }
+    },
+
+    updateTrackOrigin(trackId: string, origin: TrackOrigin): void {
+      const s = store()
+      const track = s.tracks[trackId]
+      if (!track) return
+      s.tracks[trackId] = { ...track, origin }
+      if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    updateTrackSource(trackId: string, source: string | File): void {
+      const s = store()
+      const track = s.tracks[trackId]
+      if (!track) return
+      s.tracks[trackId] = { ...track, source }
+      if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    updateTrackDuration(trackId: string, duration: number): void {
+      const s = store()
+      const track = s.tracks[trackId]
+      if (!track) return
+      if (track.duration === duration) return
+      s.tracks[trackId] = { ...track, duration }
+      if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    addTracks(tracks: LibraryTrack[], sourceId: string): void {
+      const s = store()
+      for (const track of tracks) {
+        s.tracks[track.id] = { ...track, pluginId: sourceId }
+      }
+      librarySaveService.scheduleSave(sourceId)
+    },
+
+    removeTracks(trackIds: string[]): void {
+      const s = store()
+      const pluginIds = new Set<string>()
+      for (const id of trackIds) {
+        const track = s.tracks[id]
+        if (track?.coverUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(track.coverUrl)
+        }
+        if (track?.pluginId) pluginIds.add(track.pluginId)
+        delete s.tracks[id]
+      }
+      for (const pluginId of pluginIds) {
+        librarySaveService.scheduleSave(pluginId)
+      }
+    },
+
+    addFolders(folders: Folder[], sourceId: string): void {
+      const s = store()
+      for (const folder of folders) {
+        s.folders[folder.id] = { ...folder, source: sourceId }
+      }
+      librarySaveService.scheduleSave(sourceId)
+    },
+
+    updateFolder(folderId: string, patch: Partial<Folder>): void {
+      const s = store()
+      const existing = s.folders[folderId]
+      if (!existing) return
+      s.folders[folderId] = { ...existing, ...patch }
+      if (existing.source) librarySaveService.scheduleSave(existing.source)
     },
 
     getFolder(folderId: string): Folder | null {
