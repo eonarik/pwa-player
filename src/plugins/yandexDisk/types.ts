@@ -1,6 +1,6 @@
 // src/plugins/yandexDisk/types.ts
 
-import type { TrackOrigin } from '@/types/library'
+import type { ScanStatus, TrackOrigin } from '@/types/library'
 
 /**
  * Сохранённая папка Яндекс.Диска.
@@ -15,11 +15,12 @@ export interface PersistedYandexFolder {
   childFolderIds: string[]
   trackIds: string[]
   totalTrackCount: number
+  scanStatus?: ScanStatus
+  ready?: boolean
 }
 
 /**
  * Сохранённый трек Яндекс.Диска.
- * source не сохраняется — восстанавливается из remotePath.
  */
 export interface PersistedYandexTrack {
   id: string
@@ -32,7 +33,6 @@ export interface PersistedYandexTrack {
   artist: string
   album: string
   origin?: TrackOrigin
-  /** Длительность, если узнали (при воспроизведении или скачивании) */
   duration?: number
 }
 

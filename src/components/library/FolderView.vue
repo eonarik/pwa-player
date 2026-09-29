@@ -6,12 +6,11 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
+import { syncService } from '@/services/download/SyncService'
+import { toastService } from '@/services/ui/ToastService'
 import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
-import FolderDownloadButton from "./FolderDownloadButton.vue"
-import { syncService } from "@/services/download/SyncService.ts"
-import { toastService } from "@/services/ui/ToastService.ts"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -31,10 +30,13 @@ const tracks = computed(() => currentTracks.value)
 const hasTracks = computed(() => tracks.value.length > 0)
 const hasFolders = computed(() => currentSubfolders.value.length > 0)
 
+const isScanning = computed(() => currentFolder.value?.scanStatus === 'scanning')
+
 const coversNotSearched = computed(() => coverStats.value.checked === 0)
 const coversSearched = computed(() => coverStats.value.checked > 0)
 
-/** Умеет ли текущий источник обновляться */
+// --- Обновление источника -------------------------------------------
+
 const canRefresh = ref(false)
 const canRefreshFromDevice = ref(false)
 
@@ -48,7 +50,7 @@ watch(
     }
     try {
       const plugin = await loadPlugin(sourceId)
-      canRefresh.value = typeof plugin.refreshFolder === 'function'
+      canRefresh.value = typeof plugin.scanFolder === 'function'
       canRefreshFromDevice.value =
         plugin.canDownload === true && typeof plugin.scanDownloadDir === 'function'
     } catch {
@@ -59,63 +61,8 @@ watch(
   { immediate: true },
 )
 
-const canDownload = ref(false)
-watch(
-  () => currentFolder.value?.source,
-  async (sourceId) => {
-    if (!sourceId) {
-      canDownload.value = false
-      return
-    }
-    try {
-      const plugin = await loadPlugin(sourceId)
-      canDownload.value = plugin.canDownload
-    } catch {
-      canDownload.value = false
-    }
-  },
-  { immediate: true },
-)
-
-const isRefreshing = ref(false)
-
-async function refreshFolder() {
-  const folder = currentFolder.value
-  if (!folder || !folder.source) return
-
-  try {
-    const plugin = await loadPlugin(folder.source)
-    if (!plugin.refreshFolder) return
-
-    isRefreshing.value = true
-    const context = createPluginContext(folder.source)
-    await plugin.refreshFolder(context, folder.id)
-  } catch (err) {
-    console.error('[folder-view] refresh failed', err)
-  } finally {
-    isRefreshing.value = false
-  }
-}
-
-function onSelectTrack(index: number) {
-  player.setQueue(tracks.value, index)
-}
-
-function playAll() {
-  if (tracks.value.length === 0) return
-  player.setQueue(tracks.value, 0)
-}
-
-async function fetchCovers() {
-  await library.fetchCoversForCurrentFolder()
-}
-
-async function resetCovers() {
-  await library.resetCoversForCurrentFolder()
-}
-
-
 const isRefreshMenuOpen = ref(false)
+const isRefreshing = ref(false)
 const isRefreshingFromDevice = ref(false)
 
 function toggleRefreshMenu() {
@@ -128,14 +75,28 @@ function closeRefreshMenu() {
 
 async function refreshFromCloud() {
   closeRefreshMenu()
-  await refreshFolder()
+
+  const folder = currentFolder.value
+  if (!folder || !folder.source) return
+
+  try {
+    const plugin = await loadPlugin(folder.source)
+    if (!plugin.scanFolder) return
+
+    isRefreshing.value = true
+    const context = createPluginContext(folder.source)
+    await plugin.scanFolder(context, folder.id, { recursive: true, removeMissing: true })
+    toastService.success('Обновлено с облака')
+  } catch (err) {
+    console.error('[folder-view] cloud refresh failed', err)
+    toastService.error('Не удалось обновить с облака')
+  } finally {
+    isRefreshing.value = false
+  }
 }
 
 async function refreshFromDevice() {
   closeRefreshMenu()
-
-  const folder = currentFolder.value
-  if (!folder || !folder.source) return
 
   if (isRefreshingFromDevice.value) return
 
@@ -149,6 +110,16 @@ async function refreshFromDevice() {
   } finally {
     isRefreshingFromDevice.value = false
   }
+}
+
+async function findCovers() {
+  closeRefreshMenu()
+  await library.fetchCoversForCurrentFolder()
+}
+
+async function resetCovers() {
+  closeRefreshMenu()
+  await library.resetCoversForCurrentFolder()
 }
 
 function onClickOutside(e: MouseEvent) {
@@ -165,106 +136,152 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)
 })
+
+// --- Действия -------------------------------------------------------
+
+function onSelectTrack(index: number) {
+  if (isScanning.value) return
+  player.setQueue(tracks.value, index)
+}
+
+function playAll() {
+  if (isScanning.value) return
+  if (tracks.value.length === 0) return
+  player.setQueue(tracks.value, 0)
+}
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
+    <!-- Шапка -->
     <div class="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
-      <Breadcrumbs />
+      <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+        <Breadcrumbs />
 
-      <div class="flex shrink-0 items-center gap-3">
-        <span v-if="currentFolder" class="text-xs text-zinc-500">
-          <template v-if="hasFolders">{{ currentSubfolders.length }} папок</template>
-          <template v-if="hasFolders && hasTracks"> · </template>
-          <template v-if="hasTracks">{{ tracks.length }} треков</template>
-          <template v-if="!hasFolders && !hasTracks">пусто</template>
-        </span>
+        <div class="flex shrink-0 items-center gap-3">
+          <span v-if="currentFolder && !isScanning" class="text-xs text-zinc-500">
+            <template v-if="hasFolders">{{ currentSubfolders.length }} папок</template>
+            <template v-if="hasFolders && hasTracks"> · </template>
+            <template v-if="hasTracks">{{ tracks.length }} треков</template>
+            <template v-if="!hasFolders && !hasTracks">пусто</template>
+          </span>
 
-        <!-- Кнопка «Обновить» с сабменю -->
-        <div v-if="canRefresh || canRefreshFromDevice" data-refresh-menu class="relative">
-          <button type="button"
-            class="flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-50"
-            :disabled="isRefreshing || isRefreshingFromDevice" @click.stop="toggleRefreshMenu">
-            <span v-if="isRefreshing">Обновление…</span>
-            <span v-else-if="isRefreshingFromDevice">Сканирование…</span>
-            <span v-else>Обновить</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 transition"
-              :class="isRefreshMenuOpen ? 'rotate-180' : ''">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
+          <span v-else-if="isScanning" class="text-xs text-zinc-500">
+            Сканирование…
+          </span>
 
-          <div v-if="isRefreshMenuOpen"
-            class="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg">
-            <button v-if="canRefresh" type="button"
-              class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-              @click="refreshFromCloud">
-              С облака
-              <span class="block text-[10px] text-zinc-500">Обновить треки с Яндекс.Диска</span>
-            </button>
-
-            <button v-if="canRefreshFromDevice" type="button"
-              class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-              @click="refreshFromDevice">
-              С устройства
-              <span class="block text-[10px] text-zinc-500">Найти новые и отсутствующие файлы</span>
-            </button>
-          </div>
-        </div>
-
-        <template v-if="hasTracks">
-          <div v-if="isLoadingCovers" class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500">
-            Поиск… {{ coverProgress.done }}/{{ coverProgress.total }}
-          </div>
-
-          <button v-else-if="coversNotSearched && tracksWithoutCovers > 0" type="button"
-            class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100"
-            @click="fetchCovers">
-            Найти обложки ({{ tracksWithoutCovers }})
-          </button>
-
-          <template v-else-if="coversSearched">
-            <div class="flex items-center gap-2 text-xs text-zinc-500">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                class="h-3.5 w-3.5 text-emerald-500">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-              <span>
-                Найдено:
-                <span class="text-zinc-300">{{ coverStats.found }}</span>
-                / {{ coverStats.total }}
-              </span>
-            </div>
-
+          <!-- Кнопка «Обновить» с сабменю -->
+          <div v-if="!isScanning && (canRefresh || canRefreshFromDevice || hasTracks)" data-refresh-menu
+            class="relative">
             <button type="button"
-              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-200"
-              @click="resetCovers">
-              Сбросить
+              class="flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-50"
+              :disabled="isRefreshing || isRefreshingFromDevice" @click.stop="toggleRefreshMenu">
+              <span v-if="isRefreshing">Обновление…</span>
+              <span v-else-if="isRefreshingFromDevice">Сканирование…</span>
+              <span v-else>Действия</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 transition"
+                :class="isRefreshMenuOpen ? 'rotate-180' : ''">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
-          </template>
-        </template>
 
-        <FolderDownloadButton v-if="canDownload && currentFolder" :folder-id="currentFolder.id" />
+            <div v-if="isRefreshMenuOpen"
+              class="absolute right-0 top-full z-20 mt-1 w-64 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg">
+              <button v-if="canRefresh" type="button"
+                class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+                @click="refreshFromCloud">
+                Обновить с облака
+                <span class="block text-[10px] text-zinc-500">
+                  Синхронизировать треки с Яндекс.Диска
+                </span>
+              </button>
 
-        <button v-if="hasTracks" type="button"
-          class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
-          @click="playAll">
-          Играть всё
-        </button>
+              <button v-if="canRefreshFromDevice" type="button"
+                class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+                @click="refreshFromDevice">
+                Обновить с устройства
+                <span class="block text-[10px] text-zinc-500">
+                  Найти новые и отсутствующие файлы
+                </span>
+              </button>
+
+              <template v-if="hasTracks">
+                <div class="border-t border-zinc-800" />
+
+                <div v-if="isLoadingCovers" class="px-4 py-2.5 text-xs text-zinc-500">
+                  Поиск обложек… {{ coverProgress.done }}/{{ coverProgress.total }}
+                </div>
+
+                <button v-else-if="coversNotSearched && tracksWithoutCovers > 0" type="button"
+                  class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+                  @click="findCovers">
+                  Найти обложки ({{ tracksWithoutCovers }})
+                  <span class="block text-[10px] text-zinc-500">
+                    Через iTunes и Deezer
+                  </span>
+                </button>
+
+                <template v-else-if="coversSearched">
+                  <div class="border-t border-zinc-800" />
+
+                  <div class="flex items-center justify-between px-4 py-2.5 text-xs text-zinc-500">
+                    <span>
+                      Найдено: {{ coverStats.found }} / {{ coverStats.total }}
+                    </span>
+                    <button type="button" class="text-zinc-400 transition hover:text-zinc-200" @click="resetCovers">
+                      Сбросить
+                    </button>
+                  </div>
+                </template>
+              </template>
+            </div>
+          </div>
+
+          <button v-if="hasTracks && !isScanning" type="button"
+            class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
+            @click="playAll">
+            Играть всё
+          </button>
+        </div>
       </div>
     </div>
 
-    <div v-if="hasFolders" class="shrink-0 overflow-y-auto border-b border-zinc-800"
-      :class="hasTracks ? 'max-h-[40%]' : 'flex-1'">
-      <FolderList />
+    <!-- Сканирование -->
+    <div v-if="isScanning" class="flex flex-1 items-center justify-center">
+      <div class="flex flex-col items-center gap-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          class="h-8 w-8 animate-spin text-emerald-500">
+          <path d="M12 3a9 9 0 019 9" />
+        </svg>
+        <p class="text-sm text-zinc-500">Сканирование папки…</p>
+      </div>
     </div>
 
-    <div v-if="hasTracks" class="min-h-0 flex-1">
-      <TrackList :key="currentFolder?.id" :tracks="tracks" @select="onSelectTrack" />
-    </div>
+    <!-- Контент -->
+    <div v-else class="flex-1 overflow-y-auto">
+      <div class="mx-auto w-full max-w-3xl">
+        <!-- Папки -->
+        <div v-if="hasFolders" class="pb-2">
+          <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+            Папки
+          </p>
+          <FolderList />
+        </div>
 
-    <div v-else-if="!hasFolders" class="flex flex-1 items-center justify-center text-sm text-zinc-500">
-      В этой папке пусто
+        <!-- Треки -->
+        <div v-if="hasTracks" class="pb-4">
+          <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+            Треки
+          </p>
+          <TrackList :key="currentFolder?.id" :tracks="tracks" @select="onSelectTrack" />
+        </div>
+
+        <!-- Пусто -->
+        <div v-if="!hasFolders && !hasTracks"
+          class="flex h-full items-center justify-center py-20 text-sm text-zinc-500">
+          В этой папке пусто
+        </div>
+      </div>
     </div>
   </div>
 </template>

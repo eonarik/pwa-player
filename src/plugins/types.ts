@@ -30,6 +30,20 @@ export interface PluginManifest {
 }
 
 /**
+ * Опции обхода папки.
+ */
+export interface ScanFolderOptions {
+  /** Рекурсивно обходить подпапки? */
+  recursive: boolean
+  /**
+   * Удалять треки, которых больше нет на сервере?
+   * - false (по умолчанию) — только добавляем новые.
+   * - true — синхронизируем: что на сервере, то и в библиотеке.
+   */
+  removeMissing?: boolean
+}
+
+/**
  * Источник библиотеки. Реализуется плагином.
  *
  * Ядро не знает, что внутри: локальная папка, Яндекс.Диск, Dropbox.
@@ -49,6 +63,24 @@ export interface LibrarySource {
   restoreFromCache(context: PluginContext): Promise<boolean>
 
   refreshFolder?(context: PluginContext, folderId: string): Promise<void>
+
+  /**
+   * Обойти папку и, если recursive: true, всё её поддерево.
+   *
+   * Поведение:
+   * - scanStatus === 'scanning' → выходит, возвращает текущий ready.
+   * - scanStatus === undefined → обходит саму папку.
+   * - scanStatus === 'scanned' и !removeMissing → не обходит саму.
+   * - scanStatus === 'scanned' и removeMissing → обходит (для удаления пропавших).
+   * - recursive: true → рекурсивно в подпапки.
+   *
+   * Возвращает true, если всё поддерево готово (ready).
+   */
+  scanFolder?(
+    context: PluginContext,
+    folderId: string,
+    options: ScanFolderOptions,
+  ): Promise<boolean>
 
   buildStreamUrl(track: LibraryTrack): string
 

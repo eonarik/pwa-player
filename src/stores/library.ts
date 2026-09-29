@@ -343,9 +343,29 @@ export function createLibraryWriter(): LibraryWriter {
 
     addTracks(tracks: LibraryTrack[], sourceId: string): void {
       const s = store()
+      const affectedFolders = new Set<string>()
+
       for (const track of tracks) {
         s.tracks[track.id] = { ...track, pluginId: sourceId }
+        if (track.folderId) affectedFolders.add(track.folderId)
       }
+
+      // Добавляем trackId в folder.trackIds
+      for (const folderId of affectedFolders) {
+        const folder = s.folders[folderId]
+        if (!folder) continue
+
+        const newTrackIds = new Set(folder.trackIds)
+        for (const track of tracks) {
+          if (track.folderId === folderId) newTrackIds.add(track.id)
+        }
+
+        s.folders[folderId] = {
+          ...folder,
+          trackIds: Array.from(newTrackIds),
+        }
+      }
+
       librarySaveService.scheduleSave(sourceId)
     },
 

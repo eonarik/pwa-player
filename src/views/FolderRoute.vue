@@ -4,6 +4,8 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
+import { loadPlugin } from '@/plugins/registry'
+import { createPluginContext } from '@/plugins/context'
 import type { Folder } from '@/types/library'
 import FolderView from '@/components/library/FolderView.vue'
 
@@ -49,9 +51,31 @@ const currentFolder = computed<Folder | null>(() => {
 
 const folderExists = computed(() => Boolean(currentFolder.value))
 
+/**
+ * Гарантирует, что папка обойдена (сама, без подпапок).
+ * - scanStatus === 'scanned' → ничего.
+ * - scanStatus === 'scanning' → ждём (UI покажет спиннер).
+ * - scanStatus === undefined → запускаем scanFolder(folderId, false).
+ */
+async function ensureFolderScanned(folder: Folder): Promise<void> {
+  if (folder.scanStatus === 'scanned') return
+  if (folder.scanStatus === 'scanning') return
+  if (!folder.source) return
+
+  try {
+    const plugin = await loadPlugin(folder.source)
+    if (!plugin.scanFolder) return
+
+    const context = createPluginContext(folder.source)
+    await plugin.scanFolder(context, folder.id, { recursive: false })
+  } catch (err) {
+    console.warn(`[folder-route] scan failed for "${folder.path}"`, err)
+  }
+}
+
 watch(
   [currentFolder, hasLibrary, pluginId],
-  () => {
+  async () => {
     if (!pluginId.value) {
       router.replace({ name: 'home' })
       return
@@ -70,7 +94,12 @@ watch(
       return
     }
 
-    library.setCurrentFolder(currentFolder.value!.id)
+    const folder = currentFolder.value!
+
+    library.setCurrentFolder(folder.id)
+
+    // Если папка не обойдена — форсируем обход одной папки
+    void ensureFolderScanned(folder)
   },
   { immediate: true },
 )
@@ -78,5 +107,7 @@ watch(
 
 <template>
   <FolderView v-if="hasLibrary && folderExists" />
-  <div v-else class="flex h-full items-center justify-center text-sm text-zinc-500">Загрузка…</div>
+  <div v-else class="flex h-full items-center justify-center text-sm text-zinc-500">
+    Загрузка…
+  </div>
 </template>

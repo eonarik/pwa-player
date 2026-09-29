@@ -11,6 +11,14 @@ import type { Track } from './track'
 export type TrackOrigin = 'remote' | 'downloaded' | 'only-local'
 
 /**
+ * Статус обхода папки.
+ * - undefined    — ещё не обходили
+ * - 'scanning'   — обход идёт прямо сейчас
+ * - 'scanned'    — обход завершён
+ */
+export type ScanStatus = 'scanned' | 'scanning'
+
+/**
  * Папка в библиотеке.
  * Хранится в нормализованном виде: parentId + childFolderIds + trackIds.
  */
@@ -38,14 +46,21 @@ export interface Folder {
    * Заполняется только для папок из Диска. Нужен для точечного обновления.
    */
   remotePath?: string
+  /**
+   * Статус обхода самой папки.
+   * undefined — ещё не обходили, scanned — обход завершён, scanning — идёт.
+   */
+  scanStatus?: ScanStatus
+  /**
+   * Готово ли всё поддерево (сама папка + все подпапки).
+   * true — можно показывать totalTrackCount.
+   * false или undefined — показывать «…».
+   */
+  ready?: boolean
 }
 
 /**
  * Трек в библиотеке.
- *
- * Расширяет Track — значит, его можно напрямую класть в очередь плеера
- * без конвертации. Разница только в том, что в библиотеке track
- * всегда привязан к папке, а handle опционален (у треков из Диска его нет).
  */
 export interface LibraryTrack extends Track {
   /** В какой папке лежит */
@@ -54,7 +69,7 @@ export interface LibraryTrack extends Track {
   handle?: FileSystemFileHandle
   /**
    * Полный путь на Яндекс.Диске: 'disk:/все,что наше/...'.
-   * Заполняется только для треков из Диска. Нужен для восстановления source из кэша.
+   * Заполняется только для треков из Диска.
    */
   remotePath?: string
   /**
@@ -66,7 +81,6 @@ export interface LibraryTrack extends Track {
 
 /**
  * Промежуточный результат обхода папки.
- * Возвращается плагином при load/restoreFromCache.
  */
 export interface CollectedLibrary {
   folders: Folder[]
