@@ -81,18 +81,20 @@ const yandexPlugin: LibrarySource = {
     void backgroundScan(context)
   },
 
-  async restoreFromCache(context: PluginContext): Promise<boolean> {
+  async restoreFromCache(context) {
     const cached = await yandexPersistenceService.load()
     if (!cached || !yandexPersistenceService.isFresh(cached)) return false
 
     const collected = fromPersisted(cached)
-
     const targetDir = await context.getDownloadDir()
     if (targetDir) {
       await enrichWithLocalFiles(collected.tracks, targetDir)
     }
-
     context.writer.setLibrary(collected, PLUGIN_ID)
+
+    // Запускаем фоновый обход, если есть неготовые папки
+    void backgroundScan(context)
+
     return true
   },
 
@@ -503,6 +505,13 @@ async function scanFolderImpl(
 // --- Фоновый обход ----------------------------------------------------
 
 async function backgroundScan(context: PluginContext): Promise<void> {
+  const allFolders = context.writer.getFoldersBySource(PLUGIN_ID)
+  const unready = allFolders.filter((f) => f.ready !== true)
+  console.info('[yandex] background scan check:', {
+    total: allFolders.length,
+    unready: unready.length,
+  })
+
   const rootFolder = context.writer.getFoldersBySource(PLUGIN_ID).find((f) => f.parentId === null)
   if (!rootFolder) return
 

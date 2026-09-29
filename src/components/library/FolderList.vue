@@ -176,8 +176,7 @@ function toggleFolderPlayback(folder: Folder) {
           ? 'text-emerald-400/60'
           : 'text-zinc-500'
           ">
-          <template v-if="isScanning(folder)"> Сканирование… </template>
-          <template v-else-if="isNotReady(folder)"> Сканирование… </template>
+          <template v-if="isNotReady(folder)"> Сканирование… </template>
           <template v-else> {{ formatCount(folder) }} </template>
         </p>
       </button>
