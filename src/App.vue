@@ -18,11 +18,13 @@ import { usePwaUpdate } from "./composables/usePwaUpdate.ts"
 import { syncService } from "./services/download/SyncService.ts"
 import { toastService } from "./services/ui/ToastService.ts"
 import { downloadSpaceService } from "./services/download/DownloadSpaceService.ts"
+import SyncIssuesModal from "./components/library/SyncIssuesModal.vue"
 
 const router = useRouter()
 const player = usePlayerStore()
 const library = useLibraryStore()
 const history = useHistoryStore()
+const showSyncIssues = ref(false)
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
 // --- Меню хедера ------------------------------------------------------
@@ -64,8 +66,6 @@ useKeyboardShortcuts({
   onPrev: () => player.prev(),
   onSeekBy: (delta) => player.seekBy(delta),
   onVolumeBy: (delta) => player.setVolumeBy(delta),
-  onVolumeUp: () => player.setVolumeBy(0.05),
-  onVolumeDown: () => player.setVolumeBy(-0.05),
 })
 
 useMediaSession({
@@ -85,6 +85,23 @@ watchEffect(() => {
 })
 
 // --- Восстановление при старте ----------------------------------------
+
+async function restoreSpaceAccess() {
+  const state = await downloadSpaceService.requestAccess()
+
+  if (state === 'granted') {
+    toastService.success('Доступ к папке скачивания восстановлен')
+    return
+  }
+
+  toastService.error('Доступ отклонён. Выберите папку заново')
+  const handle = await downloadSpaceService.pickSpace()
+  if (handle) {
+    toastService.success('Папка скачивания выбрана')
+  } else {
+    toastService.info('Папка не выбрана. Скачивание недоступно')
+  }
+}
 
 const isBootstrapping = ref(true)
 onMounted(async () => {
@@ -149,6 +166,34 @@ usePwaUpdate()
         </svg>
         <span class="hidden md:inline">Главная</span>
       </button>
+
+      <button v-if="downloadSpaceService.needsPermission.value" type="button"
+        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-amber-400 transition hover:bg-amber-500/10"
+        @click="restoreSpaceAccess">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+          <path
+            d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <span class="hidden md:inline">Восстановить доступ к папке</span>
+        <span class="md:hidden">Доступ</span>
+      </button>
+
+      <button v-if="syncService.issueCount.value > 0" type="button"
+        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition" :class="syncService.isSyncing.value
+          ? 'text-zinc-500'
+          : 'text-amber-400 hover:bg-amber-500/10'
+          " :disabled="syncService.isSyncing.value" @click="showSyncIssues = true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+          <path
+            d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <span class="hidden md:inline">Проблемные треки: {{ syncService.issueCount.value }}</span>
+        <span class="md:hidden">{{ syncService.issueCount.value }}</span>
+      </button>
+
+      <span v-if="syncService.isSyncing.value" class="text-xs text-zinc-500">
+        Синхронизация…
+      </span>
 
       <div class="relative">
         <button type="button"
@@ -217,6 +262,7 @@ usePwaUpdate()
 
     <PlayerControls />
 
+    <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
     <ModalHost />
     <ToastHost />
   </div>

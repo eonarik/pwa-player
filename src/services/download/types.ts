@@ -13,12 +13,13 @@ export interface TrackDownloadState {
 
 /**
  * Проблемы, найденные при сканировании папки скачивания.
- * Используется для модалки «Проблемные треки».
  */
 export interface SyncIssues {
+  /** Плагин, у которого нашли проблемы */
   pluginId: string
+  /** Новые треки, которых нет в библиотеке */
   onlyLocal: Array<{ relativePath: string; filename: string }>
-  /** trackIds треков, которые помечены downloaded, но файла нет */
+  /** Треки в библиотеке, файлы которых не найдены */
   missing: string[]
 }
 
@@ -31,4 +32,14 @@ export interface SyncReport {
   onlyLocalCount: number
   missingCount: number
   issues: SyncIssues | null
+}
+
+/**
+ * Выбор пользователя в модалке «Проблемные треки».
+ */
+export interface SelectedIssues {
+  /** Отмеченные файлы для добавления как only-local */
+  onlyLocal: Array<{ pluginId: string; relativePath: string; filename: string }>
+  /** Отмеченные треки для пометки как remote */
+  missing: Array<{ pluginId: string; trackId: string }>
 }

@@ -1,6 +1,6 @@
 <!-- src/components/library/FolderView.vue -->
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
@@ -10,6 +10,8 @@ import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
 import FolderDownloadButton from "./FolderDownloadButton.vue"
+import { syncService } from "@/services/download/SyncService.ts"
+import { toastService } from "@/services/ui/ToastService.ts"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -34,26 +36,28 @@ const coversSearched = computed(() => coverStats.value.checked > 0)
 
 /** Умеет ли текущий источник обновляться */
 const canRefresh = ref(false)
-// Проверяем при смене папки — есть ли у плагина refreshFolder
+const canRefreshFromDevice = ref(false)
+
 watch(
   () => currentFolder.value?.source,
-  () => void checkRefreshSupport(),
+  async (sourceId) => {
+    if (!sourceId) {
+      canRefresh.value = false
+      canRefreshFromDevice.value = false
+      return
+    }
+    try {
+      const plugin = await loadPlugin(sourceId)
+      canRefresh.value = typeof plugin.refreshFolder === 'function'
+      canRefreshFromDevice.value =
+        plugin.canDownload === true && typeof plugin.scanDownloadDir === 'function'
+    } catch {
+      canRefresh.value = false
+      canRefreshFromDevice.value = false
+    }
+  },
   { immediate: true },
 )
-
-async function checkRefreshSupport() {
-  const pluginId = currentFolder.value?.source
-  if (!pluginId) {
-    canRefresh.value = false
-    return
-  }
-  try {
-    const plugin = await loadPlugin(pluginId)
-    canRefresh.value = typeof plugin.refreshFolder === 'function'
-  } catch {
-    canRefresh.value = false
-  }
-}
 
 const canDownload = ref(false)
 watch(
@@ -109,6 +113,58 @@ async function fetchCovers() {
 async function resetCovers() {
   await library.resetCoversForCurrentFolder()
 }
+
+
+const isRefreshMenuOpen = ref(false)
+const isRefreshingFromDevice = ref(false)
+
+function toggleRefreshMenu() {
+  isRefreshMenuOpen.value = !isRefreshMenuOpen.value
+}
+
+function closeRefreshMenu() {
+  isRefreshMenuOpen.value = false
+}
+
+async function refreshFromCloud() {
+  closeRefreshMenu()
+  await refreshFolder()
+}
+
+async function refreshFromDevice() {
+  closeRefreshMenu()
+
+  const folder = currentFolder.value
+  if (!folder || !folder.source) return
+
+  if (isRefreshingFromDevice.value) return
+
+  isRefreshingFromDevice.value = true
+  try {
+    await syncService.syncAll()
+    toastService.info('Сканирование устройства завершено')
+  } catch (err) {
+    console.error('[folder-view] device refresh failed', err)
+    toastService.error('Не удалось обновить с устройства')
+  } finally {
+    isRefreshingFromDevice.value = false
+  }
+}
+
+function onClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('[data-refresh-menu]')) {
+    closeRefreshMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+})
 </script>
 
 <template>
@@ -124,11 +180,37 @@ async function resetCovers() {
           <template v-if="!hasFolders && !hasTracks">пусто</template>
         </span>
 
-        <button v-if="canRefresh" type="button"
-          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-50"
-          :disabled="isRefreshing" @click="refreshFolder">
-          {{ isRefreshing ? 'Обновление…' : 'Обновить' }}
-        </button>
+        <!-- Кнопка «Обновить» с сабменю -->
+        <div v-if="canRefresh || canRefreshFromDevice" data-refresh-menu class="relative">
+          <button type="button"
+            class="flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-50"
+            :disabled="isRefreshing || isRefreshingFromDevice" @click.stop="toggleRefreshMenu">
+            <span v-if="isRefreshing">Обновление…</span>
+            <span v-else-if="isRefreshingFromDevice">Сканирование…</span>
+            <span v-else>Обновить</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 transition"
+              :class="isRefreshMenuOpen ? 'rotate-180' : ''">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          <div v-if="isRefreshMenuOpen"
+            class="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg">
+            <button v-if="canRefresh" type="button"
+              class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+              @click="refreshFromCloud">
+              С облака
+              <span class="block text-[10px] text-zinc-500">Обновить треки с Яндекс.Диска</span>
+            </button>
+
+            <button v-if="canRefreshFromDevice" type="button"
+              class="block w-full px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
+              @click="refreshFromDevice">
+              С устройства
+              <span class="block text-[10px] text-zinc-500">Найти новые и отсутствующие файлы</span>
+            </button>
+          </div>
+        </div>
 
         <template v-if="hasTracks">
           <div v-if="isLoadingCovers" class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500">

@@ -6,7 +6,9 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { getPlugins, loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
+import { toastService } from '@/services/ui/ToastService'
 import type { PluginManifest } from '@/plugins/types'
+import { syncService } from "@/services/download/SyncService"
 
 const router = useRouter()
 const library = useLibraryStore()
@@ -20,7 +22,6 @@ interface PluginMeta {
 /** Статичные метаданные плагинов — грузятся один раз */
 const pluginMetas = ref<PluginMeta[]>([])
 const isLoading = ref<string | null>(null)
-const error = ref<string | null>(null)
 
 /**
  * Реактивный список: hasData пересчитывается автоматически,
@@ -52,7 +53,10 @@ function openPlugin(row: { manifest: PluginManifest; hasData: boolean }) {
   const root = Object.values(library.folders).find(
     (f) => f.source === row.manifest.id && f.parentId === null,
   )
-  if (!root) return
+  if (!root) {
+    toastService.error(`Источник «${row.manifest.name}» не подключён`)
+    return
+  }
 
   library.setCurrentFolder(root.id)
   const segments = root.path.split('/').filter(Boolean)
@@ -65,7 +69,7 @@ function openPlugin(row: { manifest: PluginManifest; hasData: boolean }) {
 // --- Подключить источник (загрузка с нуля) ----------------------------
 
 async function connectPlugin(row: { manifest: PluginManifest }) {
-  error.value = null
+  if (isLoading.value) return
   isLoading.value = row.manifest.id
 
   try {
@@ -75,12 +79,15 @@ async function connectPlugin(row: { manifest: PluginManifest }) {
     await plugin.connect(context)
     await plugin.load(context, { forceRefresh: true })
 
+    toastService.success(`Источник «${row.manifest.name}» подключён`)
     openPlugin({ manifest: row.manifest, hasData: true })
   } catch (err) {
+    // Отмена пользователем — не ошибка
     if (err instanceof Error && err.message === 'cancelled') {
       return
     }
-    error.value = err instanceof Error ? err.message : 'Не удалось подключить источник'
+    const message = err instanceof Error ? err.message : 'Не удалось подключить источник'
+    toastService.error(message)
   } finally {
     isLoading.value = null
   }
@@ -89,6 +96,8 @@ async function connectPlugin(row: { manifest: PluginManifest }) {
 // --- Отключить --------------------------------------------------------
 
 async function disconnectPlugin(row: { manifest: PluginManifest }) {
+  if (isLoading.value) return
+
   const confirmed = window.confirm(`Отключить «${row.manifest.name}»? Данные будут удалены.`)
   if (!confirmed) return
 
@@ -97,8 +106,12 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
     const plugin = await loadPlugin(row.manifest.id)
     const context = createPluginContext(row.manifest.id)
     await plugin.disconnect(context)
+
+    toastService.info(`Источник «${row.manifest.name}» отключён`)
+    syncService.clearIssuesForPlugin(row.manifest.id)
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Не удалось отключить'
+    const message = err instanceof Error ? err.message : 'Не удалось отключить'
+    toastService.error(message)
   } finally {
     isLoading.value = null
   }
@@ -155,8 +168,6 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
           </div>
         </div>
       </div>
-
-      <p v-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
     </div>
   </div>
 </template>

@@ -7,10 +7,8 @@ import { usePlaylistsStore } from '@/stores/playlists'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
-import TrackListItem from '@/components/library/TrackListItem.vue'
-import TrackActions from '@/components/library/TrackActions.vue'
+import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import type { LibraryTrack } from '@/types/library'
-import PlaylistDownloadButton from "@/components/library/PlaylistDownloadButton.vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -28,11 +26,15 @@ const renameValue = ref('')
 
 const isFavorites = computed(() => playlistId.value === FAVORITES_PLAYLIST_ID)
 
+/** Только доступные треки — для playAll и setQueue */
 const resolvedTracks = computed<LibraryTrack[]>(() => {
   if (!playlist.value) return []
-  return playlist.value.tracks
-    .map((snapshot) => library.getTrack(snapshot.trackId))
-    .filter((t): t is LibraryTrack => Boolean(t))
+  const result: LibraryTrack[] = []
+  for (const snapshot of playlist.value.tracks) {
+    const track = library.getTrack(snapshot.trackId)
+    if (track) result.push(track)
+  }
+  return result
 })
 
 const unavailableCount = computed(() => {
@@ -73,11 +75,16 @@ function playAll() {
 }
 
 function onSelectTrack(index: number) {
+  if (index < 0) return
   player.setQueue(resolvedTracks.value, index)
 }
 
-function isCurrent(track: LibraryTrack): boolean {
-  return currentTrack.value?.id === track.id
+function isCurrent(trackId: string): boolean {
+  return currentTrack.value?.id === trackId
+}
+
+function onRemoved() {
+  // playlist.tracks уже обновлён в сторе, computed пересчитается сам
 }
 </script>
 
@@ -136,8 +143,6 @@ function isCurrent(track: LibraryTrack): boolean {
             <template v-else> {{ resolvedTracks.length }} треков </template>
           </span>
 
-          <PlaylistDownloadButton v-if="hasTracks" :tracks="resolvedTracks" />
-
           <button v-if="hasTracks" type="button"
             class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
             @click="playAll">
@@ -162,40 +167,10 @@ function isCurrent(track: LibraryTrack): boolean {
         </div>
 
         <div v-else class="flex flex-col gap-0.5 p-2">
-          <template v-for="(snapshot, index) in playlist.tracks" :key="snapshot.trackId">
-            <!-- Доступный трек -->
-            <TrackListItem v-if="library.getTrack(snapshot.trackId)" :track="library.getTrack(snapshot.trackId)!"
-              :index="index" :is-current="isCurrent(library.getTrack(snapshot.trackId)!)" :is-playing="isPlaying"
-              @select="
-                () => onSelectTrack(resolvedTracks.indexOf(library.getTrack(snapshot.trackId)!))
-              ">
-              <template #actions>
-                <TrackActions :track="library.getTrack(snapshot.trackId)!" :playlist-id="playlist.id" />
-              </template>
-            </TrackListItem>
-
-            <!-- Недоступный трек -->
-            <div v-else class="group flex items-center gap-3 rounded-lg px-3 py-2 text-zinc-600">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-zinc-800/50">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm line-through">{{ snapshot.title }}</p>
-                <p class="truncate text-xs">Источник недоступен</p>
-              </div>
-              <button type="button"
-                class="rounded-md p-1.5 text-zinc-600 opacity-0 transition hover:bg-zinc-800 hover:text-red-400 group-hover:opacity-100"
-                aria-label="Убрать из плейлиста" @click.stop="
-                  () => playlists.removeTrackFromPlaylist(playlist!.id, snapshot.trackId)
-                ">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </template>
+          <TrackResolvedItem v-for="(snapshot, index) in playlist.tracks" :key="snapshot.trackId"
+            :track-id="snapshot.trackId" :index="index" :is-current="isCurrent(snapshot.trackId)"
+            :is-playing="isPlaying" :playlist-id="playlist.id"
+            @select="onSelectTrack(resolvedTracks.findIndex((t) => t.id === snapshot.trackId))" @removed="onRemoved" />
         </div>
       </div>
     </template>

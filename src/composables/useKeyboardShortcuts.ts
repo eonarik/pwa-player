@@ -9,8 +9,6 @@ interface KeyboardOptions {
   onPrev: () => void
   onSeekBy: (delta: number) => void
   onVolumeBy: (delta: number) => void
-  onVolumeUp: () => void
-  onVolumeDown: () => void
 }
 
 /**

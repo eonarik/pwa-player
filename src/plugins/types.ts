@@ -99,6 +99,32 @@ export interface LibrarySource {
     targetDir: FileSystemDirectoryHandle,
   ): Promise<ScanResult>
 
+  /**
+   * Создать LibraryTrack из локального файла в папке скачивания.
+   * Используется при применении результатов сканирования:
+   * файл есть, трека в библиотеке нет → создаём only-local.
+   *
+   * Плагин сам решает:
+   * - как построить trackId
+   * - к какой папке привязать (ближайшая существующая)
+   * - какие метаданные извлечь
+   *
+   * Возвращает null, если:
+   * - файл недоступен
+   * - трек с таким id уже есть в библиотеке
+   * - не удалось создать (нет папки, нет метаданных)
+   */
+  createLocalTrack?(
+    context: PluginContext,
+    relativePath: string,
+    filename: string,
+  ): Promise<LibraryTrack | null>
+
+  /**
+   * Сохранить текущее состояние библиотеки в IDB плагина.
+   * Вызывается ядром после скачивания / удаления / синхронизации,
+   * чтобы `origin` и другие изменения пережили перезагрузку.
+   */
   saveCache?(context: PluginContext): Promise<void>
 
   disconnect(context: PluginContext): Promise<void>
@@ -209,6 +235,12 @@ export interface LibraryWriter {
   /** Обновить origin трека */
   updateTrackOrigin(trackId: string, origin: TrackOrigin): void
 
+  /** Обновить source трека (например, на File из папки скачивания) */
+  updateTrackSource(trackId: string, source: string | File): void
+
+  /** Обновить duration трека (когда узнали из metadata) */
+  updateTrackDuration(trackId: string, duration: number): void
+
   /** Прочитать папку */
   getFolder(folderId: string): Folder | null
 
@@ -226,21 +258,6 @@ export interface LibraryWriter {
 
   /** Установить текущую папку */
   setCurrentFolder(folderId: string): void
-
-  /** Обновить origin трека */
-  updateTrackOrigin(trackId: string, origin: TrackOrigin): void
-
-  /** Обновить source трека (например, на File из папки скачивания) */
-  updateTrackSource(trackId: string, source: string | File): void
-
-  /** Обновить origin трека */
-  updateTrackOrigin(trackId: string, origin: TrackOrigin): void
-
-  /** Обновить source трека (например, на File из папки скачивания) */
-  updateTrackSource(trackId: string, source: string | File): void
-
-  /** Обновить duration трека (когда узнали из metadata) */
-  updateTrackDuration(trackId: string, duration: number): void
 }
 
 // --- PluginStorage ---------------------------------------------------

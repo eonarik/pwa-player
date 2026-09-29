@@ -1,3 +1,5 @@
+// src/plugins/yandexDisk/index.ts
+
 import type {
   DownloadTrackOptions,
   DownloadedTrackInfo,
@@ -18,6 +20,8 @@ import { coverPersistenceService } from '@/services/persistence/CoverPersistence
 import { downloadUrlToFile } from '@/services/download/downloadUrlToFile'
 import { scanDirectory } from '@/services/download/scanDirectory'
 import { getFileFromPath } from '@/services/download/getFileFromPath'
+import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
+import type { LibraryWriter } from '../types'
 
 const YANDEX_CONCURRENCY = 5
 const ROOT_REMOTE_PATH = 'disk:/'
@@ -169,7 +173,6 @@ const yandexPlugin: LibrarySource = {
       await dir.removeEntry(fileName)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'NotFoundError') {
-        // Файла уже нет — не ошибка
         return
       }
       throw err
@@ -183,7 +186,6 @@ const yandexPlugin: LibrarySource = {
     const files = await scanDirectory(targetDir)
     const allTracks = context.writer.getTracksBySource(PLUGIN_ID)
 
-    // Карта: relativePath → LibraryTrack
     const byPath = new Map<string, LibraryTrack>()
     for (const track of allTracks) {
       const rel = track.path ?? track.filename
@@ -201,14 +203,12 @@ const yandexPlugin: LibrarySource = {
       }
     }
 
-    // Файлы без трека → onlyLocal
     const onlyLocal: Array<{ relativePath: string; filename: string }> = []
     for (const [filePath, file] of files) {
       if (matchedPaths.has(filePath)) continue
       onlyLocal.push({ relativePath: filePath, filename: file.handle.name })
     }
 
-    // Треки, помеченные downloaded, но файла нет → missing
     const missing: string[] = []
     for (const track of allTracks) {
       if (track.origin !== 'downloaded') continue
@@ -220,6 +220,53 @@ const yandexPlugin: LibrarySource = {
 
     return { downloaded, onlyLocal, missing }
   },
+
+  // --- Создание only-local трека --------------------------------------
+
+  async createLocalTrack(
+    context: PluginContext,
+    relativePath: string,
+    filename: string,
+  ): Promise<LibraryTrack | null> {
+    // 1. Строим trackId в том же формате, что и для облачных
+    const trackId = trackIdFromPath(`${PLUGIN_ID}:${relativePath}`)
+
+    // 2. Если трек уже есть в библиотеке — не создаём дубликат
+    if (context.writer.getTrack(trackId)) return null
+
+    // 3. Достаём File из папки спейса
+    const targetDir = await context.getDownloadDir()
+    if (!targetDir) return null
+
+    const file = await getFileFromPath(targetDir, relativePath)
+    if (!file) return null
+
+    // 4. Ищем ближайшую существующую папку
+    const folder = findNearestFolder(context.writer, relativePath)
+    if (!folder) return null
+
+    // 5. Парсим метаданные
+    const metadata = await parseTrackMetadata(file, {
+      folderName: relativePath.split('/').slice(-2)[0],
+    })
+
+    return {
+      id: trackId,
+      pluginId: PLUGIN_ID,
+      folderId: folder.id,
+      filename,
+      path: relativePath,
+      source: file,
+      origin: 'only-local',
+      title: metadata.title,
+      artist: metadata.artist,
+      album: metadata.album,
+      duration: metadata.duration,
+      coverUrl: metadata.coverUrl,
+    }
+  },
+
+  // --- Сохранение кэша ------------------------------------------------
 
   async saveCache(context: PluginContext): Promise<void> {
     const collected = currentLibraryFromWriter(context)
@@ -233,6 +280,31 @@ const yandexPlugin: LibrarySource = {
     await yandexPersistenceService.clear()
     authService.logout()
   },
+}
+
+// --- Поиск ближайшей существующей папки ------------------------------
+
+/**
+ * Для relativePath 'Music/Album/bonus.mp3' ищет папку 'Music/Album',
+ * потом 'Music', потом корень плагина.
+ *
+ * Возвращает null, если ни одной папки нет (библиотека пуста).
+ */
+function findNearestFolder(writer: LibraryWriter, relativePath: string): Folder | null {
+  const segments = relativePath.split('/').filter(Boolean)
+  segments.pop() // убираем filename
+
+  const folders = writer.getFoldersBySource(PLUGIN_ID)
+
+  while (segments.length > 0) {
+    const candidatePath = segments.join('/')
+    const folder = folders.find((f) => f.path === candidatePath)
+    if (folder) return folder
+    segments.pop()
+  }
+
+  // Fallback — корень плагина
+  return folders.find((f) => f.parentId === null) ?? null
 }
 
 // --- Загрузка с Диска -------------------------------------------------
@@ -331,7 +403,9 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
     try {
       response = await yandexDiskService.listResources(folder.remotePath)
     } catch (err) {
-      console.warn(`[yandex] skip folder "${folder.path}"`, err)
+      console.warn(
+        `[yandex] skip folder "${folder.path}": ${err instanceof Error ? err.message : err}`,
+      )
       return 0
     }
 
@@ -431,6 +505,26 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
   await walk(rootFolder)
 }
 
+// --- Обогащение локальными файлами -----------------------------------
+
+async function enrichWithLocalFiles(
+  tracks: LibraryTrack[],
+  targetDir: FileSystemDirectoryHandle,
+): Promise<void> {
+  for (const track of tracks) {
+    if (track.origin !== 'downloaded') continue
+
+    const relativePath = track.path ?? track.filename
+    const file = await getFileFromPath(targetDir, relativePath)
+
+    if (file) {
+      track.source = file
+    } else {
+      track.origin = 'remote'
+    }
+  }
+}
+
 // --- Сериализация -----------------------------------------------------
 
 function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary {
@@ -521,29 +615,6 @@ function currentLibraryFromWriter(context: PluginContext): CollectedLibrary {
     tracks,
     rootFolderId: folders.find((f) => f.parentId === null)?.id ?? '',
     rootFolderName: 'Яндекс.Диск',
-  }
-}
-
-/**
- * Для треков с origin 'downloaded' подтягивает File из папки скачивания.
- * Если файла нет — сбрасывает origin на 'remote'.
- */
-async function enrichWithLocalFiles(
-  tracks: LibraryTrack[],
-  targetDir: FileSystemDirectoryHandle,
-): Promise<void> {
-  for (const track of tracks) {
-    if (track.origin !== 'downloaded') continue
-
-    const relativePath = track.path ?? track.filename
-    const file = await getFileFromPath(targetDir, relativePath)
-
-    if (file) {
-      track.source = file
-    } else {
-      // Файл исчез — трек становится remote
-      track.origin = 'remote'
-    }
   }
 }
 
