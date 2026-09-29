@@ -1,5 +1,29 @@
 @import 'tailwindcss';
 
+@theme {
+  /* Фон */
+  --color-bg: #091227;
+  --color-bg-elevated: #0e1a35;
+  --color-fg: #eaf0ff;
+  --color-fg-muted: rgba(234, 240, 255, 0.7);
+  --color-fg-subtle: rgba(234, 240, 255, 0.4);
+  --color-fg-disabled: rgba(234, 240, 255, 0.25);
+
+  /* Акцент — тот же светлый */
+  --color-accent: #eaf0ff;
+  --color-accent-hover: rgba(234, 240, 255, 0.9);
+
+  /* Hover / active / card */
+  --color-hover-bg: rgba(234, 240, 255, 0.05);
+  --color-active-bg: rgba(234, 240, 255, 0.08);
+  --color-card-bg: rgba(234, 240, 255, 0.03);
+
+  /* Радиусы */
+  --radius-btn: 0.2rem;
+  --radius-card: 1rem;
+  --radius-modal: 1.5rem;
+}
+
 /* Отключает overscroll / rubber-band эффект на мобильных */
 html,
 body {
@@ -19,16 +43,18 @@ a,
 
 /* Растягиваем фон на всю область экрана, включая safe-area под notch */
 html {
-  background: #18181b; /* zinc-900 */
+  background: #091227;
 }
 
 /* Верхний/нижний отступ для iPhone notch и home-indicator */
 .app-safe-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: calc(var(--spacing) * 2);
+  padding-top: calc(env(safe-area-inset-top, 0px) + calc(var(--spacing) * 2));
 }
 
 .app-safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: calc(var(--spacing) * 2);
+  padding-bottom: calc(env(safe-area-inset-top, 0px) + calc(var(--spacing) * 2));
 }
 
 @keyframes indeterminate {

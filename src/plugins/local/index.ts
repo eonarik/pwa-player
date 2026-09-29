@@ -74,6 +74,8 @@ const localPlugin: LibrarySource = {
         trackIds: [...f.trackIds],
         totalTrackCount: f.totalTrackCount,
         source: PLUGIN_ID,
+        scanStatus: 'scanned',
+        ready: true,
       }
     }
 

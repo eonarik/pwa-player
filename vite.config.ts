@@ -20,16 +20,15 @@ export default defineConfig({
     // vueDevTools(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
-      // registerType: 'prompt', // TODO: установить в новой итерации
+      registerType: 'prompt',
       injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: 'CUEI Media Player',
         short_name: 'cuei',
         description: 'Офлайн PWA-плеер для локальной музыкальной библиотеки',
-        theme_color: '#10b981', // emerald-500 из Tailwind
-        background_color: '#18181b', // zinc-900
+        theme_color: '#091227', // emerald-500 из Tailwind
+        background_color: '#091227', // zinc-900
         display: 'standalone',
         orientation: 'any',
         scope: '/',

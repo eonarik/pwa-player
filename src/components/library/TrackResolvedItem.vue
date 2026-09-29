@@ -48,7 +48,7 @@ function onSelect() {
   </TrackListItem>
 
   <!-- Трек недоступен -->
-  <div v-else class="group flex items-center gap-3 rounded-lg px-3 py-2 text-zinc-600">
+  <div v-else class="group flex items-center gap-3 px-3 py-2 text-zinc-600">
     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-zinc-800/50">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
         <path d="M18 6L6 18M6 6l12 12" />

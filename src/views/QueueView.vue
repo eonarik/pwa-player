@@ -42,10 +42,10 @@ function durationLabel(track: Track): string {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Шапка -->
-    <div class="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
       <div class="min-w-0">
-        <h1 class="text-lg font-medium text-zinc-100">Очередь</h1>
-        <p class="text-xs text-zinc-500">
+        <h1 class="text-lg font-medium text-fg">Очередь</h1>
+        <p class="text-xs text-fg-muted">
           <template v-if="hasQueue">
             {{ queue.length }} треков
             <template v-if="currentTrack">
@@ -57,39 +57,39 @@ function durationLabel(track: Track): string {
       </div>
 
       <button v-if="hasQueue" type="button"
-        class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-red-500/60 hover:text-red-400"
+        class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
         @click="clearQueue">
         Очистить
       </button>
     </div>
 
     <!-- Пусто -->
-    <div v-if="!hasQueue" class="flex flex-1 items-center justify-center text-sm text-zinc-500">
+    <div v-if="!hasQueue" class="flex flex-1 items-center justify-center text-sm text-fg-muted">
       Очередь пуста. Запустите трек или папку — они появятся здесь.
     </div>
 
     <!-- Список -->
     <div v-else class="flex-1 overflow-y-auto">
-      <div class="flex flex-col gap-0.5 p-2">
+      <div class="mx-auto flex w-full max-w-3xl flex-col gap-0.5 p-2">
         <div v-for="(track, index) in queue" :key="`${track.id}-${index}`"
-          class="group relative flex items-center gap-3 rounded-lg px-3 py-2 transition" :class="isCurrent(index)
+          class="group relative flex items-center gap-3 rounded-card px-3 py-2 transition" :class="isCurrent(index)
               ? 'bg-emerald-500/10 text-emerald-400'
-              : 'text-zinc-300 hover:bg-zinc-800/60'
+              : 'text-fg hover:bg-hover-bg'
             ">
           <!-- Клик по строке — играть -->
           <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" @click="playAt(index)">
             <!-- Обложка / индекс -->
             <div
-              class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-zinc-800">
+              class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg">
               <img v-if="track.coverUrl" :src="track.coverUrl" :alt="track.album" class="h-full w-full object-cover"
                 loading="lazy" />
-              <span v-else class="text-xs font-medium text-zinc-500">
+              <span v-else class="text-xs font-medium text-fg-muted">
                 {{ index + 1 }}
               </span>
 
               <!-- Индикатор «играет сейчас» -->
               <div v-if="isCurrent(index) && isPlaying"
-                class="absolute inset-0 flex items-center justify-center bg-black/50">
+                class="absolute inset-0 flex items-center justify-center bg-bg/50">
                 <span class="flex gap-0.5">
                   <span class="h-3 w-0.5 animate-pulse bg-emerald-400" />
                   <span class="h-4 w-0.5 animate-pulse bg-emerald-400 [animation-delay:150ms]" />
@@ -106,18 +106,18 @@ function durationLabel(track: Track): string {
                   (пауза)
                 </span>
               </p>
-              <p class="truncate text-xs text-zinc-500">{{ track.artist }}</p>
+              <p class="truncate text-xs text-fg-muted">{{ track.artist }}</p>
             </div>
 
             <!-- Длительность -->
-            <span class="shrink-0 text-xs tabular-nums text-zinc-500">
+            <span class="shrink-0 text-xs tabular-nums text-fg-muted">
               {{ durationLabel(track) }}
             </span>
           </button>
 
           <!-- Удалить -->
           <button type="button"
-            class="shrink-0 rounded-md p-1.5 text-zinc-600 transition hover:bg-zinc-800 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
+            class="shrink-0 rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
             aria-label="Убрать из очереди" @click="removeAt(index, $event)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
               <path d="M18 6L6 18M6 6l12 12" />

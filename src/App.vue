@@ -9,52 +9,73 @@ import { useHistoryStore } from '@/stores/history'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
+import { syncService } from '@/services/download/SyncService'
 import { getPlugins, loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
+import { toastService } from '@/services/ui/ToastService'
+import { sortService } from '@/services/sort/SortService'
 import PlayerControls from '@/components/player/PlayerControls.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
-import ToastHost from "./components/ui/ToastHost.vue"
-import { usePwaUpdate } from "./composables/usePwaUpdate.ts"
-import { syncService } from "./services/download/SyncService.ts"
-import { toastService } from "./services/ui/ToastService.ts"
-import { downloadSpaceService } from "./services/download/DownloadSpaceService.ts"
-import SyncIssuesModal from "./components/library/SyncIssuesModal.vue"
+import ToastHost from '@/components/ui/ToastHost.vue'
+import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 
 const router = useRouter()
 const player = usePlayerStore()
 const library = useLibraryStore()
 const history = useHistoryStore()
-const showSyncIssues = ref(false)
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
-// --- Меню хедера ------------------------------------------------------
+// --- Шторка ----------------------------------------------------------
 
-const isNavMenuOpen = ref(false)
+const isDrawerOpen = ref(false)
+const showSyncIssues = ref(false)
 
 const queueBadge = computed(() => (queue.value.length > 0 ? String(queue.value.length) : ''))
 
-function closeNavMenu() {
-  isNavMenuOpen.value = false
+function openDrawer() {
+  isDrawerOpen.value = true
+}
+
+function closeDrawer() {
+  isDrawerOpen.value = false
 }
 
 function goHome() {
-  isNavMenuOpen.value = false
+  closeDrawer()
   router.push({ name: 'home' })
 }
 
 function goToPlaylists() {
-  isNavMenuOpen.value = false
+  closeDrawer()
   router.push({ name: 'playlists' })
 }
 
 function goToHistory() {
-  isNavMenuOpen.value = false
+  closeDrawer()
   router.push({ name: 'history' })
 }
 
 function goToQueue() {
-  isNavMenuOpen.value = false
+  closeDrawer()
   router.push({ name: 'queue' })
+}
+
+async function restoreSpaceAccess() {
+  const state = await downloadSpaceService.requestAccess()
+
+  if (state === 'granted') {
+    toastService.success('Доступ к папке скачивания восстановлен')
+    return
+  }
+
+  toastService.error('Доступ отклонён. Выберите папку заново')
+  const handle = await downloadSpaceService.pickSpace()
+  if (handle) {
+    toastService.success('Папка скачивания выбрана')
+  } else {
+    toastService.info('Папка не выбрана. Скачивание недоступно')
+  }
 }
 
 // --- Горячие клавиши, медиа-сессия, заголовок -------------------------
@@ -86,27 +107,11 @@ watchEffect(() => {
 
 // --- Восстановление при старте ----------------------------------------
 
-async function restoreSpaceAccess() {
-  const state = await downloadSpaceService.requestAccess()
-
-  if (state === 'granted') {
-    toastService.success('Доступ к папке скачивания восстановлен')
-    return
-  }
-
-  toastService.error('Доступ отклонён. Выберите папку заново')
-  const handle = await downloadSpaceService.pickSpace()
-  if (handle) {
-    toastService.success('Папка скачивания выбрана')
-  } else {
-    toastService.info('Папка не выбрана. Скачивание недоступно')
-  }
-}
-
 const isBootstrapping = ref(true)
 
 onMounted(async () => {
   try {
+    await sortService.load()
     await coverPersistenceService.load()
     await downloadSpaceService.load()
     await history.restore()
@@ -128,119 +133,122 @@ onMounted(async () => {
     isBootstrapping.value = false
   }
 })
-
-usePwaUpdate()
 </script>
 
 <template>
-  <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-zinc-900 text-zinc-100">
-    <header class="app-safe-top flex items-center gap-3 border-b border-zinc-800 p-3">
-      <button
-        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
-        title="На главную (выбор источника)" @click="goHome">
+  <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
+    <!-- Хедер -->
+    <header class="app-safe-top flex items-center gap-2 px-3 py-2">
+      <!-- Кнопка-гамбургер: открыть шторку -->
+      <button type="button"
+        class="flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+        aria-label="Меню" @click="openDrawer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" />
+          <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
-        <span class="hidden md:inline">Главная</span>
+        <span class="hidden md:inline">Меню</span>
+        <span v-if="queueBadge"
+          class="ml-0.5 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
+          {{ queueBadge }}
+        </span>
       </button>
 
-      <button v-if="downloadSpaceService.needsPermission.value" type="button"
-        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-amber-400 transition hover:bg-amber-500/10"
-        @click="restoreSpaceAccess">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <path
-            d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-        </svg>
-        <span class="hidden md:inline">Восстановить доступ к папке</span>
-        <span class="md:hidden">Доступ</span>
-      </button>
-
-      <button v-if="syncService.issueCount.value > 0" type="button"
-        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition" :class="syncService.isSyncing.value
-          ? 'text-zinc-500'
-          : 'text-amber-400 hover:bg-amber-500/10'
-          " :disabled="syncService.isSyncing.value" @click="showSyncIssues = true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <path
-            d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-        </svg>
-        <span class="hidden md:inline">Проблемные треки: {{ syncService.issueCount.value }}</span>
-        <span class="md:hidden">{{ syncService.issueCount.value }}</span>
-      </button>
-
-      <span v-if="syncService.isSyncing.value" class="text-xs text-zinc-500">
+      <!-- Синхронизация -->
+      <span v-if="syncService.isSyncing.value" class="text-xs text-fg-muted">
         Синхронизация…
       </span>
 
-      <div class="relative">
-        <button type="button"
-          class="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 md:px-3"
-          :aria-expanded="isNavMenuOpen" aria-haspopup="menu" title="Меню" @click="isNavMenuOpen = !isNavMenuOpen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          <span class="hidden md:inline">Меню</span>
-          <span v-if="queueBadge"
-            class="ml-0.5 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
-            {{ queueBadge }}
-          </span>
-        </button>
-
-        <div v-if="isNavMenuOpen"
-          class="absolute left-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg"
-          role="menu">
-          <button type="button"
-            class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-            role="menuitem" @click="goToPlaylists">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-              <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Плейлисты
-          </button>
-
-          <button type="button"
-            class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-            role="menuitem" @click="goToHistory">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-            История
-          </button>
-
-          <button type="button"
-            class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-zinc-300 transition hover:bg-zinc-800"
-            role="menuitem" @click="goToQueue">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-              <path d="M4 6h16M4 12h10M4 18h6" />
-            </svg>
-            <span class="flex-1">Очередь</span>
-            <span v-if="queueBadge"
-              class="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
-              {{ queueBadge }}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <span v-if="library.hasLibrary" class="ml-2 truncate text-sm text-zinc-500">
-        {{ library.currentFolder?.name ?? 'Библиотека' }}
+      <!-- Имя текущей папки -->
+      <span v-else-if="library.currentFolder" class="ml-2 truncate text-sm text-fg-muted">
+        {{ library.currentFolder.name }}
       </span>
-
-      <div v-if="isNavMenuOpen" class="fixed inset-0 z-20" aria-hidden="true" @click="closeNavMenu" />
     </header>
 
     <main class="overflow-hidden">
       <RouterView v-if="!isBootstrapping" />
-      <div v-else class="flex h-full items-center justify-center text-sm text-zinc-500">
+      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
         Загрузка…
       </div>
     </main>
 
     <PlayerControls />
-
-    <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
     <ModalHost />
     <ToastHost />
+    <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
+
+    <!-- Шторка меню -->
+    <Teleport to="body">
+      <!-- Overlay -->
+      <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
+        leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="isDrawerOpen" class="fixed inset-0 z-[120] bg-bg/90" @click="closeDrawer" />
+      </Transition>
+
+      <!-- Панель -->
+      <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="-translate-x-full"
+        enter-to-class="translate-x-0" leave-active-class="transition duration-150 ease-in"
+        leave-from-class="translate-x-0" leave-to-class="-translate-x-full">
+        <div v-if="isDrawerOpen"
+          class="fixed inset-y-0 left-0 z-[130] flex w-[80vw] max-w-sm flex-col bg-bg shadow-[0_0_10px_rgba(0,0,0,0.25)]">
+          <!-- Верхняя панель -->
+          <div class="app-safe-top flex items-center gap-2 px-4 py-4">
+            <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg" aria-label="Закрыть меню"
+              @click="closeDrawer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-6 w-6">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Пункты меню -->
+          <nav class="flex flex-1 flex-col gap-1 px-4 py-2">
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
+              @click="goHome">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                class="h-6 w-6 text-fg-muted">
+                <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" />
+              </svg>
+              Главная
+            </button>
+
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
+              @click="goToPlaylists">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                class="h-6 w-6 text-fg-muted">
+                <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Плейлисты
+            </button>
+
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
+              @click="goToHistory">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                class="h-6 w-6 text-fg-muted">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+              История
+            </button>
+
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-lg font-medium text-fg transition hover:bg-hover-bg"
+              @click="goToQueue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                class="h-6 w-6 text-fg-muted">
+                <path d="M4 6h16M4 12h10M4 18h6" />
+              </svg>
+              <span class="flex-1">Очередь</span>
+              <span v-if="queueBadge"
+                class="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
+                {{ queueBadge }}
+              </span>
+            </button>
+          </nav>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

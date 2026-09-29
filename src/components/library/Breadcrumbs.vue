@@ -57,9 +57,9 @@ function goToFolder(folderPath: string) {
 </script>
 
 <template>
-  <nav class="flex items-center gap-1 text-sm" aria-label="Навигация по папкам">
+  <nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Навигация по папкам">
     <button v-if="currentFolder" type="button"
-      class="mr-1 rounded-md p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100"
+      class="mr-1 shrink-0 rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
       :aria-label="isPluginRoot ? 'К источникам' : 'Назад'" @click="goUp">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
         <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -67,15 +67,15 @@ function goToFolder(folderPath: string) {
     </button>
 
     <template v-for="(crumb, i) in breadcrumbs" :key="crumb.id">
-      <button type="button" class="truncate rounded px-1.5 py-0.5 transition hover:bg-zinc-800 hover:text-zinc-100"
-        :class="i === breadcrumbs.length - 1 ? 'font-medium text-zinc-100' : 'text-zinc-400'"
+      <button type="button" class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
+        :class="i === breadcrumbs.length - 1 ? 'font-medium text-fg' : 'text-fg-muted'"
         :title="crumb.path || crumb.name" @click="goToFolder(crumb.path)">
         {{ crumb.name }}
       </button>
 
-      <span v-if="i < breadcrumbs.length - 1" class="text-zinc-600">/</span>
+      <span v-if="i < breadcrumbs.length - 1" class="shrink-0 text-fg-subtle">/</span>
     </template>
 
-    <span v-if="breadcrumbs.length === 0" class="text-zinc-500">Источники</span>
+    <span v-if="breadcrumbs.length === 0" class="text-fg-muted">Источники</span>
   </nav>
 </template>

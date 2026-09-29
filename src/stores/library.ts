@@ -5,9 +5,10 @@ import { computed, ref } from 'vue'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { coverService } from '@/services/covers/CoverService'
 import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
-import { sortBy, trackSortKey } from '@/utils/sort'
+import { sortBy } from '@/utils/sort'
 import type { LibraryWriter } from '@/plugins/types'
 import { librarySaveService } from '@/services/library/LibrarySaveService'
+import { sortService } from '@/services/sort/SortService'
 
 /** Сколько обложек ищем параллельно */
 const COVER_CONCURRENCY = 3
@@ -51,7 +52,7 @@ export const useLibraryStore = defineStore('library', () => {
     const list = folder.trackIds
       .map((id) => tracks.value[id])
       .filter((t): t is LibraryTrack => Boolean(t))
-    return sortBy(list, trackSortKey)
+    return sortService.sort(list)
   })
 
   const breadcrumbs = computed<Folder[]>(() => {

@@ -27,9 +27,16 @@ export function useItemHeight(elRef: Ref<HTMLElement | null>) {
     observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (!entry) return
-      // contentRect.height — без border.
-      // Если нужна высота с border — используй borderBoxSize
-      height.value = entry.contentRect.height
+
+      // borderBoxSize — полная высота, включая padding и border.
+      // contentRect.height — только content, без padding.
+      const borderBox = entry.borderBoxSize?.[0]
+      if (borderBox) {
+        height.value = borderBox.blockSize
+      } else {
+        // Fallback для старых браузеров
+        height.value = entry.contentRect.height
+      }
     })
     observer.observe(el)
   }

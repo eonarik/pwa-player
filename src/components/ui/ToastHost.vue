@@ -21,9 +21,9 @@ function iconFor(type: ToastType): string {
 }
 
 function classesFor(type: ToastType): string {
-  if (type === 'success') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-  if (type === 'error') return 'border-red-500/40 bg-red-500/10 text-red-300'
-  return 'border-zinc-700 bg-zinc-800/90 text-zinc-200'
+  if (type === 'success') return 'bg-bg-elevated text-emerald-400'
+  if (type === 'error') return 'bg-bg-elevated text-red-400'
+  return 'bg-bg-elevated text-fg'
 }
 </script>
 
@@ -36,7 +36,7 @@ function classesFor(type: ToastType): string {
         enter-to-class="translate-y-0 opacity-100" leave-active-class="transition duration-150 ease-in"
         leave-from-class="translate-y-0 opacity-100" leave-to-class="translate-y-2 opacity-0">
         <div v-for="toast in toasts" :key="toast.id"
-          class="pointer-events-auto flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur"
+          class="pointer-events-auto flex items-center gap-3 rounded-card px-4 py-3 shadow-lg"
           :class="classesFor(toast.type)" role="status">
           <span class="shrink-0 text-base leading-none">
             {{ iconFor(toast.type) }}
@@ -47,14 +47,13 @@ function classesFor(type: ToastType): string {
           </p>
 
           <button v-if="toast.action" type="button"
-            class="shrink-0 rounded-md bg-current/10 px-3 py-1 text-xs font-medium transition hover:bg-current/20"
+            class="shrink-0 rounded-btn bg-hover-bg px-3 py-1 text-xs font-medium transition hover:bg-active-bg"
             @click="runAction(toast)">
             {{ toast.action.label }}
           </button>
 
-          <button v-else type="button"
-            class="shrink-0 rounded-md p-1 text-current opacity-60 transition hover:opacity-100" aria-label="Закрыть"
-            @click="dismiss(toast.id)">
+          <button v-else type="button" class="shrink-0 rounded-btn p-1 opacity-60 transition hover:opacity-100"
+            aria-label="Закрыть" @click="dismiss(toast.id)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>

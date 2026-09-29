@@ -4,7 +4,7 @@ import { authService } from '@/services/auth/AuthService'
 import { compareStrings } from '@/utils/sort'
 import type { YandexConfig, YandexResourcesResponse } from './types'
 
-const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
+const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL?.replace(/\/+$/, '') ?? ''
 const REQUEST_TIMEOUT_MS = 10_000
 
 export class AuthRequiredError extends Error {

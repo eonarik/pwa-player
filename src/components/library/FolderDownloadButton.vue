@@ -38,12 +38,12 @@ function onClick() {
 
 <template>
   <button v-if="tracks.length > 0" type="button"
-    class="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
+    class="flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
     :class="isDownloading
-        ? 'border-emerald-500/50 text-emerald-400 hover:border-red-500/60 hover:text-red-400'
+        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
         : pendingCount === 0
-          ? 'border-zinc-700 text-zinc-500'
-          : 'text-zinc-300 hover:border-zinc-600 hover:text-zinc-100'
+          ? 'bg-card-bg text-fg-muted'
+          : 'bg-card-bg text-fg hover:bg-hover-bg'
       " :disabled="pendingCount === 0 && !isDownloading" @click="onClick">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
       <template v-if="pendingCount === 0 && !isDownloading">

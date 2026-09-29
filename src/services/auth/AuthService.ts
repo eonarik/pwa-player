@@ -1,6 +1,6 @@
 // src/services/auth/AuthService.ts
 
-const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL ?? ''
+const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL?.replace(/\/+$/, '') ?? ''
 const TOKEN_KEY = 'player:authToken'
 const AUTH_TIMEOUT_MS = 10_000
 

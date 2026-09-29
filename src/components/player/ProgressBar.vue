@@ -33,12 +33,18 @@ function onInput(e: Event) {
   dragValue.value = value
 }
 
-function onPointerDown() {
+function onPointerDown(e: PointerEvent) {
+  const target = e.currentTarget as HTMLInputElement
+  target.setPointerCapture(e.pointerId)
   isDragging.value = true
   dragValue.value = props.currentTime
 }
 
-function onPointerUp() {
+function onPointerUp(e: PointerEvent) {
+  const target = e.currentTarget as HTMLInputElement
+  if (target.hasPointerCapture(e.pointerId)) {
+    target.releasePointerCapture(e.pointerId)
+  }
   if (isDragging.value) {
     emit('seek', dragValue.value)
   }
@@ -62,30 +68,15 @@ function formatTime(sec: number): string {
 
     <div class="group relative flex-1">
       <!-- Фоновая дорожка -->
-      <div class="pointer-events-none absolute inset-y-0 flex w-full items-center">
-        <div class="h-1 w-full overflow-hidden rounded-full bg-zinc-700">
-          <div
-            class="h-full bg-emerald-500 transition-[width] duration-75"
-            :style="{ width: `${progressPercent}%` }"
-          />
-        </div>
+      <div class="h-1 w-full overflow-hidden rounded-full bg-hover-bg">
+        <div class="h-full bg-emerald-500 transition-[width] duration-75" :style="{ width: `${progressPercent}%` }" />
       </div>
 
       <!-- Нативный range поверх — невидимый, но ловит все события -->
-      <input
-        type="range"
-        min="0"
-        :max="duration || 0"
-        step="0.1"
-        :value="displayTime"
-        :aria-valuenow="ariaValue"
+      <input type="range" min="0" :max="duration || 0" step="0.1" :value="displayTime" :aria-valuenow="ariaValue"
         aria-label="Позиция воспроизведения"
-        class="relative h-4 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:opacity-0 [&::-webkit-slider-thumb]:transition-opacity group-hover:[&::-webkit-slider-thumb]:opacity-100 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:opacity-0 group-hover:[&::-moz-range-thumb]:opacity-100"
-        @input="onInput"
-        @pointerdown="onPointerDown"
-        @pointerup="onPointerUp"
-        @pointercancel="onPointerUp"
-      />
+        class="-top-3 relative h-4 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:opacity-0 [&::-webkit-slider-thumb]:transition-opacity group-hover:[&::-webkit-slider-thumb]:opacity-100 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:opacity-0 group-hover:[&::-moz-range-thumb]:opacity-100"
+        @input="onInput" @pointerdown="onPointerDown" @pointerup="onPointerUp" @pointercancel="onPointerUp" />
     </div>
 
     <span class="w-10 shrink-0 text-xs tabular-nums text-zinc-500">

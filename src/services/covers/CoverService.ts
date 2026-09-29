@@ -1,6 +1,6 @@
 // src/services/covers/CoverService.ts
 
-const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
+const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL?.replace(/\/+$/, '') ?? ''
 const REQUEST_TIMEOUT_MS = 10_000
 
 class CoverService {

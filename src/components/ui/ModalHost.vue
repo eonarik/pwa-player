@@ -53,30 +53,30 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <Teleport to="body">
-    <div v-if="isOpen && options" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+    <div v-if="isOpen && options" class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4"
       @click="onBackdropClick" @keydown="onKeydown">
-      <form class="w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-900 p-5 shadow-xl"
-        @submit.prevent="onConfirm">
-        <h2 class="mb-1 text-lg font-medium text-zinc-100">
+      <form class="w-full max-w-sm rounded-modal bg-bg-elevated p-5 shadow-xl" @submit.prevent="onConfirm">
+        <h2 class="mb-1 text-lg font-medium text-fg">
           {{ options.title }}
         </h2>
 
-        <p v-if="options.message" class="mb-4 text-sm text-zinc-500">
+        <p v-if="options.message" class="mb-4 text-sm text-fg-muted">
           {{ options.message }}
         </p>
 
         <input v-if="options.type === 'input'" ref="inputRef" v-model="inputValue"
           :type="options.inputType === 'password' ? 'password' : 'text'" :placeholder="options.inputPlaceholder ?? ''"
-          class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-emerald-500" />
+          class="w-full rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none" />
 
         <div class="mt-4 flex items-center justify-end gap-2">
           <button v-if="options.cancelLabel" type="button"
-            class="rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-200" @click="onCancel">
+            class="rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+            @click="onCancel">
             {{ options.cancelLabel }}
           </button>
 
           <button type="submit"
-            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-emerald-400 disabled:opacity-50">
+            class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50">
             {{ options.confirmLabel ?? 'OK' }}
           </button>
         </div>

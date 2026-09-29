@@ -107,7 +107,7 @@ watch(
 
 <template>
   <FolderView v-if="hasLibrary && folderExists" />
-  <div v-else class="flex h-full items-center justify-center text-sm text-zinc-500">
+  <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
     Загрузка…
   </div>
 </template>
