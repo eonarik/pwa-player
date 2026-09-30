@@ -1,11 +1,12 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
-import { watchEffect, onMounted, ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { watchEffect, watch, onMounted, onUnmounted, ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useHistoryStore } from '@/stores/history'
+import { usePlaylistsStore } from '@/stores/playlists'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
 import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
@@ -16,15 +17,102 @@ import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import { sortService } from '@/services/sort/SortService'
 import PlayerControls from '@/components/player/PlayerControls.vue'
+import FullPlayer from '@/components/player/FullPlayer.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 const player = usePlayerStore()
 const library = useLibraryStore()
 const history = useHistoryStore()
+const playlists = usePlaylistsStore()
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
+
+// --- FullPlayer ------------------------------------------------------
+
+const isFullPlayerOpen = ref(false)
+
+function openFullPlayer() {
+  isFullPlayerOpen.value = true
+}
+
+function closeFullPlayer() {
+  isFullPlayerOpen.value = false
+}
+
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && isFullPlayerOpen.value) {
+    closeFullPlayer()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+})
+
+// --- Заголовок FullPlayer --------------------------------------------
+
+const pageTitle = computed(() => {
+  const name = route.name
+  if (name === 'home') return 'Главная'
+  if (name === 'folder') return library.currentFolder?.name ?? 'Папка'
+  if (name === 'playlists') return 'Плейлисты'
+  if (name === 'playlist') {
+    const id = String(route.params.id ?? '')
+    return playlists.getPlaylist(id)?.name ?? 'Плейлист'
+  }
+  if (name === 'history') return 'История'
+  if (name === 'queue') return 'Очередь'
+  return 'Плеер'
+})
+
+// Закрываем FullPlayer при любом переходе
+watch(
+  () => route.fullPath,
+  () => {
+    if (isFullPlayerOpen.value) {
+      isFullPlayerOpen.value = false
+    }
+  },
+)
+
+// --- Свайп вверх из мини-плеера -------------------------------------
+
+const SWIPE_UP_THRESHOLD = 100 // px
+
+const playerFooterRef = ref<HTMLElement | null>(null)
+let swipeStartY = 0
+let swipeTracking = false
+
+function onFooterPointerDown(e: PointerEvent) {
+  if (e.pointerType !== 'touch') return
+
+  const target = e.target as HTMLElement
+  const isOpenTrigger = target.closest('[data-player-open]') !== null
+  if (!isOpenTrigger && target.closest('button, input, a, [role="button"]')) return
+
+  swipeStartY = e.clientY
+  swipeTracking = true
+}
+
+function onFooterPointerMove(e: PointerEvent) {
+  if (!swipeTracking) return
+  const dy = swipeStartY - e.clientY
+  if (dy >= SWIPE_UP_THRESHOLD) {
+    swipeTracking = false
+    openFullPlayer()
+  }
+}
+
+function onFooterPointerUp() {
+  swipeTracking = false
+}
 
 // --- Шторка ----------------------------------------------------------
 
@@ -139,7 +227,6 @@ onMounted(async () => {
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
     <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2">
-      <!-- Кнопка-гамбургер: открыть шторку -->
       <button type="button"
         class="flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
         aria-label="Меню" @click="openDrawer">
@@ -148,17 +235,13 @@ onMounted(async () => {
         </svg>
         <span class="hidden md:inline">Меню</span>
         <span v-if="queueBadge"
-          class="ml-0.5 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
+          class="ml-0.5 rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">
           {{ queueBadge }}
         </span>
       </button>
 
-      <!-- Синхронизация -->
-      <span v-if="syncService.isSyncing.value" class="text-xs text-fg-muted">
-        Синхронизация…
-      </span>
+      <span v-if="syncService.isSyncing.value" class="text-xs text-fg-muted">Синхронизация…</span>
 
-      <!-- Имя текущей папки -->
       <span v-else-if="library.currentFolder" class="ml-2 truncate text-sm text-fg-muted">
         {{ library.currentFolder.name }}
       </span>
@@ -166,31 +249,34 @@ onMounted(async () => {
 
     <main class="overflow-hidden">
       <RouterView v-if="!isBootstrapping" />
-      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
-        Загрузка…
-      </div>
+      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">Загрузка…</div>
     </main>
 
-    <PlayerControls />
+    <!-- Мини-плеер + свайп вверх -->
+    <div ref="playerFooterRef" @pointerdown="onFooterPointerDown" @pointermove="onFooterPointerMove"
+      @pointerup="onFooterPointerUp" @pointercancel="onFooterPointerUp">
+      <PlayerControls @open="openFullPlayer" />
+    </div>
+
     <ModalHost />
     <ToastHost />
     <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
 
+    <!-- FullPlayer -->
+    <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />
+
     <!-- Шторка меню -->
     <Teleport to="body">
-      <!-- Overlay -->
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
         leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
         <div v-if="isDrawerOpen" class="fixed inset-0 z-[120] bg-bg/90" @click="closeDrawer" />
       </Transition>
 
-      <!-- Панель -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="-translate-x-full"
         enter-to-class="translate-x-0" leave-active-class="transition duration-150 ease-in"
         leave-from-class="translate-x-0" leave-to-class="-translate-x-full">
         <div v-if="isDrawerOpen"
           class="fixed inset-y-0 left-0 z-[130] flex w-[80vw] max-w-sm flex-col bg-bg shadow-[0_0_10px_rgba(0,0,0,0.25)]">
-          <!-- Верхняя панель -->
           <div class="app-safe-top flex items-center gap-2 px-4 py-4">
             <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg" aria-label="Закрыть меню"
               @click="closeDrawer">
@@ -200,7 +286,6 @@ onMounted(async () => {
             </button>
           </div>
 
-          <!-- Пункты меню -->
           <nav class="flex flex-1 flex-col gap-1 px-4 py-2">
             <button type="button"
               class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
@@ -242,7 +327,7 @@ onMounted(async () => {
               </svg>
               <span class="flex-1">Очередь</span>
               <span v-if="queueBadge"
-                class="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-400">
+                class="rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">
                 {{ queueBadge }}
               </span>
             </button>

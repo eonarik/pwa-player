@@ -45,9 +45,9 @@ async function onClick() {
 <template>
   <button type="button" class="group relative flex h-7 w-7 shrink-0 items-center justify-center rounded-btn transition"
     :class="isDownloading
-        ? 'text-emerald-400'
+        ? 'text-active'
         : origin === 'downloaded'
-          ? 'text-emerald-500 hover:bg-red-500/10 hover:text-red-400'
+          ? 'text-active hover:bg-red-500/10 hover:text-red-400'
           : origin === 'only-local'
             ? 'text-amber-500 hover:bg-red-500/10 hover:text-red-400'
             : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'

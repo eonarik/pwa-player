@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
+import ListRow from '@/components/ui/ListRow.vue'
 import type { Folder, LibraryTrack } from '@/types/library'
 import type { Track } from '@/types/track'
 
@@ -93,7 +94,8 @@ function isFolderActive(folder: Folder): boolean {
   return isPlayingFromFolder(folder) && isPlaying.value
 }
 
-function toggleFolderPlayback(folder: Folder) {
+function toggleFolderPlayback(folder: Folder, e: Event) {
+  e.stopPropagation()
   if (isScanning(folder)) {
     toastService.info('Папка сканируется, подождите')
     return
@@ -104,88 +106,91 @@ function toggleFolderPlayback(folder: Folder) {
   }
   void playFolder(folder)
 }
+
+function onArrowClick(folder: Folder, e: Event) {
+  e.stopPropagation()
+  void openFolder(folder)
+}
 </script>
 
 <template>
   <div v-if="currentSubfolders.length > 0" class="flex flex-col gap-0.5 px-2 py-2">
-    <div v-for="folder in currentSubfolders" :key="folder.id"
-      class="flex items-center gap-3 rounded-card px-3 py-2 transition" :class="[
-        isScanning(folder)
-          ? 'opacity-60'
-          : isFolderActive(folder)
-            ? 'bg-emerald-500/10 text-emerald-400'
-            : isPlayingFromFolder(folder)
-              ? 'bg-emerald-500/5 text-emerald-400/80'
-              : 'text-fg hover:bg-hover-bg',
-      ]">
-      <!-- Иконка: папка / play / pause / спиннер -->
-      <button type="button"
-        class="group/icon relative flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="[
-          isScanning(folder)
-            ? 'bg-card-bg cursor-default'
-            : isPlayingFromFolder(folder)
-              ? 'bg-emerald-500/20'
-              : 'bg-card-bg hover:bg-emerald-500/20',
-        ]" :disabled="isScanning(folder)" :aria-label="isScanning(folder)
-            ? `Сканирование ${folder.name}`
-            : isFolderActive(folder)
-              ? `Пауза`
+    <ListRow v-for="folder in currentSubfolders" :key="folder.id" :active="isFolderActive(folder)"
+      @click="openFolder(folder)">
+      <!-- Leading: иконка папки + play/pause + спиннер -->
+      <template #leading>
+        <button type="button"
+          class="group/icon relative flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="[
+            isScanning(folder)
+              ? 'bg-card-bg cursor-default'
               : isPlayingFromFolder(folder)
-                ? `Продолжить`
-                : `Играть папку ${folder.name}`
-          " @click.stop="toggleFolderPlayback(folder)">
-        <template v-if="isScanning(folder)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            class="h-5 w-5 animate-spin text-fg-muted">
-            <path d="M12 3a9 9 0 019 9" />
-          </svg>
-        </template>
+                ? 'bg-active/20'
+                : 'bg-card-bg hover:bg-active/20',
+          ]" :disabled="isScanning(folder)" :aria-label="isScanning(folder)
+              ? `Сканирование ${folder.name}`
+              : isFolderActive(folder)
+                ? 'Пауза'
+                : isPlayingFromFolder(folder)
+                  ? 'Продолжить'
+                  : `Играть папку ${folder.name}`
+            " @click="toggleFolderPlayback(folder, $event)">
+          <template v-if="isScanning(folder)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              class="h-5 w-5 animate-spin text-fg-muted">
+              <path d="M12 3a9 9 0 019 9" />
+            </svg>
+          </template>
 
-        <template v-else-if="!isPlayingFromFolder(folder)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
-            class="h-5 w-5 text-fg-muted transition group-hover/icon:opacity-0">
-            <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+          <template v-else-if="!isPlayingFromFolder(folder)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+              class="h-5 w-5 text-fg-muted transition group-hover/icon:opacity-0">
+              <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+            </svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"
+              class="absolute h-5 w-5 text-active opacity-0 transition group-hover/icon:opacity-100">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </template>
+
+          <svg v-else-if="isFolderActive(folder)" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 text-active">
+            <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
           </svg>
-          <svg viewBox="0 0 24 24" fill="currentColor"
-            class="absolute h-5 w-5 text-emerald-400 opacity-0 transition group-hover/icon:opacity-100">
+
+          <svg v-else viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 text-active">
             <path d="M8 5v14l11-7z" />
           </svg>
-        </template>
+        </button>
+      </template>
 
-        <svg v-else-if="isFolderActive(folder)" viewBox="0 0 24 24" fill="currentColor"
-          class="h-5 w-5 text-emerald-400">
-          <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
-        </svg>
-
-        <svg v-else viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 text-emerald-400">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </button>
-
-      <!-- Имя и счётчик -->
-      <button type="button" class="min-w-0 flex-1 text-left" :disabled="isScanning(folder)" @click="openFolder(folder)">
+      <!-- Title -->
+      <template #title>
         <p class="truncate text-sm font-medium">{{ folder.name }}</p>
-        <p class="truncate text-xs" :class="isPlayingFromFolder(folder) && !isScanning(folder)
-            ? 'text-emerald-400/60'
-            : 'text-fg-muted'
-          ">
-          <template v-if="isScanning(folder)"> Сканирование… </template>
-          <template v-else> {{ formatCount(folder) }} </template>
-        </p>
-      </button>
+      </template>
 
-      <!-- Стрелка -->
-      <button type="button" class="shrink-0 rounded-md p-1 transition" :class="[
-        isScanning(folder)
-          ? 'text-fg-disabled cursor-default'
-          : isPlayingFromFolder(folder)
-            ? 'text-emerald-400/60 hover:bg-emerald-500/20 hover:text-emerald-400'
-            : 'text-fg-subtle hover:bg-hover-bg hover:text-fg-muted',
-      ]" :disabled="isScanning(folder)" :aria-label="`Открыть папку ${folder.name}`" @click="openFolder(folder)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </button>
-    </div>
+      <!-- Subtitle -->
+      <template #subtitle>
+        <p class="truncate text-xs"
+          :class="isPlayingFromFolder(folder) && !isScanning(folder) ? 'text-active/60' : 'text-fg-muted'">
+          <template v-if="isScanning(folder)">Сканирование…</template>
+          <template v-else>{{ formatCount(folder) }}</template>
+        </p>
+      </template>
+
+      <!-- Trailing: стрелка -->
+      <template #trailing>
+        <button type="button" class="shrink-0 rounded-md p-1 transition" :class="[
+          isScanning(folder)
+            ? 'text-fg-disabled cursor-default'
+            : isPlayingFromFolder(folder)
+              ? 'text-active/60 hover:bg-active/20 hover:text-active'
+              : 'text-fg-subtle hover:bg-hover-bg hover:text-fg-muted',
+        ]" :disabled="isScanning(folder)" :aria-label="`Открыть папку ${folder.name}`"
+          @click="onArrowClick(folder, $event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+      </template>
+    </ListRow>
   </div>
 </template>

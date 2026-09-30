@@ -115,7 +115,7 @@ onUnmounted(() => {
   <div class="flex items-center gap-0.5">
     <!-- Кнопка-сердечко -->
     <button type="button" class="rounded-btn p-1.5 transition" :class="isFavorite
-        ? 'text-emerald-400 hover:text-emerald-300'
+        ? 'text-active hover:text-active'
         : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'
       " :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'" @click.stop="toggleFavorite">
       <svg viewBox="0 0 24 24" :fill="isFavorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2"
@@ -160,7 +160,7 @@ onUnmounted(() => {
           </button>
 
           <button v-if="!isCreatingNew" type="button"
-            class="block w-full px-6 py-2 text-left text-sm text-emerald-400 transition hover:bg-hover-bg"
+            class="block w-full px-6 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
             @click="startCreate">
             + Создать новый
           </button>

@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 
 @theme {
+  --color-active: #768bbe;
+
   /* Фон */
   --color-bg: #091227;
   --color-bg-elevated: #0e1a35;
@@ -55,6 +57,37 @@ html {
 .app-safe-bottom {
   padding-bottom: calc(var(--spacing) * 2);
   padding-bottom: calc(env(safe-area-inset-top, 0px) + calc(var(--spacing) * 2));
+}
+
+/* --- Скроллбар ------------------------------------------------------ */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 240, 255, 0.4) transparent;
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(234, 240, 255, 0.4);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(234, 240, 255, 1);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @keyframes indeterminate {

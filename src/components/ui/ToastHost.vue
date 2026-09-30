@@ -21,7 +21,7 @@ function iconFor(type: ToastType): string {
 }
 
 function classesFor(type: ToastType): string {
-  if (type === 'success') return 'bg-bg-elevated text-emerald-400'
+  if (type === 'success') return 'bg-bg-elevated text-active'
   if (type === 'error') return 'bg-bg-elevated text-red-400'
   return 'bg-bg-elevated text-fg'
 }

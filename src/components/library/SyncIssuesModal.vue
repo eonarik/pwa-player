@@ -134,7 +134,7 @@ function ignore() {
                 <label v-for="item in issue.onlyLocal" :key="item.relativePath"
                   class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/60">
                   <input type="checkbox" :checked="isOnlyLocalSelected(issue.pluginId, item.relativePath)"
-                    class="h-4 w-4 shrink-0 cursor-pointer accent-emerald-500"
+                    class="h-4 w-4 shrink-0 cursor-pointer accent-active"
                     @change="toggleOnlyLocal(issue.pluginId, item.relativePath)" />
                   <span class="min-w-0 flex-1 truncate">{{ item.filename }}</span>
                   <span class="shrink-0 text-xs text-zinc-500">{{ item.relativePath }}</span>
@@ -151,7 +151,7 @@ function ignore() {
                 <label v-for="trackId in issue.missing" :key="trackId"
                   class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/60">
                   <input type="checkbox" :checked="isMissingSelected(issue.pluginId, trackId)"
-                    class="h-4 w-4 shrink-0 cursor-pointer accent-emerald-500"
+                    class="h-4 w-4 shrink-0 cursor-pointer accent-active"
                     @change="toggleMissing(issue.pluginId, trackId)" />
                   <span class="min-w-0 flex-1 truncate">{{ missingTrackTitle(trackId) }}</span>
                 </label>
@@ -171,7 +171,7 @@ function ignore() {
             Проигнорировать
           </button>
           <button type="button"
-            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-emerald-400"
+            class="rounded-lg bg-active px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-active"
             @click="apply">
             Применить
           </button>

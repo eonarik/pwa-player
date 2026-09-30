@@ -36,7 +36,7 @@ function onClick() {
   <button v-if="tracks.length > 0" type="button"
     class="flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
     :class="isDownloading
-        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
+        ? 'bg-active/15 text-active hover:bg-red-500/15 hover:text-red-400'
         : pendingCount === 0
           ? 'bg-card-bg text-fg-muted'
           : 'bg-card-bg text-fg hover:bg-hover-bg'

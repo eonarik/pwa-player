@@ -108,7 +108,7 @@ function formatDate(ts: number): string {
             <!-- Иконка -->
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg">
               <svg v-if="playlist.id === FAVORITES_PLAYLIST_ID" viewBox="0 0 24 24" fill="currentColor"
-                class="h-5 w-5 text-emerald-500">
+                class="h-5 w-5 text-active">
                 <path d="M12 21s-7-4.35-7-10a5 5 0 019-3 5 5 0 019 3c0 5.65-7 10-7 10z" />
               </svg>
               <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"

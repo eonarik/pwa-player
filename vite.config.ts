@@ -27,8 +27,8 @@ export default defineConfig({
         name: 'CUEI Media Player',
         short_name: 'cuei',
         description: 'Офлайн PWA-плеер для локальной музыкальной библиотеки',
-        theme_color: '#091227', // emerald-500 из Tailwind
-        background_color: '#091227', // zinc-900
+        theme_color: '#091227',
+        background_color: '#091227',
         display: 'standalone',
         orientation: 'any',
         scope: '/',
