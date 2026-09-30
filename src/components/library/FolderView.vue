@@ -1,6 +1,6 @@
 <!-- src/components/library/FolderView.vue -->
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
@@ -8,11 +8,12 @@ import { loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
-import { FIELD_LABELS, sortService, type SortField } from '@/services/sort/SortService'
 import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
-import CoverSearchButton from './CoverSearchButton.vue'
+import FolderSortMenu from './FolderSortMenu.vue'
+import FolderSyncMenu from './FolderSyncMenu.vue'
+import FolderCoversMenu from './FolderCoversMenu.vue'
 import type { LibraryTrack } from '@/types/library'
 
 const library = useLibraryStore()
@@ -27,23 +28,13 @@ const hasFolders = computed(() => currentSubfolders.value.length > 0)
 
 const isScanning = computed(() => currentFolder.value?.scanStatus === 'scanning')
 
-/** Треки поддерева текущей папки — для поиска обложек */
 const subtreeTracks = computed<LibraryTrack[]>(() => {
   const folder = currentFolder.value
   if (!folder) return []
   return library.getAllTracksInFolderRecursive(folder.id)
 })
 
-// --- Меню сортировки -------------------------------------------------
-
-const isSortMenuOpen = ref(false)
-
-function selectSortField(field: SortField) {
-  sortService.setField(field)
-  isSortMenuOpen.value = false
-}
-
-// --- Обновление источника -------------------------------------------
+// --- Синхронизация ---------------------------------------------------
 
 const canRefresh = ref(false)
 const canRefreshFromDevice = ref(false)
@@ -69,21 +60,10 @@ watch(
   { immediate: true },
 )
 
-const isRefreshMenuOpen = ref(false)
 const isRefreshing = ref(false)
 const isRefreshingFromDevice = ref(false)
 
-function toggleRefreshMenu() {
-  isRefreshMenuOpen.value = !isRefreshMenuOpen.value
-}
-
-function closeRefreshMenu() {
-  isRefreshMenuOpen.value = false
-}
-
 async function refreshFromCloud() {
-  closeRefreshMenu()
-
   const folder = currentFolder.value
   if (!folder || !folder.source) return
 
@@ -104,8 +84,6 @@ async function refreshFromCloud() {
 }
 
 async function refreshFromDevice() {
-  closeRefreshMenu()
-
   if (isRefreshingFromDevice.value) return
 
   isRefreshingFromDevice.value = true
@@ -119,27 +97,6 @@ async function refreshFromDevice() {
     isRefreshingFromDevice.value = false
   }
 }
-
-// --- Закрытие меню по клику снаружи ---------------------------------
-
-function onClickOutside(e: MouseEvent) {
-  const target = e.target as HTMLElement
-
-  if (!target.closest('[data-refresh-menu]')) {
-    closeRefreshMenu()
-  }
-  if (!target.closest('[data-sort-menu]')) {
-    isSortMenuOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', onClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', onClickOutside)
-})
 
 // --- Действия -------------------------------------------------------
 
@@ -170,89 +127,18 @@ function onSelectTrack(index: number) {
     <!-- Шапка: строка 2 -->
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <!-- Сортировка -->
-          <div class="flex items-center gap-1">
-            <!-- Кнопка выбора поля -->
-            <div data-sort-menu class="relative">
-              <button type="button"
-                class="flex items-center gap-1 rounded-btn bg-card-bg px-2 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-                @click.stop="isSortMenuOpen = !isSortMenuOpen">
-                <span>{{ FIELD_LABELS[sortService.field.value] }}</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 transition"
-                  :class="isSortMenuOpen ? 'rotate-180' : ''">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
+        <FolderSortMenu />
 
-              <!-- Dropdown -->
-              <div v-if="isSortMenuOpen"
-                class="absolute left-0 top-full z-20 mt-1 w-40 overflow-hidden bg-bg-elevated shadow-lg">
-                <button v-for="(label, field) in FIELD_LABELS" :key="field" type="button"
-                  class="block w-full px-3 py-2 text-left text-xs text-fg transition hover:bg-hover-bg"
-                  :class="sortService.field.value === field ? 'bg-active/10 text-active' : ''"
-                  @click="selectSortField(field)">
-                  {{ label }}
-                </button>
-              </div>
-            </div>
+        <div v-if="!isScanning" class="flex shrink-0 items-center gap-2">
+          <!-- Обложки -->
+          <FolderCoversMenu :tracks="subtreeTracks" />
 
-            <!-- Кнопка направления -->
-            <button type="button"
-              class="flex items-center gap-1 rounded-btn bg-card-bg px-2 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-              :aria-label="sortService.dirLabel" :title="sortService.dirLabel" @click="sortService.toggleDir()">
-              <svg v-if="sortService.dir.value === 'asc'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" class="h-3.5 w-3.5">
-                <path d="M12 5v14M19 12l-7 7-7-7" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
-                <path d="M12 19V5M5 12l7-7 7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="flex shrink-0 items-center gap-2">
-          <!-- Поиск обложек -->
-          <CoverSearchButton v-if="!isScanning" :tracks="subtreeTracks" />
-
-          <!-- Действия -->
-          <template v-if="!isScanning && (canRefresh || canRefreshFromDevice)">
+          <!-- Синхронизация -->
+          <template v-if="canRefresh || canRefreshFromDevice">
             <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
-            <div data-refresh-menu class="relative">
-              <button type="button"
-                class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg disabled:opacity-50"
-                :disabled="isRefreshing || isRefreshingFromDevice" @click.stop="toggleRefreshMenu">
-                <span v-if="isRefreshing">Обновление…</span>
-                <span v-else-if="isRefreshingFromDevice">Сканирование…</span>
-                <span v-else>Действия</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 transition"
-                  :class="isRefreshMenuOpen ? 'rotate-180' : ''">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-
-              <div v-if="isRefreshMenuOpen"
-                class="absolute right-0 top-full z-20 mt-1 w-64 overflow-hidden bg-bg-elevated shadow-lg">
-                <button v-if="canRefresh" type="button"
-                  class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-                  @click="refreshFromCloud">
-                  Обновить с облака
-                  <span class="block text-[10px] text-fg-muted">
-                    Синхронизировать треки с Яндекс.Диска
-                  </span>
-                </button>
-
-                <button v-if="canRefreshFromDevice" type="button"
-                  class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-                  @click="refreshFromDevice">
-                  Обновить с устройства
-                  <span class="block text-[10px] text-fg-muted">
-                    Найти новые и отсутствующие файлы
-                  </span>
-                </button>
-              </div>
-            </div>
+            <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
+              :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"
+              @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
           </template>
         </div>
       </div>

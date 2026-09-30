@@ -18,15 +18,12 @@ export function useCoverSearch(tracks: Ref<LibraryTrack[]>) {
   const progress = ref({ done: 0, total: 0 })
   const abortController = ref<AbortController | null>(null)
 
-  /** Треки без обложки */
   const tracksWithoutCover = computed(() => tracks.value.filter((t) => !t.coverUrl))
 
-  /** Треки без обложки, для которых ещё не проверяли кэш */
   const uncheckedTracks = computed(() =>
     tracksWithoutCover.value.filter((t) => coverPersistenceService.get(t.id) === undefined),
   )
 
-  /** Сколько всего треков с обложкой / всего */
   const stats = computed(() => {
     const total = tracks.value.length
     const found = tracks.value.filter((t) => t.coverUrl).length
@@ -93,9 +90,24 @@ export function useCoverSearch(tracks: Ref<LibraryTrack[]>) {
   }
 
   async function reset(): Promise<void> {
-    if (tracks.value.length === 0) return
-    const ids = tracks.value.map((t) => t.id)
+    // Сбрасываем только те треки, для которых есть запись в кэше обложек
+    // (обложки из тегов и folder.jpg в кэше не лежат — их не трогаем)
+    const known = tracks.value.filter((t) => coverPersistenceService.get(t.id) !== undefined)
+    if (known.length === 0) return
+
+    const ids = known.map((t) => t.id)
+
     await coverPersistenceService.resetForTracks(ids)
+
+    for (const id of ids) {
+      const track = library.getTrack(id)
+      if (!track) continue
+      // Не сбрасываем blob — это обложка из тегов/folder.jpg
+      if (track.coverUrl && !track.coverUrl.startsWith('blob:')) {
+        track.coverUrl = undefined
+      }
+    }
+
     library.bumpCoversVersion()
   }
 

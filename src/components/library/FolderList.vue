@@ -182,7 +182,7 @@ function onArrowClick(folder: Folder, e: Event) {
           ? 'text-active/60'
           : 'text-fg-muted'
           ">
-          <template v-if="isScanning(folder) && !folder.ready">Сканирование…</template>
+          <template v-if="isScanning(folder) || !folder.ready">Сканирование…</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
       </template>
