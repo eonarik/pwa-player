@@ -2,16 +2,11 @@
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
-import { coverService } from '@/services/covers/CoverService'
 import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
 import { sortBy } from '@/utils/sort'
 import type { LibraryWriter } from '@/plugins/types'
 import { librarySaveService } from '@/services/library/LibrarySaveService'
 import { sortService } from '@/services/sort/SortService'
-
-/** Сколько обложек ищем параллельно */
-const COVER_CONCURRENCY = 3
 
 export const useLibraryStore = defineStore('library', () => {
   // --- Состояние ------------------------------------------------------
@@ -22,11 +17,8 @@ export const useLibraryStore = defineStore('library', () => {
   /** Что открыто сейчас. null = главная (список плагинов) */
   const currentFolderId = ref<string | null>(null)
 
-  /** Версия обложек — триггер для пересчёта coverStats */
+  /** Версия обложек — триггер для пересчёта внешних computed */
   const coversVersion = ref(0)
-
-  const isLoadingCovers = ref(false)
-  const coverProgress = ref({ done: 0, total: 0 })
 
   // --- Computed -------------------------------------------------------
 
@@ -70,30 +62,6 @@ export const useLibraryStore = defineStore('library', () => {
     return Boolean(folder && folder.parentId)
   })
 
-  const tracksWithoutCovers = computed(() => {
-    return currentTracks.value.filter((t) => !t.coverUrl).length
-  })
-
-  const coverStats = computed(() => {
-    void coversVersion.value
-
-    let checked = 0
-    let found = 0
-
-    for (const track of currentTracks.value) {
-      const cached = coverPersistenceService.get(track.id)
-      if (cached === undefined) continue
-      checked++
-      if (cached !== null) found++
-    }
-
-    return {
-      total: checked,
-      checked,
-      found,
-    }
-  })
-
   // --- Вспомогательные ------------------------------------------------
 
   function bumpCoversVersion(): void {
@@ -128,80 +96,6 @@ export const useLibraryStore = defineStore('library', () => {
     return result
   }
 
-  async function fetchCoversForCurrentFolder(): Promise<void> {
-    const folder = currentFolder.value
-    if (!folder) return
-
-    const tracksToFetch = currentTracks.value.filter((t) => !t.coverUrl)
-    if (tracksToFetch.length === 0) return
-
-    const toFetch: LibraryTrack[] = []
-    for (const track of tracksToFetch) {
-      const cached = coverPersistenceService.get(track.id)
-      if (cached !== undefined) {
-        if (cached !== null) {
-          const existing = tracks.value[track.id]
-          if (existing) existing.coverUrl = cached
-        }
-        continue
-      }
-      toFetch.push(track)
-    }
-
-    if (toFetch.length === 0) {
-      bumpCoversVersion()
-      return
-    }
-
-    isLoadingCovers.value = true
-    coverProgress.value = { done: 0, total: toFetch.length }
-
-    try {
-      const results: Array<{ trackId: string; coverUrl: string | null }> = []
-      let cursor = 0
-
-      const worker = async (): Promise<void> => {
-        while (cursor < toFetch.length) {
-          const track = toFetch[cursor++]!
-          const coverUrl = await coverService.fetch(track.artist, track.title)
-
-          results.push({ trackId: track.id, coverUrl })
-
-          if (coverUrl) {
-            const existing = tracks.value[track.id]
-            if (existing) existing.coverUrl = coverUrl
-          }
-
-          coverProgress.value = {
-            done: coverProgress.value.done + 1,
-            total: toFetch.length,
-          }
-        }
-      }
-
-      await Promise.all(
-        Array.from({ length: Math.min(COVER_CONCURRENCY, toFetch.length) }, () => worker()),
-      )
-
-      await coverPersistenceService.setMany(results)
-      bumpCoversVersion()
-    } finally {
-      isLoadingCovers.value = false
-      coverProgress.value = { done: 0, total: 0 }
-    }
-  }
-
-  async function resetCoversForCurrentFolder(): Promise<void> {
-    const folder = currentFolder.value
-    if (!folder) return
-
-    const trackIds = currentTracks.value.filter((t) => !t.coverUrl).map((t) => t.id)
-    if (trackIds.length === 0) return
-
-    await coverPersistenceService.resetNotFound(trackIds)
-    bumpCoversVersion()
-  }
-
   function clear(): void {
     for (const track of Object.values(tracks.value)) {
       if (track.coverUrl?.startsWith('blob:')) {
@@ -227,9 +121,7 @@ export const useLibraryStore = defineStore('library', () => {
     folders,
     tracks,
     currentFolderId,
-
-    isLoadingCovers,
-    coverProgress,
+    coversVersion,
 
     // computed
     hasLibrary,
@@ -238,14 +130,11 @@ export const useLibraryStore = defineStore('library', () => {
     currentTracks,
     breadcrumbs,
     canGoUp,
-    tracksWithoutCovers,
-    coverStats,
 
     // actions
+    bumpCoversVersion,
     setCurrentFolder,
     getAllTracksInFolderRecursive,
-    fetchCoversForCurrentFolder,
-    resetCoversForCurrentFolder,
     clear,
     getTrack,
     getFolder,
@@ -351,7 +240,6 @@ export function createLibraryWriter(): LibraryWriter {
         if (track.folderId) affectedFolders.add(track.folderId)
       }
 
-      // Добавляем trackId в folder.trackIds
       for (const folderId of affectedFolders) {
         const folder = s.folders[folderId]
         if (!folder) continue

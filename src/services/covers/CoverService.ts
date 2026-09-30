@@ -1,6 +1,6 @@
 // src/services/covers/CoverService.ts
 
-const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL?.replace(/\/+$/, '') ?? ''
+const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
 const REQUEST_TIMEOUT_MS = 10_000
 
 class CoverService {
@@ -16,8 +16,9 @@ class CoverService {
   /**
    * Ищет обложку через прокси (iTunes + Deezer).
    * Возвращает URL или null.
+   * Поддерживает внешний AbortSignal (отмена) — комбинируется с таймаутом.
    */
-  async fetch(artist: string, title: string): Promise<string | null> {
+  async fetch(artist: string, title: string, signal?: AbortSignal): Promise<string | null> {
     if (!title) return null
 
     try {
@@ -27,7 +28,9 @@ class CoverService {
       }
 
       const res = await fetch(`${PROXY_URL}/api/cover?${params.toString()}`, {
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+          : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
 
       if (!res.ok) return null
@@ -35,6 +38,9 @@ class CoverService {
       const data = (await res.json()) as { coverUrl: string | null }
       return data.coverUrl
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return null
+      }
       console.warn(`[covers] failed to fetch for "${artist} - ${title}"`, err)
       return null
     }

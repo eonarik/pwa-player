@@ -22,6 +22,7 @@ import '@/plugins/registry'
 import App from './App.vue'
 import router from './router'
 import { schemaService } from '@/services/persistence/SchemaService'
+import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 
 import './assets/main.css'
 import { usePlaylistsStore } from './stores/playlists'
@@ -54,13 +55,16 @@ async function bootstrap() {
 
   window.addEventListener('beforeunload', () => {
     void librarySaveService.flushAll()
+    void coverPersistenceService.flush()
   })
   window.addEventListener('pagehide', () => {
     void librarySaveService.flushAll()
+    void coverPersistenceService.flush()
   })
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       void librarySaveService.flushAll()
+      void coverPersistenceService.flush()
     }
   })
 

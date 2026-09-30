@@ -67,11 +67,7 @@ export class CoverPersistenceService {
 
   /** Сохранить результат поиска (включая null) */
   async set(trackId: string, coverUrl: string | null): Promise<void> {
-    this.cache.set(trackId, {
-      trackId,
-      coverUrl,
-      fetchedAt: Date.now(),
-    })
+    this.setInMemory(trackId, coverUrl)
     await this.persist()
   }
 
@@ -85,6 +81,24 @@ export class CoverPersistenceService {
         fetchedAt: now,
       })
     }
+    await this.persist()
+  }
+
+  /**
+   * Обновляет только in-memory кэш, без записи в IDB.
+   * Для инкрементального поиска обложек: setInMemory на каждую находку,
+   * flush() батчами.
+   */
+  setInMemory(trackId: string, coverUrl: string | null): void {
+    this.cache.set(trackId, {
+      trackId,
+      coverUrl,
+      fetchedAt: Date.now(),
+    })
+  }
+
+  /** Записать текущий in-memory кэш в IDB. */
+  async flush(): Promise<void> {
     await this.persist()
   }
 

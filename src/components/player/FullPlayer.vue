@@ -175,7 +175,7 @@ watch(
               </p>
             </div>
 
-            <div class="absolute left-0 top-0 flex items-start gap-1">
+            <div class="absolute right-0 top-0 flex items-start gap-1">
               <TrackReactionButtons :track="currentTrack" size="md" dislike-mode="skip" />
             </div>
           </div>
