@@ -4,6 +4,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import type { Track } from '@/types/track'
+import TrackReactionButtons from "../ui/TrackReactionButtons.vue";
 
 const props = defineProps<{
   track: Track
@@ -25,19 +26,9 @@ const buttonRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
 const menuPosition = ref({ top: 0, left: 0 })
 
-const isFavorite = computed(() => {
-  const fav = playlists.playlists[FAVORITES_PLAYLIST_ID]
-  if (!fav) return false
-  return fav.tracks.some((t) => t.trackId === props.track.id)
-})
-
 const userPlaylists = computed(() =>
   playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
 )
-
-function toggleFavorite() {
-  playlists.toggleFavorite(props.track)
-}
 
 function openMenu() {
   if (!buttonRef.value) return
@@ -113,16 +104,7 @@ onUnmounted(() => {
 
 <template>
   <div class="flex items-center gap-0.5">
-    <!-- Кнопка-сердечко -->
-    <button type="button" class="rounded-btn p-1.5 transition" :class="isFavorite
-        ? 'text-active hover:text-active'
-        : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'
-      " :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'" @click.stop="toggleFavorite">
-      <svg viewBox="0 0 24 24" :fill="isFavorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2"
-        class="h-4 w-4">
-        <path d="M12 21s-7-4.35-7-10a5 5 0 019-3 5 5 0 019 3c0 5.65-7 10-7 10z" />
-      </svg>
-    </button>
+    <TrackReactionButtons :track="track" size="sm" dislike-mode="toggle" />
 
     <!-- Кнопка меню -->
     <button ref="buttonRef" type="button"
@@ -140,10 +122,6 @@ onUnmounted(() => {
       <div v-if="isMenuOpen" ref="menuRef"
         class="fixed z-[100] w-64 overflow-hidden rounded-card bg-bg-elevated shadow-lg"
         :style="{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }" @click.stop>
-        <button type="button" class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-          @click="(toggleFavorite(), closeMenu())">
-          {{ isFavorite ? 'Убрать из избранного' : 'В избранное' }}
-        </button>
 
         <button type="button"
           class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"

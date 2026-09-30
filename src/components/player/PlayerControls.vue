@@ -3,7 +3,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
-import { usePlaylistsStore } from '@/stores/playlists'
 import PlayerProgressBar from './PlayerProgressBar.vue'
 import IconPlay from '@/components/icons/IconPlay.vue'
 import IconPause from '@/components/icons/IconPause.vue'
@@ -13,15 +12,14 @@ import IconShuffle from '@/components/icons/IconShuffle.vue'
 import IconRepeat from '@/components/icons/IconRepeat.vue'
 import IconVolume from '@/components/icons/IconVolume.vue'
 import IconVolumeMute from '@/components/icons/IconVolumeMute.vue'
-import IconHeart from '@/components/icons/IconHeart.vue'
 import IconList from '@/components/icons/IconList.vue'
+import TrackReactionButtons from "../ui/TrackReactionButtons.vue"
 
 const emit = defineEmits<{
   (e: 'open'): void
 }>()
 
 const player = usePlayerStore()
-const playlists = usePlaylistsStore()
 const { currentTrack, isPlaying, currentTime, duration, volume, muted, repeatMode, shuffle } =
   storeToRefs(player)
 
@@ -45,20 +43,6 @@ onUnmounted(() => {
   if (mql) mql.removeEventListener('change', updateCoarse)
 })
 
-// --- Избранное -------------------------------------------------------
-
-const isFavorite = computed(() => {
-  const id = currentTrack.value?.id
-  if (!id) return false
-  return playlists.isFavorite(id)
-})
-
-function onToggleFavorite() {
-  const track = currentTrack.value
-  if (!track) return
-  playlists.toggleFavorite(track)
-}
-
 // --- Громкость -------------------------------------------------------
 
 const volumePercent = computed(() =>
@@ -77,8 +61,6 @@ function onVolumeInput(e: Event) {
   }
   player.setVolume(value)
 }
-
-// --- Клик по футеру → FullPlayer -------------------------------------
 
 function onFooterClick(e: MouseEvent) {
   const target = e.target as HTMLElement
@@ -153,11 +135,7 @@ function onFooterClick(e: MouseEvent) {
           </div>
         </button>
 
-        <button type="button" class="shrink-0 rounded-btn p-2 transition"
-          :class="isFavorite ? 'text-active' : 'text-fg-muted hover:text-fg'"
-          :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'" @click="onToggleFavorite">
-          <IconHeart :filled="isFavorite" class="h-5 w-5" />
-        </button>
+        <TrackReactionButtons :track="currentTrack" size="md" dislike-mode="skip" />
       </div>
 
       <!-- Центр: shuffle | prev | play | next | repeat -->

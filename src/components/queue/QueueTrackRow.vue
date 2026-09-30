@@ -3,7 +3,9 @@
 import { computed } from 'vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import PlayingIndicator from '@/components/ui/PlayingIndicator.vue'
+import { useDislikesStore } from '@/stores/dislikes'
 import type { Track } from '@/types/track'
+import { formatDuration } from "@/utils/formatDuration"
 
 const props = defineProps<{
   track: Track
@@ -17,32 +19,23 @@ const emit = defineEmits<{
   (e: 'remove'): void
 }>()
 
-const durationLabel = computed(() => {
-  const d = props.track.duration
-  if (!d || !Number.isFinite(d)) return '--:--'
-  const total = Math.floor(d)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-})
+const dislikes = useDislikesStore()
+
+const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
 </script>
 
 <template>
-  <ListRow :active="isCurrent" @click="emit('select')">
-    <!-- Leading -->
+  <ListRow :active="isCurrent" :disliked="isDisliked" @click="emit('select')">
     <template #leading>
       <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg">
         <img v-if="track.coverUrl" :src="track.coverUrl" :alt="track.album" class="h-full w-full object-cover"
           loading="lazy" />
-        <span v-else class="text-xs font-medium text-fg-muted">
-          {{ index + 1 }}
-        </span>
+        <span v-else class="text-xs font-medium text-fg-muted">{{ index + 1 }}</span>
 
         <PlayingIndicator v-if="isCurrent && isPlaying" />
       </div>
     </template>
 
-    <!-- Title -->
     <template #title>
       <p class="truncate text-sm font-medium">
         {{ track.title }}
@@ -50,19 +43,14 @@ const durationLabel = computed(() => {
       </p>
     </template>
 
-    <!-- Subtitle -->
     <template #subtitle>
       <p class="truncate text-xs text-fg-muted">{{ track.artist }}</p>
     </template>
 
-    <!-- Meta: duration -->
     <template #meta>
-      <span class="shrink-0 text-xs tabular-nums text-fg-muted">
-        {{ durationLabel }}
-      </span>
+      <span class="shrink-0 text-xs tabular-nums text-fg-muted">{{ formatDuration(props.track.duration) }}</span>
     </template>
 
-    <!-- Trailing: remove -->
     <template #trailing>
       <button type="button"
         class="shrink-0 rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"

@@ -3,7 +3,6 @@
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
-import { usePlaylistsStore } from '@/stores/playlists'
 import { useDominantColor } from '@/composables/useDominantColor'
 import { rgbToString } from '@/utils/dominantColor'
 import PlayerProgressBar from './PlayerProgressBar.vue'
@@ -15,7 +14,7 @@ import IconShuffle from '@/components/icons/IconShuffle.vue'
 import IconRepeat from '@/components/icons/IconRepeat.vue'
 import IconVolumeMute from '@/components/icons/IconVolumeMute.vue'
 import IconList from "../icons/IconList.vue"
-import IconHeart from "../icons/IconHeart.vue"
+import TrackReactionButtons from "../ui/TrackReactionButtons.vue"
 
 const props = defineProps<{
   title: string
@@ -26,24 +25,9 @@ const emit = defineEmits<{
 }>()
 
 const player = usePlayerStore()
-const playlists = usePlaylistsStore()
 
 const { currentTrack, isPlaying, currentTime, duration, repeatMode, shuffle, muted, volume } =
   storeToRefs(player)
-
-// --- Избранное -------------------------------------------------------
-
-const isFavorite = computed(() => {
-  const id = currentTrack.value?.id
-  if (!id) return false
-  return playlists.isFavorite(id)
-})
-
-function onToggleFavorite() {
-  const track = currentTrack.value
-  if (!track) return
-  playlists.toggleFavorite(track)
-}
 
 // --- Доминирующий цвет обложки + пульсация ---------------------------
 
@@ -191,14 +175,8 @@ watch(
               </p>
             </div>
 
-            <div class="absolute right-0 -top-1 flex items-start gap-1">
-              <!-- Избранное -->
-              <button type="button" class="rounded-btn p-2 transition" :class="isFavorite
-                ? 'text-active hover:bg-hover-bg'
-                : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'
-                " :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'" @click="onToggleFavorite">
-                <IconHeart :filled="isFavorite" class="h-5 w-5" />
-              </button>
+            <div class="absolute left-0 top-0 flex items-start gap-1">
+              <TrackReactionButtons :track="currentTrack" size="md" dislike-mode="skip" />
             </div>
           </div>
 

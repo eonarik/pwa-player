@@ -22,6 +22,8 @@ import ModalHost from '@/components/ui/ModalHost.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 import { usePwaUpdate } from "./composables/usePwaUpdate"
+import { useDislikesStore } from "./stores/dislikes"
+import IconEyeOff from "./components/icons/IconEyeOff.vue"
 
 const router = useRouter()
 const route = useRoute()
@@ -29,6 +31,7 @@ const player = usePlayerStore()
 const library = useLibraryStore()
 const history = useHistoryStore()
 const playlists = usePlaylistsStore()
+const dislikes = useDislikesStore()
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
 // --- FullPlayer ------------------------------------------------------
@@ -70,6 +73,7 @@ const pageTitle = computed(() => {
   }
   if (name === 'history') return 'История'
   if (name === 'queue') return 'Очередь'
+  if (name === 'dislikes') return 'Дизлайки'
   return 'Плеер'
 })
 
@@ -87,7 +91,6 @@ watch(
 
 const SWIPE_UP_THRESHOLD = 100 // px
 
-const playerFooterRef = ref<HTMLElement | null>(null)
 let swipeStartY = 0
 let swipeTracking = false
 
@@ -150,6 +153,11 @@ function goToQueue() {
   router.push({ name: 'queue' })
 }
 
+function goToDislikes() {
+  closeDrawer()
+  router.push({ name: 'dislikes' })
+}
+
 async function restoreSpaceAccess() {
   const state = await downloadSpaceService.requestAccess()
 
@@ -204,6 +212,7 @@ onMounted(async () => {
     await coverPersistenceService.load()
     await downloadSpaceService.load()
     await history.restore()
+    await dislikes.restore()
 
     for (const manifest of getPlugins()) {
       try {
@@ -308,6 +317,13 @@ usePwaUpdate()
                 <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               Плейлисты
+            </button>
+
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
+              @click="goToDislikes">
+              <IconEyeOff class="h-6 w-6 text-fg-muted" />
+              Дизлайки
             </button>
 
             <button type="button"

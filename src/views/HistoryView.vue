@@ -8,6 +8,7 @@ import { usePlayerStore } from '@/stores/player'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import type { LibraryTrack } from '@/types/library'
 import type { PlayHistoryEntry } from '@/types/history'
+import { formatRelativeTime } from "@/utils/formatRelativeTime"
 
 const history = useHistoryStore()
 const library = useLibraryStore()
@@ -50,24 +51,6 @@ function onSelectTrack(index: number) {
 
 function isCurrent(trackId: string): boolean {
   return currentTrack.value?.id === trackId
-}
-
-function formatTime(ts: number): string {
-  const now = Date.now()
-  const diff = now - ts
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 1) return 'только что'
-  if (minutes < 60) return `${minutes} мин назад`
-  if (hours < 24) return `${hours} ч назад`
-  if (days < 7) return `${days} дн назад`
-
-  return new Date(ts).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-  })
 }
 </script>
 
@@ -121,7 +104,7 @@ function formatTime(ts: number): string {
         <div v-else class="flex flex-col gap-0.5">
           <TrackResolvedItem v-for="(entry, index) in visibleHistory" :key="`${entry.trackId}-${entry.playedAt}`"
             :track-id="entry.trackId" :index="index" :is-current="isCurrent(entry.trackId)" :is-playing="isPlaying"
-            :meta-label="formatTime(entry.playedAt)"
+            :meta-label="formatRelativeTime(entry.playedAt)"
             @select="onSelectTrack(resolvedTracks.findIndex((t) => t.id === entry.trackId))" />
         </div>
       </div>

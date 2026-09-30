@@ -8,6 +8,7 @@ import { restoreTracks } from '@/services/persistence/restore'
 import type { Track } from '@/types/track'
 import { useHistoryStore } from './history'
 import { createLibraryWriter } from './library'
+import { useDislikesStore } from './dislikes'
 
 export const usePlayerStore = defineStore('player', () => {
   // --- Состояние ------------------------------------------------------
@@ -281,18 +282,35 @@ export const usePlayerStore = defineStore('player', () => {
   function next() {
     if (queue.value.length === 0) return
 
+    const dislikes = useDislikesStore()
+
     if (shuffle.value) {
-      playAt(pickRandomIndex())
+      const idx = pickRandomNonDislikedIndex(dislikes.dislikedIds)
+      if (idx !== -1) {
+        playAt(idx)
+      } else {
+        isPlaying.value = false
+        audioService.pause()
+      }
       return
     }
 
-    if (currentIndex.value < queue.value.length - 1) {
-      playAt(currentIndex.value + 1)
-    } else if (repeatMode.value === 'all') {
-      playAt(0)
-    } else {
-      isPlaying.value = false
+    const nextIndex = findNonDislikedIndex(currentIndex.value + 1, 1, dislikes.dislikedIds)
+    if (nextIndex !== -1) {
+      playAt(nextIndex)
+      return
     }
+
+    if (repeatMode.value === 'all') {
+      const wrapIndex = findNonDislikedIndex(0, 1, dislikes.dislikedIds)
+      if (wrapIndex !== -1) {
+        playAt(wrapIndex)
+        return
+      }
+    }
+
+    isPlaying.value = false
+    audioService.pause()
   }
 
   function prev() {
@@ -303,18 +321,29 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
 
+    const dislikes = useDislikesStore()
+
     if (shuffle.value) {
-      playAt(pickRandomIndex())
+      const idx = pickRandomNonDislikedIndex(dislikes.dislikedIds)
+      if (idx !== -1) playAt(idx)
       return
     }
 
-    if (currentIndex.value > 0) {
-      playAt(currentIndex.value - 1)
-    } else if (repeatMode.value === 'all') {
-      playAt(queue.value.length - 1)
-    } else {
-      audioService.seek(0)
+    const prevIndex = findNonDislikedIndex(currentIndex.value - 1, -1, dislikes.dislikedIds)
+    if (prevIndex !== -1) {
+      playAt(prevIndex)
+      return
     }
+
+    if (repeatMode.value === 'all') {
+      const wrapIndex = findNonDislikedIndex(queue.value.length - 1, -1, dislikes.dislikedIds)
+      if (wrapIndex !== -1) {
+        playAt(wrapIndex)
+        return
+      }
+    }
+
+    audioService.seek(0)
   }
 
   function seek(time: number) {
@@ -349,13 +378,30 @@ export const usePlayerStore = defineStore('player', () => {
 
   // --- Внутренние хелперы ---------------------------------------------
 
-  function pickRandomIndex(): number {
-    if (queue.value.length <= 1) return 0
-    let idx = currentIndex.value
-    while (idx === currentIndex.value) {
-      idx = Math.floor(Math.random() * queue.value.length)
+  /**
+   * Ближайший не-дизлайкнутый индекс, начиная с `from`, шагая `dir`.
+   * `dir`: +1 — вперёд, -1 — назад. `-1`, если не нашли.
+   */
+  function findNonDislikedIndex(from: number, dir: 1 | -1, disliked: Set<string>): number {
+    for (let i = from; i >= 0 && i < queue.value.length; i += dir) {
+      const track = queue.value[i]
+      if (track && !disliked.has(track.id)) return i
     }
-    return idx
+    return -1
+  }
+
+  /** Случайный не-дизлайкнутый индекс, кроме текущего. `-1`, если не нашли. */
+  function pickRandomNonDislikedIndex(disliked: Set<string>): number {
+    if (queue.value.length <= 1) return -1
+    const candidates: number[] = []
+    for (let i = 0; i < queue.value.length; i++) {
+      const track = queue.value[i]
+      if (track && i !== currentIndex.value && !disliked.has(track.id)) {
+        candidates.push(i)
+      }
+    }
+    if (candidates.length === 0) return -1
+    return candidates[Math.floor(Math.random() * candidates.length)]!
   }
 
   function handleTrackEnd() {

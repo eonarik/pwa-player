@@ -1,5 +1,6 @@
 <!-- src/components/player/PlayerProgressBar.vue -->
 <script setup lang="ts">
+import { formatDuration } from "@/utils/formatDuration";
 import { computed, ref } from 'vue'
 
 const props = withDefaults(
@@ -93,14 +94,6 @@ function onMouseEnter() {
 function onMouseLeave() {
   isHovered.value = false
 }
-
-function formatTime(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return '0:00'
-  const total = Math.floor(sec)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
 </script>
 
 <template>
@@ -113,18 +106,18 @@ function formatTime(sec: number): string {
         <!-- displayTime: floating — над текущей позицией; fixed — слева -->
         <span class="absolute text-xs tabular-nums text-fg-muted" :class="timePosition === 'fixed' ? 'left-0' : ''"
           :style="timePosition === 'fixed'
-              ? undefined
-              : {
-                left: `clamp(24px, ${progressPercent}%, calc(100% - 60px))`,
-                transform: 'translateX(-50%)',
-              }
+            ? undefined
+            : {
+              left: `clamp(24px, ${progressPercent}%, calc(100% - 60px))`,
+              transform: 'translateX(-50%)',
+            }
             ">
-          {{ formatTime(displayTime) }}
+          {{ formatDuration(displayTime) }}
         </span>
 
         <!-- duration: всегда справа -->
         <span class="absolute right-0 text-xs tabular-nums text-fg-muted">
-          {{ formatTime(duration) }}
+          {{ formatDuration(duration) }}
         </span>
       </div>
     </Transition>
