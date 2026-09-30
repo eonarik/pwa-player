@@ -1,3 +1,4 @@
+<!-- src/components/queue/QueueTrackRow.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
 import ListRow from '@/components/ui/ListRow.vue'
@@ -24,7 +25,9 @@ const dislikes = useDislikesStore()
 
 const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
 
-const { title, subtitle, hasSubtitle } = useTrackDisplay(computed(() => props.track))
+const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
+  computed(() => props.track),
+)
 </script>
 
 <template>
@@ -41,13 +44,26 @@ const { title, subtitle, hasSubtitle } = useTrackDisplay(computed(() => props.tr
 
     <template #title>
       <p class="truncate text-sm font-medium">
-        {{ title }}
+        <template v-if="showSource && hasArtist">
+          <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
+            class="text-active/80 transition hover:text-active" @click.stop>
+            {{ track.artist }}
+          </RouterLink>
+          <span> — </span>
+        </template>
+        <span>{{ title }}</span>
         <span v-if="isCurrent && !isPlaying" class="ml-1 text-xs text-active/70">(пауза)</span>
       </p>
     </template>
 
     <template #subtitle>
-      <p v-if="hasSubtitle" class="truncate text-xs text-fg-muted" :title="subtitle">{{ subtitle }}</p>
+      <p v-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
+        <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
+          class="text-active/80 transition hover:text-active" @click.stop>
+          {{ track.artist }}
+        </RouterLink>
+      </p>
+      <p v-else-if="hasSubtitle" class="truncate text-xs text-fg-muted">{{ subtitle }}</p>
     </template>
 
     <template #meta>

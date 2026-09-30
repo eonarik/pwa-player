@@ -8,6 +8,8 @@ import PlaylistRoute from '@/views/PlaylistRoute.vue'
 import HistoryView from '@/views/HistoryView.vue'
 import QueueView from '@/views/QueueView.vue'
 import DislikesView from '@/views/DislikesView.vue'
+import ArtistView from '@/views/ArtistView.vue'
+import AlbumView from '@/views/AlbumView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +26,8 @@ const router = createRouter({
     { path: '/history', name: 'history', component: HistoryView },
     { path: '/queue', name: 'queue', component: QueueView },
     { path: '/dislikes', name: 'dislikes', component: DislikesView },
+    { path: '/artist/:artistName', name: 'artist', component: ArtistView, props: true },
+    { path: '/artist/:artistName/:album', name: 'album', component: AlbumView, props: true },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

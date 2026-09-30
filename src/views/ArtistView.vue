@@ -1,0 +1,114 @@
+<!-- src/views/ArtistView.vue -->
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useLibraryStore } from '@/stores/library'
+import { usePlayerStore } from '@/stores/player'
+import { filterTracksByArtist, groupByAlbum } from '@/utils/artists'
+import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
+import type { LibraryTrack } from '@/types/library'
+
+const route = useRoute()
+const library = useLibraryStore()
+const player = usePlayerStore()
+
+const artistName = computed(() => String(route.params.artistName ?? ''))
+
+const artistTracks = computed<LibraryTrack[]>(() =>
+  filterTracksByArtist(Object.values(library.tracks), artistName.value),
+)
+
+const albums = computed(() => groupByAlbum(artistTracks.value))
+
+const tracksCount = computed(() => artistTracks.value.length)
+
+function playAll() {
+  if (artistTracks.value.length === 0) return
+  const ordered = albums.value.flatMap((a) => a.tracks)
+  player.setQueue(ordered, 0)
+}
+
+function playAlbum(group: { tracks: LibraryTrack[] }) {
+  if (group.tracks.length === 0) return
+  player.setQueue(group.tracks, 0)
+}
+
+function formatCount(n: number): string {
+  if (n === 0) return 'пусто'
+  if (n === 1) return '1 трек'
+  if (n >= 2 && n <= 4) return `${n} трека`
+  return `${n} треков`
+}
+</script>
+
+<template>
+  <div class="flex h-full flex-col overflow-hidden">
+    <!-- Шапка -->
+    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
+      <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="truncate text-lg font-medium text-fg">{{ artistName }}</h1>
+          <p class="text-xs text-fg-muted">
+            {{ albums.length }} альбомов · {{ tracksCount }} треков
+          </p>
+        </div>
+
+        <div class="flex shrink-0 items-center gap-3">
+          <ShowSourceCheckbox />
+
+          <button v-if="tracksCount > 0" type="button"
+            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
+            @click="playAll">
+            Играть всё
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Контент -->
+    <div class="flex-1 overflow-y-auto">
+      <div class="mx-auto w-full max-w-6xl px-4 py-4">
+        <div v-if="albums.length === 0" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+          У этого артиста нет треков
+        </div>
+
+        <div v-else
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-5 lg:grid-cols-5 lg:gap-6">
+          <div v-for="group in albums" :key="group.slug" class="group relative">
+            <RouterLink :to="{ name: 'album', params: { artistName, album: group.slug } }" class="block">
+              <div class="relative aspect-square overflow-hidden bg-card-bg">
+                <img v-if="group.coverUrl" :src="group.coverUrl" :alt="group.name"
+                  class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+                <div v-else class="flex h-full w-full items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    class="h-12 w-12 text-fg-subtle">
+                    <path d="M9 18V5l12-2v13" />
+                    <circle cx="6" cy="18" r="3" />
+                    <circle cx="18" cy="16" r="3" />
+                  </svg>
+                </div>
+
+                <!-- Play — верхний правый угол, ~1/4 плитки -->
+                <button type="button"
+                  class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg shadow-lg transition hover:scale-105 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  :aria-label="`Играть альбом ${group.name}`" @click.prevent.stop="playAlbum(group)">
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 translate-x-[1px]">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+              </div>
+            </RouterLink>
+
+            <div class="mt-2 min-w-0">
+              <RouterLink :to="{ name: 'album', params: { artistName, album: group.slug } }"
+                class="block truncate text-sm font-medium text-fg transition hover:text-active">
+                {{ group.name }}
+              </RouterLink>
+              <p class="truncate text-xs text-fg-muted">{{ formatCount(group.tracks.length) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

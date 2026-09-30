@@ -170,8 +170,11 @@ watch(
               <p class="truncate text-xl font-medium text-fg">
                 {{ currentTrack?.title ?? 'Ничего не играет' }}
               </p>
-              <p v-if="currentTrack?.artist" class="mt-1 truncate text-sm text-fg-muted">
-                {{ currentTrack.artist }}
+              <p v-if="currentTrack?.artist" class="mt-1 truncate text-sm">
+                <RouterLink :to="{ name: 'artist', params: { artistName: currentTrack.artist } }"
+                  class="text-active/80 transition hover:text-active">
+                  {{ currentTrack.artist }}
+                </RouterLink>
               </p>
             </div>
 

@@ -24,6 +24,7 @@ import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 import { usePwaUpdate } from "./composables/usePwaUpdate"
 import { useDislikesStore } from "./stores/dislikes"
 import IconEyeOff from "./components/icons/IconEyeOff.vue"
+import { NO_ALBUM_SLUG } from "./utils/artists.ts"
 
 const router = useRouter()
 const route = useRoute()
@@ -74,6 +75,13 @@ const pageTitle = computed(() => {
   if (name === 'history') return 'История'
   if (name === 'queue') return 'Очередь'
   if (name === 'dislikes') return 'Дизлайки'
+  if (name === 'artist') return String(route.params.artistName ?? 'Артист')
+  if (name === 'album') {
+    const album = String(route.params.album ?? '')
+    const artistName = String(route.params.artistName ?? '')
+    if (album === NO_ALBUM_SLUG) return `${artistName} — Без альбома`
+    return `${artistName} — ${album}`
+  }
   return 'Плеер'
 })
 
