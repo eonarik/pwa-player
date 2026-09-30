@@ -5,8 +5,8 @@ import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { fileSystemService } from './FileSystemService'
 import { localPersistenceService } from './persistence'
 import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack } from './types'
-import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 
 const PLUGIN_ID = 'local'
 
@@ -88,7 +88,8 @@ const localPlugin: LibrarySource = {
           if (!t.handle) throw new Error('no handle')
           const file = await t.handle.getFile()
           const folder = newFolders[t.folderId]
-          const cachedCover = coverPersistenceService.get(t.id)
+          const entry = metadataPersistenceService.get(t.id)
+          const cachedCover = entry?.coverUrl ?? undefined
 
           newTracks[t.id] = {
             id: t.id,

@@ -219,8 +219,6 @@ export interface PluginContext {
 
   readonly storage: PluginStorage
 
-  fetchCover(artist: string, title: string): Promise<string | null>
-
   readonly proxyUrl: string
 
   /**
@@ -240,55 +238,41 @@ export interface PluginContext {
  * Это позволяет нескольким плагинам сосуществовать в одном сторе.
  */
 export interface LibraryWriter {
-  /**
-   * Заменить папки и треки указанного плагина.
-   * Папки/треки других плагинов не трогаются.
-   */
   setLibrary(collected: CollectedLibrary, sourceId: string): void
 
-  /** Точечно обновить одну папку */
   updateFolder(folderId: string, patch: Partial<Folder>): void
 
-  /** Добавить/обновить папки плагина (не удаляя существующие) */
   addFolders(folders: Folder[], sourceId: string): void
 
-  /** Добавить/обновить треки плагина (не удаляя существующие) */
   addTracks(tracks: LibraryTrack[], sourceId: string): void
 
-  /** Удалить треки по id (с ревоком blob URL) */
   removeTracks(trackIds: string[]): void
 
-  /** Удалить папки по id */
   removeFolders(folderIds: string[]): void
 
-  /** Удалить все папки и треки плагина */
   removeBySource(sourceId: string): void
 
-  /** Обновить origin трека */
   updateTrackOrigin(trackId: string, origin: TrackOrigin): void
 
-  /** Обновить source трека (например, на File из папки скачивания) */
   updateTrackSource(trackId: string, source: string | File): void
 
-  /** Обновить duration трека (когда узнали из metadata) */
   updateTrackDuration(trackId: string, duration: number): void
 
-  /** Прочитать папку */
+  updateTrackMetadata(
+    trackId: string,
+    patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>>,
+  ): void
+
   getFolder(folderId: string): Folder | null
 
-  /** Прочитать трек */
   getTrack(trackId: string): LibraryTrack | null
 
-  /** Все папки плагина */
   getFoldersBySource(sourceId: string): Folder[]
 
-  /** Все треки плагина */
   getTracksBySource(sourceId: string): LibraryTrack[]
 
-  /** Текущая открытая папка */
   getCurrentFolderId(): string | null
 
-  /** Установить текущую папку */
   setCurrentFolder(folderId: string): void
 }
 

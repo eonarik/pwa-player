@@ -9,7 +9,6 @@ import { useHistoryStore } from '@/stores/history'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
-import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { syncService } from '@/services/download/SyncService'
 import { getPlugins, loadPlugin } from '@/plugins/registry'
@@ -25,6 +24,7 @@ import { usePwaUpdate } from "./composables/usePwaUpdate"
 import { useDislikesStore } from "./stores/dislikes"
 import IconEyeOff from "./components/icons/IconEyeOff.vue"
 import { NO_ALBUM_SLUG } from "./utils/artists.ts"
+import { metadataPersistenceService } from "./services/persistence/MetadataPersistenceService.ts"
 
 const router = useRouter()
 const route = useRoute()
@@ -217,7 +217,7 @@ const isBootstrapping = ref(true)
 onMounted(async () => {
   try {
     await sortService.load()
-    await coverPersistenceService.load()
+    await metadataPersistenceService.load()
     await downloadSpaceService.load()
     await history.restore()
     await dislikes.restore()

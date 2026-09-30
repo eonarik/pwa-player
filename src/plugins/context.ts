@@ -4,7 +4,6 @@ import { createPluginStorage } from './storage'
 import { createLibraryWriter } from '@/stores/library'
 import { modalService } from '@/services/ui/ModalService'
 import { toastService } from '@/services/ui/ToastService'
-import { coverService } from '@/services/covers/CoverService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import type { PluginContext } from './types'
 
@@ -21,7 +20,6 @@ export function createPluginContext(pluginId: string): PluginContext {
     showToast: (message, type = 'info') => {
       toastService.show(message, type)
     },
-    fetchCover: (artist, title) => coverService.fetch(artist, title),
     proxyUrl: import.meta.env.VITE_DISK_PROXY_URL ?? '',
     getDownloadDir: async () => {
       if (!downloadSpaceService.hasSpace.value) return null

@@ -14,11 +14,7 @@ export const useLibraryStore = defineStore('library', () => {
   const folders = ref<Record<string, Folder>>({})
   const tracks = ref<Record<string, LibraryTrack>>({})
 
-  /** Что открыто сейчас. null = главная (список плагинов) */
   const currentFolderId = ref<string | null>(null)
-
-  /** Версия обложек — триггер для пересчёта внешних computed */
-  const coversVersion = ref(0)
 
   // --- Computed -------------------------------------------------------
 
@@ -61,12 +57,6 @@ export const useLibraryStore = defineStore('library', () => {
     const folder = currentFolder.value
     return Boolean(folder && folder.parentId)
   })
-
-  // --- Вспомогательные ------------------------------------------------
-
-  function bumpCoversVersion(): void {
-    coversVersion.value++
-  }
 
   // --- Общие операции -------------------------------------------------
 
@@ -116,14 +106,21 @@ export const useLibraryStore = defineStore('library', () => {
     return folders.value[id] ?? null
   }
 
+  function updateTrackMetadata(
+    trackId: string,
+    patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>>,
+  ): void {
+    const track = tracks.value[trackId]
+    if (!track) return
+    tracks.value[trackId] = { ...track, ...patch }
+    if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+  }
+
   return {
-    // state
     folders,
     tracks,
     currentFolderId,
-    coversVersion,
 
-    // computed
     hasLibrary,
     currentFolder,
     currentSubfolders,
@@ -131,28 +128,17 @@ export const useLibraryStore = defineStore('library', () => {
     breadcrumbs,
     canGoUp,
 
-    // actions
-    bumpCoversVersion,
     setCurrentFolder,
     getAllTracksInFolderRecursive,
     clear,
     getTrack,
     getFolder,
+    updateTrackMetadata,
   }
 })
 
 // --- LibraryWriter для плагинов --------------------------------------
 
-/**
- * Фабрика LibraryWriter.
- *
- * Вызывается из `createPluginContext` в `src/plugins/context.ts`.
- * Плагин не импортирует library.ts напрямую — только получает writer
- * через PluginContext.
- *
- * `setLibrary` заменяет папки и треки ТОЛЬКО указанного sourceId.
- * Чужие плагины не трогаются.
- */
 export function createLibraryWriter(): LibraryWriter {
   function store() {
     return useLibraryStore()
@@ -162,7 +148,6 @@ export function createLibraryWriter(): LibraryWriter {
     setLibrary(collected: CollectedLibrary, sourceId: string): void {
       const s = store()
 
-      // Удаляем старые папки и треки этого плагина
       for (const [id, folder] of Object.entries(s.folders)) {
         if (folder.source === sourceId) delete s.folders[id]
       }
@@ -175,7 +160,6 @@ export function createLibraryWriter(): LibraryWriter {
         }
       }
 
-      // Добавляем новые
       for (const folder of collected.folders) {
         s.folders[folder.id] = { ...folder, source: sourceId }
       }
@@ -229,6 +213,13 @@ export function createLibraryWriter(): LibraryWriter {
       if (track.duration === duration) return
       s.tracks[trackId] = { ...track, duration }
       if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    },
+
+    updateTrackMetadata(
+      trackId: string,
+      patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>>,
+    ): void {
+      store().updateTrackMetadata(trackId, patch)
     },
 
     addTracks(tracks: LibraryTrack[], sourceId: string): void {

@@ -3,7 +3,6 @@
 import { Buffer } from 'buffer'
 import process from 'process'
 
-// Полифилы для music-metadata-browser
 if (typeof window.global === 'undefined') {
   window.global = globalThis
 }
@@ -22,7 +21,7 @@ import '@/plugins/registry'
 import App from './App.vue'
 import router from './router'
 import { schemaService } from '@/services/persistence/SchemaService'
-import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 
 import './assets/main.css'
 import { usePlaylistsStore } from './stores/playlists'
@@ -32,7 +31,6 @@ import { downloadOrchestrator } from './services/download/DownloadOrchestrator.t
 import { syncService } from './services/download/SyncService.ts'
 import { downloadSpaceService } from './services/download/DownloadSpaceService.ts'
 import { librarySaveService } from './services/library/LibrarySaveService.ts'
-import { useUiSettingsStore } from './stores/uiSettings.ts'
 
 async function bootstrap() {
   try {
@@ -48,27 +46,23 @@ async function bootstrap() {
   app.use(createPinia())
   app.use(router)
 
-  // Восстановить плейлисты до маунта
   const playlists = usePlaylistsStore()
   await playlists.restore()
-
-  const uiSettings = useUiSettingsStore()
-  await uiSettings.load()
 
   app.mount('#app')
 
   window.addEventListener('beforeunload', () => {
     void librarySaveService.flushAll()
-    void coverPersistenceService.flush()
+    void metadataPersistenceService.flush()
   })
   window.addEventListener('pagehide', () => {
     void librarySaveService.flushAll()
-    void coverPersistenceService.flush()
+    void metadataPersistenceService.flush()
   })
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       void librarySaveService.flushAll()
-      void coverPersistenceService.flush()
+      void metadataPersistenceService.flush()
     }
   })
 

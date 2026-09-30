@@ -17,12 +17,12 @@ import { mapWithConcurrency } from './concurrency'
 import type { PersistedYandexFolder, PersistedYandexLibrary, PersistedYandexTrack } from './types'
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { authService } from '@/services/auth/AuthService'
-import { coverPersistenceService } from '@/services/persistence/CoverPersistenceService'
 import { downloadUrlToFile } from '@/services/download/downloadUrlToFile'
 import { scanDirectory } from '@/services/download/scanDirectory'
 import { getFileFromPath } from '@/services/download/getFileFromPath'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
 import type { LibraryWriter } from '../types'
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 
 const YANDEX_CONCURRENCY = 5
 const ROOT_REMOTE_PATH = 'disk:/'
@@ -352,7 +352,8 @@ async function loadRoot(): Promise<CollectedLibrary> {
     } else if (item.isAudio) {
       const trackPath = item.name
       const trackId = trackIdFromPath(`${PLUGIN_ID}:${item.path}`)
-      const cachedCover = coverPersistenceService.get(trackId)
+      const entry = metadataPersistenceService.get(trackId)
+      const cachedCover = entry?.coverUrl ?? undefined
 
       tracks.push({
         id: trackId,
@@ -421,7 +422,8 @@ async function scanFolderImpl(
       const trackId = trackIdFromPath(`${PLUGIN_ID}:${item.path}`)
 
       if (!context.writer.getTrack(trackId)) {
-        const cachedCover = coverPersistenceService.get(trackId)
+        const entry = metadataPersistenceService.get(trackId)
+        const cachedCover = entry?.coverUrl ?? undefined
         newTracks.push({
           id: trackId,
           pluginId: PLUGIN_ID,
@@ -576,7 +578,8 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
         const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
 
         if (!context.writer.getTrack(trackId)) {
-          const cachedCover = coverPersistenceService.get(trackId)
+          const entry = metadataPersistenceService.get(trackId)
+          const cachedCover = entry?.coverUrl ?? undefined
           newTracks.push({
             id: trackId,
             pluginId: PLUGIN_ID,
@@ -746,7 +749,8 @@ function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary {
   }))
 
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
-    const cachedCover = coverPersistenceService.get(t.id)
+    const entry = metadataPersistenceService.get(t.id)
+    const cachedCover = entry?.coverUrl ?? undefined
     const isOnlyLocal = t.origin === 'only-local'
 
     // Для only-local source пустой — подтянется в enrichWithLocalFiles.

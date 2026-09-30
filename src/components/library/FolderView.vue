@@ -8,14 +8,16 @@ import { loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
+import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
 import FolderSortMenu from './FolderSortMenu.vue'
 import FolderSyncMenu from './FolderSyncMenu.vue'
-import FolderCoversMenu from './FolderCoversMenu.vue'
+import MetadataMenu from './MetadataMenu.vue'
+import MetadataIssuesModal from './MetadataIssuesModal.vue'
+import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import type { LibraryTrack } from '@/types/library'
-import ShowSourceCheckbox from "../ui/ShowSourceCheckbox.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -34,6 +36,29 @@ const subtreeTracks = computed<LibraryTrack[]>(() => {
   if (!folder) return []
   return library.getAllTracksInFolderRecursive(folder.id)
 })
+
+// --- Поиск метаданных -----------------------------------------------
+
+const {
+  isLoading: isMetadataLoading,
+  progress: metadataProgress,
+  stats: metadataStats,
+  hasUnchecked: metadataHasUnchecked,
+  issues: metadataIssues,
+  search: metadataSearch,
+  cancel: metadataCancel,
+  reset: metadataReset,
+} = useMetadataSearch(subtreeTracks)
+
+const showMetadataIssues = ref(false)
+
+function openMetadataIssues() {
+  showMetadataIssues.value = true
+}
+
+function closeMetadataIssues() {
+  showMetadataIssues.value = false
+}
 
 // --- Синхронизация ---------------------------------------------------
 
@@ -134,8 +159,11 @@ function onSelectTrack(index: number) {
           <!-- Показать источник -->
           <ShowSourceCheckbox />
 
-          <!-- Обложки -->
-          <FolderCoversMenu :tracks="subtreeTracks" />
+          <!-- Метаданные -->
+          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
+          <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
+            :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
+            @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
 
           <!-- Синхронизация -->
           <template v-if="canRefresh || canRefreshFromDevice">
@@ -182,5 +210,8 @@ function onSelectTrack(index: number) {
         </div>
       </div>
     </div>
+
+    <!-- Модалка несовпадений -->
+    <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
   </div>
 </template>

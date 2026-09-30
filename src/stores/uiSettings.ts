@@ -6,12 +6,16 @@ import { get, set } from 'idb-keyval'
 
 const UI_SETTINGS_KEY = 'player:uiSettings'
 
+const DEFAULT_METADATA_THRESHOLD = 0.5
+
 interface PersistedUiSettings {
   showSource: boolean
+  metadataThreshold: number
 }
 
 export const useUiSettingsStore = defineStore('uiSettings', () => {
   const showSource = ref(false)
+  const metadataThreshold = ref(DEFAULT_METADATA_THRESHOLD)
 
   let isLoaded = false
 
@@ -21,6 +25,13 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       const data = await get<PersistedUiSettings>(UI_SETTINGS_KEY)
       if (data) {
         showSource.value = data.showSource ?? false
+        if (
+          typeof data.metadataThreshold === 'number' &&
+          data.metadataThreshold >= 0 &&
+          data.metadataThreshold <= 1
+        ) {
+          metadataThreshold.value = data.metadataThreshold
+        }
       }
       isLoaded = true
     } catch (err) {
@@ -33,13 +44,14 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     try {
       await set(UI_SETTINGS_KEY, {
         showSource: showSource.value,
+        metadataThreshold: metadataThreshold.value,
       })
     } catch (err) {
       console.error('[uiSettings] failed to save', err)
     }
   }
 
-  watch(showSource, () => {
+  watch([showSource, metadataThreshold], () => {
     void save()
   })
 
@@ -47,9 +59,16 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     showSource.value = !showSource.value
   }
 
+  function setMetadataThreshold(value: number): void {
+    metadataThreshold.value = Math.min(Math.max(value, 0), 1)
+  }
+
   return {
     showSource,
+    metadataThreshold,
+
     load,
     toggleShowSource,
+    setMetadataThreshold,
   }
 })
