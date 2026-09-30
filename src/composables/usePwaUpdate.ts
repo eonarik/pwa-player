@@ -28,6 +28,7 @@ export function usePwaUpdate(): void {
   watch(
     needRefresh,
     (need) => {
+      console.log('[pwa] needRefresh', need)
       if (!need) return
       toastService.showPersistent('Доступно обновление', 'info', {
         label: 'Перезагрузить',

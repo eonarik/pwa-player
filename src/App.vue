@@ -21,6 +21,7 @@ import FullPlayer from '@/components/player/FullPlayer.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
+import { usePwaUpdate } from "./composables/usePwaUpdate"
 
 const router = useRouter()
 const route = useRoute()
@@ -221,6 +222,8 @@ onMounted(async () => {
     isBootstrapping.value = false
   }
 })
+
+usePwaUpdate()
 </script>
 
 <template>
