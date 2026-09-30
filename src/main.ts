@@ -32,6 +32,7 @@ import { downloadOrchestrator } from './services/download/DownloadOrchestrator.t
 import { syncService } from './services/download/SyncService.ts'
 import { downloadSpaceService } from './services/download/DownloadSpaceService.ts'
 import { librarySaveService } from './services/library/LibrarySaveService.ts'
+import { useUiSettingsStore } from './stores/uiSettings.ts'
 
 async function bootstrap() {
   try {
@@ -50,6 +51,9 @@ async function bootstrap() {
   // Восстановить плейлисты до маунта
   const playlists = usePlaylistsStore()
   await playlists.restore()
+
+  const uiSettings = useUiSettingsStore()
+  await uiSettings.load()
 
   app.mount('#app')
 

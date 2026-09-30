@@ -10,6 +10,7 @@ import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import { sortService } from '@/services/sort/SortService'
 import type { LibraryTrack } from '@/types/library'
+import ShowSourceCheckbox from "@/components/ui/ShowSourceCheckbox.vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -67,11 +68,6 @@ function deletePlaylist() {
   if (!confirmed) return
   playlists.deletePlaylist(playlist.value.id)
   router.replace({ name: 'playlists' })
-}
-
-function playAll() {
-  if (resolvedTracks.value.length === 0) return
-  player.setQueue(resolvedTracks.value, 0)
 }
 
 function onSelectTrack(index: number) {
@@ -144,11 +140,8 @@ function onRemoved() {
               <template v-else> {{ resolvedTracks.length }} треков </template>
             </span>
 
-            <button v-if="hasTracks" type="button"
-              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-              @click="playAll">
-              Играть всё
-            </button>
+
+            <ShowSourceCheckbox />
 
             <button v-if="!isFavorites" type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"

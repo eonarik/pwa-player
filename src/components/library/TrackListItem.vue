@@ -1,13 +1,13 @@
-<!-- src/components/library/TrackListItem.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import PlayingIndicator from '@/components/ui/PlayingIndicator.vue'
 import TrackOriginButton from './TrackOriginButton.vue'
 import { useDislikesStore } from '@/stores/dislikes'
+import { useTrackDisplay } from '@/composables/useTrackDisplay'
+import { formatDuration } from '@/utils/formatDuration'
 import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
-import { formatDuration } from "@/utils/formatDuration.ts"
 
 const props = defineProps<{
   track: Track
@@ -23,6 +23,8 @@ const emit = defineEmits<{
 const dislikes = useDislikesStore()
 
 const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
+
+const { title, subtitle, hasSubtitle } = useTrackDisplay(computed(() => props.track))
 
 const showOriginButton = computed(() => {
   if (!('pluginId' in props.track)) return false
@@ -46,17 +48,17 @@ const libraryTrack = computed(() => props.track as LibraryTrack)
     </template>
 
     <template #title>
-      <p class="truncate text-sm font-medium">{{ track.title }}</p>
+      <p class="truncate text-sm font-medium">{{ title }}</p>
     </template>
 
     <template #subtitle>
-      <p class="truncate text-xs text-fg-muted">{{ track.artist }}</p>
+      <p v-if="hasSubtitle" class="truncate text-xs text-fg-muted" :title="subtitle">{{ subtitle }}</p>
     </template>
 
     <template #meta>
       <span class="shrink-0 text-xs tabular-nums text-fg-muted transition-opacity"
         :class="showOriginButton || $slots.actions ? 'group-hover:opacity-0' : ''">
-        {{ formatDuration(props.track.duration) }}
+        {{ formatDuration(track.duration) }}
       </span>
     </template>
 

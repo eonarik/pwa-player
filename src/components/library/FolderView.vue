@@ -15,6 +15,7 @@ import FolderSortMenu from './FolderSortMenu.vue'
 import FolderSyncMenu from './FolderSyncMenu.vue'
 import FolderCoversMenu from './FolderCoversMenu.vue'
 import type { LibraryTrack } from '@/types/library'
+import ShowSourceCheckbox from "../ui/ShowSourceCheckbox.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -130,6 +131,9 @@ function onSelectTrack(index: number) {
         <FolderSortMenu />
 
         <div v-if="!isScanning" class="flex shrink-0 items-center gap-2">
+          <!-- Показать источник -->
+          <ShowSourceCheckbox />
+
           <!-- Обложки -->
           <FolderCoversMenu :tracks="subtreeTracks" />
 

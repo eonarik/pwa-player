@@ -20,7 +20,7 @@ export async function parseTrackMetadata(
 ): Promise<TrackMetadata> {
   const fallback: TrackMetadata = {
     title: titleFromFilename(file.name),
-    artist: 'Unknown Artist',
+    artist: '',
     album: context.folderName?.trim() || context.rootFolderName?.trim() || 'Unknown Album',
   }
 

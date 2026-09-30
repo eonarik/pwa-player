@@ -1,11 +1,12 @@
-<!-- src/components/queue/QueueTrackRow.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import PlayingIndicator from '@/components/ui/PlayingIndicator.vue'
+import TrackActions from '@/components/library/TrackActions.vue'
 import { useDislikesStore } from '@/stores/dislikes'
+import { useTrackDisplay } from '@/composables/useTrackDisplay'
+import { formatDuration } from '@/utils/formatDuration'
 import type { Track } from '@/types/track'
-import { formatDuration } from "@/utils/formatDuration"
 
 const props = defineProps<{
   track: Track
@@ -22,6 +23,8 @@ const emit = defineEmits<{
 const dislikes = useDislikesStore()
 
 const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
+
+const { title, subtitle, hasSubtitle } = useTrackDisplay(computed(() => props.track))
 </script>
 
 <template>
@@ -38,27 +41,23 @@ const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
 
     <template #title>
       <p class="truncate text-sm font-medium">
-        {{ track.title }}
+        {{ title }}
         <span v-if="isCurrent && !isPlaying" class="ml-1 text-xs text-active/70">(пауза)</span>
       </p>
     </template>
 
     <template #subtitle>
-      <p class="truncate text-xs text-fg-muted">{{ track.artist }}</p>
+      <p v-if="hasSubtitle" class="truncate text-xs text-fg-muted" :title="subtitle">{{ subtitle }}</p>
     </template>
 
     <template #meta>
-      <span class="shrink-0 text-xs tabular-nums text-fg-muted">{{ formatDuration(props.track.duration) }}</span>
+      <span class="shrink-0 text-xs tabular-nums text-fg-muted">
+        {{ formatDuration(track.duration) }}
+      </span>
     </template>
 
     <template #trailing>
-      <button type="button"
-        class="shrink-0 rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
-        aria-label="Убрать из очереди" @click="emit('remove')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
+      <TrackActions :track="track" :queue-index="index" @removed-from-queue="emit('remove')" />
     </template>
   </ListRow>
 </template>

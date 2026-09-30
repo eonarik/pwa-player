@@ -170,8 +170,8 @@ watch(
               <p class="truncate text-xl font-medium text-fg">
                 {{ currentTrack?.title ?? 'Ничего не играет' }}
               </p>
-              <p class="mt-1 truncate text-sm text-fg-muted">
-                {{ currentTrack?.artist ?? '—' }}
+              <p v-if="currentTrack?.artist" class="mt-1 truncate text-sm text-fg-muted">
+                {{ currentTrack.artist }}
               </p>
             </div>
 

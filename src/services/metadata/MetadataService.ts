@@ -68,7 +68,7 @@ export class MetadataService {
 
     return {
       title: this.titleFromFilename(file.name),
-      artist: 'Unknown Artist',
+      artist: '',
       album: albumFromFolder,
     }
   }

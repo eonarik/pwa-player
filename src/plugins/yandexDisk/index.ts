@@ -363,7 +363,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
         remotePath: item.path,
         source: yandexDiskService.buildDownloadUrl(item.path),
         title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
-        artist: 'Yandex Disk',
+        artist: '',
         album: 'Yandex Disk',
         coverUrl: cachedCover ?? undefined,
       })
@@ -431,7 +431,7 @@ async function scanFolderImpl(
           remotePath: item.path,
           source: yandexDiskService.buildDownloadUrl(item.path),
           title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
-          artist: 'Yandex Disk',
+          artist: '',
           album: folder.path || 'Yandex Disk',
           coverUrl: cachedCover ?? undefined,
         })
@@ -586,7 +586,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
             remotePath: item.path,
             source: yandexDiskService.buildDownloadUrl(item.path),
             title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
-            artist: 'Yandex Disk',
+            artist: '',
             album: folder.path || 'Yandex Disk',
             coverUrl: cachedCover ?? undefined,
           })

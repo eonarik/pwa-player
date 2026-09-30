@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import QueueTrackRow from '@/components/queue/QueueTrackRow.vue'
+import ShowSourceCheckbox from "@/components/ui/ShowSourceCheckbox.vue"
 
 const player = usePlayerStore()
 const { queue, currentIndex, currentTrack, isPlaying } = storeToRefs(player)
@@ -40,11 +41,15 @@ function clearQueue() {
         </p>
       </div>
 
-      <button v-if="hasQueue" type="button"
-        class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
-        @click="clearQueue">
-        Очистить
-      </button>
+      <div class="flex gap-2">
+        <ShowSourceCheckbox />
+
+        <button v-if="hasQueue" type="button"
+          class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
+          @click="clearQueue">
+          Очистить
+        </button>
+      </div>
     </div>
 
     <!-- Пусто -->

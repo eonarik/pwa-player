@@ -9,10 +9,12 @@ import TrackReactionButtons from "../ui/TrackReactionButtons.vue";
 const props = defineProps<{
   track: Track
   playlistId?: string
+  queueIndex?: number
 }>()
 
 const emit = defineEmits<{
   (e: 'removed-from-playlist'): void
+  (e: 'removed-from-queue'): void
 }>()
 
 const playlists = usePlaylistsStore()
@@ -82,6 +84,12 @@ function removeFromPlaylist() {
   closeMenu()
 }
 
+function removeFromQueue() {
+  if (props.queueIndex === undefined) return
+  emit('removed-from-queue')
+  closeMenu()
+}
+
 function onClickOutside(e: MouseEvent) {
   if (
     menuRef.value &&
@@ -120,7 +128,7 @@ onUnmounted(() => {
     <!-- Меню -->
     <Teleport to="body">
       <div v-if="isMenuOpen" ref="menuRef"
-        class="fixed z-[100] w-64 overflow-hidden rounded-card bg-bg-elevated shadow-lg"
+        class="fixed z-[100] w-64 overflow-hidden bg-bg-elevated shadow-lg"
         :style="{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }" @click.stop>
 
         <button type="button"
@@ -166,6 +174,14 @@ onUnmounted(() => {
             class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
             @click="removeFromPlaylist">
             Убрать из плейлиста
+          </button>
+        </template>
+
+        <template v-if="queueIndex !== undefined">
+          <button type="button"
+            class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
+            @click="removeFromQueue">
+            Убрать из очереди
           </button>
         </template>
       </div>

@@ -90,8 +90,8 @@ function onFooterClick(e: MouseEvent) {
           <p class="truncate text-base font-medium text-fg">
             {{ currentTrack?.title ?? 'Ничего не играет' }}
           </p>
-          <p class="truncate text-sm text-fg-muted">
-            {{ currentTrack?.artist ?? '—' }}
+          <p v-if="currentTrack?.artist" class="truncate text-xs text-fg-muted">
+            {{ currentTrack.artist }}
           </p>
         </div>
       </button>
