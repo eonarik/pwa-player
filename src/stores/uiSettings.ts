@@ -7,16 +7,18 @@ import { get, set } from 'idb-keyval'
 const UI_SETTINGS_KEY = 'player:uiSettings'
 
 const DEFAULT_METADATA_THRESHOLD = 0.5
-const DEFAULT_SEARCH_THRESHOLD = 0.85
+const DEFAULT_SEARCH_THRESHOLD = 0.5
 
 interface PersistedUiSettings {
   showSource: boolean
+  showFiles: boolean
   metadataThreshold: number
   searchThreshold: number
 }
 
 export const useUiSettingsStore = defineStore('uiSettings', () => {
   const showSource = ref(false)
+  const showFiles = ref(false)
   const metadataThreshold = ref(DEFAULT_METADATA_THRESHOLD)
   const searchThreshold = ref(DEFAULT_SEARCH_THRESHOLD)
 
@@ -28,6 +30,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       const data = await get<PersistedUiSettings>(UI_SETTINGS_KEY)
       if (data) {
         showSource.value = data.showSource ?? false
+        showFiles.value = data.showFiles ?? false
         if (
           typeof data.metadataThreshold === 'number' &&
           data.metadataThreshold >= 0 &&
@@ -54,6 +57,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     try {
       await set(UI_SETTINGS_KEY, {
         showSource: showSource.value,
+        showFiles: showFiles.value,
         metadataThreshold: metadataThreshold.value,
         searchThreshold: searchThreshold.value,
       })
@@ -62,7 +66,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     }
   }
 
-  watch([showSource, metadataThreshold, searchThreshold], () => {
+  watch([showSource, showFiles, metadataThreshold, searchThreshold], () => {
     void save()
   })
 
@@ -80,6 +84,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
 
   return {
     showSource,
+    showFiles,
     metadataThreshold,
     searchThreshold,
 

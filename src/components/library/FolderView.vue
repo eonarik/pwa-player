@@ -17,13 +17,13 @@ import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
 import FolderSortMenu from './FolderSortMenu.vue'
 import FolderSyncMenu from './FolderSyncMenu.vue'
+import FolderSettingsMenu from './FolderSettingsMenu.vue'
 import MetadataMenu from './MetadataMenu.vue'
 import MetadataIssuesModal from './MetadataIssuesModal.vue'
 import TrackListItem from './TrackListItem.vue'
 import TrackActions from './TrackActions.vue'
 import FileListItem from './FileListItem.vue'
 import TextEditorModal from './TextEditorModal.vue'
-import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
 
@@ -33,6 +33,7 @@ const uiSettings = useUiSettingsStore()
 
 const { currentTracks, currentFolder, currentSubfolders } = storeToRefs(library)
 const { currentTrack, isPlaying } = storeToRefs(player)
+const { showSource, showFiles } = storeToRefs(uiSettings)
 
 const tracks = computed(() => currentTracks.value)
 
@@ -47,9 +48,10 @@ const subtreeTracks = computed<LibraryTrack[]>(() => {
   return library.getAllTracksInFolderRecursive(folder.id)
 })
 
-// --- Текстовые файлы (с сортировкой) ---------------------------------
+// --- Текстовые файлы (с сортировкой, с учётом showFiles) -------------
 
 const textFiles = computed<TextFileRef[]>(() => {
+  if (!showFiles.value) return []
   const files = currentFolder.value?.textFiles ?? []
   return sortService.sortByName(files)
 })
@@ -209,10 +211,6 @@ function onSelectTrack(index: number) {
         </div>
 
         <div v-if="!isScanning" class="flex shrink-0 items-center gap-2">
-          <ShowSourceCheckbox />
-
-          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
-
           <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
             :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
             @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
@@ -222,6 +220,10 @@ function onSelectTrack(index: number) {
               :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"
               @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
           </template>
+
+          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
+
+          <FolderSettingsMenu />
         </div>
       </div>
     </div>

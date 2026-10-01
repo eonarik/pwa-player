@@ -18,8 +18,14 @@ describe('useUiSettingsStore', () => {
   it('дефолты', () => {
     const store = useUiSettingsStore()
     expect(store.showSource).toBe(false)
+    expect(store.showFiles).toBe(false)
     expect(store.metadataThreshold).toBe(0.5)
-    expect(store.searchThreshold).toBe(0.85)
+    expect(store.searchThreshold).toBe(0.5)
+  })
+
+  it('showFiles по умолчанию false', () => {
+    const store = useUiSettingsStore()
+    expect(store.showFiles).toBe(false)
   })
 
   it('toggleShowSource', () => {
