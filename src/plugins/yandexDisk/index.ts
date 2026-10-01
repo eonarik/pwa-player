@@ -31,6 +31,11 @@ function isTextFile(name: string): boolean {
   return name.toLowerCase().endsWith('.txt')
 }
 
+/** Имя файла без расширения — как title для трека с Диска (без ID3-тегов). */
+function titleFromFilename(name: string): string {
+  return name.replace(/\.[^.]+$/, '')
+}
+
 const yandexPlugin: LibrarySource = {
   id: PLUGIN_ID,
   name: 'Яндекс.Диск',
@@ -368,7 +373,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
         path: trackPath,
         remotePath: item.path,
         source: yandexDiskService.buildDownloadUrl(item.path),
-        title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
+        title: titleFromFilename(item.name),
         artist: '',
         album: '',
         coverUrl: cachedCover,
@@ -442,7 +447,7 @@ async function scanFolderImpl(
           path: trackPath,
           remotePath: item.path,
           source: yandexDiskService.buildDownloadUrl(item.path),
-          title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
+          title: titleFromFilename(item.name),
           artist: '',
           album: folder.name ?? '',
           coverUrl: cachedCover,
@@ -603,7 +608,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
             path: trackPath,
             remotePath: item.path,
             source: yandexDiskService.buildDownloadUrl(item.path),
-            title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
+            title: titleFromFilename(item.name),
             artist: '',
             album: folder.name ?? '',
             coverUrl: cachedCover,

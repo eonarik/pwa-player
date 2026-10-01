@@ -21,8 +21,6 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 type FolderPlayState = 'idle' | 'playing' | 'paused'
 
 function formatCount(folder: Folder): string {
-  if (folder.ready !== true) return '…'
-
   const tracks = folder.totalTrackCount
   const files = folder.totalTextFileCount ?? 0
 
@@ -37,12 +35,18 @@ function isScanning(folder: Folder): boolean {
   return folder.scanStatus === 'scanning'
 }
 
+/** Полностью пустая: ни треков, ни файлов. Строка приглушена, всё disabled. */
 function isEmpty(folder: Folder): boolean {
   return (
     folder.ready === true &&
     folder.totalTrackCount === 0 &&
     (folder.totalTextFileCount ?? 0) === 0
   )
+}
+
+/** Нет треков, но могут быть .txt-файлы. Play-кнопка disabled, но папка открывается. */
+function hasNoTracks(folder: Folder): boolean {
+  return folder.ready === true && folder.totalTrackCount === 0
 }
 
 function needsScan(folder: Folder): boolean {
@@ -79,6 +83,7 @@ async function playFolder(folder: Folder) {
     return
   }
   if (isEmpty(folder)) return
+  if (hasNoTracks(folder)) return
   if (folder.ready !== true) {
     toastService.info('Поддерево ещё не готово')
     return
@@ -120,6 +125,7 @@ function onRowClick(folder: Folder) {
 function toggleFolderPlayback(folder: Folder, e: Event) {
   e.stopPropagation()
   if (isEmpty(folder)) return
+  if (hasNoTracks(folder)) return
   if (isScanning(folder)) {
     toastService.info('Папка сканируется, подождите')
     return
@@ -148,20 +154,22 @@ function onArrowClick(folder: Folder, e: Event) {
         <div class="flex shrink-0 items-center gap-2">
           <button type="button" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
             :class="[
-              isScanning(folder) || isEmpty(folder)
+              isScanning(folder)
                 ? 'bg-card-bg text-fg-muted cursor-default'
-                : folderPlayState(folder) === 'playing'
-                  ? 'bg-active/20 text-active hover:bg-active/30'
-                  : folderPlayState(folder) === 'paused'
-                    ? 'bg-active/15 text-active hover:bg-active/25'
-                    : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
-            ]" :disabled="isScanning(folder) || isEmpty(folder)" :aria-label="isScanning(folder)
-                ? `Сканирование ${folder.name}`
-                : folderPlayState(folder) === 'playing'
-                  ? 'Пауза'
-                  : folderPlayState(folder) === 'paused'
-                    ? 'Продолжить'
-                    : `Играть папку ${folder.name}`
+                : isEmpty(folder) || hasNoTracks(folder)
+                  ? 'bg-card-bg text-fg-disabled cursor-default'
+                  : folderPlayState(folder) === 'playing'
+                    ? 'bg-active/20 text-active hover:bg-active/30'
+                    : folderPlayState(folder) === 'paused'
+                      ? 'bg-active/15 text-active hover:bg-active/25'
+                      : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
+            ]" :disabled="isScanning(folder) || isEmpty(folder) || hasNoTracks(folder)" :aria-label="isScanning(folder)
+              ? `Сканирование ${folder.name}`
+              : folderPlayState(folder) === 'playing'
+                ? 'Пауза'
+                : folderPlayState(folder) === 'paused'
+                  ? 'Продолжить'
+                  : `Играть папку ${folder.name}`
               " @click="toggleFolderPlayback(folder, $event)">
             <template v-if="isScanning(folder)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5 animate-spin">
@@ -180,10 +188,10 @@ function onArrowClick(folder: Folder, e: Event) {
           </button>
 
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
-              ? 'bg-card-bg text-fg-muted'
-              : folderPlayState(folder) !== 'idle'
-                ? 'bg-active/15 text-active'
-                : 'bg-card-bg text-fg-muted'
+            ? 'bg-card-bg text-fg-muted'
+            : folderPlayState(folder) !== 'idle'
+              ? 'bg-active/15 text-active'
+              : 'bg-card-bg text-fg-muted'
             ">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="h-5 w-5">
               <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
@@ -200,10 +208,10 @@ function onArrowClick(folder: Folder, e: Event) {
       <!-- Subtitle -->
       <template #subtitle>
         <p class="truncate text-xs" :class="folderPlayState(folder) !== 'idle' && !isScanning(folder)
-            ? 'text-active/60'
-            : 'text-fg-muted'
+          ? 'text-active/60'
+          : 'text-fg-muted'
           ">
-          <template v-if="isScanning(folder)">Сканирование…</template>
+          <template v-if="isScanning(folder) || !folder.ready">Сканирование…</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
       </template>

@@ -57,9 +57,12 @@ export async function parseTrackMetadata(
   }
 }
 
+/**
+ * Возвращает title из имени файла.
+ * Убирает только расширение.
+ */
 function titleFromFilename(filename: string): string {
-  const withoutExt = filename.replace(/\.[^.]+$/, '')
-  return withoutExt.replace(/^\d{1,3}[\s._-]+/, '').trim() || withoutExt
+  return filename.replace(/\.[^.]+$/, '').trim() || filename
 }
 
 function createCoverUrl(picture: { data: Uint8Array | ArrayBuffer; format: string }): string {
