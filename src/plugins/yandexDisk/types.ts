@@ -15,6 +15,7 @@ export interface PersistedYandexFolder {
   childFolderIds: string[]
   trackIds: string[]
   totalTrackCount: number
+  totalTextFileCount?: number
   scanStatus?: ScanStatus
   ready?: boolean
   textFiles?: TextFileRef[]

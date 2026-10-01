@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
+import { pluralize } from '@/utils/pluralize'
 import ListRow from '@/components/ui/ListRow.vue'
 import type { Folder, LibraryTrack } from '@/types/library'
 import type { Track } from '@/types/track'
@@ -21,11 +22,15 @@ type FolderPlayState = 'idle' | 'playing' | 'paused'
 
 function formatCount(folder: Folder): string {
   if (folder.ready !== true) return '…'
-  const n = folder.totalTrackCount
-  if (n === 0) return 'пусто'
-  if (n === 1) return '1 трек'
-  if (n >= 2 && n <= 4) return `${n} трека`
-  return `${n} треков`
+
+  const tracks = folder.totalTrackCount
+  const files = folder.totalTextFileCount ?? 0
+
+  const tracksPart = pluralize(tracks, ['трек', 'трека', 'треков'])
+  if (files === 0) return tracksPart
+
+  const filesPart = pluralize(files, ['файл', 'файла', 'файлов'])
+  return `${tracksPart} · ${filesPart}`
 }
 
 function isScanning(folder: Folder): boolean {
@@ -33,7 +38,11 @@ function isScanning(folder: Folder): boolean {
 }
 
 function isEmpty(folder: Folder): boolean {
-  return folder.ready === true && folder.totalTrackCount === 0
+  return (
+    folder.ready === true &&
+    folder.totalTrackCount === 0 &&
+    (folder.totalTextFileCount ?? 0) === 0
+  )
 }
 
 function needsScan(folder: Folder): boolean {
@@ -147,12 +156,12 @@ function onArrowClick(folder: Folder, e: Event) {
                     ? 'bg-active/15 text-active hover:bg-active/25'
                     : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
             ]" :disabled="isScanning(folder) || isEmpty(folder)" :aria-label="isScanning(folder)
-              ? `Сканирование ${folder.name}`
-              : folderPlayState(folder) === 'playing'
-                ? 'Пауза'
-                : folderPlayState(folder) === 'paused'
-                  ? 'Продолжить'
-                  : `Играть папку ${folder.name}`
+                ? `Сканирование ${folder.name}`
+                : folderPlayState(folder) === 'playing'
+                  ? 'Пауза'
+                  : folderPlayState(folder) === 'paused'
+                    ? 'Продолжить'
+                    : `Играть папку ${folder.name}`
               " @click="toggleFolderPlayback(folder, $event)">
             <template v-if="isScanning(folder)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5 animate-spin">
@@ -171,10 +180,10 @@ function onArrowClick(folder: Folder, e: Event) {
           </button>
 
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
-            ? 'bg-card-bg text-fg-muted'
-            : folderPlayState(folder) !== 'idle'
-              ? 'bg-active/15 text-active'
-              : 'bg-card-bg text-fg-muted'
+              ? 'bg-card-bg text-fg-muted'
+              : folderPlayState(folder) !== 'idle'
+                ? 'bg-active/15 text-active'
+                : 'bg-card-bg text-fg-muted'
             ">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="h-5 w-5">
               <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
@@ -183,18 +192,23 @@ function onArrowClick(folder: Folder, e: Event) {
         </div>
       </template>
 
+      <!-- Title -->
       <template #title>
         <p class="truncate text-sm font-medium">{{ folder.name }}</p>
       </template>
 
+      <!-- Subtitle -->
       <template #subtitle>
-        <p class="truncate text-xs"
-          :class="folderPlayState(folder) !== 'idle' && !isScanning(folder) ? 'text-active/60' : 'text-fg-muted'">
-          <template v-if="isScanning(folder) || !folder.ready">Сканирование…</template>
+        <p class="truncate text-xs" :class="folderPlayState(folder) !== 'idle' && !isScanning(folder)
+            ? 'text-active/60'
+            : 'text-fg-muted'
+          ">
+          <template v-if="isScanning(folder)">Сканирование…</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
       </template>
 
+      <!-- Trailing: стрелка -->
       <template #trailing>
         <button type="button" class="shrink-0 rounded-md p-1 transition" :class="[
           isScanning(folder) || isEmpty(folder)

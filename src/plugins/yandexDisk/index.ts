@@ -149,9 +149,14 @@ const yandexPlugin: LibrarySource = {
       yandexPlugin.scanFolder!(context, child.id, options),
     )
 
-    const childTotal = childFolders.reduce((sum, child) => {
+    const childTrackTotal = childFolders.reduce((sum, child) => {
       const c = context.writer.getFolder(child.id)
       return sum + (c?.totalTrackCount ?? 0)
+    }, 0)
+
+    const childTextTotal = childFolders.reduce((sum, child) => {
+      const c = context.writer.getFolder(child.id)
+      return sum + (c?.totalTextFileCount ?? 0)
     }, 0)
 
     const final = context.writer.getFolder(folderId)
@@ -161,7 +166,8 @@ const yandexPlugin: LibrarySource = {
     const isReady = final.scanStatus === 'scanned' && allChildrenReady
 
     context.writer.updateFolder(folderId, {
-      totalTrackCount: final.trackIds.length + childTotal,
+      totalTrackCount: final.trackIds.length + childTrackTotal,
+      totalTextFileCount: (final.textFiles?.length ?? 0) + childTextTotal,
       ready: isReady,
     })
 
@@ -343,6 +349,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
         childFolderIds: [],
         trackIds: [],
         totalTrackCount: 0,
+        totalTextFileCount: 0,
         source: PLUGIN_ID,
         scanStatus: undefined,
         ready: false,
@@ -385,6 +392,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
     childFolderIds,
     trackIds,
     totalTrackCount: trackIds.length,
+    totalTextFileCount: textFiles.length,
     source: PLUGIN_ID,
     scanStatus: 'scanned',
     ready: false,
@@ -466,6 +474,7 @@ async function scanFolderImpl(
         childFolderIds: [],
         trackIds: [],
         totalTrackCount: 0,
+        totalTextFileCount: 0,
         source: PLUGIN_ID,
         scanStatus: undefined,
         ready: false,
@@ -506,6 +515,7 @@ async function scanFolderImpl(
     childFolderIds,
     trackIds: finalTrackIds,
     textFiles,
+    totalTextFileCount: textFiles.length,
   })
 }
 
@@ -557,8 +567,8 @@ function findNearestFolder(writer: LibraryWriter, relativePath: string): Folder 
 // --- Точечное обновление ----------------------------------------------
 
 async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promise<void> {
-  const walk = async (folder: Folder): Promise<number> => {
-    if (!folder.remotePath) return 0
+  const walk = async (folder: Folder): Promise<{ tracks: number; files: number }> => {
+    if (!folder.remotePath) return { tracks: 0, files: 0 }
 
     let response
     try {
@@ -567,7 +577,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
       console.warn(
         `[yandex] skip folder "${folder.path}": ${err instanceof Error ? err.message : err}`,
       )
-      return 0
+      return { tracks: 0, files: 0 }
     }
 
     const newTrackIds: string[] = []
@@ -633,6 +643,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
           childFolderIds: [],
           trackIds: [],
           totalTrackCount: 0,
+          totalTextFileCount: 0,
           source: PLUGIN_ID,
           scanStatus: undefined,
           ready: false,
@@ -648,23 +659,28 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
     const removedFolders = folder.childFolderIds.filter((id) => !newChildFolderIds.includes(id))
     if (removedFolders.length > 0) context.writer.removeFolders(removedFolders)
 
-    let childTotal = 0
+    let childTracks = 0
+    let childFiles = 0
     for (const child of childFolders) {
-      childTotal += await walk(child)
+      const result = await walk(child)
+      childTracks += result.tracks
+      childFiles += result.files
     }
 
-    const total = newTrackIds.length + childTotal
+    const totalTracks = newTrackIds.length + childTracks
+    const totalFiles = textFiles.length + childFiles
 
     context.writer.updateFolder(folder.id, {
       trackIds: newTrackIds,
       childFolderIds: newChildFolderIds,
-      totalTrackCount: total,
+      totalTrackCount: totalTracks,
+      totalTextFileCount: totalFiles,
       scanStatus: 'scanned',
       ready: true,
       textFiles,
     })
 
-    return total
+    return { tracks: totalTracks, files: totalFiles }
   }
 
   await walk(rootFolder)
@@ -706,9 +722,18 @@ function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary {
     childFolderIds: [...f.childFolderIds],
     trackIds: [...f.trackIds],
     totalTrackCount: f.totalTrackCount,
+    totalTextFileCount: f.totalTextFileCount,
     scanStatus: f.scanStatus,
     ready: f.ready,
-    textFiles: f.textFiles,
+    // Vue reactive proxy не клонируется через structuredClone —
+    // разворачиваем каждый элемент в plain object.
+    textFiles: f.textFiles
+      ? f.textFiles.map((t) => ({
+          name: t.name,
+          remotePath: t.remotePath,
+          path: t.path,
+        }))
+      : undefined,
   }))
 
   const tracks: PersistedYandexTrack[] = []
@@ -751,6 +776,7 @@ function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary {
     childFolderIds: [...f.childFolderIds],
     trackIds: [...f.trackIds],
     totalTrackCount: f.totalTrackCount,
+    totalTextFileCount: f.totalTextFileCount,
     source: PLUGIN_ID,
     scanStatus: f.scanStatus === 'scanning' ? undefined : f.scanStatus,
     ready: f.ready,
