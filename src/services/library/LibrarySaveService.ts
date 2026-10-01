@@ -2,8 +2,14 @@
 
 import { loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
+import { pluginIdFromSource } from '@/plugins/registry'
 
-const DEBOUNCE_MS = 5000
+/**
+ * Дебаунс сохранения кэша плагина.
+ * Меньше — чаще сохраняем, но и больше нагрузка.
+ * 2 секунды — компромисс, чтобы F5 не терял последние изменения.
+ */
+const DEBOUNCE_MS = 2000
 
 class LibrarySaveService {
   private static instance: LibrarySaveService | null = null
@@ -20,39 +26,44 @@ class LibrarySaveService {
 
   /**
    * Запланировать сохранение кэша плагина.
-   * Дебаунс — 5 секунд. Повторные вызовы с тем же pluginId
+   * Дебаунс — 2 секунды. Повторные вызовы с тем же pluginId
    * перезапускают таймер.
    */
   scheduleSave(pluginId: string): void {
-    const existing = this.timers.get(pluginId)
+    // source может быть 'local:Music' — нормализуем до 'local'
+    const normalized = pluginIdFromSource(pluginId)
+
+    const existing = this.timers.get(normalized)
     if (existing) clearTimeout(existing)
 
     const timer = setTimeout(() => {
-      this.timers.delete(pluginId)
-      void this.flush(pluginId)
+      this.timers.delete(normalized)
+      void this.flush(normalized)
     }, DEBOUNCE_MS)
 
-    this.timers.set(pluginId, timer)
+    this.timers.set(normalized, timer)
   }
 
   /**
    * Немедленно сохранить кэш плагина.
    */
   async flush(pluginId: string): Promise<void> {
-    const existing = this.timers.get(pluginId)
+    const normalized = pluginIdFromSource(pluginId)
+
+    const existing = this.timers.get(normalized)
     if (existing) {
       clearTimeout(existing)
-      this.timers.delete(pluginId)
+      this.timers.delete(normalized)
     }
 
     try {
-      const plugin = await loadPlugin(pluginId)
+      const plugin = await loadPlugin(normalized)
       if (!plugin.saveCache) return
 
-      const context = createPluginContext(pluginId)
+      const context = createPluginContext(normalized)
       await plugin.saveCache(context)
     } catch (err) {
-      console.warn(`[library-save] failed to save for "${pluginId}"`, err)
+      console.warn(`[library-save] failed to save for "${normalized}"`, err)
     }
   }
 

@@ -1,4 +1,4 @@
-// server/src/yandex/client.ts
+// server/src/yandex/client.js
 
 const YANDEX_API = 'https://cloud-api.yandex.net/v1/disk'
 
@@ -6,6 +6,7 @@ export class YandexApiError extends Error {
   constructor(status, message) {
     super(message)
     this.name = 'YandexApiError'
+    this.status = status
   }
 }
 
@@ -35,7 +36,6 @@ export async function yandexFetch(endpoint, params = {}) {
   })
 
   if (!response.ok) {
-    // Пробуем прочитать тело ошибки от Яндекса
     let message = `Yandex API error: ${response.status}`
     try {
       const body = await response.json()
@@ -49,9 +49,51 @@ export async function yandexFetch(endpoint, params = {}) {
   return response
 }
 
+// --- Текстовые файлы -------------------------------------------------
+
+/**
+ * Определяет кодировку буфера и декодирует в строку.
+ *
+ * Порядок:
+ * 1. BOM (UTF-8 / UTF-16LE / UTF-16BE) — если есть.
+ * 2. UTF-8 (fatal: true) — если байты валидны как UTF-8.
+ * 3. Windows-1251 — fallback.
+ */
+function decodeBuffer(buffer) {
+  const bytes = new Uint8Array(buffer)
+
+  // 1. BOM
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(bytes.subarray(3))
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes.subarray(2))
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes.subarray(2))
+  }
+
+  // 2. UTF-8 (fatal)
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    // не UTF-8
+  }
+
+  // 3. Windows-1251
+  try {
+    return new TextDecoder('windows-1251').decode(bytes)
+  } catch {
+    return new TextDecoder('utf-8').decode(bytes)
+  }
+}
+
 /**
  * Скачивает текстовое содержимое файла с Диска.
  * Возвращает строку или null, если файла нет.
+ * Автоопределяет кодировку (UTF-8 / UTF-16 / Windows-1251).
  */
 export async function yandexDownloadText(path) {
   const metaResponse = await yandexFetch('/resources/download', { path })
@@ -63,11 +105,13 @@ export async function yandexDownloadText(path) {
   })
   if (!fileResponse.ok) return null
 
-  return fileResponse.text()
+  const arrayBuffer = await fileResponse.arrayBuffer()
+  return decodeBuffer(arrayBuffer)
 }
 
 /**
  * Загружает текст в файл на Диске.
+ * Всегда сохраняет в UTF-8.
  * Перезаписывает существующий файл.
  */
 export async function yandexUploadText(path, content) {

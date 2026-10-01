@@ -1,6 +1,6 @@
 <!-- src/components/library/TextEditorModal.vue -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { yandexDiskService } from '@/plugins/yandexDisk/YandexDiskService'
 import { toastService } from '@/services/ui/ToastService'
 import type { TextFileRef } from '@/types/library'
@@ -20,6 +20,7 @@ const initialModified = ref<string | null>(null)
 const isLoading = ref(false)
 const isSaving = ref(false)
 const isSyncing = ref(false)
+const isFullscreen = ref(false)
 
 const isDirty = computed(() => content.value !== initialContent.value)
 const isBusy = computed(() => isLoading.value || isSaving.value || isSyncing.value)
@@ -91,34 +92,71 @@ function cancel() {
   emit('close')
 }
 
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (isFullscreen.value) {
+      isFullscreen.value = false
+    } else {
+      cancel()
+    }
+  }
+}
+
 onMounted(() => {
   void load()
+  window.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[150] flex items-center justify-center bg-bg/70 px-4" @click.self="cancel">
-      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col bg-bg-elevated shadow-xl">
+    <div class="fixed inset-0 z-[150] flex items-center justify-center bg-bg/70" :class="isFullscreen ? 'p-0' : 'px-4'"
+      @click.self="cancel">
+      <div class="flex flex-col bg-bg-elevated shadow-xl"
+        :class="isFullscreen ? 'h-full w-full' : 'max-h-[80vh] w-full max-w-2xl'">
         <!-- Шапка -->
         <div class="flex shrink-0 items-center justify-between gap-3 px-5 py-4">
           <h2 class="truncate text-lg font-medium text-fg">{{ file.name }}</h2>
-          <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            aria-label="Закрыть" @click="cancel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
+
+          <div class="flex shrink-0 items-center gap-1">
+            <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+              :aria-label="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'"
+              :title="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'" @click="toggleFullscreen">
+              <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                class="h-5 w-5">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
+              </svg>
+            </button>
+
+            <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+              aria-label="Закрыть" @click="cancel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Контент -->
-        <div class="flex-1 overflow-hidden px-5 pb-4">
-          <div v-if="isLoading" class="flex h-64 items-center justify-center text-sm text-fg-muted">
+        <div class="flex-1 overflow-hidden">
+          <div v-if="isLoading" class="flex items-center justify-center text-sm text-fg-muted"
+            :class="isFullscreen ? 'h-full' : 'h-64'">
             Загрузка…
           </div>
           <textarea v-else v-model="content"
-            class="h-64 w-full resize-none rounded-btn bg-card-bg px-3 py-2 font-mono text-sm text-fg focus:bg-hover-bg focus:outline-none"
-            spellcheck="false" />
+            class="w-full resize-none bg-card-bg px-3 py-2 font-mono text-sm text-fg focus:bg-hover-bg focus:outline-none"
+            :class="isFullscreen ? 'h-full rounded-none' : 'h-64 rounded-btn'" spellcheck="false" />
         </div>
 
         <!-- Кнопки -->

@@ -35,12 +35,25 @@ const localPlugin: LibrarySource = {
 
   // --- Подключение ----------------------------------------------------
 
+  /**
+   * Открывает системный диалог выбора папки.
+   * Добавляет выбранную папку в список handles.
+   * Если пользователь отменил — бросает 'cancelled'.
+   */
   async connect(_context: PluginContext): Promise<void> {
     if (!fileSystemService.supported) {
       throw new Error(
         'File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.',
       )
     }
+
+    const handle = await fileSystemService.pickDirectory()
+    if (!handle) {
+      throw new Error('cancelled')
+    }
+
+    // Если папка уже добавлена — не ошибка, load подтянет всё
+    await fileSystemService.addHandle(handle)
   },
 
   // --- Загрузка -------------------------------------------------------
@@ -48,7 +61,9 @@ const localPlugin: LibrarySource = {
   async load(context: PluginContext, _options?: LoadOptions): Promise<void> {
     const handles = await fileSystemService.getHandles()
     if (handles.length === 0) {
-      throw new Error('[local-plugin] no saved directory handles')
+      // Нет папок — пустая библиотека, не ошибка.
+      // Пользователь добавит папки через настройки.
+      return
     }
 
     const collected = await collectAll(handles)

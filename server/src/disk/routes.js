@@ -1,9 +1,6 @@
-// server/src/disk/routes.ts
+// server/src/disk/routes.js
 
 import { Router } from 'express'
-import { checkAccess } from '../middleware/requireAuth.js'
-import { resolveDiskPath, toClientPath } from './paths.js'
-import { filterPublicItems } from './filter.js'
 import {
   yandexFetch,
   yandexDownloadText,
@@ -11,6 +8,9 @@ import {
   yandexFileMeta,
   YandexApiError,
 } from '../yandex/client.js'
+import { checkAccess } from '../middleware/requireAuth.js'
+import { resolveDiskPath, toClientPath } from './paths.js'
+import { filterPublicItems } from './filter.js'
 
 export const diskRouter = Router()
 
@@ -31,7 +31,6 @@ diskRouter.get('/resources', async (req, res) => {
     return
   }
 
-  // Не авторизован: пускаем только корень (с фильтрацией) и публичные папки
   if (!access.authenticated) {
     const isRoot = clientPath === '/' || clientPath === '' || clientPath === 'disk:/'
     if (!isRoot && !access.isPublic) {
@@ -56,7 +55,6 @@ diskRouter.get('/resources', async (req, res) => {
       isAudio: item.type === 'file' && isAudioFile(item.name),
     }))
 
-    // Не авторизован — фильтруем по публичным папкам
     if (!access.authenticated) {
       items = filterPublicItems(items, clientPath, access.settings.publicFolders)
     }
@@ -84,7 +82,6 @@ diskRouter.get('/download', async (req, res) => {
     return
   }
 
-  // Не авторизован → проверяем, что путь публичен
   if (!access.authenticated && !access.isPublic) {
     res.status(401).json({ error: 'Authorization required' })
     return
@@ -190,7 +187,6 @@ diskRouter.put('/text', async (req, res) => {
     return
   }
 
-  // Запись — только для авторизованных
   if (!access.authenticated) {
     res.status(401).json({ error: 'Authorization required' })
     return
@@ -213,8 +209,9 @@ diskRouter.put('/text', async (req, res) => {
 
 function handleError(err, res) {
   if (err instanceof YandexApiError) {
-    console.error(`[disk] Yandex API error ${err.status}: ${err.message}`)
-    res.status(err.status).json({ error: err.message })
+    const status = Number.isFinite(err.status) ? err.status : 500
+    console.error(`[disk] Yandex API error ${status}: ${err.message}`)
+    res.status(status).json({ error: err.message })
     return
   }
   console.error('[disk] unexpected error:', err)

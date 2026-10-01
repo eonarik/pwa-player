@@ -279,7 +279,7 @@ function onSelectTrack(index: number) {
     <!-- Обычный режим -->
     <div v-else class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl">
-        <div v-if="hasFolders" class="pb-2">
+        <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
           <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
             Папки
           </p>

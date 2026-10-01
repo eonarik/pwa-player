@@ -82,6 +82,9 @@ const yandexPlugin: LibrarySource = {
     const rootCollected = await loadRoot()
     context.writer.setLibrary(rootCollected, PLUGIN_ID)
 
+    // Сохраняем сразу — чтобы F5 до окончания backgroundScan не потерял корень
+    await yandexPersistenceService.save(toPersisted(rootCollected))
+
     void backgroundScan(context)
   },
 
