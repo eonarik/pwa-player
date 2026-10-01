@@ -26,8 +26,17 @@ export function useTrackDownload(track: Ref<LibraryTrack | null | undefined>) {
     return Math.min(1, p.written / p.total)
   })
 
-  /** Убедиться, что спейс выбран. Если нет — запросить. */
+  /** Убедиться, что спейс выбран и доступен. */
   async function ensureSpace(): Promise<boolean> {
+    if (downloadSpaceService.needsPermission.value) {
+      const state = await downloadSpaceService.requestAccess()
+      if (state !== 'granted') {
+        toastService.error('Нет доступа к папке скачивания')
+        return false
+      }
+      return true
+    }
+
     if (downloadSpaceService.hasSpace.value) return true
 
     const handle = await downloadSpaceService.pickSpace()

@@ -26,6 +26,7 @@ import IconEyeOff from "./components/icons/IconEyeOff.vue"
 import { NO_ALBUM_SLUG } from "./utils/artists.ts"
 import { metadataPersistenceService } from "./services/persistence/MetadataPersistenceService.ts"
 import { useUiSettingsStore } from "./stores/uiSettings.ts"
+import SpacePermissionModal from "./components/download/SpacePermissionModal.vue"
 
 const router = useRouter()
 const route = useRoute()
@@ -174,23 +175,6 @@ function goToSearch() {
   router.push({ name: 'search' })
 }
 
-async function restoreSpaceAccess() {
-  const state = await downloadSpaceService.requestAccess()
-
-  if (state === 'granted') {
-    toastService.success('Доступ к папке скачивания восстановлен')
-    return
-  }
-
-  toastService.error('Доступ отклонён. Выберите папку заново')
-  const handle = await downloadSpaceService.pickSpace()
-  if (handle) {
-    toastService.success('Папка скачивания выбрана')
-  } else {
-    toastService.info('Папка не выбрана. Скачивание недоступно')
-  }
-}
-
 // --- Горячие клавиши, медиа-сессия, заголовок -------------------------
 
 useKeyboardShortcuts({
@@ -290,6 +274,7 @@ usePwaUpdate()
     <ModalHost />
     <ToastHost />
     <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
+    <SpacePermissionModal v-if="downloadSpaceService.needsPermission.value" />
 
     <!-- FullPlayer -->
     <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />

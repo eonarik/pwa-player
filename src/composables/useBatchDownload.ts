@@ -15,9 +15,20 @@ export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
     () => tracks.value.filter((t) => !t.origin || t.origin === 'remote').length,
   )
 
-  /** Убедиться, что спейс выбран. Если нет — запросить. */
+  /** Убедиться, что спейс выбран и доступен. */
   async function ensureSpace(): Promise<boolean> {
+    // Права потеряны после перезагрузки — запрашиваем
+    if (downloadSpaceService.needsPermission.value) {
+      const state = await downloadSpaceService.requestAccess()
+      if (state !== 'granted') {
+        toastService.error('Нет доступа к папке скачивания')
+        return false
+      }
+      return true
+    }
+
     if (downloadSpaceService.hasSpace.value) return true
+
     const handle = await downloadSpaceService.pickSpace()
     if (!handle) {
       toastService.info('Папка для скачивания не выбрана')
