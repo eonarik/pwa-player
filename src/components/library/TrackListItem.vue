@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import PlayingIndicator from '@/components/ui/PlayingIndicator.vue'
+import TrackCover from '@/components/ui/TrackCover.vue'
 import TrackOriginButton from './TrackOriginButton.vue'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useTrackDisplay } from '@/composables/useTrackDisplay'
@@ -41,20 +42,16 @@ const libraryTrack = computed(() => props.track as LibraryTrack)
 <template>
   <ListRow :active="isCurrent" :disliked="isDisliked" @click="emit('select', index)">
     <template #leading>
-      <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg">
-        <img v-if="track.coverUrl" :src="track.coverUrl" :alt="track.album" class="h-full w-full object-cover"
-          loading="lazy" />
-        <span v-else class="text-xs font-medium text-fg-muted">{{ index + 1 }}</span>
-
+      <TrackCover :track="track">
         <PlayingIndicator v-if="isCurrent && isPlaying" />
-      </div>
+      </TrackCover>
     </template>
 
     <template #title>
       <p class="truncate text-sm font-medium">
         <template v-if="showSource && hasArtist">
           <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
-            class="text-active/80 transition hover:text-active" @click.stop>
+            class="transition hover:text-active" @click.stop>
             {{ track.artist }}
           </RouterLink>
           <span> — </span>
@@ -65,8 +62,8 @@ const libraryTrack = computed(() => props.track as LibraryTrack)
 
     <template #subtitle>
       <p v-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
-        <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
-          class="text-active/80 transition hover:text-active" @click.stop>
+        <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }" class="transition hover:text-active"
+          @click.stop>
           {{ track.artist }}
         </RouterLink>
       </p>
