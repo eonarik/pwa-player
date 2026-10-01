@@ -1,10 +1,16 @@
 // server/src/disk/routes.ts
 
 import { Router } from 'express'
-import { yandexFetch, YandexApiError } from '../yandex/client.js'
 import { checkAccess } from '../middleware/requireAuth.js'
 import { resolveDiskPath, toClientPath } from './paths.js'
 import { filterPublicItems } from './filter.js'
+import {
+  yandexFetch,
+  yandexDownloadText,
+  yandexUploadText,
+  yandexFileMeta,
+  YandexApiError,
+} from '../yandex/client.js'
 
 export const diskRouter = Router()
 
@@ -64,6 +70,7 @@ diskRouter.get('/resources', async (req, res) => {
     handleError(err, res)
   }
 })
+
 diskRouter.get('/download', async (req, res) => {
   const clientPath = typeof req.query.path === 'string' ? req.query.path : ''
   if (!clientPath) {
@@ -122,6 +129,83 @@ diskRouter.get('/download', async (req, res) => {
     }
 
     await pump()
+  } catch (err) {
+    handleError(err, res)
+  }
+})
+
+// --- GET /api/disk/text ----------------------------------------------
+
+diskRouter.get('/text', async (req, res) => {
+  const clientPath = typeof req.query.path === 'string' ? req.query.path : ''
+  if (!clientPath) {
+    res.status(400).json({ error: 'path is required' })
+    return
+  }
+
+  const access = await checkAccess(req, clientPath)
+  if (!access.allowed) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+  if (!access.authenticated && !access.isPublic) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+
+  const path = resolveDiskPath(clientPath)
+
+  try {
+    const meta = await yandexFileMeta(path)
+    const content = await yandexDownloadText(path)
+
+    res.json({
+      content: content ?? '',
+      modified: meta.modified ?? null,
+      size: meta.size ?? null,
+    })
+  } catch (err) {
+    handleError(err, res)
+  }
+})
+
+// --- PUT /api/disk/text ----------------------------------------------
+
+diskRouter.put('/text', async (req, res) => {
+  const clientPath = typeof req.query.path === 'string' ? req.query.path : ''
+  if (!clientPath) {
+    res.status(400).json({ error: 'path is required' })
+    return
+  }
+
+  const content = typeof req.body?.content === 'string' ? req.body.content : null
+  if (content === null) {
+    res.status(400).json({ error: 'content is required' })
+    return
+  }
+
+  const access = await checkAccess(req, clientPath)
+  if (!access.allowed) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+
+  // Запись — только для авторизованных
+  if (!access.authenticated) {
+    res.status(401).json({ error: 'Authorization required' })
+    return
+  }
+
+  const path = resolveDiskPath(clientPath)
+
+  try {
+    await yandexUploadText(path, content)
+    const meta = await yandexFileMeta(path)
+
+    res.json({
+      ok: true,
+      modified: meta.modified ?? null,
+    })
   } catch (err) {
     handleError(err, res)
   }

@@ -9,7 +9,7 @@ import type {
   ScanFolderOptions,
   ScanResult,
 } from '../types'
-import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
+import type { CollectedLibrary, Folder, LibraryTrack, TextFileRef } from '@/types/library'
 import { PLUGIN_ID } from './constants'
 import { yandexDiskService } from './YandexDiskService'
 import { yandexPersistenceService } from './persistence'
@@ -26,6 +26,10 @@ import type { LibraryWriter } from '../types'
 
 const YANDEX_CONCURRENCY = 5
 const ROOT_REMOTE_PATH = 'disk:/'
+
+function isTextFile(name: string): boolean {
+  return name.toLowerCase().endsWith('.txt')
+}
 
 const yandexPlugin: LibrarySource = {
   id: PLUGIN_ID,
@@ -321,6 +325,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
   const tracks: LibraryTrack[] = []
   const childFolderIds: string[] = []
   const trackIds: string[] = []
+  const textFiles: TextFileRef[] = []
 
   for (const item of response.items) {
     if (item.type === 'dir') {
@@ -359,6 +364,12 @@ async function loadRoot(): Promise<CollectedLibrary> {
         coverUrl: cachedCover,
       })
       trackIds.push(trackId)
+    } else if (item.type === 'file' && isTextFile(item.name)) {
+      textFiles.push({
+        name: item.name,
+        remotePath: item.path,
+        path: item.name,
+      })
     }
   }
 
@@ -374,6 +385,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
     source: PLUGIN_ID,
     scanStatus: 'scanned',
     ready: false,
+    textFiles,
   }
 
   return {
@@ -400,6 +412,7 @@ async function scanFolderImpl(
   const newFolders: Folder[] = []
   const newTracks: LibraryTrack[] = []
   const subDirs: typeof response.items = []
+  const textFiles: TextFileRef[] = []
 
   for (const item of response.items) {
     if (item.type === 'dir') {
@@ -425,6 +438,13 @@ async function scanFolderImpl(
         })
       }
       remoteTrackIds.push(trackId)
+    } else if (item.type === 'file' && isTextFile(item.name)) {
+      const textPath = folder.path ? `${folder.path}/${item.name}` : item.name
+      textFiles.push({
+        name: item.name,
+        remotePath: item.path,
+        path: textPath,
+      })
     }
   }
 
@@ -482,6 +502,7 @@ async function scanFolderImpl(
   context.writer.updateFolder(folder.id, {
     childFolderIds,
     trackIds: finalTrackIds,
+    textFiles,
   })
 }
 
@@ -550,6 +571,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
     const newChildFolderIds: string[] = []
     const subDirs: typeof response.items = []
     const newTracks: LibraryTrack[] = []
+    const textFiles: TextFileRef[] = []
 
     for (const item of response.items) {
       if (item.type === 'dir') {
@@ -575,6 +597,13 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
           })
         }
         newTrackIds.push(trackId)
+      } else if (item.type === 'file' && isTextFile(item.name)) {
+        const textPath = folder.path ? `${folder.path}/${item.name}` : item.name
+        textFiles.push({
+          name: item.name,
+          remotePath: item.path,
+          path: textPath,
+        })
       }
     }
 
@@ -629,6 +658,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
       totalTrackCount: total,
       scanStatus: 'scanned',
       ready: true,
+      textFiles,
     })
 
     return total
@@ -675,6 +705,7 @@ function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary {
     totalTrackCount: f.totalTrackCount,
     scanStatus: f.scanStatus,
     ready: f.ready,
+    textFiles: f.textFiles,
   }))
 
   const tracks: PersistedYandexTrack[] = []
@@ -720,6 +751,7 @@ function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary {
     source: PLUGIN_ID,
     scanStatus: f.scanStatus === 'scanning' ? undefined : f.scanStatus,
     ready: f.ready,
+    textFiles: f.textFiles,
   }))
 
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {

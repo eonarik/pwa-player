@@ -48,3 +48,55 @@ export async function yandexFetch(endpoint, params = {}) {
 
   return response
 }
+
+/**
+ * Скачивает текстовое содержимое файла с Диска.
+ * Возвращает строку или null, если файла нет.
+ */
+export async function yandexDownloadText(path) {
+  const metaResponse = await yandexFetch('/resources/download', { path })
+  const meta = await metaResponse.json()
+  if (!meta.href) return null
+
+  const fileResponse = await fetch(meta.href, {
+    headers: { Authorization: `OAuth ${getToken()}` },
+  })
+  if (!fileResponse.ok) return null
+
+  return fileResponse.text()
+}
+
+/**
+ * Загружает текст в файл на Диске.
+ * Перезаписывает существующий файл.
+ */
+export async function yandexUploadText(path, content) {
+  const uploadResponse = await yandexFetch('/resources/upload', {
+    path,
+    overwrite: 'true',
+  })
+  const uploadMeta = await uploadResponse.json()
+  if (!uploadMeta.href) {
+    throw new Error('Upload URL not found')
+  }
+
+  const putResponse = await fetch(uploadMeta.href, {
+    method: 'PUT',
+    body: content,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  })
+
+  if (!putResponse.ok) {
+    throw new Error(`Upload failed: HTTP ${putResponse.status}`)
+  }
+
+  return true
+}
+
+/** Возвращает метаданные файла (для modified / size). */
+export async function yandexFileMeta(path) {
+  const response = await yandexFetch('/resources', { path })
+  return response.json()
+}

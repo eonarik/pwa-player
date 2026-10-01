@@ -1,6 +1,6 @@
 // src/plugins/yandexDisk/types.ts
 
-import type { ScanStatus, TrackOrigin } from '@/types/library'
+import type { ScanStatus, TextFileRef, TrackOrigin } from '@/types/library'
 
 /**
  * Сохранённая папка Яндекс.Диска.
@@ -17,6 +17,7 @@ export interface PersistedYandexFolder {
   totalTrackCount: number
   scanStatus?: ScanStatus
   ready?: boolean
+  textFiles?: TextFileRef[]
 }
 
 /**

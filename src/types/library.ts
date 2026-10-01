@@ -19,6 +19,19 @@ export type TrackOrigin = 'remote' | 'downloaded' | 'only-local'
 export type ScanStatus = 'scanned' | 'scanning'
 
 /**
+ * Ссылка на текстовый файл (.txt) внутри папки.
+ * Используется только плагином Яндекс.Диска.
+ */
+export interface TextFileRef {
+  /** Имя файла (например, '.txt' или 'notes.txt') */
+  name: string
+  /** Путь на Диске (например, 'disk:/папка/.txt') */
+  remotePath: string
+  /** Клиентский путь внутри root (например, 'папка/.txt') */
+  path: string
+}
+
+/**
  * Папка в библиотеке.
  * Хранится в нормализованном виде: parentId + childFolderIds + trackIds.
  */
@@ -57,6 +70,11 @@ export interface Folder {
    * false или undefined — показывать «…».
    */
   ready?: boolean
+  /**
+   * Текстовые файлы (.txt) в папке.
+   * Используется только плагином Яндекс.Диска.
+   */
+  textFiles?: TextFileRef[]
 }
 
 /**

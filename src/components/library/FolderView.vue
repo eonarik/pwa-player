@@ -20,9 +20,11 @@ import MetadataMenu from './MetadataMenu.vue'
 import MetadataIssuesModal from './MetadataIssuesModal.vue'
 import TrackListItem from './TrackListItem.vue'
 import TrackActions from './TrackActions.vue'
+import FileListItem from './FileListItem.vue'
+import TextEditorModal from './TextEditorModal.vue'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
-import type { LibraryTrack } from '@/types/library'
+import type { LibraryTrack, TextFileRef } from '@/types/library'
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -43,6 +45,21 @@ const subtreeTracks = computed<LibraryTrack[]>(() => {
   if (!folder) return []
   return library.getAllTracksInFolderRecursive(folder.id)
 })
+
+// --- Текстовые файлы -------------------------------------------------
+
+const textFiles = computed<TextFileRef[]>(() => currentFolder.value?.textFiles ?? [])
+const hasTextFiles = computed(() => textFiles.value.length > 0)
+
+const openedFile = ref<TextFileRef | null>(null)
+
+function openFile(file: TextFileRef) {
+  openedFile.value = file
+}
+
+function closeFile() {
+  openedFile.value = null
+}
 
 // --- Поиск -----------------------------------------------------------
 
@@ -171,7 +188,7 @@ function onSelectTrack(index: number) {
           <template v-if="hasFolders">{{ currentSubfolders.length }} папок</template>
           <template v-if="hasFolders && hasTracks"> · </template>
           <template v-if="hasTracks">{{ tracks.length }} треков</template>
-          <template v-if="!hasFolders && !hasTracks">пусто</template>
+          <template v-if="!hasFolders && !hasTracks && !hasTextFiles">пусто</template>
         </span>
 
         <span v-else-if="isScanning" class="shrink-0 text-xs text-fg-muted">Сканирование…</span>
@@ -263,6 +280,15 @@ function onSelectTrack(index: number) {
           <FolderList />
         </div>
 
+        <div v-if="hasTextFiles" class="pb-4">
+          <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+            Файлы
+          </p>
+          <div class="flex flex-col gap-0.5">
+            <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="openFile(file)" />
+          </div>
+        </div>
+
         <div v-if="hasTracks" class="pb-4">
           <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
             Треки
@@ -270,7 +296,7 @@ function onSelectTrack(index: number) {
           <TrackList :key="currentFolder?.id" :tracks="tracks" @select="onSelectTrack" />
         </div>
 
-        <div v-if="!hasFolders && !hasTracks"
+        <div v-if="!hasFolders && !hasTracks && !hasTextFiles"
           class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
           В этой папке пусто
         </div>
@@ -279,5 +305,8 @@ function onSelectTrack(index: number) {
 
     <!-- Модалка несовпадений -->
     <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
+
+    <!-- Модалка редактирования файла -->
+    <TextEditorModal v-if="openedFile" :file="openedFile" @close="closeFile" />
   </div>
 </template>
