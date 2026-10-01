@@ -1,6 +1,6 @@
 // src/utils/trackPath.ts
 
-import { getPlugins } from '@/plugins/registry'
+import { getPlugins, pluginIdFromSource } from '@/plugins/registry'
 import { useLibraryStore } from '@/stores/library'
 import type { Track } from '@/types/track'
 
@@ -33,7 +33,7 @@ export function getTrackPath(track: Track): string {
 }
 
 function getPluginName(pluginId: string): string {
-  const plugin = getPlugins().find((p) => p.id === pluginId)
+  const plugin = getPlugins().find((p) => p.id === pluginIdFromSource(pluginId))
   return plugin?.name ?? UNKNOWN_PLUGIN
 }
 

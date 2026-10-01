@@ -97,6 +97,46 @@ const UMLAUTS: Record<string, string> = {
   ÿ: 'y',
 }
 
+/**
+ * Таблица транслитерации RU → EN (BGN/PCGN, упрощённая).
+ * Используется для сравнения «слот» ↔ «slot».
+ */
+const TRANSLIT_RU_TO_EN: Record<string, string> = {
+  а: 'a',
+  б: 'b',
+  в: 'v',
+  г: 'g',
+  д: 'd',
+  е: 'e',
+  ё: 'e',
+  ж: 'zh',
+  з: 'z',
+  и: 'i',
+  й: 'y',
+  к: 'k',
+  л: 'l',
+  м: 'm',
+  н: 'n',
+  о: 'o',
+  п: 'p',
+  р: 'r',
+  с: 's',
+  т: 't',
+  у: 'u',
+  ф: 'f',
+  х: 'kh',
+  ц: 'ts',
+  ч: 'ch',
+  ш: 'sh',
+  щ: 'shch',
+  ъ: '',
+  ы: 'y',
+  ь: '',
+  э: 'e',
+  ю: 'yu',
+  я: 'ya',
+}
+
 /** Конвертирует текст из QWERTY в ЙЦУКЕН (по позиции клавиш). */
 export function toRussianLayout(text: string): string {
   return Array.from(text)
@@ -119,11 +159,22 @@ export function normalizeUmlauts(text: string): string {
 }
 
 /**
+ * Транслитерация русских букв в латиницу (по фонетике, не по клавишам).
+ * «слот» → «slot», «ночные снайперы» → «nochnye snaypery».
+ */
+export function transliterate(text: string): string {
+  return Array.from(text.toLowerCase())
+    .map((char) => TRANSLIT_RU_TO_EN[char] ?? char)
+    .join('')
+}
+
+/**
  * Возвращает все варианты написания строки:
  * - как есть
+ * - без умлаутов
  * - QWERTY → ЙЦУКЕН
  * - ЙЦУКЕН → QWERTY
- * - без умлаутов
+ * - транслит RU → EN
  */
 export function layoutVariants(text: string): string[] {
   const normalized = text.toLowerCase()
@@ -132,6 +183,7 @@ export function layoutVariants(text: string): string[] {
     normalizeUmlauts(normalized),
     toRussianLayout(normalized),
     toEnglishLayout(normalized),
+    transliterate(normalized),
   ])
   return Array.from(variants)
 }
