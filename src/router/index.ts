@@ -10,11 +10,13 @@ import QueueView from '@/views/QueueView.vue'
 import DislikesView from '@/views/DislikesView.vue'
 import ArtistView from '@/views/ArtistView.vue'
 import AlbumView from '@/views/AlbumView.vue'
+import SearchView from '@/views/SearchView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: HomeView },
+    { path: '/search', name: 'search', component: SearchView },
     {
       path: '/folder/:pluginId/:path(.*)*',
       name: 'folder',
@@ -27,7 +29,12 @@ const router = createRouter({
     { path: '/queue', name: 'queue', component: QueueView },
     { path: '/dislikes', name: 'dislikes', component: DislikesView },
     { path: '/artist/:artistName', name: 'artist', component: ArtistView, props: true },
-    { path: '/artist/:artistName/:album', name: 'album', component: AlbumView, props: true },
+    {
+      path: '/artist/:artistName/:album',
+      name: 'album',
+      component: AlbumView,
+      props: true,
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

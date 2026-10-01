@@ -4,11 +4,13 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
+import { useUiSettingsStore } from '@/stores/uiSettings'
 import { loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
+import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import Breadcrumbs from './Breadcrumbs.vue'
 import FolderList from './FolderList.vue'
 import TrackList from './TrackList.vue'
@@ -16,13 +18,18 @@ import FolderSortMenu from './FolderSortMenu.vue'
 import FolderSyncMenu from './FolderSyncMenu.vue'
 import MetadataMenu from './MetadataMenu.vue'
 import MetadataIssuesModal from './MetadataIssuesModal.vue'
+import TrackListItem from './TrackListItem.vue'
+import TrackActions from './TrackActions.vue'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
 import type { LibraryTrack } from '@/types/library'
 
 const library = useLibraryStore()
 const player = usePlayerStore()
+const uiSettings = useUiSettingsStore()
 
 const { currentTracks, currentFolder, currentSubfolders } = storeToRefs(library)
+const { currentTrack, isPlaying } = storeToRefs(player)
 
 const tracks = computed(() => currentTracks.value)
 
@@ -37,6 +44,25 @@ const subtreeTracks = computed<LibraryTrack[]>(() => {
   return library.getAllTracksInFolderRecursive(folder.id)
 })
 
+// --- Поиск -----------------------------------------------------------
+
+const { query, hasQuery, hasResults, result } = useLibrarySearch(
+  subtreeTracks,
+  uiSettings.searchThreshold,
+)
+
+const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
+
+function onSelectSearchTrack(trackId: string) {
+  const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
+  if (idx < 0) return
+  player.setQueue(searchFlatTracks.value, idx)
+}
+
+function isSearchCurrent(trackId: string): boolean {
+  return currentTrack.value?.id === trackId
+}
+
 // --- Поиск метаданных -----------------------------------------------
 
 const {
@@ -48,6 +74,7 @@ const {
   search: metadataSearch,
   cancel: metadataCancel,
   reset: metadataReset,
+  dismissIssues: metadataDismissIssues,
 } = useMetadataSearch(subtreeTracks)
 
 const showMetadataIssues = ref(false)
@@ -58,6 +85,7 @@ function openMetadataIssues() {
 
 function closeMetadataIssues() {
   showMetadataIssues.value = false
+  metadataDismissIssues()
 }
 
 // --- Синхронизация ---------------------------------------------------
@@ -153,19 +181,18 @@ function onSelectTrack(index: number) {
     <!-- Шапка: строка 2 -->
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <FolderSortMenu />
+        <div class="flex items-center gap-1">
+          <SearchInput v-model="query" />
+          <FolderSortMenu />
+        </div>
 
         <div v-if="!isScanning" class="flex shrink-0 items-center gap-2">
-          <!-- Показать источник -->
           <ShowSourceCheckbox />
 
-          <!-- Метаданные -->
-          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
           <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
             :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
             @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
 
-          <!-- Синхронизация -->
           <template v-if="canRefresh || canRefreshFromDevice">
             <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
             <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
@@ -187,7 +214,46 @@ function onSelectTrack(index: number) {
       </div>
     </div>
 
-    <!-- Контент -->
+    <!-- Режим поиска -->
+    <div v-else-if="hasQuery" class="flex-1 overflow-y-auto">
+      <div class="mx-auto w-full max-w-3xl p-2">
+        <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+          Ничего не найдено
+        </div>
+
+        <div v-else class="flex flex-col gap-4">
+          <div class="flex items-center justify-between gap-3 px-3 py-1">
+            <span class="text-xs text-fg-muted">
+              Найдено: {{ searchFlatTracks.length }} · Групп: {{ result.groups.length }}
+            </span>
+
+            <button type="button"
+              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
+              @click="player.setQueue(searchFlatTracks, 0)">
+              Играть всё
+            </button>
+          </div>
+
+          <div v-for="group in result.groups" :key="group.artist">
+            <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+              {{ group.artist }}
+            </p>
+
+            <div class="flex flex-col gap-0.5">
+              <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
+                :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isSearchCurrent(track.id)"
+                :is-playing="isPlaying" @select="() => onSelectSearchTrack(track.id)">
+                <template #actions>
+                  <TrackActions :track="track" />
+                </template>
+              </TrackListItem>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Обычный режим -->
     <div v-else class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl">
         <div v-if="hasFolders" class="pb-2">

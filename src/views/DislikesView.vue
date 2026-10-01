@@ -5,14 +5,21 @@ import { storeToRefs } from 'pinia'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
+import { useUiSettingsStore } from '@/stores/uiSettings'
+import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
+import TrackListItem from '@/components/library/TrackListItem.vue'
+import TrackActions from '@/components/library/TrackActions.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
+import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import IconEyeOff from '@/components/icons/IconEyeOff.vue'
+import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import type { LibraryTrack } from '@/types/library'
-import { formatRelativeTime } from "@/utils/formatRelativeTime"
 
 const dislikes = useDislikesStore()
 const library = useLibraryStore()
 const player = usePlayerStore()
+const uiSettings = useUiSettingsStore()
 
 const { sortedEntries } = storeToRefs(dislikes)
 const { currentTrack, isPlaying } = storeToRefs(player)
@@ -27,6 +34,27 @@ const resolvedTracks = computed<LibraryTrack[]>(() => {
   }
   return result
 })
+
+// --- Поиск -----------------------------------------------------------
+
+const { query, hasQuery, hasResults, result } = useLibrarySearch(
+  resolvedTracks,
+  uiSettings.searchThreshold,
+)
+
+const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
+
+function onSelectSearchTrack(trackId: string) {
+  const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
+  if (idx < 0) return
+  player.setQueue(searchFlatTracks.value, idx)
+}
+
+function isSearchCurrent(trackId: string): boolean {
+  return currentTrack.value?.id === trackId
+}
+
+// --- Действия -------------------------------------------------------
 
 function playAll() {
   if (resolvedTracks.value.length === 0) return
@@ -60,6 +88,8 @@ function clearDislikes() {
         <div class="flex shrink-0 items-center gap-3">
           <span class="text-xs text-fg-muted">{{ sortedEntries.length }} треков</span>
 
+          <ShowSourceCheckbox />
+
           <button v-if="!isEmpty" type="button"
             class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
             @click="playAll">
@@ -75,7 +105,14 @@ function clearDislikes() {
       </div>
     </div>
 
-    <!-- Список -->
+    <!-- Поиск -->
+    <div v-if="!isEmpty" class="shrink-0 px-4 py-2">
+      <div class="mx-auto w-full max-w-3xl">
+        <SearchInput v-model="query" />
+      </div>
+    </div>
+
+    <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl p-2">
         <div v-if="isEmpty" class="flex h-full flex-col items-center justify-center gap-3 py-20 text-sm text-fg-muted">
@@ -83,6 +120,32 @@ function clearDislikes() {
           <p>Дизлайков пока нет</p>
         </div>
 
+        <!-- Режим поиска -->
+        <template v-else-if="hasQuery">
+          <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+            Ничего не найдено
+          </div>
+
+          <div v-else class="flex flex-col gap-4">
+            <div v-for="group in result.groups" :key="group.artist">
+              <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+                {{ group.artist }}
+              </p>
+
+              <div class="flex flex-col gap-0.5">
+                <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
+                  :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isSearchCurrent(track.id)"
+                  :is-playing="isPlaying" @select="() => onSelectSearchTrack(track.id)">
+                  <template #actions>
+                    <TrackActions :track="track" />
+                  </template>
+                </TrackListItem>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Обычный режим -->
         <div v-else class="flex flex-col gap-0.5">
           <TrackResolvedItem v-for="(entry, index) in sortedEntries" :key="entry.trackId" :track-id="entry.trackId"
             :index="index" :is-current="isCurrent(entry.trackId)" :is-playing="isPlaying"

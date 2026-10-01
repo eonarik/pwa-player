@@ -6,17 +6,23 @@ import { storeToRefs } from 'pinia'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
+import { useUiSettingsStore } from '@/stores/uiSettings'
+import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
+import TrackListItem from '@/components/library/TrackListItem.vue'
+import TrackActions from '@/components/library/TrackActions.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
+import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import { sortService } from '@/services/sort/SortService'
 import type { LibraryTrack } from '@/types/library'
-import ShowSourceCheckbox from "@/components/ui/ShowSourceCheckbox.vue"
 
 const route = useRoute()
 const router = useRouter()
 const playlists = usePlaylistsStore()
 const library = useLibraryStore()
 const player = usePlayerStore()
+const uiSettings = useUiSettingsStore()
 
 const { currentTrack, isPlaying } = storeToRefs(player)
 
@@ -45,6 +51,27 @@ const unavailableCount = computed(() => {
 
 const hasTracks = computed(() => resolvedTracks.value.length > 0)
 
+// --- Поиск -----------------------------------------------------------
+
+const { query, hasQuery, hasResults, result } = useLibrarySearch(
+  resolvedTracks,
+  uiSettings.searchThreshold,
+)
+
+const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
+
+function onSelectSearchTrack(trackId: string) {
+  const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
+  if (idx < 0) return
+  player.setQueue(searchFlatTracks.value, idx)
+}
+
+function isSearchCurrent(trackId: string): boolean {
+  return currentTrack.value?.id === trackId
+}
+
+// --- Действия -------------------------------------------------------
+
 function startRename() {
   if (!playlist.value || isFavorites.value) return
   renameValue.value = playlist.value.name
@@ -70,6 +97,11 @@ function deletePlaylist() {
   router.replace({ name: 'playlists' })
 }
 
+function playAll() {
+  if (resolvedTracks.value.length === 0) return
+  player.setQueue(resolvedTracks.value, 0)
+}
+
 function onSelectTrack(index: number) {
   if (index < 0) return
   player.setQueue(resolvedTracks.value, index)
@@ -80,13 +112,12 @@ function isCurrent(trackId: string): boolean {
 }
 
 function onRemoved() {
-  // playlist.tracks уже обновлён в сторе, computed пересчитается сам
+  // стор пересчитается сам
 }
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Плейлист не найден -->
     <div v-if="!playlist" class="flex h-full flex-col items-center justify-center gap-3 text-sm text-fg-muted">
       <p>Плейлист не найден</p>
       <RouterLink :to="{ name: 'playlists' }"
@@ -118,9 +149,7 @@ function onRemoved() {
             </template>
 
             <template v-else>
-              <h1 class="truncate text-lg font-medium text-fg">
-                {{ playlist.name }}
-              </h1>
+              <h1 class="truncate text-lg font-medium text-fg">{{ playlist.name }}</h1>
 
               <button v-if="!isFavorites" type="button"
                 class="rounded-btn p-1 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
@@ -137,11 +166,16 @@ function onRemoved() {
               <template v-if="unavailableCount > 0">
                 {{ resolvedTracks.length }} из {{ playlist.tracks.length }}
               </template>
-              <template v-else> {{ resolvedTracks.length }} треков </template>
+              <template v-else>{{ resolvedTracks.length }} треков</template>
             </span>
 
-
             <ShowSourceCheckbox />
+
+            <button v-if="hasTracks" type="button"
+              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
+              @click="playAll">
+              Играть всё
+            </button>
 
             <button v-if="!isFavorites" type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"
@@ -155,7 +189,14 @@ function onRemoved() {
         </div>
       </div>
 
-      <!-- Список -->
+      <!-- Поиск -->
+      <div class="shrink-0 px-4 py-2">
+        <div class="mx-auto w-full max-w-3xl">
+          <SearchInput v-model="query" />
+        </div>
+      </div>
+
+      <!-- Контент -->
       <div class="flex-1 overflow-y-auto">
         <div class="mx-auto w-full max-w-3xl p-2">
           <div v-if="playlist.tracks.length === 0"
@@ -163,6 +204,33 @@ function onRemoved() {
             Плейлист пуст
           </div>
 
+          <!-- Режим поиска -->
+          <template v-else-if="hasQuery">
+            <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+              Ничего не найдено
+            </div>
+
+            <div v-else class="flex flex-col gap-4">
+              <div v-for="group in result.groups" :key="group.artist">
+                <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+                  {{ group.artist }}
+                </p>
+
+                <div class="flex flex-col gap-0.5">
+                  <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
+                    :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
+                    :is-current="isSearchCurrent(track.id)" :is-playing="isPlaying"
+                    @select="() => onSelectSearchTrack(track.id)">
+                    <template #actions>
+                      <TrackActions :track="track" />
+                    </template>
+                  </TrackListItem>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Обычный режим -->
           <div v-else class="flex flex-col gap-0.5">
             <TrackResolvedItem v-for="(snapshot, index) in playlist.tracks" :key="snapshot.trackId"
               :track-id="snapshot.trackId" :index="index" :is-current="isCurrent(snapshot.trackId)"

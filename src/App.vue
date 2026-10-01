@@ -25,6 +25,7 @@ import { useDislikesStore } from "./stores/dislikes"
 import IconEyeOff from "./components/icons/IconEyeOff.vue"
 import { NO_ALBUM_SLUG } from "./utils/artists.ts"
 import { metadataPersistenceService } from "./services/persistence/MetadataPersistenceService.ts"
+import { useUiSettingsStore } from "./stores/uiSettings.ts"
 
 const router = useRouter()
 const route = useRoute()
@@ -33,6 +34,7 @@ const library = useLibraryStore()
 const history = useHistoryStore()
 const playlists = usePlaylistsStore()
 const dislikes = useDislikesStore()
+const uiSettings = useUiSettingsStore()
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
 // --- FullPlayer ------------------------------------------------------
@@ -66,6 +68,7 @@ onUnmounted(() => {
 const pageTitle = computed(() => {
   const name = route.name
   if (name === 'home') return 'Главная'
+  if (name === 'search') return 'Поиск'
   if (name === 'folder') return library.currentFolder?.name ?? 'Папка'
   if (name === 'playlists') return 'Плейлисты'
   if (name === 'playlist') {
@@ -166,6 +169,11 @@ function goToDislikes() {
   router.push({ name: 'dislikes' })
 }
 
+function goToSearch() {
+  closeDrawer()
+  router.push({ name: 'search' })
+}
+
 async function restoreSpaceAccess() {
   const state = await downloadSpaceService.requestAccess()
 
@@ -221,6 +229,7 @@ onMounted(async () => {
     await downloadSpaceService.load()
     await history.restore()
     await dislikes.restore()
+    await uiSettings.load()
 
     for (const manifest of getPlugins()) {
       try {
@@ -315,6 +324,17 @@ usePwaUpdate()
                 <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" />
               </svg>
               Главная
+            </button>
+
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
+              @click="goToSearch">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                class="h-6 w-6 text-fg-muted">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              Поиск
             </button>
 
             <button type="button"

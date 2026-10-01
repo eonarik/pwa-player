@@ -7,15 +7,18 @@ import { get, set } from 'idb-keyval'
 const UI_SETTINGS_KEY = 'player:uiSettings'
 
 const DEFAULT_METADATA_THRESHOLD = 0.5
+const DEFAULT_SEARCH_THRESHOLD = 0.85
 
 interface PersistedUiSettings {
   showSource: boolean
   metadataThreshold: number
+  searchThreshold: number
 }
 
 export const useUiSettingsStore = defineStore('uiSettings', () => {
   const showSource = ref(false)
   const metadataThreshold = ref(DEFAULT_METADATA_THRESHOLD)
+  const searchThreshold = ref(DEFAULT_SEARCH_THRESHOLD)
 
   let isLoaded = false
 
@@ -32,6 +35,13 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
         ) {
           metadataThreshold.value = data.metadataThreshold
         }
+        if (
+          typeof data.searchThreshold === 'number' &&
+          data.searchThreshold >= 0 &&
+          data.searchThreshold <= 1
+        ) {
+          searchThreshold.value = data.searchThreshold
+        }
       }
       isLoaded = true
     } catch (err) {
@@ -45,13 +55,14 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       await set(UI_SETTINGS_KEY, {
         showSource: showSource.value,
         metadataThreshold: metadataThreshold.value,
+        searchThreshold: searchThreshold.value,
       })
     } catch (err) {
       console.error('[uiSettings] failed to save', err)
     }
   }
 
-  watch([showSource, metadataThreshold], () => {
+  watch([showSource, metadataThreshold, searchThreshold], () => {
     void save()
   })
 
@@ -63,12 +74,18 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     metadataThreshold.value = Math.min(Math.max(value, 0), 1)
   }
 
+  function setSearchThreshold(value: number): void {
+    searchThreshold.value = Math.min(Math.max(value, 0), 1)
+  }
+
   return {
     showSource,
     metadataThreshold,
+    searchThreshold,
 
     load,
     toggleShowSource,
     setMetadataThreshold,
+    setSearchThreshold,
   }
 })
