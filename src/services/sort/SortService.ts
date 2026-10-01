@@ -59,7 +59,7 @@ class SortService {
   }
 
   private async save(): Promise<void> {
-    if (!this.loaded) return // не сохраняем до первой загрузки
+    if (!this.loaded) return
     try {
       await set(STORAGE_KEY, {
         field: this.field.value,
@@ -82,17 +82,17 @@ class SortService {
     this.dir.value = this.dir.value === 'asc' ? 'desc' : 'asc'
   }
 
-  /** Отсортировать массив треков согласно текущим настройкам */
+  /**
+   * Сортирует массив треков.
+   * Поле field сохраняется для будущих фич, но UI сейчас не даёт его менять.
+   * По умолчанию (field === 'default') — по title.
+   */
   sort(tracks: LibraryTrack[]): LibraryTrack[] {
     const field = this.field.value
     const dir = this.dir.value
 
     const sorted = [...tracks].sort((a, b) => {
       if (field === 'default') {
-        // trackNumber (если есть) → title. Как trackSortKey.
-        const an = a.trackNumber ?? Number.MAX_SAFE_INTEGER
-        const bn = b.trackNumber ?? Number.MAX_SAFE_INTEGER
-        if (an !== bn) return an - bn
         return compareStrings(a.title, b.title)
       }
 
@@ -102,12 +102,18 @@ class SortService {
         return ad - bd
       }
 
-      // title / artist / album
       const av = String(a[field] ?? '')
       const bv = String(b[field] ?? '')
       return compareStrings(av, bv)
     })
 
+    return dir === 'desc' ? sorted.reverse() : sorted
+  }
+
+  /** Сортирует массив объектов с именем (папки, файлы). */
+  sortByName<T extends { name: string }>(items: T[]): T[] {
+    const dir = this.dir.value
+    const sorted = [...items].sort((a, b) => compareStrings(a.name, b.name))
     return dir === 'desc' ? sorted.reverse() : sorted
   }
 

@@ -3,7 +3,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
-import { sortBy } from '@/utils/sort'
 import type { LibraryWriter } from '@/plugins/types'
 import { librarySaveService } from '@/services/library/LibrarySaveService'
 import { sortService } from '@/services/sort/SortService'
@@ -31,7 +30,7 @@ export const useLibraryStore = defineStore('library', () => {
     const list = folder.childFolderIds
       .map((id) => folders.value[id])
       .filter((f): f is Folder => Boolean(f))
-    return sortBy(list, (f) => f.name)
+    return sortService.sortByName(list)
   })
 
   const currentTracks = computed<LibraryTrack[]>(() => {
@@ -144,7 +143,6 @@ export function createLibraryWriter(): LibraryWriter {
     return useLibraryStore()
   }
 
-  /** Проверяет, что source принадлежит указанному плагину (sourceId или sourceId:*) */
   function matchesSource(source: string | undefined, sourceId: string): boolean {
     if (!source) return false
     return source === sourceId || source.startsWith(sourceId + ':')

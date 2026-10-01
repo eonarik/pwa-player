@@ -14,7 +14,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="group relative flex items-center gap-3 border-l-2 border-transparent px-3 py-2 transition" :class="[
+  <div class="group relative flex items-center gap-3 border-l-2 border-transparent px-2 py-2 transition" :class="[
     active ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg',
     disliked ? 'border-l-red-500/40' : '',
   ]">

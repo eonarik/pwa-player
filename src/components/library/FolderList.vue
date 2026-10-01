@@ -130,7 +130,7 @@ function onArrowClick(folder: Folder, e: Event) {
 </script>
 
 <template>
-  <div v-if="currentSubfolders.length > 0" class="flex flex-col gap-0.5 px-2 py-2">
+  <div v-if="currentSubfolders.length > 0" class="flex flex-col gap-0.5">
     <ListRow v-for="folder in currentSubfolders" :key="folder.id"
       :active="folderPlayState(folder) !== 'idle' && !isEmpty(folder)" :class="isEmpty(folder) ? 'opacity-40' : ''"
       @click="onRowClick(folder)">

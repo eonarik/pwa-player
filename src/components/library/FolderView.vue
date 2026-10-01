@@ -9,6 +9,7 @@ import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
+import { sortService } from '@/services/sort/SortService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import Breadcrumbs from './Breadcrumbs.vue'
@@ -46,9 +47,13 @@ const subtreeTracks = computed<LibraryTrack[]>(() => {
   return library.getAllTracksInFolderRecursive(folder.id)
 })
 
-// --- Текстовые файлы -------------------------------------------------
+// --- Текстовые файлы (с сортировкой) ---------------------------------
 
-const textFiles = computed<TextFileRef[]>(() => currentFolder.value?.textFiles ?? [])
+const textFiles = computed<TextFileRef[]>(() => {
+  const files = currentFolder.value?.textFiles ?? []
+  return sortService.sortByName(files)
+})
+
 const hasTextFiles = computed(() => textFiles.value.length > 0)
 
 const openedFile = ref<TextFileRef | null>(null)
@@ -206,12 +211,13 @@ function onSelectTrack(index: number) {
         <div v-if="!isScanning" class="flex shrink-0 items-center gap-2">
           <ShowSourceCheckbox />
 
+          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
+
           <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
             :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
             @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
 
           <template v-if="canRefresh || canRefreshFromDevice">
-            <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
             <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
               :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"
               @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
