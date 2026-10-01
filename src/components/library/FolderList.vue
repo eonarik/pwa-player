@@ -190,7 +190,7 @@ function onArrowClick(folder: Folder, e: Event) {
       <template #subtitle>
         <p class="truncate text-xs"
           :class="folderPlayState(folder) !== 'idle' && !isScanning(folder) ? 'text-active/60' : 'text-fg-muted'">
-          <template v-if="isScanning(folder)">Сканирование…</template>
+          <template v-if="isScanning(folder) || !folder.ready">Сканирование…</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
       </template>

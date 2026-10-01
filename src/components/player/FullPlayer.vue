@@ -145,16 +145,14 @@ watch(
           <!-- Обложка + свечение -->
           <div class="flex w-full max-w-sm flex-1 items-center justify-center py-4">
             <div class="relative">
-              <div class="glow-pulse pointer-events-none absolute inset-0 -z-10" :style="glowStyle"
-                aria-hidden="true" />
-
-              <div
-                class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden rounded-card bg-card-bg shadow-2xl">
+              <div v-if="currentTrack?.coverUrl" class="glow-pulse pointer-events-none absolute inset-0 -z-10"
+                :style="glowStyle" aria-hidden="true" />
+              <div class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden bg-bg-elevated shadow-2xl">
                 <img v-if="currentTrack?.coverUrl" :src="currentTrack.coverUrl" :alt="currentTrack.album"
                   class="h-full w-full object-cover" />
                 <div v-else class="flex h-full w-full items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                    class="h-16 w-16 text-fg-subtle">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
+                    class="h-1/2 w-1/2 text-fg-subtle">
                     <path d="M9 18V5l12-2v13" />
                     <circle cx="6" cy="18" r="3" />
                     <circle cx="18" cy="16" r="3" />
