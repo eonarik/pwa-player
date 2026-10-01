@@ -144,15 +144,21 @@ export function createLibraryWriter(): LibraryWriter {
     return useLibraryStore()
   }
 
+  /** Проверяет, что source принадлежит указанному плагину (sourceId или sourceId:*) */
+  function matchesSource(source: string | undefined, sourceId: string): boolean {
+    if (!source) return false
+    return source === sourceId || source.startsWith(sourceId + ':')
+  }
+
   return {
     setLibrary(collected: CollectedLibrary, sourceId: string): void {
       const s = store()
 
       for (const [id, folder] of Object.entries(s.folders)) {
-        if (folder.source === sourceId) delete s.folders[id]
+        if (matchesSource(folder.source, sourceId)) delete s.folders[id]
       }
       for (const [id, track] of Object.entries(s.tracks)) {
-        if (track.pluginId === sourceId) {
+        if (matchesSource(track.pluginId, sourceId)) {
           if (track.coverUrl?.startsWith('blob:')) {
             URL.revokeObjectURL(track.coverUrl)
           }
@@ -161,10 +167,10 @@ export function createLibraryWriter(): LibraryWriter {
       }
 
       for (const folder of collected.folders) {
-        s.folders[folder.id] = { ...folder, source: sourceId }
+        s.folders[folder.id] = { ...folder, source: folder.source ?? sourceId }
       }
       for (const track of collected.tracks) {
-        s.tracks[track.id] = { ...track, pluginId: sourceId }
+        s.tracks[track.id] = { ...track, pluginId: track.pluginId ?? sourceId }
       }
     },
 
@@ -178,10 +184,10 @@ export function createLibraryWriter(): LibraryWriter {
     removeBySource(sourceId: string): void {
       const s = store()
       for (const [id, folder] of Object.entries(s.folders)) {
-        if (folder.source === sourceId) delete s.folders[id]
+        if (matchesSource(folder.source, sourceId)) delete s.folders[id]
       }
       for (const [id, track] of Object.entries(s.tracks)) {
-        if (track.pluginId === sourceId) {
+        if (matchesSource(track.pluginId, sourceId)) {
           if (track.coverUrl?.startsWith('blob:')) {
             URL.revokeObjectURL(track.coverUrl)
           }
@@ -268,7 +274,7 @@ export function createLibraryWriter(): LibraryWriter {
     addFolders(folders: Folder[], sourceId: string): void {
       const s = store()
       for (const folder of folders) {
-        s.folders[folder.id] = { ...folder, source: sourceId }
+        s.folders[folder.id] = { ...folder, source: folder.source ?? sourceId }
       }
       librarySaveService.scheduleSave(sourceId)
     },
@@ -290,11 +296,11 @@ export function createLibraryWriter(): LibraryWriter {
     },
 
     getFoldersBySource(sourceId: string): Folder[] {
-      return Object.values(store().folders).filter((f) => f.source === sourceId)
+      return Object.values(store().folders).filter((f) => matchesSource(f.source, sourceId))
     },
 
     getTracksBySource(sourceId: string): LibraryTrack[] {
-      return Object.values(store().tracks).filter((t) => t.pluginId === sourceId)
+      return Object.values(store().tracks).filter((t) => matchesSource(t.pluginId, sourceId))
     },
 
     getCurrentFolderId(): string | null {

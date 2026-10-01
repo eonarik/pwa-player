@@ -70,6 +70,7 @@ const pageTitle = computed(() => {
   const name = route.name
   if (name === 'home') return 'Главная'
   if (name === 'search') return 'Поиск'
+  if (name === 'settings') return 'Настройки'
   if (name === 'folder') return library.currentFolder?.name ?? 'Папка'
   if (name === 'playlists') return 'Плейлисты'
   if (name === 'playlist') {
@@ -173,6 +174,11 @@ function goToDislikes() {
 function goToSearch() {
   closeDrawer()
   router.push({ name: 'search' })
+}
+
+function goToSettings() {
+  closeDrawer()
+  router.push({ name: 'settings' })
 }
 
 // --- Горячие клавиши, медиа-сессия, заголовок -------------------------
@@ -362,6 +368,18 @@ usePwaUpdate()
                 class="rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">
                 {{ queueBadge }}
               </span>
+            </button>
+
+            <button type="button"
+              class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
+              @click="goToSettings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                class="h-6 w-6 text-fg-muted">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              Настройки
             </button>
           </nav>
         </div>

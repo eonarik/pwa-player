@@ -2,7 +2,7 @@
 
 import { ref, shallowRef } from 'vue'
 import type { LibraryTrack } from '@/types/library'
-import { loadPlugin } from '@/plugins/registry'
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { createLibraryWriter } from '@/stores/library'
 import { downloadSpaceService } from './DownloadSpaceService'
@@ -80,13 +80,14 @@ class DownloadOrchestrator {
     track: LibraryTrack,
     externalSignal: AbortSignal | null,
   ): Promise<void> {
-    const plugin = await loadPlugin(track.pluginId)
+    const pluginId = pluginIdFromSource(track.pluginId)
+    const plugin = await loadPlugin(pluginId)
     if (!plugin.canDownload || !plugin.downloadTrack) {
       throw new Error(`Plugin "${track.pluginId}" does not support download`)
     }
 
     const targetDir = await downloadSpaceService.getPluginDir(track.pluginId)
-    const pluginContext = createPluginContext(track.pluginId)
+    const pluginContext = createPluginContext(pluginId)
 
     const abort = new AbortController()
     // Если есть внешний signal — связываем
@@ -210,14 +211,15 @@ class DownloadOrchestrator {
   // --- Удаление ------------------------------------------------------
 
   async removeDownloaded(track: LibraryTrack): Promise<boolean> {
-    const plugin = await loadPlugin(track.pluginId)
+    const pluginId = pluginIdFromSource(track.pluginId)
+    const plugin = await loadPlugin(pluginId)
     if (!plugin.removeDownloaded) {
       console.warn(`[download] plugin "${track.pluginId}" does not support removeDownloaded`)
       return false
     }
 
     const targetDir = await downloadSpaceService.getPluginDir(track.pluginId)
-    const pluginContext = createPluginContext(track.pluginId)
+    const pluginContext = createPluginContext(pluginId)
 
     try {
       await plugin.removeDownloaded(pluginContext, track, targetDir)
@@ -243,11 +245,11 @@ class DownloadOrchestrator {
   // --- Сканирование --------------------------------------------------
 
   async scan(pluginId: string): Promise<ScanResult | null> {
-    const plugin = await loadPlugin(pluginId)
+    const plugin = await loadPlugin(pluginIdFromSource(pluginId))
     if (!plugin.scanDownloadDir) return null
 
     const targetDir = await downloadSpaceService.getPluginDir(pluginId)
-    const pluginContext = createPluginContext(pluginId)
+    const pluginContext = createPluginContext(pluginIdFromSource(pluginId))
 
     try {
       return await plugin.scanDownloadDir(pluginContext, targetDir)

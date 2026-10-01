@@ -5,30 +5,36 @@ import { folderIdFromPath, trackIdFromPath, ROOT_FOLDER_ID } from './id'
 
 describe('folderIdFromPath', () => {
   it('возвращает id с префиксом folder:', () => {
-    expect(folderIdFromPath('Rock')).toBe('folder:Rock')
+    expect(folderIdFromPath('yandex', 'Rock')).toBe('folder:yandex:Rock')
   })
 
   it('сохраняет вложенные пути', () => {
-    expect(folderIdFromPath('Rock/2020/OK Computer')).toBe('folder:Rock/2020/OK Computer')
+    expect(folderIdFromPath('yandex', 'Rock/2020/OK Computer')).toBe(
+      'folder:yandex:Rock/2020/OK Computer',
+    )
   })
 
-  it('возвращает folder: для пустого пути', () => {
-    expect(folderIdFromPath('')).toBe('folder:')
+  it('возвращает __root__ для пустого пути', () => {
+    expect(folderIdFromPath('yandex', '')).toBe('folder:yandex:__root__')
+  })
+
+  it('работает с local:Music', () => {
+    expect(folderIdFromPath('local:Music', 'Album')).toBe('folder:local:Music:Album')
   })
 
   it('не совпадает с ROOT_FOLDER_ID', () => {
-    expect(folderIdFromPath('')).not.toBe(ROOT_FOLDER_ID)
+    expect(folderIdFromPath('yandex', '')).not.toBe(ROOT_FOLDER_ID)
   })
 })
 
 describe('trackIdFromPath', () => {
   it('возвращает id с префиксом track:', () => {
-    expect(trackIdFromPath('Rock/track.mp3')).toBe('track:Rock/track.mp3')
+    expect(trackIdFromPath('yandex', 'Rock/track.mp3')).toBe('track:yandex:Rock/track.mp3')
   })
 
   it('работает с именами с пробелами и кириллицей', () => {
-    expect(trackIdFromPath('Альбомы/2000 - Почти живой/01 Синие тени.mp3')).toBe(
-      'track:Альбомы/2000 - Почти живой/01 Синие тени.mp3',
+    expect(trackIdFromPath('local:Music', 'Альбомы/2000 - Почти живой/01 Синие тени.mp3')).toBe(
+      'track:local:Music:Альбомы/2000 - Почти живой/01 Синие тени.mp3',
     )
   })
 })

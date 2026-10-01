@@ -4,7 +4,7 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
-import { loadPlugin } from '@/plugins/registry'
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import type { Folder } from '@/types/library'
 import FolderView from '@/components/library/FolderView.vue'
@@ -26,21 +26,15 @@ const pathSegments = computed<string[]>(() => {
 const folderPath = computed(() => pathSegments.value.join('/'))
 
 /**
- * Ищем папку:
- * - Если путь пустой → корень этого плагина (parentId === null, source === pluginId).
- * - Если путь непустой → папку с таким path внутри этого плагина.
+ * Ищем папку по source + path.
+ * source — это pluginId в URL, который может быть:
+ * - 'local' (контейнер локальных папок)
+ * - 'local:Music' (конкретная локальная папка)
+ * - 'yandex' (Яндекс.Диск)
  */
 const currentFolder = computed<Folder | null>(() => {
   const pid = pluginId.value
   if (!pid) return null
-
-  if (folderPath.value === '') {
-    return (
-      Object.values(library.folders).find(
-        (f) => f.source === pid && f.parentId === null,
-      ) ?? null
-    )
-  }
 
   return (
     Object.values(library.folders).find(
@@ -51,22 +45,16 @@ const currentFolder = computed<Folder | null>(() => {
 
 const folderExists = computed(() => Boolean(currentFolder.value))
 
-/**
- * Гарантирует, что папка обойдена (сама, без подпапок).
- * - scanStatus === 'scanned' → ничего.
- * - scanStatus === 'scanning' → ждём (UI покажет спиннер).
- * - scanStatus === undefined → запускаем scanFolder(folderId, false).
- */
 async function ensureFolderScanned(folder: Folder): Promise<void> {
   if (folder.scanStatus === 'scanned') return
   if (folder.scanStatus === 'scanning') return
   if (!folder.source) return
 
   try {
-    const plugin = await loadPlugin(folder.source)
+    const plugin = await loadPlugin(pluginIdFromSource(folder.source))
     if (!plugin.scanFolder) return
 
-    const context = createPluginContext(folder.source)
+    const context = createPluginContext(pluginIdFromSource(folder.source))
     await plugin.scanFolder(context, folder.id, { recursive: false })
   } catch (err) {
     console.warn(`[folder-route] scan failed for "${folder.path}"`, err)
@@ -98,7 +86,6 @@ watch(
 
     library.setCurrentFolder(folder.id)
 
-    // Если папка не обойдена — форсируем обход одной папки
     void ensureFolderScanned(folder)
   },
   { immediate: true },

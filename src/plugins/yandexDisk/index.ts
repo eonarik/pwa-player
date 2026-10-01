@@ -17,12 +17,12 @@ import { mapWithConcurrency } from './concurrency'
 import type { PersistedYandexFolder, PersistedYandexLibrary, PersistedYandexTrack } from './types'
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { authService } from '@/services/auth/AuthService'
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { downloadUrlToFile } from '@/services/download/downloadUrlToFile'
 import { scanDirectory } from '@/services/download/scanDirectory'
 import { getFileFromPath } from '@/services/download/getFileFromPath'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
 import type { LibraryWriter } from '../types'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 
 const YANDEX_CONCURRENCY = 5
 const ROOT_REMOTE_PATH = 'disk:/'
@@ -92,16 +92,11 @@ const yandexPlugin: LibrarySource = {
     }
     context.writer.setLibrary(collected, PLUGIN_ID)
 
-    // Запускаем фоновый обход, если есть неготовые папки
     void backgroundScan(context)
 
     return true
   },
 
-  /**
-   * Обойти папку.
-   * Возвращает true, если всё поддерево готово (все подпапки scanned).
-   */
   async scanFolder(
     context: PluginContext,
     folderId: string,
@@ -114,9 +109,6 @@ const yandexPlugin: LibrarySource = {
       return folder.ready ?? false
     }
 
-    // Обходим саму папку, если:
-    // - ещё не обходили, ИЛИ
-    // - removeMissing (для удаления пропавших)
     const needScan = folder.scanStatus !== 'scanned' || options.removeMissing === true
 
     if (needScan) {
@@ -131,7 +123,6 @@ const yandexPlugin: LibrarySource = {
       context.writer.updateFolder(folderId, { scanStatus: 'scanned' })
     }
 
-    // Если не recursive — выходим
     if (!options.recursive) {
       const updated = context.writer.getFolder(folderId)
       const isReady =
@@ -140,7 +131,6 @@ const yandexPlugin: LibrarySource = {
       return isReady
     }
 
-    // Рекурсия в подпапки
     const updated = context.writer.getFolder(folderId)
     if (!updated) return false
 
@@ -277,7 +267,7 @@ const yandexPlugin: LibrarySource = {
     relativePath: string,
     filename: string,
   ): Promise<LibraryTrack | null> {
-    const trackId = trackIdFromPath(`${PLUGIN_ID}:${relativePath}`)
+    const trackId = trackIdFromPath(PLUGIN_ID, relativePath)
     if (context.writer.getTrack(trackId)) return null
 
     const targetDir = await context.getDownloadDir()
@@ -325,7 +315,7 @@ const yandexPlugin: LibrarySource = {
 
 async function loadRoot(): Promise<CollectedLibrary> {
   const response = await yandexDiskService.listResources(ROOT_REMOTE_PATH)
-  const rootId = folderIdFromPath(`${PLUGIN_ID}:${ROOT_REMOTE_PATH}`)
+  const rootId = folderIdFromPath(PLUGIN_ID, '')
 
   const folders: Folder[] = []
   const tracks: LibraryTrack[] = []
@@ -334,12 +324,13 @@ async function loadRoot(): Promise<CollectedLibrary> {
 
   for (const item of response.items) {
     if (item.type === 'dir') {
-      const childId = folderIdFromPath(`${PLUGIN_ID}:${item.path}`)
+      const childPath = item.name
+      const childId = folderIdFromPath(PLUGIN_ID, childPath)
       folders.push({
         id: childId,
         name: item.name,
         parentId: rootId,
-        path: item.name,
+        path: childPath,
         remotePath: item.path,
         childFolderIds: [],
         trackIds: [],
@@ -351,9 +342,8 @@ async function loadRoot(): Promise<CollectedLibrary> {
       childFolderIds.push(childId)
     } else if (item.isAudio) {
       const trackPath = item.name
-      const trackId = trackIdFromPath(`${PLUGIN_ID}:${item.path}`)
-      const entry = metadataPersistenceService.get(trackId)
-      const cachedCover = entry?.coverUrl ?? undefined
+      const trackId = trackIdFromPath(PLUGIN_ID, trackPath)
+      const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
 
       tracks.push({
         id: trackId,
@@ -366,7 +356,7 @@ async function loadRoot(): Promise<CollectedLibrary> {
         title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
         artist: '',
         album: 'Yandex Disk',
-        coverUrl: cachedCover ?? undefined,
+        coverUrl: cachedCover,
       })
       trackIds.push(trackId)
     }
@@ -396,9 +386,6 @@ async function loadRoot(): Promise<CollectedLibrary> {
 
 // --- Обход одной папки -----------------------------------------------
 
-/**
- * Обходит одну папку (один уровень). НЕ трогает scanStatus / ready.
- */
 async function scanFolderImpl(
   context: PluginContext,
   folder: Folder,
@@ -419,11 +406,10 @@ async function scanFolderImpl(
       subDirs.push(item)
     } else if (item.isAudio) {
       const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
-      const trackId = trackIdFromPath(`${PLUGIN_ID}:${item.path}`)
+      const trackId = trackIdFromPath(PLUGIN_ID, trackPath)
 
       if (!context.writer.getTrack(trackId)) {
-        const entry = metadataPersistenceService.get(trackId)
-        const cachedCover = entry?.coverUrl ?? undefined
+        const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
         newTracks.push({
           id: trackId,
           pluginId: PLUGIN_ID,
@@ -435,17 +421,16 @@ async function scanFolderImpl(
           title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
           artist: '',
           album: folder.path || 'Yandex Disk',
-          coverUrl: cachedCover ?? undefined,
+          coverUrl: cachedCover,
         })
       }
       remoteTrackIds.push(trackId)
     }
   }
 
-  // Создаём подпапки
   for (const item of subDirs) {
-    const childId = folderIdFromPath(`${PLUGIN_ID}:${item.path}`)
     const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
+    const childId = folderIdFromPath(PLUGIN_ID, childPath)
 
     let childFolder = context.writer.getFolder(childId)
     if (!childFolder) {
@@ -470,7 +455,6 @@ async function scanFolderImpl(
   if (newTracks.length > 0) context.writer.addTracks(newTracks, PLUGIN_ID)
   if (newFolders.length > 0) context.writer.addFolders(newFolders, PLUGIN_ID)
 
-  // Сохраняем only-local треки — они не в ответе сервера
   const onlyLocalIds = folder.trackIds.filter((id) => {
     const t = context.writer.getTrack(id)
     return t?.origin === 'only-local'
@@ -479,7 +463,6 @@ async function scanFolderImpl(
   let finalTrackIds: string[]
 
   if (removeMissing) {
-    // Удаляем пропавшие (кроме only-local)
     const currentRemoteIds = folder.trackIds.filter((id) => {
       const t = context.writer.getTrack(id)
       return t && t.origin !== 'only-local'
@@ -490,11 +473,9 @@ async function scanFolderImpl(
     }
     finalTrackIds = [...remoteTrackIds, ...onlyLocalIds]
   } else {
-    // Добавляем только новые, не трогаем существующие
     const existing = new Set(folder.trackIds)
     const added = remoteTrackIds.filter((id) => !existing.has(id))
     finalTrackIds = [...folder.trackIds, ...added]
-    // убираем дубликаты
     finalTrackIds = Array.from(new Set(finalTrackIds))
   }
 
@@ -574,12 +555,11 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
       if (item.type === 'dir') {
         subDirs.push(item)
       } else if (item.isAudio) {
-        const trackId = trackIdFromPath(`${PLUGIN_ID}:${item.path}`)
         const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
+        const trackId = trackIdFromPath(PLUGIN_ID, trackPath)
 
         if (!context.writer.getTrack(trackId)) {
-          const entry = metadataPersistenceService.get(trackId)
-          const cachedCover = entry?.coverUrl ?? undefined
+          const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
           newTracks.push({
             id: trackId,
             pluginId: PLUGIN_ID,
@@ -591,7 +571,7 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
             title: item.name.replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, ''),
             artist: '',
             album: folder.path || 'Yandex Disk',
-            coverUrl: cachedCover ?? undefined,
+            coverUrl: cachedCover,
           })
         }
         newTrackIds.push(trackId)
@@ -607,8 +587,8 @@ async function refreshSubtree(context: PluginContext, rootFolder: Folder): Promi
     const newFolders: Folder[] = []
 
     for (const item of subDirs) {
-      const childId = folderIdFromPath(`${PLUGIN_ID}:${item.path}`)
       const childPath = folder.path ? `${folder.path}/${item.name}` : item.name
+      const childId = folderIdFromPath(PLUGIN_ID, childPath)
 
       let childFolder = context.writer.getFolder(childId)
       if (!childFolder) {
@@ -672,9 +652,6 @@ async function enrichWithLocalFiles(
     if (file) {
       track.source = file
     } else {
-      // Файла нет:
-      // - downloaded → откатываем в remote
-      // - only-local → помечаем как remote (потом удалится при скане)
       if (track.origin === 'downloaded') {
         track.origin = 'remote'
       } else if (track.origin === 'only-local') {
@@ -702,8 +679,6 @@ function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary {
 
   const tracks: PersistedYandexTrack[] = []
   for (const t of collected.tracks) {
-    // Сохраняем облачные и only-local.
-    // Треки без remotePath и без origin 'only-local' — пропускаем.
     const isOnlyLocal = t.origin === 'only-local'
     if (!t.remotePath && !isOnlyLocal) continue
 
@@ -743,18 +718,13 @@ function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary {
     trackIds: [...f.trackIds],
     totalTrackCount: f.totalTrackCount,
     source: PLUGIN_ID,
-    // Прерванный обход — сбрасываем в undefined
     scanStatus: f.scanStatus === 'scanning' ? undefined : f.scanStatus,
     ready: f.ready,
   }))
 
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
-    const entry = metadataPersistenceService.get(t.id)
-    const cachedCover = entry?.coverUrl ?? undefined
+    const cachedCover = metadataPersistenceService.get(t.id)?.coverUrl ?? undefined
     const isOnlyLocal = t.origin === 'only-local'
-
-    // Для only-local source пустой — подтянется в enrichWithLocalFiles.
-    // Для облачных — URL прокси.
     const source = t.remotePath ? yandexDiskService.buildDownloadUrl(t.remotePath) : ''
 
     return {
@@ -768,10 +738,9 @@ function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary {
       title: t.title,
       artist: t.artist,
       album: t.album,
-      coverUrl: cachedCover ?? undefined,
+      coverUrl: cachedCover,
       origin: t.origin,
       duration: t.duration,
-      // для only-local нужен только source из File
       ...(isOnlyLocal ? {} : {}),
     }
   })

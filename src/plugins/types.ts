@@ -2,6 +2,7 @@
 
 import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
 import type { Track } from '@/types/track'
+import type { PluginSettingsSchema } from './settingsTypes'
 
 /**
  * Манифест плагина. Живёт рядом с кодом плагина (manifest.ts).
@@ -27,6 +28,18 @@ export interface PluginManifest {
    * Возвращает LibrarySource (default export модуля).
    */
   readonly entry: () => Promise<{ default: LibrarySource }>
+
+  /**
+   * Схема настроек плагина. SettingsView рендерит её декларативно.
+   * Если не задана — плагин не появляется в секции «Плагины».
+   */
+  readonly getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>
+
+  /**
+   * Выполнить действие из схемы настроек.
+   * payload — опциональные данные (например, { name: 'Music' } для пересканирования).
+   */
+  readonly runSettingsAction?: (actionId: string, payload?: unknown) => void | Promise<void>
 }
 
 /**

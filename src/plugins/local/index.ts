@@ -1,21 +1,28 @@
 // src/plugins/local/index.ts
 
-import type { LibrarySource, LoadOptions, PluginContext } from '../types'
+import type { LibrarySource, LoadOptions, PluginContext, ScanFolderOptions } from '../types'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { fileSystemService } from './FileSystemService'
 import { localPersistenceService } from './persistence'
 import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack } from './types'
-import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
+import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
+import { folderIdFromPath } from '@/services/library/id'
 
 const PLUGIN_ID = 'local'
 
+/** Собирает идентификатор root для конкретного handle */
+function rootIdFromHandle(handle: FileSystemDirectoryHandle): string {
+  return `${PLUGIN_ID}:${handle.name}`
+}
+
 /**
- * Плагин локальной папки.
+ * Плагин локальных папок.
  *
- * Работает через File System Access API. handle сохраняется в IDB,
- * чтобы при следующем запуске можно было восстановить библиотеку
- * без повторного выбора папки.
+ * Работает через File System Access API. handles сохраняются в IDB.
+ * Папок может быть несколько — каждая становится отдельным root-источником
+ * (`local:Music`, `local:Podcasts`), объединённых искусственным контейнером
+ * `local` с parentId = null.
  */
 const localPlugin: LibrarySource = {
   id: PLUGIN_ID,
@@ -29,28 +36,25 @@ const localPlugin: LibrarySource = {
   // --- Подключение ----------------------------------------------------
 
   async connect(_context: PluginContext): Promise<void> {
-    const handle = await fileSystemService.pickDirectory()
-    if (!handle) {
-      throw new Error('cancelled')
+    if (!fileSystemService.supported) {
+      throw new Error(
+        'File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.',
+      )
     }
   },
 
   // --- Загрузка -------------------------------------------------------
 
   async load(context: PluginContext, _options?: LoadOptions): Promise<void> {
-    const handle = await fileSystemService.restoreHandle()
-    if (!handle) {
-      throw new Error('[local-plugin] no saved directory handle')
+    const handles = await fileSystemService.getHandles()
+    if (handles.length === 0) {
+      throw new Error('[local-plugin] no saved directory handles')
     }
 
-    const granted = await fileSystemService.verifyPermission(handle, 'read')
-    if (!granted) {
-      throw new Error('[local-plugin] permission denied')
-    }
+    const collected = await collectAll(handles)
+    if (!collected) return
 
-    const collected = await fileSystemService.collectLibrary(handle)
     context.writer.setLibrary(collected, PLUGIN_ID)
-
     await localPersistenceService.save(toPersisted(collected))
   },
 
@@ -58,9 +62,7 @@ const localPlugin: LibrarySource = {
 
   async restoreFromCache(context: PluginContext): Promise<boolean> {
     const persisted = await localPersistenceService.load()
-    if (!persisted || persisted.folders.length === 0) {
-      return false
-    }
+    if (!persisted || persisted.folders.length === 0) return false
 
     const newFolders: Record<string, Folder> = {}
     for (const f of persisted.folders) {
@@ -73,7 +75,7 @@ const localPlugin: LibrarySource = {
         childFolderIds: [...f.childFolderIds],
         trackIds: [...f.trackIds],
         totalTrackCount: f.totalTrackCount,
-        source: PLUGIN_ID,
+        source: f.source ?? PLUGIN_ID,
         scanStatus: 'scanned',
         ready: true,
       }
@@ -88,8 +90,8 @@ const localPlugin: LibrarySource = {
           if (!t.handle) throw new Error('no handle')
           const file = await t.handle.getFile()
           const folder = newFolders[t.folderId]
-          const entry = metadataPersistenceService.get(t.id)
-          const cachedCover = entry?.coverUrl ?? undefined
+          const cachedEntry = metadataPersistenceService.get(t.id)
+          const cachedCover = cachedEntry?.coverUrl ?? undefined
 
           newTracks[t.id] = {
             id: t.id,
@@ -108,7 +110,7 @@ const localPlugin: LibrarySource = {
             handle: t.handle,
             directoryHandle: folder?.handle,
             source: file,
-            coverUrl: cachedCover ?? undefined,
+            coverUrl: cachedCover,
           }
         } catch (err) {
           console.warn(`[local-plugin] can't restore file for "${t.title}"`, err)
@@ -142,6 +144,19 @@ const localPlugin: LibrarySource = {
     return true
   },
 
+  // --- scanFolder -----------------------------------------------------
+
+  /**
+   * У локального плагина нет ленивого сканирования — всё сканируется сразу.
+   */
+  async scanFolder(
+    _context: PluginContext,
+    _folderId: string,
+    _options: ScanFolderOptions,
+  ): Promise<boolean> {
+    return true
+  },
+
   // --- Стриминг -------------------------------------------------------
 
   buildStreamUrl(track: LibraryTrack): string {
@@ -158,9 +173,70 @@ const localPlugin: LibrarySource = {
   async disconnect(context: PluginContext): Promise<void> {
     context.writer.removeBySource(PLUGIN_ID)
     await localPersistenceService.clear()
-    await fileSystemService.clearHandle()
+    await fileSystemService.clearHandles()
     await context.storage.clear()
   },
+}
+
+// --- Сборка полной библиотеки из всех handles ------------------------
+
+async function collectAll(handles: FileSystemDirectoryHandle[]): Promise<CollectedLibrary | null> {
+  const containerId = folderIdFromPath(PLUGIN_ID, '')
+  const container: Folder = {
+    id: containerId,
+    name: 'Локальная папка',
+    parentId: null,
+    path: '',
+    childFolderIds: [],
+    trackIds: [],
+    totalTrackCount: 0,
+    source: PLUGIN_ID,
+    scanStatus: 'scanned',
+    ready: true,
+  }
+
+  const allFolders: Folder[] = [container]
+  const allTracks: LibraryTrack[] = []
+  let successCount = 0
+
+  for (const handle of handles) {
+    const granted = await fileSystemService.verifyPermission(handle, 'read')
+    if (!granted) {
+      console.warn(`[local-plugin] permission denied for "${handle.name}"`)
+      continue
+    }
+
+    const rootId = rootIdFromHandle(handle)
+
+    try {
+      const collected = await fileSystemService.collectLibrary(handle, rootId)
+
+      for (const folder of collected.folders) {
+        if (folder.parentId === null) {
+          folder.parentId = containerId
+          container.childFolderIds.push(folder.id)
+        }
+      }
+
+      allFolders.push(...collected.folders)
+      allTracks.push(...collected.tracks)
+      container.totalTrackCount += collected.tracks.length
+      successCount++
+    } catch (err) {
+      console.error(`[local-plugin] failed to scan "${handle.name}"`, err)
+    }
+  }
+
+  if (successCount === 0) {
+    return null
+  }
+
+  return {
+    folders: allFolders,
+    tracks: allTracks,
+    rootFolderId: containerId,
+    rootFolderName: 'Локальная папка',
+  }
 }
 
 // --- Вспомогательные ---------------------------------------------------
@@ -168,7 +244,6 @@ const localPlugin: LibrarySource = {
 function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
   const folders: PersistedLocalFolder[] = []
   for (const folder of collected.folders) {
-    if (!folder.handle) continue
     folders.push({
       id: folder.id,
       name: folder.name,
@@ -178,6 +253,7 @@ function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
       childFolderIds: [...folder.childFolderIds],
       trackIds: [...folder.trackIds],
       totalTrackCount: folder.totalTrackCount,
+      source: folder.source ?? PLUGIN_ID,
     })
   }
 
@@ -230,9 +306,16 @@ async function restoreCoversFromFolders(
         if (!coverFile) continue
 
         const coverUrl = URL.createObjectURL(coverFile)
+        let assigned = false
         for (const trackId of folder.trackIds) {
           const track = tracks[trackId]
-          if (track && !track.coverUrl) track.coverUrl = coverUrl
+          if (track && !track.coverUrl) {
+            track.coverUrl = coverUrl
+            assigned = true
+          }
+        }
+        if (!assigned) {
+          URL.revokeObjectURL(coverUrl)
         }
       } catch (err) {
         console.warn(`[local-plugin] can't restore cover for folder "${folder.name}"`, err)

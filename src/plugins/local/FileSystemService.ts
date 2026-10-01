@@ -3,12 +3,12 @@
 import { get, set, del } from 'idb-keyval'
 import type { FileEntry, PermissionMode } from './fsTypes'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
-import { folderIdFromPath, trackIdFromPath, ROOT_FOLDER_ID } from '@/services/library/id'
+import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
 import { compareStrings } from '@/utils/sort'
 import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 
-const HANDLE_KEY = 'player:directoryHandle'
+const HANDLES_KEY = 'player:directoryHandles'
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus', '.wma'])
 
@@ -26,7 +26,25 @@ export class FileSystemService {
     return 'showDirectoryPicker' in window
   }
 
-  // --- Выбор папки ------------------------------------------------------
+  // --- Хэндлы ----------------------------------------------------------
+
+  async getHandles(): Promise<FileSystemDirectoryHandle[]> {
+    try {
+      const handles = await get<FileSystemDirectoryHandle[]>(HANDLES_KEY)
+      return handles ?? []
+    } catch (err) {
+      console.error('[local-plugin] failed to get handles', err)
+      return []
+    }
+  }
+
+  async saveHandles(handles: FileSystemDirectoryHandle[]): Promise<void> {
+    try {
+      await set(HANDLES_KEY, handles)
+    } catch (err) {
+      console.error('[local-plugin] failed to save handles', err)
+    }
+  }
 
   async pickDirectory(): Promise<FileSystemDirectoryHandle | null> {
     if (!this.supported) {
@@ -37,7 +55,6 @@ export class FileSystemService {
 
     try {
       const handle = await window.showDirectoryPicker({ mode: 'read' })
-      await this.saveHandle(handle)
       return handle
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -47,28 +64,25 @@ export class FileSystemService {
     }
   }
 
-  // --- Сохранение и восстановление хэндла -------------------------------
-
-  async saveHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-    try {
-      await set(HANDLE_KEY, handle)
-    } catch (err) {
-      console.error('[local-plugin] failed to save handle', err)
+  async addHandle(handle: FileSystemDirectoryHandle): Promise<boolean> {
+    const handles = await this.getHandles()
+    const existing = handles.findIndex((h) => h.name === handle.name)
+    if (existing !== -1) {
+      return false // уже есть
     }
+    handles.push(handle)
+    await this.saveHandles(handles)
+    return true
   }
 
-  async restoreHandle(): Promise<FileSystemDirectoryHandle | null> {
-    try {
-      const handle = await get<FileSystemDirectoryHandle>(HANDLE_KEY)
-      return handle ?? null
-    } catch (err) {
-      console.error('[local-plugin] failed to restore handle', err)
-      return null
-    }
+  async removeHandle(name: string): Promise<void> {
+    const handles = await this.getHandles()
+    const filtered = handles.filter((h) => h.name !== name)
+    await this.saveHandles(filtered)
   }
 
-  async clearHandle(): Promise<void> {
-    await del(HANDLE_KEY)
+  async clearHandles(): Promise<void> {
+    await del(HANDLES_KEY)
   }
 
   // --- Права доступа ----------------------------------------------------
@@ -97,9 +111,12 @@ export class FileSystemService {
   /**
    * Рекурсивно обходит папку и возвращает нормализованную библиотеку:
    * плоские массивы folders и tracks со связями через id.
+   *
+   * rootId — уникальный идентификатор корня (например, 'local:Music').
    */
   async collectLibrary(
     rootHandle: FileSystemDirectoryHandle,
+    rootId: string,
     onProgress?: (folders: number, tracks: number) => void,
   ): Promise<CollectedLibrary> {
     const folders: Folder[] = []
@@ -110,7 +127,7 @@ export class FileSystemService {
       parentId: string | null,
       path: string,
     ): Promise<Folder> => {
-      const id = path === '' ? ROOT_FOLDER_ID : folderIdFromPath(path)
+      const id = folderIdFromPath(rootId, path)
 
       const fileEntries: FileSystemFileHandle[] = []
       const dirEntries: { handle: FileSystemDirectoryHandle; name: string }[] = []
@@ -134,7 +151,7 @@ export class FileSystemService {
         fileEntries.map(async (fileHandle): Promise<LibraryTrack> => {
           const file = await fileHandle.getFile()
           const trackPath = path ? `${path}/${file.name}` : file.name
-          const trackId = trackIdFromPath(trackPath)
+          const trackId = trackIdFromPath(rootId, trackPath)
 
           const metadata = await parseTrackMetadata(file, {
             folderName: path.split('/').pop() || undefined,
@@ -144,7 +161,7 @@ export class FileSystemService {
 
           return {
             id: trackId,
-            pluginId: 'local',
+            pluginId: rootId,
             folderId: id,
             filename: file.name,
             path: trackPath,
@@ -177,7 +194,9 @@ export class FileSystemService {
         childFolderIds: childFolders.map((f) => f.id),
         trackIds,
         totalTrackCount: trackIds.length + childTotal,
-        source: 'local',
+        source: rootId,
+        scanStatus: 'scanned',
+        ready: true,
       }
       folders.push(folder)
 
@@ -244,7 +263,7 @@ export class FileSystemService {
   }
 
   async forgetDirectory(): Promise<void> {
-    await this.clearHandle()
+    await this.clearHandles()
   }
 }
 

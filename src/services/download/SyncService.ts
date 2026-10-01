@@ -1,7 +1,7 @@
 // src/services/download/SyncService.ts
 
 import { ref, shallowRef } from 'vue'
-import { getPlugins, loadPlugin } from '@/plugins/registry'
+import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { createLibraryWriter } from '@/stores/library'
 import { downloadOrchestrator } from './DownloadOrchestrator'
@@ -41,7 +41,7 @@ class SyncService {
           const pluginFolders = writer.getFoldersBySource(manifest.id)
           if (pluginFolders.length === 0) continue
 
-          const plugin = await loadPlugin(manifest.id)
+          const plugin = await loadPlugin(pluginIdFromSource(manifest.id))
           if (!plugin.canDownload || !plugin.scanDownloadDir) continue
 
           const targetDir = await downloadSpaceService.getPluginDir(manifest.id)

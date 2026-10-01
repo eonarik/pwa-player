@@ -3,16 +3,20 @@
 /**
  * Сохранённая папка локальной библиотеки.
  * handle сериализуется браузером в IDB нативно.
+ * Для искусственного контейнера (source = 'local', parentId = null)
+ * handle отсутствует.
  */
 export interface PersistedLocalFolder {
   id: string
   name: string
   parentId: string | null
   path: string
-  handle: FileSystemDirectoryHandle
+  handle?: FileSystemDirectoryHandle
   childFolderIds: string[]
   trackIds: string[]
   totalTrackCount: number
+  /** source root: 'local' (контейнер) или 'local:Music' (папка) */
+  source?: string
 }
 
 /**

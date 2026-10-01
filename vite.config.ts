@@ -2,11 +2,12 @@
 
 import { defineConfig } from 'vite'
 import vueJsx from '@vitejs/plugin-vue-jsx'
-// import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
 
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
+
+import pkg from './package.json'
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,10 +15,13 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_HASH__: JSON.stringify(process.env.GIT_HASH ?? 'dev'),
+  },
   plugins: [
     vue(),
     vueJsx(),
-    // vueDevTools(),
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
@@ -55,7 +59,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Не кэшируем blob: URL и File System Access API — они не сетевые
       },
     }),
   ],

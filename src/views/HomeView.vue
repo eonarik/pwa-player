@@ -4,7 +4,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
-import { getPlugins, loadPlugin } from '@/plugins/registry'
+import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import type { PluginManifest } from '@/plugins/types'
@@ -24,7 +24,9 @@ const isLoading = ref<string | null>(null)
 const plugins = computed(() => {
   return pluginMetas.value.map((meta) => ({
     ...meta,
-    hasData: Object.values(library.folders).some((f) => f.source === meta.manifest.id),
+    hasData: Object.values(library.folders).some(
+      (f) => f.source !== undefined && pluginIdFromSource(f.source) === meta.manifest.id,
+    ),
   }))
 })
 

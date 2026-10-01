@@ -7,6 +7,9 @@ import type { Buffer as BufferType } from 'buffer'
 import type processType from 'process'
 
 declare global {
+  const __APP_VERSION__: string
+  const __BUILD_HASH__: string
+
   interface Window {
     /** Полифил для music-metadata-browser */
     global: typeof globalThis

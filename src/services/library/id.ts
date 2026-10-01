@@ -1,20 +1,22 @@
 // src/services/library/id.ts
 
 /**
- * ID папки на основе пути.
- * Путь уникален в пределах корня — значит, id стабилен между сканированиями.
+ * ID папки: rootId + путь внутри него.
+ * rootId — уникальный идентификатор источника:
+ * - 'local' — контейнер локальных папок
+ * - 'local:Music' — конкретная локальная папка
+ * - 'yandex' — Яндекс.Диск
  */
-export function folderIdFromPath(path: string): string {
-  return `folder:${path}`
+export function folderIdFromPath(rootId: string, path: string): string {
+  return `folder:${rootId}:${path || '__root__'}`
 }
 
 /**
- * ID трека на основе пути.
- * Стабилен между сканированиями, позволяет мёржить.
+ * ID трека: rootId + путь.
  */
-export function trackIdFromPath(path: string): string {
-  return `track:${path}`
+export function trackIdFromPath(rootId: string, path: string): string {
+  return `track:${rootId}:${path}`
 }
 
-/** ID корневой папки. Отдельная константа, чтобы не совпадать с folderIdFromPath('') */
+/** ID корневой папки. Оставлено для обратной совместимости. */
 export const ROOT_FOLDER_ID = 'folder:__root__'

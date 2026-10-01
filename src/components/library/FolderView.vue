@@ -5,7 +5,7 @@ import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
-import { loadPlugin } from '@/plugins/registry'
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
@@ -102,7 +102,7 @@ watch(
       return
     }
     try {
-      const plugin = await loadPlugin(sourceId)
+      const plugin = await loadPlugin(pluginIdFromSource(sourceId))
       canRefresh.value = typeof plugin.scanFolder === 'function'
       canRefreshFromDevice.value =
         plugin.canDownload === true && typeof plugin.scanDownloadDir === 'function'
@@ -122,11 +122,11 @@ async function refreshFromCloud() {
   if (!folder || !folder.source) return
 
   try {
-    const plugin = await loadPlugin(folder.source)
+    const plugin = await loadPlugin(pluginIdFromSource(folder.source))
     if (!plugin.scanFolder) return
 
     isRefreshing.value = true
-    const context = createPluginContext(folder.source)
+    const context = createPluginContext(pluginIdFromSource(folder.source))
     await plugin.scanFolder(context, folder.id, { recursive: true, removeMissing: true })
     toastService.success('Обновлено с облака')
   } catch (err) {

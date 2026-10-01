@@ -2,30 +2,17 @@
 
 import type { LibrarySource, PluginManifest } from './types'
 
-// --- Автоматический поиск манифестов ---------------------------------
-
-/**
- * Vite на этапе сборки находит все manifest.ts в подпапках plugins/
- * и создаёт карту ленивых импортов.
- *
- * eager: true — манифесты загружаются синхронно (это маленькие объекты).
- * Код плагинов (entry) загружается лениво, при вызове loadPlugin().
- */
 const manifestModules = import.meta.glob<{ manifest: PluginManifest }>('./*/manifest.ts', {
   eager: true,
 })
 
-// --- Реестр ----------------------------------------------------------
-
 interface RegisteredPlugin {
   manifest: PluginManifest
-  /** Кэш загруженного модуля — чтобы не грузить повторно */
   loaded: LibrarySource | null
 }
 
 const registry = new Map<string, RegisteredPlugin>()
 
-// Заполняем реестр при импорте модуля
 for (const [path, mod] of Object.entries(manifestModules)) {
   const manifest = mod.manifest
 
@@ -47,27 +34,14 @@ for (const [path, mod] of Object.entries(manifestModules)) {
   registry.set(manifest.id, { manifest, loaded: null })
 }
 
-// --- Публичный API ---------------------------------------------------
-
-/**
- * Список зарегистрированных плагинов (манифесты).
- * Порядок — как их вернул import.meta.glob (по алфавиту пути).
- */
 export function getPlugins(): PluginManifest[] {
   return Array.from(registry.values()).map((p) => p.manifest)
 }
 
-/**
- * Есть ли плагин с таким id.
- */
 export function hasPlugin(id: string): boolean {
   return registry.has(id)
 }
 
-/**
- * Загрузить плагин по id. Возвращает LibrarySource.
- * Кэширует результат — повторный вызов не грузит модуль заново.
- */
 export async function loadPlugin(id: string): Promise<LibrarySource> {
   const entry = registry.get(id)
   if (!entry) {
@@ -83,11 +57,6 @@ export async function loadPlugin(id: string): Promise<LibrarySource> {
   return mod.default
 }
 
-/**
- * Сбросить кэш загруженного плагина.
- * Полезно при disconnect — чтобы при повторном подключении
- * плагин инициализировался заново.
- */
 export function resetPlugin(id: string): void {
   const entry = registry.get(id)
   if (entry) {
@@ -95,7 +64,13 @@ export function resetPlugin(id: string): void {
   }
 }
 
-// --- Дебаг -----------------------------------------------------------
+/**
+ * Возвращает id плагина из source.
+ */
+export function pluginIdFromSource(source: string): string {
+  const colon = source.indexOf(':')
+  return colon === -1 ? source : source.slice(0, colon)
+}
 
 if (import.meta.env.DEV) {
   const ids = getPlugins().map((p) => `${p.icon} ${p.id}`)

@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
+import type { Folder } from '@/types/library'
 
 const router = useRouter()
 const library = useLibraryStore()
@@ -17,7 +18,7 @@ const isPluginRoot = computed(() => {
 })
 
 function goUp() {
-  if (!currentFolder.value || !pluginId.value) {
+  if (!currentFolder.value) {
     router.push({ name: 'home' })
     return
   }
@@ -39,19 +40,24 @@ function goUp() {
     return
   }
 
+  if (!parent.source) {
+    router.push({ name: 'home' })
+    return
+  }
+
   const segments = parent.path.split('/').filter(Boolean)
   router.push({
     name: 'folder',
-    params: { pluginId: pluginId.value, path: segments },
+    params: { pluginId: parent.source, path: segments },
   })
 }
 
-function goToFolder(folderPath: string) {
-  if (!pluginId.value) return
-  const segments = folderPath.split('/').filter(Boolean)
+function goToFolder(crumb: Folder) {
+  if (!crumb.source) return
+  const segments = crumb.path.split('/').filter(Boolean)
   router.push({
     name: 'folder',
-    params: { pluginId: pluginId.value, path: segments },
+    params: { pluginId: crumb.source, path: segments },
   })
 }
 </script>
@@ -69,7 +75,7 @@ function goToFolder(folderPath: string) {
     <template v-for="(crumb, i) in breadcrumbs" :key="crumb.id">
       <button type="button" class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
         :class="i === breadcrumbs.length - 1 ? 'font-medium text-fg' : 'text-fg-muted'"
-        :title="crumb.path || crumb.name" @click="goToFolder(crumb.path)">
+        :title="crumb.path || crumb.name" @click="goToFolder(crumb)">
         {{ crumb.name }}
       </button>
 

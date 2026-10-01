@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
-import { loadPlugin } from '@/plugins/registry'
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import ListRow from '@/components/ui/ListRow.vue'
@@ -46,9 +46,9 @@ async function openFolder(folder: Folder) {
 
   if (needsScan(folder) && folder.source) {
     try {
-      const plugin = await loadPlugin(folder.source)
+      const plugin = await loadPlugin(pluginIdFromSource(folder.source))
       if (plugin.scanFolder) {
-        const context = createPluginContext(folder.source)
+        const context = createPluginContext(pluginIdFromSource(folder.source))
         await plugin.scanFolder(context, folder.id, { recursive: false })
       }
     } catch (err) {
@@ -147,12 +147,12 @@ function onArrowClick(folder: Folder, e: Event) {
                     ? 'bg-active/15 text-active hover:bg-active/25'
                     : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
             ]" :disabled="isScanning(folder) || isEmpty(folder)" :aria-label="isScanning(folder)
-                ? `Сканирование ${folder.name}`
-                : folderPlayState(folder) === 'playing'
-                  ? 'Пауза'
-                  : folderPlayState(folder) === 'paused'
-                    ? 'Продолжить'
-                    : `Играть папку ${folder.name}`
+              ? `Сканирование ${folder.name}`
+              : folderPlayState(folder) === 'playing'
+                ? 'Пауза'
+                : folderPlayState(folder) === 'paused'
+                  ? 'Продолжить'
+                  : `Играть папку ${folder.name}`
               " @click="toggleFolderPlayback(folder, $event)">
             <template v-if="isScanning(folder)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5 animate-spin">
@@ -171,10 +171,10 @@ function onArrowClick(folder: Folder, e: Event) {
           </button>
 
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
-              ? 'bg-card-bg text-fg-muted'
-              : folderPlayState(folder) !== 'idle'
-                ? 'bg-active/15 text-active'
-                : 'bg-card-bg text-fg-muted'
+            ? 'bg-card-bg text-fg-muted'
+            : folderPlayState(folder) !== 'idle'
+              ? 'bg-active/15 text-active'
+              : 'bg-card-bg text-fg-muted'
             ">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="h-5 w-5">
               <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />

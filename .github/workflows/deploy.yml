@@ -25,6 +25,8 @@ jobs:
 
       - name: Build frontend
         run: yarn build
+        env:
+          GIT_HASH: ${{ github.sha }}
 
       - name: Copy dist to server
         uses: appleboy/scp-action@v0.1.7
