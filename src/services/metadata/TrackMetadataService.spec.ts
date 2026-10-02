@@ -2,7 +2,7 @@
 // src/services/metadata/TrackMetadataService.spec.ts
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { trackMetadataService, type RemoteTrackMetadata } from './TrackMetadataService'
+import { trackMetadataService } from './TrackMetadataService'
 
 const fetchMock = vi.fn()
 
@@ -17,7 +17,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch
 })
 
-function mockResponse(data: RemoteTrackMetadata | null, ok = true, status = 200) {
+function mockResponse(data: unknown, ok = true, status = 200) {
   return {
     ok,
     status,
@@ -26,13 +26,13 @@ function mockResponse(data: RemoteTrackMetadata | null, ok = true, status = 200)
 }
 
 describe('TrackMetadataService', () => {
-  it('возвращает null при пустом title', async () => {
+  it('not-found при пустом title', async () => {
     const result = await trackMetadataService.fetch('', '', 0.5)
-    expect(result).toBeNull()
+    expect(result.status).toBe('not-found')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('делает запрос с artist, title, threshold', async () => {
+  it('found с полными данными', async () => {
     fetchMock.mockResolvedValueOnce(
       mockResponse({
         artist: 'Radiohead',
@@ -47,8 +47,16 @@ describe('TrackMetadataService', () => {
 
     const result = await trackMetadataService.fetch('Radiohead', 'Karma Police', 0.5)
 
-    expect(result).not.toBeNull()
+    expect(result.status).toBe('found')
+    if (result.status !== 'found') throw new Error('expected found')
+
+    expect(result.data.similarity).toBe(1)
     expect(fetchMock).toHaveBeenCalledOnce()
+
+    const calledUrl = fetchMock.mock.calls[0]![0] as string
+    expect(calledUrl).toContain('title=Karma+Police')
+    expect(calledUrl).toContain('artist=Radiohead')
+    expect(calledUrl).toContain('threshold=0.5')
   })
 
   it('не передаёт artist, если он пустой', async () => {
@@ -61,29 +69,46 @@ describe('TrackMetadataService', () => {
     expect(calledUrl).toContain('threshold=0.85')
   })
 
-  it('возвращает null при ошибке сети', async () => {
+  it('error при сетевой ошибке', async () => {
     fetchMock.mockRejectedValueOnce(new Error('network'))
 
     const result = await trackMetadataService.fetch('A', 'T', 0.5)
-    expect(result).toBeNull()
+    expect(result.status).toBe('error')
+    if (result.status !== 'error') throw new Error('expected error')
+    expect(result.message).toContain('network')
   })
 
-  it('возвращает null при !res.ok', async () => {
+  it('error при 5xx', async () => {
     fetchMock.mockResolvedValueOnce(mockResponse(null, false, 500))
 
     const result = await trackMetadataService.fetch('A', 'T', 0.5)
-    expect(result).toBeNull()
+    expect(result.status).toBe('error')
+    if (result.status !== 'error') throw new Error('expected error')
+    expect(result.message).toBe('HTTP 500')
   })
 
-  it('возвращает null при AbortError', async () => {
-    const abortError = new DOMException('Aborted', 'AbortError')
-    fetchMock.mockRejectedValueOnce(abortError)
+  it('not-found при 4xx', async () => {
+    fetchMock.mockResolvedValueOnce(mockResponse(null, false, 404))
 
     const result = await trackMetadataService.fetch('A', 'T', 0.5)
-    expect(result).toBeNull()
+    expect(result.status).toBe('not-found')
   })
 
-  it('возвращает candidates, если есть', async () => {
+  it('aborted при AbortError', async () => {
+    fetchMock.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+
+    const result = await trackMetadataService.fetch('A', 'T', 0.5)
+    expect(result.status).toBe('aborted')
+  })
+
+  it('not-found, если сервер вернул null', async () => {
+    fetchMock.mockResolvedValueOnce(mockResponse(null))
+
+    const result = await trackMetadataService.fetch('A', 'T', 0.5)
+    expect(result.status).toBe('not-found')
+  })
+
+  it('found с candidates', async () => {
     fetchMock.mockResolvedValueOnce(
       mockResponse({
         artist: 'A',
@@ -115,7 +140,10 @@ describe('TrackMetadataService', () => {
     )
 
     const result = await trackMetadataService.fetch('A', 'T', 0.5)
-    expect(result!.candidates).toHaveLength(2)
-    expect(result!.confident).toBe(false)
+    expect(result.status).toBe('found')
+    if (result.status !== 'found') throw new Error('expected found')
+
+    expect(result.data.candidates).toHaveLength(2)
+    expect(result.data.confident).toBe(false)
   })
 })

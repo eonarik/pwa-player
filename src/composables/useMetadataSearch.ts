@@ -2,17 +2,13 @@
 
 import { computed, ref, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import {
-  trackMetadataService,
-  type MetadataCandidate,
-} from '@/services/metadata/TrackMetadataService'
-import {
-  metadataPersistenceService,
-  type OriginalMetadata,
-} from '@/services/persistence/MetadataPersistenceService'
-import { useLibraryStore } from '@/stores/library'
+import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
+import { metadataApplier } from '@/services/metadata/MetadataApplier'
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
+import { useLibraryStore } from '@/stores/library'
 import type { LibraryTrack } from '@/types/library'
+import type { MetadataCandidate } from '@/services/metadata/TrackMetadataService'
 
 const CONCURRENCY = 3
 const FLUSH_INTERVAL = 10
@@ -21,18 +17,6 @@ const UNKNOWN_ARTIST_PLACEHOLDER = 'Yandex Disk'
 export interface MetadataIssue {
   track: LibraryTrack
   candidates: MetadataCandidate[]
-}
-
-function buildOriginal(track: LibraryTrack): OriginalMetadata {
-  const coverUrl = track.coverUrl
-  const isBlob = coverUrl?.startsWith('blob:') ?? false
-  return {
-    artist: track.artist ?? '',
-    title: track.title,
-    album: track.album ?? '',
-    coverUrl,
-    coverUrlWasBlob: isBlob,
-  }
 }
 
 export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
@@ -114,7 +98,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
           if (signal.aborted) return
           const track = toFetch[cursor++]!
 
-          const incoming = await trackMetadataService.fetch(
+          const result = await trackMetadataService.fetch(
             track.artist ?? '',
             track.title,
             threshold,
@@ -123,7 +107,16 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
 
           if (signal.aborted) return
 
-          if (!incoming) {
+          if (result.status === 'aborted') {
+            return
+          }
+
+          if (result.status === 'error') {
+            progress.value = { done: progress.value.done + 1, total: toFetch.length }
+            continue
+          }
+
+          if (result.status === 'not-found') {
             metadataPersistenceService.setInMemory(track.id, {
               artist: null,
               title: null,
@@ -143,30 +136,13 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
             continue
           }
 
-          metadataPersistenceService.setInMemory(track.id, {
-            artist: incoming.artist,
-            title: incoming.title,
-            album: incoming.album,
-            coverUrl: incoming.coverUrl,
-            similarity: incoming.similarity,
-            original: buildOriginal(track),
-          })
+          // Found — общий сервис решает, применить или в issues
+          const applyResult = metadataApplier.apply(track, result.data)
 
-          if (incoming.confident) {
-            applyMetadata(track, incoming)
-          } else {
+          if (applyResult.status === 'issue') {
             foundIssues.push({
               track,
-              candidates: incoming.candidates ?? [
-                {
-                  artist: incoming.artist,
-                  title: incoming.title,
-                  album: incoming.album,
-                  coverUrl: incoming.coverUrl,
-                  source: incoming.source,
-                  similarity: incoming.similarity,
-                },
-              ],
+              candidates: applyResult.candidates,
             })
           }
 
@@ -192,32 +168,6 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
       isLoading.value = false
       progress.value = { done: 0, total: 0 }
       abortController.value = null
-    }
-  }
-
-  function applyMetadata(
-    track: LibraryTrack,
-    incoming: { artist: string; title: string; album: string; coverUrl: string | null },
-  ): void {
-    const patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>> = {}
-
-    const artist = track.artist?.trim() ?? ''
-
-    if (!artist || artist === UNKNOWN_ARTIST_PLACEHOLDER) {
-      if (incoming.artist) patch.artist = incoming.artist
-    }
-    if (incoming.title) {
-      patch.title = incoming.title
-    }
-    if (incoming.album) {
-      patch.album = incoming.album
-    }
-    if (!track.coverUrl && incoming.coverUrl) {
-      patch.coverUrl = incoming.coverUrl
-    }
-
-    if (Object.keys(patch).length > 0) {
-      library.updateTrackMetadata(track.id, patch)
     }
   }
 

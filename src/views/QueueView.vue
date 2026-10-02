@@ -3,8 +3,8 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
+import { pluralize } from '@/utils/pluralize'
 import QueueTrackRow from '@/components/queue/QueueTrackRow.vue'
-import ShowSourceCheckbox from "@/components/ui/ShowSourceCheckbox.vue"
 
 const player = usePlayerStore()
 const { queue, currentIndex, currentTrack, isPlaying } = storeToRefs(player)
@@ -34,22 +34,18 @@ function clearQueue() {
         <h1 class="text-lg font-medium text-fg">Очередь</h1>
         <p class="text-xs text-fg-muted">
           <template v-if="hasQueue">
-            {{ queue.length }} треков
+            {{ pluralize(queue.length, ['трек', 'трека', 'треков']) }}
             <template v-if="currentTrack"> · играет {{ currentIndex + 1 }}-й</template>
           </template>
           <template v-else>пусто</template>
         </p>
       </div>
 
-      <div class="flex gap-2">
-        <ShowSourceCheckbox />
-
-        <button v-if="hasQueue" type="button"
-          class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
-          @click="clearQueue">
-          Очистить
-        </button>
-      </div>
+      <button v-if="hasQueue" type="button"
+        class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
+        @click="clearQueue">
+        Очистить
+      </button>
     </div>
 
     <!-- Пусто -->

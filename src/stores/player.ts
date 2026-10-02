@@ -7,8 +7,8 @@ import { persistenceService } from '@/services/persistence/PersistenceService'
 import { restoreTracks } from '@/services/persistence/restore'
 import type { Track } from '@/types/track'
 import { useHistoryStore } from './history'
-import { createLibraryWriter } from './library'
 import { useDislikesStore } from './dislikes'
+import { createLibraryWriter, useLibraryStore } from './library'
 
 export const usePlayerStore = defineStore('player', () => {
   // --- Состояние ------------------------------------------------------
@@ -51,6 +51,11 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  /** Синхронизирует currentTime из audioService прямо сейчас. */
+  function syncCurrentTime(): void {
+    currentTime.value = Math.round(audioService.currentTime * 10) / 10
+  }
+
   // --- Подписка на события сервиса ------------------------------------
 
   const unsubscribers: Array<() => void> = []
@@ -64,8 +69,6 @@ export const usePlayerStore = defineStore('player', () => {
       const track = queue.value[idx]
       if (track && Math.abs((track.duration ?? 0) - d) > 0.5) {
         queue.value[idx] = { ...track, duration: d }
-
-        // Обновляем duration в библиотеке (если это LibraryTrack с pluginId)
         if (track.pluginId) {
           libraryWriter.updateTrackDuration(track.id, d)
         }
@@ -81,10 +84,13 @@ export const usePlayerStore = defineStore('player', () => {
     }),
     audioService.on('pause', () => {
       isPlaying.value = false
+      // Точное сохранение позиции при паузе
+      void flushPlayback()
     }),
     audioService.on('ended', () => {
       isPlaying.value = false
       stopTimeLoop()
+      void flushPlayback()
       handleTrackEnd()
     }),
     audioService.on('volumechange', ({ volume: v, muted: m }) => {
@@ -117,43 +123,54 @@ export const usePlayerStore = defineStore('player', () => {
     return currentTime.value / duration.value
   })
 
-  // Автосохранение при изменениях
-  let saveScheduled = false
-  function scheduleSave() {
-    if (saveScheduled) return
-    saveScheduled = true
+  // --- Сохранение -----------------------------------------------------
 
-    queueMicrotask(() => {
-      saveScheduled = false
-      persistenceService.scheduleSave({
-        tracks: queue.value.map((t) => persistenceService.toPersisted(t)),
-        currentIndex: currentIndex.value,
-        currentTime: currentTime.value,
-        volume: volume.value,
-        muted: muted.value,
-        repeatMode: repeatMode.value,
-        shuffle: shuffle.value,
-        savedAt: Date.now(),
-      })
-    })
+  /** Собирает состояние без currentTime (он сохраняется отдельно). */
+  function buildState() {
+    return {
+      tracks: queue.value.map((t) => persistenceService.toPersisted(t)),
+      currentIndex: currentIndex.value,
+      volume: volume.value,
+      muted: muted.value,
+      repeatMode: repeatMode.value,
+      shuffle: shuffle.value,
+      savedAt: Date.now(),
+    }
   }
 
-  watch([queue, currentIndex, currentTime, volume, muted, repeatMode, shuffle], scheduleSave, {
-    deep: false,
+  function buildPlayback() {
+    return {
+      currentTime: currentTime.value,
+      trackId: currentTrack.value?.id ?? null,
+      savedAt: Date.now(),
+    }
+  }
+
+  // Сохраняем queue-состояние при изменении queue/currentIndex/volume/...
+  // currentTime НЕ включён — он меняется 10 раз/сек
+  watch([queue, currentIndex, volume, muted, repeatMode, shuffle], () => {
+    persistenceService.scheduleSaveState(buildState())
   })
+
+  // Сохраняем позицию воспроизведения отдельно, с дебаунсом 2 сек
+  watch(currentTime, () => {
+    persistenceService.scheduleSavePlayback(buildPlayback())
+  })
+
+  async function flushPlayback(): Promise<void> {
+    await persistenceService.savePlaybackNow(buildPlayback())
+  }
+
+  async function flushState(): Promise<void> {
+    await persistenceService.saveStateNow(buildState())
+  }
+
+  // --- beforeunload / visibilitychange --------------------------------
 
   if (typeof window !== 'undefined') {
     const flush = () => {
-      persistenceService.saveNow({
-        tracks: queue.value.map((t) => persistenceService.toPersisted(t)),
-        currentIndex: currentIndex.value,
-        currentTime: currentTime.value,
-        volume: volume.value,
-        muted: muted.value,
-        repeatMode: repeatMode.value,
-        shuffle: shuffle.value,
-        savedAt: Date.now(),
-      })
+      void flushState()
+      void flushPlayback()
     }
 
     window.addEventListener('beforeunload', flush)
@@ -163,13 +180,31 @@ export const usePlayerStore = defineStore('player', () => {
     })
   }
 
-  // Восстановление
+  // --- Восстановление -------------------------------------------------
+
   async function restore(): Promise<boolean> {
-    const state = await persistenceService.load()
+    const state = await persistenceService.loadState()
     if (!state || state.tracks.length === 0) return false
 
     const tracks = await restoreTracks(state.tracks)
     if (tracks.length === 0) return false
+
+    // Подтянуть source и coverUrl из библиотеки.
+    // Для облачных треков нет FileSystemFileHandle — source пуст;
+    // coverUrl не хранится в PersistedTrack — тоже пуст.
+    const library = useLibraryStore()
+    for (const track of tracks) {
+      const libTrack = library.getTrack(track.id)
+      if (!libTrack) continue
+
+      if (!track.coverUrl && libTrack.coverUrl) {
+        track.coverUrl = libTrack.coverUrl
+      }
+
+      if (!track.source && typeof libTrack.source === 'string' && libTrack.source) {
+        track.source = libTrack.source
+      }
+    }
 
     queue.value = tracks
     currentIndex.value = state.currentIndex
@@ -182,14 +217,24 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.setVolume(state.volume)
     audioService.setMuted(state.muted)
 
+    // Восстанавливаем позицию из отдельного ключа
+    const playback = await persistenceService.loadPlayback()
+    const savedTime =
+      playback && playback.trackId === currentTrack.value?.id ? playback.currentTime : 0
+
     const track = tracks[state.currentIndex]
     if (track && track.source) {
       audioService.load(track.source)
 
-      const unsub = audioService.on('loadedmetadata', () => {
-        audioService.seek(state.currentTime)
-        unsub()
-      })
+      if (savedTime > 0) {
+        const unsub = audioService.on('loadedmetadata', () => {
+          audioService.seek(savedTime)
+          // Обновляем стор-значение сразу, не дожидаясь rAF:
+          // rAF запускается только на 'play', а воспроизведение ещё не началось.
+          syncCurrentTime()
+          unsub()
+        })
+      }
     }
 
     return true
@@ -222,11 +267,19 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function play() {
+    console.log(
+      '[player] play(), currentTrack:',
+      currentTrack.value?.id,
+      'queue:',
+      queue.value.length,
+    )
     if (currentTrack.value === null && queue.value.length > 0) {
       playAt(0)
       return
     }
-    audioService.play().catch(() => {})
+    audioService.play().catch((err) => {
+      console.error('[player] play rejected', err)
+    })
   }
 
   function pause() {
@@ -325,7 +378,11 @@ export const usePlayerStore = defineStore('player', () => {
 
     if (shuffle.value) {
       const idx = pickRandomNonDislikedIndex(dislikes.dislikedIds)
-      if (idx !== -1) playAt(idx)
+      if (idx !== -1) {
+        playAt(idx)
+      } else {
+        audioService.seek(0)
+      }
       return
     }
 
@@ -348,7 +405,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   function seek(time: number) {
     audioService.seek(time)
-    currentTime.value = Math.round(audioService.currentTime * 10) / 10
+    syncCurrentTime()
   }
 
   function seekBy(delta: number) {
@@ -378,10 +435,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   // --- Внутренние хелперы ---------------------------------------------
 
-  /**
-   * Ближайший не-дизлайкнутый индекс, начиная с `from`, шагая `dir`.
-   * `dir`: +1 — вперёд, -1 — назад. `-1`, если не нашли.
-   */
   function findNonDislikedIndex(from: number, dir: 1 | -1, disliked: Set<string>): number {
     for (let i = from; i >= 0 && i < queue.value.length; i += dir) {
       const track = queue.value[i]
@@ -390,7 +443,6 @@ export const usePlayerStore = defineStore('player', () => {
     return -1
   }
 
-  /** Случайный не-дизлайкнутый индекс, кроме текущего. `-1`, если не нашли. */
   function pickRandomNonDislikedIndex(disliked: Set<string>): number {
     if (queue.value.length <= 1) return -1
     const candidates: number[] = []

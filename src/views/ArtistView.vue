@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { filterTracksByArtist, groupByAlbum } from '@/utils/artists'
+import { pluralize } from '@/utils/pluralize'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import type { LibraryTrack } from '@/types/library'
 
@@ -22,6 +23,9 @@ const albums = computed(() => groupByAlbum(artistTracks.value))
 
 const tracksCount = computed(() => artistTracks.value.length)
 
+const albumsPart = computed(() => pluralize(albums.value.length, ['альбом', 'альбома', 'альбомов']))
+const tracksPart = computed(() => pluralize(tracksCount.value, ['трек', 'трека', 'треков']))
+
 function playAll() {
   if (artistTracks.value.length === 0) return
   const ordered = albums.value.flatMap((a) => a.tracks)
@@ -32,13 +36,6 @@ function playAlbum(group: { tracks: LibraryTrack[] }) {
   if (group.tracks.length === 0) return
   player.setQueue(group.tracks, 0)
 }
-
-function formatCount(n: number): string {
-  if (n === 0) return 'пусто'
-  if (n === 1) return '1 трек'
-  if (n >= 2 && n <= 4) return `${n} трека`
-  return `${n} треков`
-}
 </script>
 
 <template>
@@ -48,9 +45,7 @@ function formatCount(n: number): string {
       <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
         <div class="min-w-0">
           <h1 class="truncate text-lg font-medium text-fg">{{ artistName }}</h1>
-          <p class="text-xs text-fg-muted">
-            {{ albums.length }} альбомов · {{ tracksCount }} треков
-          </p>
+          <p class="text-xs text-fg-muted">{{ albumsPart }} · {{ tracksPart }}</p>
         </div>
 
         <div class="flex shrink-0 items-center gap-3">
@@ -67,7 +62,7 @@ function formatCount(n: number): string {
 
     <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-6xl px-4 py-4">
+      <div class="mx-auto w-full max-w-5xl">
         <div v-if="albums.length === 0" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
           У этого артиста нет треков
         </div>
@@ -90,7 +85,7 @@ function formatCount(n: number): string {
 
                 <!-- Play — верхний правый угол, ~1/4 плитки -->
                 <button type="button"
-                  class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg shadow-lg transition hover:scale-105 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
                   :aria-label="`Играть альбом ${group.name}`" @click.prevent.stop="playAlbum(group)">
                   <svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 translate-x-[1px]">
                     <path d="M8 5v14l11-7z" />
@@ -104,7 +99,9 @@ function formatCount(n: number): string {
                 class="block truncate text-sm font-medium text-fg transition hover:text-active">
                 {{ group.name }}
               </RouterLink>
-              <p class="truncate text-xs text-fg-muted">{{ formatCount(group.tracks.length) }}</p>
+              <p class="truncate text-xs text-fg-muted">
+                {{ pluralize(group.tracks.length, ['трек', 'трека', 'треков']) }}
+              </p>
             </div>
           </div>
         </div>

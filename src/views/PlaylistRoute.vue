@@ -9,6 +9,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
+import { pluralize } from '@/utils/pluralize'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
@@ -166,7 +167,9 @@ function onRemoved() {
               <template v-if="unavailableCount > 0">
                 {{ resolvedTracks.length }} из {{ playlist.tracks.length }}
               </template>
-              <template v-else>{{ resolvedTracks.length }} треков</template>
+              <template v-else>
+                {{ pluralize(resolvedTracks.length, ['трек', 'трека', 'треков']) }}
+              </template>
             </span>
 
             <ShowSourceCheckbox />

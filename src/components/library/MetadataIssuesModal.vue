@@ -1,12 +1,8 @@
 <!-- src/components/library/MetadataIssuesModal.vue -->
 <script setup lang="ts">
 import { reactive } from 'vue'
-import { useLibraryStore } from '@/stores/library'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
-import type { OriginalMetadata } from '@/services/persistence/MetadataPersistenceService'
-import type { LibraryTrack } from '@/types/library'
+import { metadataApplier } from '@/services/metadata/MetadataApplier'
 import type { MetadataIssue } from '@/composables/useMetadataSearch'
-import type { MetadataCandidate } from "@/services/metadata/TrackMetadataService"
 
 const props = defineProps<{
   issues: MetadataIssue[]
@@ -15,8 +11,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
-
-const library = useLibraryStore()
 
 /**
  * Выбор: trackId → index кандидата.
@@ -38,7 +32,7 @@ function formatSimilarity(s: number): string {
   return `${Math.round(s * 100)}%`
 }
 
-function candidateLabel(c: MetadataCandidate): string {
+function candidateLabel(c: { artist: string; title: string; album: string; source: string; similarity: number }): string {
   const parts = [c.artist, c.title].filter(Boolean).join(' — ')
   return `${parts} · ${c.album} · ${c.source} · ${formatSimilarity(c.similarity)}`
 }
@@ -48,41 +42,10 @@ function apply() {
     const index = selection.get(issue.track.id)
     if (index === undefined || index === -1) continue
 
-    const incoming = issue.candidates[index]
-    if (!incoming) continue
+    const candidate = issue.candidates[index]
+    if (!candidate) continue
 
-    const track = issue.track
-    const patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>> = {}
-    const artist = track.artist?.trim() ?? ''
-
-    if (!artist || artist === 'Yandex Disk') {
-      if (incoming.artist) patch.artist = incoming.artist
-    }
-    if (incoming.title) patch.title = incoming.title
-    if (incoming.album) patch.album = incoming.album
-    if (!track.coverUrl && incoming.coverUrl) patch.coverUrl = incoming.coverUrl
-
-    const original: OriginalMetadata = {
-      artist: track.artist ?? '',
-      title: track.title,
-      album: track.album ?? '',
-      coverUrl: track.coverUrl,
-      coverUrlWasBlob: track.coverUrl?.startsWith('blob:') ?? false,
-    }
-    const existing = metadataPersistenceService.get(track.id)
-    metadataPersistenceService.setInMemory(track.id, {
-      artist: existing?.artist ?? incoming.artist,
-      title: existing?.title ?? incoming.title,
-      album: existing?.album ?? incoming.album,
-      coverUrl: existing?.coverUrl ?? incoming.coverUrl,
-      similarity: existing?.similarity ?? incoming.similarity,
-      original: existing?.original ?? original,
-    })
-    void metadataPersistenceService.flush()
-
-    if (Object.keys(patch).length > 0) {
-      library.updateTrackMetadata(track.id, patch)
-    }
+    metadataApplier.applyCandidate(issue.track, candidate)
   }
   emit('close')
 }
@@ -115,13 +78,11 @@ function ignore() {
 
           <div class="flex flex-col gap-3">
             <div v-for="issue in issues" :key="issue.track.id" class="border-b border-hover-bg pb-3 last:border-b-0">
-              <!-- Текущее -->
               <p class="mb-2 truncate text-sm text-fg-muted">
                 <span class="text-fg-subtle">Оригинал:</span>
                 {{ [issue.track.artist, issue.track.title].filter(Boolean).join(' — ') }}
               </p>
 
-              <!-- Выбор кандидата -->
               <select :value="currentValue(issue.track.id)"
                 class="w-full rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg focus:outline-none"
                 @change="onSelect(issue.track.id, ($event.target as HTMLSelectElement).value)">

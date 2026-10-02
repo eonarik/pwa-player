@@ -23,6 +23,21 @@ export interface RemoteTrackMetadata {
   candidates?: MetadataCandidate[]
 }
 
+/**
+ * Результат запроса метаданных.
+ *
+ * Различает четыре состояния:
+ * - 'found'     — найден результат.
+ * - 'not-found' — сервер ответил, но результата нет (можно кэшировать).
+ * - 'error'     — сетевая ошибка / 5xx / timeout (НЕ кэшировать).
+ * - 'aborted'   — отмена через AbortSignal (НЕ кэшировать).
+ */
+export type MetadataFetchResult =
+  | { status: 'found'; data: RemoteTrackMetadata }
+  | { status: 'not-found' }
+  | { status: 'error'; message: string }
+  | { status: 'aborted' }
+
 class TrackMetadataService {
   private static instance: TrackMetadataService | null = null
 
@@ -42,8 +57,8 @@ class TrackMetadataService {
     title: string,
     threshold: number,
     signal?: AbortSignal,
-  ): Promise<RemoteTrackMetadata | null> {
-    if (!title) return null
+  ): Promise<MetadataFetchResult> {
+    if (!title) return { status: 'not-found' }
 
     try {
       const params = new URLSearchParams({
@@ -60,16 +75,37 @@ class TrackMetadataService {
           : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
 
-      if (!res.ok) return null
+      if (signal?.aborted) {
+        return { status: 'aborted' }
+      }
+
+      // 4xx — считаем "не найдено" (не кэшируем ошибки клиента)
+      if (res.status >= 400 && res.status < 500) {
+        return { status: 'not-found' }
+      }
+
+      // 5xx — ошибка сервера, не кэшируем
+      if (!res.ok) {
+        return { status: 'error', message: `HTTP ${res.status}` }
+      }
 
       const data = (await res.json()) as RemoteTrackMetadata | null
-      return data
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return null
+
+      if (!data) {
+        return { status: 'not-found' }
       }
+
+      return { status: 'found', data }
+    } catch (err) {
+      // Abort — отдельный статус
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return { status: 'aborted' }
+      }
+
+      // Всё остальное — error
+      const message = err instanceof Error ? err.message : 'Unknown error'
       console.warn(`[metadata] failed to fetch for "${artist} - ${title}"`, err)
-      return null
+      return { status: 'error', message }
     }
   }
 }

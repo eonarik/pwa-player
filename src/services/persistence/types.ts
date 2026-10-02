@@ -23,14 +23,27 @@ export interface PersistedTrack {
   // coverUrl НЕ сохраняем — blob URL невалиден между сессиями
 }
 
+/**
+ * Состояние плеера. НЕ включает currentTime —
+ * позиция воспроизведения хранится отдельно (player:playback).
+ */
 export interface PersistedState {
   tracks: PersistedTrack[]
   currentIndex: number
-  currentTime: number
   volume: number
   muted: boolean
   repeatMode: 'off' | 'one' | 'all'
   shuffle: boolean
   rootFolderName?: string
+  savedAt: number
+}
+
+/**
+ * Позиция воспроизведения. Хранится отдельно,
+ * потому что меняется часто (10 раз в секунду).
+ */
+export interface PersistedPlayback {
+  currentTime: number
+  trackId: string | null
   savedAt: number
 }

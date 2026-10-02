@@ -8,6 +8,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { filterTracksByArtist, groupByAlbum } from '@/utils/artists'
+import { pluralize } from '@/utils/pluralize'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
@@ -79,7 +80,9 @@ function isCurrent(trackId: string): boolean {
             <template v-if="hasQuery">
               Найдено: {{ visibleTracks.length }} из {{ tracks.length }}
             </template>
-            <template v-else>{{ tracks.length }} треков</template>
+            <template v-else>
+              {{ pluralize(tracks.length, ['трек', 'трека', 'треков']) }}
+            </template>
           </p>
         </div>
 

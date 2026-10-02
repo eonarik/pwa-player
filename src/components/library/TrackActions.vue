@@ -2,15 +2,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePlaylistsStore } from '@/stores/playlists'
+import { useLibraryStore } from '@/stores/library'
+import { useUiSettingsStore } from '@/stores/uiSettings'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
+import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
+import { metadataApplier } from '@/services/metadata/MetadataApplier'
+import { toastService } from '@/services/ui/ToastService'
+import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
 import type { Track } from '@/types/track'
-import TrackReactionButtons from "../ui/TrackReactionButtons.vue";
-import { trackMetadataService } from "@/services/metadata/TrackMetadataService.ts";
-import { toastService } from "@/services/ui/ToastService.ts";
-import { metadataPersistenceService, type OriginalMetadata } from "@/services/persistence/MetadataPersistenceService.ts";
-import { useLibraryStore } from "@/stores/library.ts";
-import { useUiSettingsStore } from "@/stores/uiSettings.ts";
-import type { LibraryTrack } from "@/types/library.ts";
+import type { LibraryTrack } from '@/types/library'
+import { metadataPersistenceService } from "@/services/persistence/MetadataPersistenceService.ts"
 
 const props = defineProps<{
   track: Track
@@ -24,11 +25,14 @@ const emit = defineEmits<{
 }>()
 
 const playlists = usePlaylistsStore()
+const library = useLibraryStore()
+const uiSettings = useUiSettingsStore()
 
 const isMenuOpen = ref(false)
 const isSubmenuOpen = ref(false)
 const isCreatingNew = ref(false)
 const newPlaylistName = ref('')
+const isSearchingMetadata = ref(false)
 
 const buttonRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
@@ -37,79 +41,6 @@ const menuPosition = ref({ top: 0, left: 0 })
 const userPlaylists = computed(() =>
   playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
 )
-
-const library = useLibraryStore()
-const uiSettings = useUiSettingsStore()
-const isSearchingMetadata = ref(false)
-
-async function findMetadata() {
-  if (isSearchingMetadata.value) return
-  isSearchingMetadata.value = true
-
-  try {
-    const artist = props.track.artist ?? ''
-    const incoming = await trackMetadataService.fetch(
-      artist,
-      props.track.title,
-      uiSettings.metadataThreshold,
-    )
-
-    if (!incoming) {
-      toastService.info('Метаданные не найдены')
-      closeMenu()
-      return
-    }
-
-    const original: OriginalMetadata = {
-      artist: props.track.artist ?? '',
-      title: props.track.title,
-      album: props.track.album ?? '',
-      coverUrl: props.track.coverUrl,
-      coverUrlWasBlob: props.track.coverUrl?.startsWith('blob:') ?? false,
-    }
-
-    metadataPersistenceService.setInMemory(props.track.id, {
-      artist: incoming.artist,
-      title: incoming.title,
-      album: incoming.album,
-      coverUrl: incoming.coverUrl,
-      similarity: incoming.similarity,
-      original,
-    })
-    await metadataPersistenceService.flush()
-
-    if (!incoming.confident) {
-      toastService.error(
-        `Найдено другое: ${incoming.artist} — ${incoming.title} (${Math.round(incoming.similarity * 100)}%)`,
-      )
-      closeMenu()
-      return
-    }
-
-    const patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>> = {}
-    const originalArtist = (props.track.artist ?? '').trim()
-
-    if (!originalArtist || originalArtist === 'Yandex Disk') {
-      if (incoming.artist) patch.artist = incoming.artist
-    }
-    if (incoming.title) patch.title = incoming.title
-    if (incoming.album) patch.album = incoming.album
-    if (!props.track.coverUrl && incoming.coverUrl) patch.coverUrl = incoming.coverUrl
-
-    if (Object.keys(patch).length > 0) {
-      library.updateTrackMetadata(props.track.id, patch)
-      toastService.success('Метаданные обновлены')
-    } else {
-      toastService.info('Нечего обновлять')
-    }
-  } catch (err) {
-    console.error('[track-actions] find metadata failed', err)
-    toastService.error('Не удалось найти метаданные')
-  } finally {
-    isSearchingMetadata.value = false
-    closeMenu()
-  }
-}
 
 function openMenu() {
   if (!buttonRef.value) return
@@ -143,7 +74,6 @@ async function startCreate() {
   isCreatingNew.value = true
   newPlaylistName.value = ''
   await nextTick()
-  // autofocus через ref
   const input = menuRef.value?.querySelector<HTMLInputElement>('input')
   input?.focus()
 }
@@ -167,6 +97,74 @@ function removeFromQueue() {
   if (props.queueIndex === undefined) return
   emit('removed-from-queue')
   closeMenu()
+}
+
+async function findMetadata() {
+  if (isSearchingMetadata.value) return
+  isSearchingMetadata.value = true
+
+  const libraryTrack = library.getTrack(props.track.id)
+  if (!libraryTrack) {
+    toastService.error('Трек не найден в библиотеке')
+    isSearchingMetadata.value = false
+    closeMenu()
+    return
+  }
+
+  try {
+    const result = await trackMetadataService.fetch(
+      libraryTrack.artist ?? '',
+      libraryTrack.title,
+      uiSettings.metadataThreshold,
+    )
+
+    if (result.status === 'aborted') {
+      closeMenu()
+      return
+    }
+
+    if (result.status === 'error') {
+      toastService.error(`Ошибка поиска: ${result.message}`)
+      closeMenu()
+      return
+    }
+
+    if (result.status === 'not-found') {
+      // Кэшируем «не найдено», чтобы не искать повторно
+      metadataPersistenceService.setInMemory(libraryTrack.id, {
+        artist: null,
+        title: null,
+        album: null,
+        coverUrl: null,
+        similarity: null,
+        original: null,
+      })
+      await metadataPersistenceService.flush()
+
+      toastService.info('Метаданные не найдены')
+      closeMenu()
+      return
+    }
+
+    const applyResult = metadataApplier.apply(libraryTrack, result.data)
+
+    if (applyResult.status === 'applied') {
+      await metadataPersistenceService.flush()
+      toastService.success('Метаданные обновлены')
+    } else if (applyResult.status === 'issue') {
+      // Confident=false — не применяем, показываем тост
+      const incoming = result.data
+      toastService.error(
+        `Найдено другое: ${incoming.artist} — ${incoming.title} (${Math.round(incoming.similarity * 100)}%)`,
+      )
+    }
+  } catch (err) {
+    console.error('[track-actions] find metadata failed', err)
+    toastService.error('Не удалось найти метаданные')
+  } finally {
+    isSearchingMetadata.value = false
+    closeMenu()
+  }
 }
 
 function onClickOutside(e: MouseEvent) {
@@ -208,7 +206,6 @@ onUnmounted(() => {
     <Teleport to="body">
       <div v-if="isMenuOpen" ref="menuRef" class="fixed z-[100] w-64 overflow-hidden bg-bg-elevated shadow-lg"
         :style="{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }" @click.stop>
-
         <button type="button"
           class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
           @click="toggleSubmenu">

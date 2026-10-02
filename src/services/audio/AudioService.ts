@@ -100,11 +100,12 @@ export class AudioService {
   // --- Управление воспроизведением -------------------------------------
 
   async play(): Promise<void> {
+    console.log('[audio] play() called, src:', this.audio.src, 'paused:', this.audio.paused)
     try {
       await this.audio.play()
+      console.log('[audio] play() resolved')
     } catch (err) {
-      // play() отклоняется, если пользователь не взаимодействовал со страницей
-      // или формат не поддерживается. Не глотаем ошибку молча.
+      console.error('[audio] play() rejected', err)
       const message = err instanceof Error ? err.message : 'Unknown play() error'
       this.emit('error', { message })
       throw err

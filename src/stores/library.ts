@@ -148,6 +148,43 @@ export function createLibraryWriter(): LibraryWriter {
     return source === sourceId || source.startsWith(sourceId + ':')
   }
 
+  /**
+   * Пересчитывает totalTrackCount / totalTextFileCount для папки
+   * на основе её собственных треков/файлов и счётчиков детей.
+   *
+   * Затем поднимается к родителю (рекурсивно).
+   * `processed` защищает от повторного обхода одной ветки.
+   */
+  function recalcAncestors(folderId: string, processed: Set<string>): void {
+    const s = store()
+    const folder = s.folders[folderId]
+    if (!folder) return
+
+    const ownTracks = folder.trackIds.length
+    const ownFiles = folder.textFiles?.length ?? 0
+
+    const childTracks = folder.childFolderIds.reduce((sum, id) => {
+      const child = s.folders[id]
+      return sum + (child?.totalTrackCount ?? 0)
+    }, 0)
+
+    const childFiles = folder.childFolderIds.reduce((sum, id) => {
+      const child = s.folders[id]
+      return sum + (child?.totalTextFileCount ?? 0)
+    }, 0)
+
+    s.folders[folderId] = {
+      ...folder,
+      totalTrackCount: ownTracks + childTracks,
+      totalTextFileCount: ownFiles + childFiles,
+    }
+
+    if (folder.parentId && !processed.has(folder.parentId)) {
+      processed.add(folderId)
+      recalcAncestors(folder.parentId, processed)
+    }
+  }
+
   return {
     setLibrary(collected: CollectedLibrary, sourceId: string): void {
       const s = store()
@@ -172,10 +209,72 @@ export function createLibraryWriter(): LibraryWriter {
       }
     },
 
+    /**
+     * Удаляет папки (рекурсивно — вместе со всеми подпапками и треками).
+     * Также:
+     * - revoke'ит blob URL всех удалённых треков,
+     * - убирает удалённые папки из childFolderIds их родителей,
+     * - пересчитывает totalTrackCount / totalTextFileCount вверх по дереву.
+     */
     removeFolders(folderIds: string[]): void {
       const s = store()
-      for (const id of folderIds) {
+
+      // 1. Собираем всё поддерево + связанные треки + родителей
+      const allFolderIds = new Set<string>()
+      const allTrackIds = new Set<string>()
+      const parentIds = new Set<string>()
+
+      const collect = (id: string): void => {
+        if (allFolderIds.has(id)) return
+        const folder = s.folders[id]
+        if (!folder) return
+
+        allFolderIds.add(id)
+        for (const trackId of folder.trackIds) allTrackIds.add(trackId)
+        for (const childId of folder.childFolderIds) collect(childId)
+
+        if (folder.parentId) parentIds.add(folder.parentId)
+      }
+
+      for (const id of folderIds) collect(id)
+
+      // 2. Удаляем треки + revoke blob URL
+      const pluginIds = new Set<string>()
+      for (const trackId of allTrackIds) {
+        const track = s.tracks[trackId]
+        if (track?.coverUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(track.coverUrl)
+        }
+        if (track?.pluginId) pluginIds.add(track.pluginId)
+        delete s.tracks[trackId]
+      }
+
+      // 3. Удаляем папки
+      for (const id of allFolderIds) {
+        const folder = s.folders[id]
+        if (folder?.source) pluginIds.add(folder.source)
         delete s.folders[id]
+      }
+
+      // 4. Убираем удалённые папки из childFolderIds родителей
+      for (const parentId of parentIds) {
+        const parent = s.folders[parentId]
+        if (!parent) continue
+        s.folders[parentId] = {
+          ...parent,
+          childFolderIds: parent.childFolderIds.filter((id) => !allFolderIds.has(id)),
+        }
+      }
+
+      // 5. Пересчитываем счётчики вверх
+      const processed = new Set<string>()
+      for (const parentId of parentIds) {
+        recalcAncestors(parentId, processed)
+      }
+
+      // 6. Сохраняем затронутые плагины
+      for (const pluginId of pluginIds) {
+        librarySaveService.scheduleSave(pluginId)
       }
     },
 
@@ -253,17 +352,49 @@ export function createLibraryWriter(): LibraryWriter {
       librarySaveService.scheduleSave(sourceId)
     },
 
+    /**
+     * Удаляет треки (по id), не трогая папки.
+     * Также:
+     * - revoke'ит blob URL,
+     * - убирает trackId из folder.trackIds,
+     * - пересчитывает totalTrackCount вверх по дереву.
+     */
     removeTracks(trackIds: string[]): void {
       const s = store()
+
+      const idsSet = new Set(trackIds)
+      const affectedFolderIds = new Set<string>()
       const pluginIds = new Set<string>()
+
+      // 1. Удаляем треки + revoke + собираем папки
       for (const id of trackIds) {
         const track = s.tracks[id]
-        if (track?.coverUrl?.startsWith('blob:')) {
+        if (!track) continue
+        if (track.coverUrl?.startsWith('blob:')) {
           URL.revokeObjectURL(track.coverUrl)
         }
-        if (track?.pluginId) pluginIds.add(track.pluginId)
+        if (track.folderId) affectedFolderIds.add(track.folderId)
+        if (track.pluginId) pluginIds.add(track.pluginId)
         delete s.tracks[id]
       }
+
+      // 2. Убираем trackId из folder.trackIds
+      for (const folderId of affectedFolderIds) {
+        const folder = s.folders[folderId]
+        if (!folder) continue
+        s.folders[folderId] = {
+          ...folder,
+          trackIds: folder.trackIds.filter((id) => !idsSet.has(id)),
+        }
+      }
+
+      // 3. Пересчитываем счётчики вверх по дереву
+      const processed = new Set<string>()
+      for (const folderId of affectedFolderIds) {
+        recalcAncestors(folderId, processed)
+      }
+
+      // 4. Сохраняем затронутые плагины
       for (const pluginId of pluginIds) {
         librarySaveService.scheduleSave(pluginId)
       }

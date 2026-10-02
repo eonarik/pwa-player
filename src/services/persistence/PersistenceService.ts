@@ -2,17 +2,23 @@
 
 import { get, set, del } from 'idb-keyval'
 import { toRaw } from 'vue'
-import type { PersistedState, PersistedTrack } from './types'
+import type { PersistedPlayback, PersistedState, PersistedTrack } from './types'
 import type { Track } from '@/types/track'
 
 const STATE_KEY = 'player:state'
-const SAVE_DEBOUNCE_MS = 1000
+const PLAYBACK_KEY = 'player:playback'
+
+const STATE_DEBOUNCE_MS = 1000
+const PLAYBACK_DEBOUNCE_MS = 2000
 
 export class PersistenceService {
   private static instance: PersistenceService | null = null
 
-  private saveTimer: ReturnType<typeof setTimeout> | null = null
+  private stateTimer: ReturnType<typeof setTimeout> | null = null
   private pendingState: PersistedState | null = null
+
+  private playbackTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingPlayback: PersistedPlayback | null = null
 
   static getInstance(): PersistenceService {
     if (!PersistenceService.instance) {
@@ -21,17 +27,19 @@ export class PersistenceService {
     return PersistenceService.instance
   }
 
+  // --- State (queue + настройки) --------------------------------------
+
   /**
-   * Сохраняет состояние с дебаунсом.
-   * currentTime меняется 10 раз в секунду — писать в IDB каждый раз нельзя.
+   * Сохраняет состояние с дебаунсом 1 сек.
+   * Дешёво по сравнению с playback (queue сохраняется редко).
    */
-  scheduleSave(state: PersistedState): void {
+  scheduleSaveState(state: PersistedState): void {
     this.pendingState = state
 
-    if (this.saveTimer !== null) return
+    if (this.stateTimer !== null) return
 
-    this.saveTimer = setTimeout(async () => {
-      this.saveTimer = null
+    this.stateTimer = setTimeout(async () => {
+      this.stateTimer = null
       const toSave = this.pendingState
       this.pendingState = null
       if (!toSave) return
@@ -41,14 +49,14 @@ export class PersistenceService {
       } catch (err) {
         console.error('[PersistenceService] failed to save state', err)
       }
-    }, SAVE_DEBOUNCE_MS)
+    }, STATE_DEBOUNCE_MS)
   }
 
-  /** Немедленное сохранение — вызывать при beforeunload */
-  async saveNow(state: PersistedState): Promise<void> {
-    if (this.saveTimer !== null) {
-      clearTimeout(this.saveTimer)
-      this.saveTimer = null
+  /** Немедленное сохранение состояния — вызывать при beforeunload */
+  async saveStateNow(state: PersistedState): Promise<void> {
+    if (this.stateTimer !== null) {
+      clearTimeout(this.stateTimer)
+      this.stateTimer = null
     }
     this.pendingState = null
     try {
@@ -58,7 +66,7 @@ export class PersistenceService {
     }
   }
 
-  async load(): Promise<PersistedState | null> {
+  async loadState(): Promise<PersistedState | null> {
     try {
       const state = await get<PersistedState>(STATE_KEY)
       return state ?? null
@@ -68,11 +76,71 @@ export class PersistenceService {
     }
   }
 
+  // --- Playback (currentTime) -----------------------------------------
+
+  /**
+   * Сохраняет позицию воспроизведения с дебаунсом 2 сек.
+   * Меняется часто (rAF), поэтому отдельный канал.
+   */
+  scheduleSavePlayback(playback: PersistedPlayback): void {
+    this.pendingPlayback = playback
+
+    if (this.playbackTimer !== null) return
+
+    this.playbackTimer = setTimeout(async () => {
+      this.playbackTimer = null
+      const toSave = this.pendingPlayback
+      this.pendingPlayback = null
+      if (!toSave) return
+
+      try {
+        await set(PLAYBACK_KEY, toSave)
+      } catch (err) {
+        console.error('[PersistenceService] failed to save playback', err)
+      }
+    }, PLAYBACK_DEBOUNCE_MS)
+  }
+
+  /** Немедленное сохранение позиции — при pause / ended / unload / beforeunload */
+  async savePlaybackNow(playback: PersistedPlayback): Promise<void> {
+    if (this.playbackTimer !== null) {
+      clearTimeout(this.playbackTimer)
+      this.playbackTimer = null
+    }
+    this.pendingPlayback = null
+    try {
+      await set(PLAYBACK_KEY, playback)
+    } catch (err) {
+      console.error('[PersistenceService] failed to save playback (now)', err)
+    }
+  }
+
+  async loadPlayback(): Promise<PersistedPlayback | null> {
+    try {
+      const playback = await get<PersistedPlayback>(PLAYBACK_KEY)
+      return playback ?? null
+    } catch (err) {
+      console.error('[PersistenceService] failed to load playback', err)
+      return null
+    }
+  }
+
+  // --- Очистка -------------------------------------------------------
+
   async clear(): Promise<void> {
+    await this.clearState()
+    await this.clearPlayback()
+  }
+
+  async clearState(): Promise<void> {
     await del(STATE_KEY)
   }
 
-  // --- Сериализация -----------------------------------------------------
+  async clearPlayback(): Promise<void> {
+    await del(PLAYBACK_KEY)
+  }
+
+  // --- Сериализация трека ---------------------------------------------
 
   /**
    * Сериализует Track для IDB.
@@ -97,10 +165,6 @@ export class PersistenceService {
       handle: raw.handle ? toRaw(raw.handle) : undefined,
       directoryHandle: raw.directoryHandle ? toRaw(raw.directoryHandle) : undefined,
     }
-  }
-
-  async clearAll(): Promise<void> {
-    await this.clear()
   }
 }
 

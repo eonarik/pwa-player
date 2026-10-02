@@ -7,12 +7,13 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
+import { pluralize } from '@/utils/pluralize'
+import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
-import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import type { LibraryTrack } from '@/types/library'
 import type { PlayHistoryEntry } from '@/types/history'
 
@@ -89,7 +90,9 @@ function isCurrent(trackId: string): boolean {
         <h1 class="text-lg font-medium text-fg">История</h1>
 
         <div class="flex shrink-0 items-center gap-3">
-          <span class="text-xs text-fg-muted">{{ visibleHistory.length }} записей</span>
+          <span class="text-xs text-fg-muted">
+            {{ pluralize(visibleHistory.length, ['запись', 'записи', 'записей']) }}
+          </span>
 
           <ShowSourceCheckbox />
 

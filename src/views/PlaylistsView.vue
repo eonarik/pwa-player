@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { usePlayerStore } from '@/stores/player'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
+import { pluralize } from '@/utils/pluralize'
 import type { Playlist } from '@/types/playlist'
 
 const router = useRouter()
@@ -44,13 +45,6 @@ function deletePlaylist(playlist: Playlist) {
   const confirmed = window.confirm(`Удалить плейлист «${playlist.name}»?`)
   if (!confirmed) return
   playlists.deletePlaylist(playlist.id)
-}
-
-function formatCount(n: number): string {
-  if (n === 0) return 'пусто'
-  if (n === 1) return '1 трек'
-  if (n >= 2 && n <= 4) return `${n} трека`
-  return `${n} треков`
 }
 
 function formatDate(ts: number): string {
@@ -121,7 +115,7 @@ function formatDate(ts: number): string {
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ playlist.name }}</p>
               <p class="truncate text-xs text-fg-muted">
-                {{ formatCount(playlist.tracks.length) }}
+                {{ pluralize(playlist.tracks.length, ['трек', 'трека', 'треков']) }}
                 <span v-if="playlist.id !== FAVORITES_PLAYLIST_ID">
                   · {{ formatDate(playlist.updatedAt) }}
                 </span>
