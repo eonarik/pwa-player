@@ -37,9 +37,8 @@ const currentFolder = computed<Folder | null>(() => {
   if (!pid) return null
 
   return (
-    Object.values(library.folders).find(
-      (f) => f.source === pid && f.path === folderPath.value,
-    ) ?? null
+    Object.values(library.folders).find((f) => f.source === pid && f.path === folderPath.value) ??
+    null
   )
 })
 
@@ -94,7 +93,5 @@ watch(
 
 <template>
   <FolderView v-if="hasLibrary && folderExists" />
-  <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
-    Загрузка…
-  </div>
+  <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">Загрузка…</div>
 </template>

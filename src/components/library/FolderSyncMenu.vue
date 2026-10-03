@@ -14,6 +14,16 @@ const emit = defineEmits<{
   (e: 'refresh-cloud'): void
   (e: 'refresh-device'): void
 }>()
+
+const onRefreshCloud = (close: () => void) => {
+  close()
+  emit('refresh-cloud')
+}
+
+const onRefreshDevice = (close: () => void) => {
+  close()
+  emit('refresh-device')
+}
 </script>
 
 <template>
@@ -32,20 +42,16 @@ const emit = defineEmits<{
     <template #default="{ close }">
       <button v-if="canRefresh" type="button"
         class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-        @click="close(); emit('refresh-cloud')">
+        @click="onRefreshCloud(close)">
         Обновить с облака
-        <span class="block text-[10px] text-fg-muted">
-          Синхронизировать треки с Яндекс.Диска
-        </span>
+        <span class="block text-[10px] text-fg-muted"> Синхронизировать треки с Яндекс.Диска </span>
       </button>
 
       <button v-if="canRefreshFromDevice" type="button"
         class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-        @click="close(); emit('refresh-device')">
+        @click="onRefreshDevice(close)">
         Обновить с устройства
-        <span class="block text-[10px] text-fg-muted">
-          Найти новые и отсутствующие файлы
-        </span>
+        <span class="block text-[10px] text-fg-muted"> Найти новые и отсутствующие файлы </span>
       </button>
     </template>
   </DropdownMenu>

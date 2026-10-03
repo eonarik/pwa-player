@@ -13,13 +13,13 @@ import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import IconDots from '@/components/icons/IconDots.vue'
 import type { Track } from '@/types/track'
-import type { LibraryTrack } from "@/types/library.ts"
-import { downloadOrchestrator } from "@/services/download/DownloadOrchestrator.ts"
-import { downloadSpaceService } from "@/services/download/DownloadSpaceService.ts"
-import { pluginCanDownload } from "@/plugins/registry.ts"
-import IconDownload from "../icons/IconDownload.vue"
-import IconCloudCheck from "../icons/IconCloudCheck.vue"
-import IconX from "../icons/IconX.vue"
+import type { LibraryTrack } from '@/types/library.ts'
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator.ts'
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService.ts'
+import { pluginCanDownload } from '@/plugins/registry.ts'
+import IconDownload from '../icons/IconDownload.vue'
+import IconCloudCheck from '../icons/IconCloudCheck.vue'
+import IconX from '../icons/IconX.vue'
 
 const props = defineProps<{
   track: Track
@@ -224,47 +224,70 @@ async function onDownload(close: () => void) {
 
     <DropdownMenu :width="256">
       <template #trigger="{ toggle, setTriggerRef }">
-        <button :ref="setTriggerRef" type="button"
-          class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg" aria-label="Действия"
-          @click.stop="toggle">
+        <button
+          :ref="setTriggerRef"
+          type="button"
+          class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
+          aria-label="Действия"
+          @click.stop="toggle"
+        >
           <IconDots class="h-4 w-4" />
         </button>
       </template>
 
       <template #default="{ close }">
         <!-- Добавить в плейлист -->
-        <button type="button"
+        <button
+          type="button"
           class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-          @click="toggleSubmenu">
+          @click="toggleSubmenu"
+        >
           <span>Добавить в плейлист</span>
           <span class="text-fg-muted">{{ isSubmenuOpen ? '▾' : '▸' }}</span>
         </button>
 
         <div v-if="isSubmenuOpen">
-          <button v-for="p in userPlaylists" :key="p.id" type="button"
+          <button
+            v-for="p in userPlaylists"
+            :key="p.id"
+            type="button"
             class="block w-full truncate px-6 py-2 text-left text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            @click="addToPlaylist(p.id, close)">
+            @click="addToPlaylist(p.id, close)"
+          >
             {{ p.name }}
           </button>
 
-          <button v-if="!isCreatingNew" type="button"
+          <button
+            v-if="!isCreatingNew"
+            type="button"
             class="block w-full px-6 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
-            @click="startCreate">
+            @click="startCreate"
+          >
             + Создать новый
           </button>
 
           <form v-else class="px-4 py-2" @submit.prevent="confirmCreate(close)">
-            <input ref="inputRef" v-model="newPlaylistName" type="text" placeholder="Название плейлиста"
+            <input
+              ref="inputRef"
+              v-model="newPlaylistName"
+              type="text"
+              placeholder="Название плейлиста"
               class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
-              @keydown.esc="isCreatingNew = false" />
+              @keydown.esc="isCreatingNew = false"
+            />
             <div class="mt-2 flex items-center justify-end gap-2">
-              <button type="button" class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:text-fg"
-                @click="isCreatingNew = false">
+              <button
+                type="button"
+                class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:text-fg"
+                @click="isCreatingNew = false"
+              >
                 Отмена
               </button>
-              <button type="submit"
+              <button
+                type="submit"
                 class="rounded-btn bg-accent px-3 py-1 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-                :disabled="!newPlaylistName.trim()">
+                :disabled="!newPlaylistName.trim()"
+              >
                 Создать
               </button>
             </div>
@@ -272,32 +295,50 @@ async function onDownload(close: () => void) {
         </div>
 
         <!-- Найти метаданные -->
-        <button type="button"
+        <button
+          type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
-          :disabled="isSearchingMetadata" @click="findMetadata(close)">
+          :disabled="isSearchingMetadata"
+          @click="findMetadata(close)"
+        >
           {{ isSearchingMetadata ? 'Поиск…' : 'Найти метаданные' }}
         </button>
 
         <!-- Убрать из плейлиста -->
-        <button v-if="playlistId" type="button"
+        <button
+          v-if="playlistId"
+          type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
-          @click="removeFromPlaylist(close)">
+          @click="removeFromPlaylist(close)"
+        >
           Убрать из плейлиста
         </button>
 
         <!-- Убрать из очереди -->
-        <button v-if="queueIndex !== undefined" type="button"
+        <button
+          v-if="queueIndex !== undefined"
+          type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
-          @click="removeFromQueue(close)">
+          @click="removeFromQueue(close)"
+        >
           Убрать из очереди
         </button>
 
-        <button v-if="canDownload" type="button"
-          class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition" :class="downloadOrigin === 'remote' && !isDownloading
-            ? 'text-fg hover:bg-hover-bg'
-            : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
-            " @click="onDownload(close)">
-          <IconDownload v-if="downloadOrigin === 'remote' && !isDownloading" class="h-4 w-4 shrink-0" />
+        <button
+          v-if="canDownload"
+          type="button"
+          class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition"
+          :class="
+            downloadOrigin === 'remote' && !isDownloading
+              ? 'text-fg hover:bg-hover-bg'
+              : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
+          "
+          @click="onDownload(close)"
+        >
+          <IconDownload
+            v-if="downloadOrigin === 'remote' && !isDownloading"
+            class="h-4 w-4 shrink-0"
+          />
           <IconCloudCheck v-else-if="downloadOrigin === 'downloaded'" class="h-4 w-4 shrink-0" />
           <IconX v-else-if="isDownloading" class="h-4 w-4 shrink-0" />
           <span class="truncate">{{ downloadLabel }}</span>

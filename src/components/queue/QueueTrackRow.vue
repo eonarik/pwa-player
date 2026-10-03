@@ -18,8 +18,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <TrackRow :track="track" :index="index" :is-current="isCurrent" :is-playing="isPlaying" show-download
-    @select="emit('select')">
+  <TrackRow
+    :track="track"
+    :index="index"
+    :is-current="isCurrent"
+    :is-playing="isPlaying"
+    show-download
+    @select="emit('select')"
+  >
     <template #actions>
       <TrackActions :track="track" :queue-index="index" @removed-from-queue="emit('remove')" />
     </template>

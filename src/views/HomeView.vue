@@ -110,14 +110,17 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
       <h1 class="mb-1 text-2xl font-medium text-fg">CUEI Media Player</h1>
       <p class="mb-6 text-sm text-fg-muted">Выберите источник музыки</p>
 
-      <div v-if="plugins.length === 0" class="text-sm text-fg-muted">
-        Плагины не найдены
-      </div>
+      <div v-if="plugins.length === 0" class="text-sm text-fg-muted">Плагины не найдены</div>
 
       <div v-else class="flex flex-col gap-2">
-        <div v-for="row in plugins" :key="row.manifest.id"
-          class="flex items-center gap-4 rounded-card bg-card-bg p-4 transition hover:bg-hover-bg">
-          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-btn bg-hover-bg text-2xl">
+        <div
+          v-for="row in plugins"
+          :key="row.manifest.id"
+          class="flex items-center gap-4 rounded-card bg-card-bg p-4 transition hover:bg-hover-bg"
+        >
+          <div
+            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-btn bg-hover-bg text-2xl"
+          >
             {{ row.manifest.icon }}
           </div>
 
@@ -134,21 +137,30 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
 
           <div class="flex shrink-0 items-center gap-2">
             <template v-if="row.hasData">
-              <button type="button"
+              <button
+                type="button"
                 class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-                @click="openPlugin(row)">
+                @click="openPlugin(row)"
+              >
                 Открыть
               </button>
-              <button type="button"
+              <button
+                type="button"
                 class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-red-500/10 hover:text-red-400"
-                :disabled="isLoading === row.manifest.id" @click="disconnectPlugin(row)">
+                :disabled="isLoading === row.manifest.id"
+                @click="disconnectPlugin(row)"
+              >
                 Отключить
               </button>
             </template>
 
-            <button v-else type="button"
+            <button
+              v-else
+              type="button"
               class="rounded-btn bg-card-bg px-4 py-2 text-sm text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!row.available || isLoading === row.manifest.id" @click="connectPlugin(row)">
+              :disabled="!row.available || isLoading === row.manifest.id"
+              @click="connectPlugin(row)"
+            >
               {{ isLoading === row.manifest.id ? 'Подключение…' : 'Подключить' }}
             </button>
           </div>

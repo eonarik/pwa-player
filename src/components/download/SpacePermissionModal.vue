@@ -51,21 +51,26 @@ async function pickSpace() {
         <p class="mb-5 text-sm text-fg-muted">
           Для скачивания треков нужен доступ к папке
           <span v-if="downloadSpaceService.spaceName.value" class="text-fg">
-            «{{ downloadSpaceService.spaceName.value }}»
-          </span>.
-          Браузер требует подтвердить доступ после перезагрузки страницы.
+            «{{ downloadSpaceService.spaceName.value }}» </span
+          >. Браузер требует подтвердить доступ после перезагрузки страницы.
         </p>
 
         <div class="flex flex-col gap-2">
-          <button type="button"
+          <button
+            type="button"
             class="rounded-btn bg-accent px-4 py-2.5 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-            :disabled="isRequesting || isPicking" @click="requestAccess">
+            :disabled="isRequesting || isPicking"
+            @click="requestAccess"
+          >
             {{ isRequesting ? 'Запрос…' : 'Восстановить доступ' }}
           </button>
 
-          <button type="button"
+          <button
+            type="button"
             class="rounded-btn bg-card-bg px-4 py-2.5 text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
-            :disabled="isRequesting || isPicking" @click="pickSpace">
+            :disabled="isRequesting || isPicking"
+            @click="pickSpace"
+          >
             {{ isPicking ? 'Выбор…' : 'Выбрать другую папку' }}
           </button>
         </div>

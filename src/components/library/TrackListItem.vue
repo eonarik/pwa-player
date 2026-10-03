@@ -16,8 +16,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <TrackRow :track="track" :index="index" :is-current="isCurrent" :is-playing="isPlaying" show-download
-    @select="emit('select', index)">
+  <TrackRow
+    :track="track"
+    :index="index"
+    :is-current="isCurrent"
+    :is-playing="isPlaying"
+    show-download
+    @select="emit('select', index)"
+  >
     <template #actions>
       <slot name="actions" />
     </template>

@@ -44,9 +44,7 @@ function isScanning(folder: Folder): boolean {
 
 function isEmpty(folder: Folder): boolean {
   return (
-    folder.ready === true &&
-    folder.totalTrackCount === 0 &&
-    (folder.totalTextFileCount ?? 0) === 0
+    folder.ready === true && folder.totalTrackCount === 0 && (folder.totalTextFileCount ?? 0) === 0
   )
 }
 
@@ -157,13 +155,19 @@ function onArrowClick(folder: Folder, e: Event) {
 
 <template>
   <div v-if="currentSubfolders.length > 0" class="flex flex-col gap-0.5">
-    <ListRow v-for="folder in currentSubfolders" :key="folder.id"
-      :active="folderPlayState(folder) !== 'idle' && !isEmpty(folder)" :class="isEmpty(folder) ? 'opacity-40' : ''"
-      @click="onRowClick(folder)">
+    <ListRow
+      v-for="folder in currentSubfolders"
+      :key="folder.id"
+      :active="folderPlayState(folder) !== 'idle' && !isEmpty(folder)"
+      :class="isEmpty(folder) ? 'opacity-40' : ''"
+      @click="onRowClick(folder)"
+    >
       <!-- Leading: play/pause + иконка папки -->
       <template #leading>
         <div class="flex shrink-0 items-center gap-2">
-          <button type="button" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
+          <button
+            type="button"
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
             :class="[
               isScanning(folder)
                 ? 'bg-card-bg text-fg-muted cursor-default'
@@ -174,25 +178,34 @@ function onArrowClick(folder: Folder, e: Event) {
                     : folderPlayState(folder) === 'paused'
                       ? 'bg-active/15 text-active hover:bg-active/25'
                       : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
-            ]" :disabled="isScanning(folder) || isEmpty(folder) || hasNoTracks(folder)" :aria-label="isScanning(folder)
-              ? `Сканирование ${folder.name}`
-              : folderPlayState(folder) === 'playing'
-                ? 'Пауза'
-                : folderPlayState(folder) === 'paused'
-                  ? 'Продолжить'
-                  : `Играть папку ${folder.name}`
-              " @click="toggleFolderPlayback(folder, $event)">
+            ]"
+            :disabled="isScanning(folder) || isEmpty(folder) || hasNoTracks(folder)"
+            :aria-label="
+              isScanning(folder)
+                ? `Сканирование ${folder.name}`
+                : folderPlayState(folder) === 'playing'
+                  ? 'Пауза'
+                  : folderPlayState(folder) === 'paused'
+                    ? 'Продолжить'
+                    : `Играть папку ${folder.name}`
+            "
+            @click="toggleFolderPlayback(folder, $event)"
+          >
             <IconSpinner v-if="isScanning(folder)" class="h-5 w-5 animate-spin" />
             <IconPause v-else-if="folderPlayState(folder) === 'playing'" class="h-5 w-5" />
             <IconPlay v-else class="h-5 w-5 translate-x-[1px]" />
           </button>
 
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
-            ? 'bg-card-bg text-fg-muted'
-            : folderPlayState(folder) !== 'idle'
-              ? 'bg-active/15 text-active'
-              : 'bg-card-bg text-fg-muted'
-            ">
+          <div
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
+            :class="
+              isScanning(folder)
+                ? 'bg-card-bg text-fg-muted'
+                : folderPlayState(folder) !== 'idle'
+                  ? 'bg-active/15 text-active'
+                  : 'bg-card-bg text-fg-muted'
+            "
+          >
             <IconFolder class="h-5 w-5" />
           </div>
         </div>
@@ -205,10 +218,14 @@ function onArrowClick(folder: Folder, e: Event) {
 
       <!-- Subtitle -->
       <template #subtitle>
-        <p class="truncate text-xs" :class="folderPlayState(folder) !== 'idle' && !isScanning(folder)
-          ? 'text-active/60'
-          : 'text-fg-muted'
-          ">
+        <p
+          class="truncate text-xs"
+          :class="
+            folderPlayState(folder) !== 'idle' && !isScanning(folder)
+              ? 'text-active/60'
+              : 'text-fg-muted'
+          "
+        >
           <template v-if="folderStatus(folder) === 'scanning'">Сканирование…</template>
           <template v-else-if="folderStatus(folder) === 'pending'">Ожидает сканирования</template>
           <template v-else>{{ formatCount(folder) }}</template>
@@ -217,14 +234,20 @@ function onArrowClick(folder: Folder, e: Event) {
 
       <!-- Trailing: стрелка -->
       <template #trailing>
-        <button type="button" class="shrink-0 rounded-md p-1 transition" :class="[
-          isScanning(folder) || isEmpty(folder)
-            ? 'text-fg-disabled cursor-default'
-            : folderPlayState(folder) !== 'idle'
-              ? 'text-active/60 hover:bg-active/20 hover:text-active'
-              : 'text-fg-subtle hover:bg-hover-bg hover:text-fg-muted',
-        ]" :disabled="isScanning(folder) || isEmpty(folder)" :aria-label="`Открыть папку ${folder.name}`"
-          @click="onArrowClick(folder, $event)">
+        <button
+          type="button"
+          class="shrink-0 rounded-md p-1 transition"
+          :class="[
+            isScanning(folder) || isEmpty(folder)
+              ? 'text-fg-disabled cursor-default'
+              : folderPlayState(folder) !== 'idle'
+                ? 'text-active/60 hover:bg-active/20 hover:text-active'
+                : 'text-fg-subtle hover:bg-hover-bg hover:text-fg-muted',
+          ]"
+          :disabled="isScanning(folder) || isEmpty(folder)"
+          :aria-label="`Открыть папку ${folder.name}`"
+          @click="onArrowClick(folder, $event)"
+        >
           <IconChevronRight class="h-4 w-4" />
         </button>
       </template>

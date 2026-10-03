@@ -195,13 +195,18 @@ onMounted(async () => {
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
     <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2">
-      <button type="button"
+      <button
+        type="button"
         class="flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-        aria-label="Меню" @click="openDrawer">
+        aria-label="Меню"
+        @click="openDrawer"
+      >
         <IconMenu class="h-4 w-4" />
         <span class="hidden md:inline">Меню</span>
-        <span v-if="queueBadge"
-          class="ml-0.5 rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">
+        <span
+          v-if="queueBadge"
+          class="ml-0.5 rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active"
+        >
           {{ queueBadge }}
         </span>
       </button>
@@ -215,12 +220,19 @@ onMounted(async () => {
 
     <main class="overflow-hidden">
       <RouterView v-if="!isBootstrapping" />
-      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">Загрузка…</div>
+      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
+        Загрузка…
+      </div>
     </main>
 
     <!-- Мини-плеер + свайп вверх -->
-    <div ref="playerFooterRef" @pointerdown="onFooterPointerDown" @pointermove="onFooterPointerMove"
-      @pointerup="onFooterPointerUp" @pointercancel="onFooterPointerUp">
+    <div
+      ref="playerFooterRef"
+      @pointerdown="onFooterPointerDown"
+      @pointermove="onFooterPointerMove"
+      @pointerup="onFooterPointerUp"
+      @pointercancel="onFooterPointerUp"
+    >
       <PlayerControls @open="openFullPlayer" />
     </div>
 
@@ -230,9 +242,14 @@ onMounted(async () => {
     <SpacePermissionModal v-if="downloadSpaceService.needsPermission.value" />
 
     <!-- FullPlayer -->
-    <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 translate-y-4"
-      enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-200 ease-in"
-      leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-4">
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0 translate-y-4"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-4"
+    >
       <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />
     </Transition>
 

@@ -142,10 +142,15 @@ function onRemoved() {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <div v-if="!playlist" class="flex h-full flex-col items-center justify-center gap-3 text-sm text-fg-muted">
+    <div
+      v-if="!playlist"
+      class="flex h-full flex-col items-center justify-center gap-3 text-sm text-fg-muted"
+    >
       <p>Плейлист не найден</p>
-      <RouterLink :to="{ name: 'playlists' }"
-        class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover">
+      <RouterLink
+        :to="{ name: 'playlists' }"
+        class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
+      >
         К плейлистам
       </RouterLink>
     </div>
@@ -157,16 +162,24 @@ function onRemoved() {
           <div class="flex min-w-0 flex-1 items-center gap-2">
             <template v-if="isRenaming">
               <form class="flex flex-1 items-center gap-2" @submit.prevent="confirmRename">
-                <input v-model="renameValue" type="text" autofocus
+                <input
+                  v-model="renameValue"
+                  type="text"
+                  autofocus
                   class="flex-1 rounded-btn bg-card-bg px-3 py-1.5 text-sm text-fg focus:bg-hover-bg focus:outline-none"
-                  @keydown.esc="cancelRename" />
-                <button type="submit"
-                  class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover">
+                  @keydown.esc="cancelRename"
+                />
+                <button
+                  type="submit"
+                  class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
+                >
                   ОК
                 </button>
-                <button type="button"
+                <button
+                  type="button"
                   class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-                  @click="cancelRename">
+                  @click="cancelRename"
+                >
                   Отмена
                 </button>
               </form>
@@ -175,9 +188,13 @@ function onRemoved() {
             <template v-else>
               <h1 class="truncate text-lg font-medium text-fg">{{ playlist.name }}</h1>
 
-              <button v-if="!isFavorites" type="button"
+              <button
+                v-if="!isFavorites"
+                type="button"
                 class="rounded-btn p-1 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
-                aria-label="Переименовать" @click="startRename">
+                aria-label="Переименовать"
+                @click="startRename"
+              >
                 <IconPencil class="h-3.5 w-3.5" />
               </button>
             </template>
@@ -206,13 +223,25 @@ function onRemoved() {
           </div>
 
           <div class="flex shrink-0 items-center gap-2">
-            <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
-              :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
-              @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
+            <MetadataMenu
+              :is-loading="isMetadataLoading"
+              :progress="metadataProgress"
+              :stats="metadataStats"
+              :has-unchecked="metadataHasUnchecked"
+              :issues-count="metadataIssues.length"
+              @search="metadataSearch"
+              @cancel="metadataCancel"
+              @reset="metadataReset"
+              @open-issues="openMetadataIssues"
+            />
 
-            <button v-if="!isFavorites" type="button"
+            <button
+              v-if="!isFavorites"
+              type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"
-              aria-label="Удалить плейлист" @click="deletePlaylist">
+              aria-label="Удалить плейлист"
+              @click="deletePlaylist"
+            >
               <IconTrash class="h-4 w-4" />
             </button>
           </div>
@@ -222,29 +251,41 @@ function onRemoved() {
       <!-- Контент -->
       <div class="flex-1 overflow-y-auto">
         <div class="mx-auto w-full max-w-3xl">
-          <div v-if="playlist.tracks.length === 0"
-            class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+          <div
+            v-if="playlist.tracks.length === 0"
+            class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+          >
             Плейлист пуст
           </div>
 
           <!-- Режим поиска -->
           <template v-else-if="hasQuery">
             <div class="p-2">
-              <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+              <div
+                v-if="!hasResults"
+                class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+              >
                 Ничего не найдено
               </div>
 
               <div v-else class="flex flex-col gap-4">
                 <div v-for="group in result.groups" :key="group.artist">
-                  <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+                  <p
+                    class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle"
+                  >
                     {{ group.artist }}
                   </p>
 
                   <div class="flex flex-col gap-0.5">
-                    <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
+                    <TrackListItem
+                      v-for="track in group.tracks"
+                      :key="track.id"
+                      :track="track"
                       :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
-                      :is-current="isSearchCurrent(track.id)" :is-playing="isPlaying"
-                      @select="() => onSelectSearchTrack(track.id)">
+                      :is-current="isSearchCurrent(track.id)"
+                      :is-playing="isPlaying"
+                      @select="() => onSelectSearchTrack(track.id)"
+                    >
                       <template #actions>
                         <TrackActions :track="track" />
                       </template>
@@ -257,16 +298,26 @@ function onRemoved() {
 
           <!-- Обычный режим -->
           <div v-else class="flex flex-col gap-0.5 -mx-2.5 p-2">
-            <TrackResolvedItem v-for="(snapshot, index) in playlist.tracks" :key="snapshot.trackId"
-              :track-id="snapshot.trackId" :index="index" :is-current="isCurrent(snapshot.trackId)"
-              :is-playing="isPlaying" :playlist-id="playlist.id"
+            <TrackResolvedItem
+              v-for="(snapshot, index) in playlist.tracks"
+              :key="snapshot.trackId"
+              :track-id="snapshot.trackId"
+              :index="index"
+              :is-current="isCurrent(snapshot.trackId)"
+              :is-playing="isPlaying"
+              :playlist-id="playlist.id"
               @select="onSelectTrack(resolvedTracks.findIndex((t) => t.id === snapshot.trackId))"
-              @removed="onRemoved" />
+              @removed="onRemoved"
+            />
           </div>
         </div>
       </div>
 
-      <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
+      <MetadataIssuesModal
+        v-if="showMetadataIssues"
+        :issues="metadataIssues"
+        @close="closeMetadataIssues"
+      />
     </template>
   </div>
 </template>

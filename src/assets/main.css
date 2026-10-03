@@ -27,12 +27,12 @@
 }
 
 button:not(:disabled),
-[role="button"]:not(:disabled) {
+[role='button']:not(:disabled) {
   cursor: pointer;
 }
 
 button:disabled,
-[role="button"]:disabled {
+[role='button']:disabled {
   cursor: not-allowed;
 }
 
@@ -99,6 +99,10 @@ html {
 }
 
 @keyframes indeterminate {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
 }

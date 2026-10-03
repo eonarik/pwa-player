@@ -27,13 +27,24 @@ const track = computed<LibraryTrack | null>(() => library.getTrack(props.trackId
 </script>
 
 <template>
-  <TrackRow v-if="track" :track="track" :index="index" :is-current="isCurrent" :is-playing="isPlaying" show-download
-    @select="emit('select')">
+  <TrackRow
+    v-if="track"
+    :track="track"
+    :index="index"
+    :is-current="isCurrent"
+    :is-playing="isPlaying"
+    show-download
+    @select="emit('select')"
+  >
     <template #actions>
       <span v-if="metaLabel" class="mr-2 text-[10px] tabular-nums text-fg-subtle">
         {{ metaLabel }}
       </span>
-      <TrackActions :track="track" :playlist-id="playlistId" @removed-from-playlist="emit('removed')" />
+      <TrackActions
+        :track="track"
+        :playlist-id="playlistId"
+        @removed-from-playlist="emit('removed')"
+      />
     </template>
   </TrackRow>
 
@@ -52,9 +63,13 @@ const track = computed<LibraryTrack | null>(() => library.getTrack(props.trackId
       {{ metaLabel }}
     </span>
 
-    <button v-if="playlistId" type="button"
+    <button
+      v-if="playlistId"
+      type="button"
       class="rounded-btn p-1.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-red-400 group-hover:opacity-100"
-      aria-label="Убрать из плейлиста" @click.stop="emit('removed')">
+      aria-label="Убрать из плейлиста"
+      @click.stop="emit('removed')"
+    >
       <IconX class="h-4 w-4" />
     </button>
   </div>

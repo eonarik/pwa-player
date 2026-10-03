@@ -19,6 +19,11 @@ const emit = defineEmits<{
   (e: 'reset'): void
   (e: 'open-issues'): void
 }>()
+
+const onOpenIssues = (close: () => void) => {
+  close()
+  emit('open-issues')
+}
 </script>
 
 <template>
@@ -73,7 +78,7 @@ const emit = defineEmits<{
 
       <button v-if="issuesCount > 0" type="button"
         class="flex w-full items-center gap-2 border-t border-hover-bg px-4 py-2.5 text-left text-sm text-amber-400 transition hover:bg-hover-bg"
-        @click="close(); emit('open-issues')">
+        @click="onOpenIssues(close)">
         <IconAlertTriangle class="h-4 w-4 shrink-0" />
         <span>Поправить треки ({{ issuesCount }})</span>
       </button>

@@ -61,9 +61,12 @@ function formatDate(ts: number): string {
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <h1 class="text-lg font-medium text-fg">Плейлисты</h1>
 
-        <button v-if="!isCreating" type="button"
+        <button
+          v-if="!isCreating"
+          type="button"
           class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-          @click="startCreate">
+          @click="startCreate"
+        >
           Создать плейлист
         </button>
       </div>
@@ -73,15 +76,25 @@ function formatDate(ts: number): string {
     <div v-if="isCreating" class="shrink-0 px-4 py-3">
       <div class="mx-auto w-full max-w-3xl">
         <form class="flex items-center gap-2" @submit.prevent="confirmCreate">
-          <input v-model="newName" type="text" placeholder="Название плейлиста" autofocus
-            class="flex-1 rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none" />
-          <button type="submit"
+          <input
+            v-model="newName"
+            type="text"
+            placeholder="Название плейлиста"
+            autofocus
+            class="flex-1 rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
+          />
+          <button
+            type="submit"
             class="rounded-btn bg-accent px-3 py-2 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-            :disabled="!newName.trim()">
+            :disabled="!newName.trim()"
+          >
             Создать
           </button>
-          <button type="button" class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg"
-            @click="cancelCreate">
+          <button
+            type="button"
+            class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg"
+            @click="cancelCreate"
+          >
             Отмена
           </button>
         </form>
@@ -91,18 +104,28 @@ function formatDate(ts: number): string {
     <!-- Список -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl">
-        <div v-if="sortedPlaylists.length === 0"
-          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+        <div
+          v-if="sortedPlaylists.length === 0"
+          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+        >
           Плейлистов пока нет
         </div>
 
         <div v-else class="flex flex-col gap-0.5 -mx-2.5">
-          <button v-for="playlist in sortedPlaylists" :key="playlist.id" type="button"
+          <button
+            v-for="playlist in sortedPlaylists"
+            :key="playlist.id"
+            type="button"
             class="group flex items-center gap-3 px-3 py-2 text-left text-fg transition hover:bg-hover-bg"
-            @click="openPlaylist(playlist)">
+            @click="openPlaylist(playlist)"
+          >
             <!-- Иконка -->
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg">
-              <IconHeart v-if="playlist.id === FAVORITES_PLAYLIST_ID" :filled="true" class="h-5 w-5 text-active" />
+              <IconHeart
+                v-if="playlist.id === FAVORITES_PLAYLIST_ID"
+                :filled="true"
+                class="h-5 w-5 text-active"
+              />
               <IconPlaylist v-else class="h-5 w-5 text-fg-muted" />
             </div>
 
@@ -118,9 +141,13 @@ function formatDate(ts: number): string {
             </div>
 
             <!-- Удалить -->
-            <button v-if="playlist.id !== FAVORITES_PLAYLIST_ID" type="button"
+            <button
+              v-if="playlist.id !== FAVORITES_PLAYLIST_ID"
+              type="button"
               class="rounded-btn p-1.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-red-400 group-hover:opacity-100"
-              aria-label="Удалить" @click.stop="deletePlaylist(playlist)">
+              aria-label="Удалить"
+              @click.stop="deletePlaylist(playlist)"
+            >
               <IconTrash class="h-4 w-4" />
             </button>
           </button>

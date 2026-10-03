@@ -32,8 +32,13 @@ function commit() {
       <p v-if="field.description" class="text-xs text-fg-muted">{{ field.description }}</p>
     </div>
 
-    <input v-model="local" type="text" :placeholder="field.placeholder"
+    <input
+      v-model="local"
+      type="text"
+      :placeholder="field.placeholder"
       class="w-40 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg placeholder:text-fg-subtle focus:outline-none"
-      @blur="commit" @keydown.enter="commit" />
+      @blur="commit"
+      @keydown.enter="commit"
+    />
   </div>
 </template>

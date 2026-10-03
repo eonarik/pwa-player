@@ -27,10 +27,9 @@ function onConfirm() {
 
   if (opts.type === 'input') {
     modalService.confirm(inputValue.value)
-  } else if (opts.type === 'confirm') {
-    modalService.confirm(true)
   } else {
-    modalService.confirm(null)
+    // 'confirm'
+    modalService.confirm(true)
   }
 }
 
@@ -53,9 +52,16 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <Teleport to="body">
-    <div v-if="isOpen && options" class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4"
-      @click="onBackdropClick" @keydown="onKeydown">
-      <form class="w-full max-w-sm rounded-modal bg-bg-elevated p-5 shadow-xl" @submit.prevent="onConfirm">
+    <div
+      v-if="isOpen && options"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4"
+      @click="onBackdropClick"
+      @keydown="onKeydown"
+    >
+      <form
+        class="w-full max-w-sm rounded-modal bg-bg-elevated p-5 shadow-xl"
+        @submit.prevent="onConfirm"
+      >
         <h2 class="mb-1 text-lg font-medium text-fg">
           {{ options.title }}
         </h2>
@@ -64,19 +70,29 @@ function onKeydown(e: KeyboardEvent) {
           {{ options.message }}
         </p>
 
-        <input v-if="options.type === 'input'" ref="inputRef" v-model="inputValue"
-          :type="options.inputType === 'password' ? 'password' : 'text'" :placeholder="options.inputPlaceholder ?? ''"
-          class="w-full rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none" />
+        <input
+          v-if="options.type === 'input'"
+          ref="inputRef"
+          v-model="inputValue"
+          :type="options.inputType === 'password' ? 'password' : 'text'"
+          :placeholder="options.inputPlaceholder ?? ''"
+          class="w-full rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
+        />
 
         <div class="mt-4 flex items-center justify-end gap-2">
-          <button v-if="options.cancelLabel" type="button"
+          <button
+            v-if="options.cancelLabel"
+            type="button"
             class="rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            @click="onCancel">
+            @click="onCancel"
+          >
             {{ options.cancelLabel }}
           </button>
 
-          <button type="submit"
-            class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50">
+          <button
+            type="submit"
+            class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
+          >
             {{ options.confirmLabel ?? 'OK' }}
           </button>
         </div>

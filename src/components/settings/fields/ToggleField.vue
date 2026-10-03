@@ -18,7 +18,11 @@ const emit = defineEmits<{
       <p v-if="field.description" class="text-xs text-fg-muted">{{ field.description }}</p>
     </div>
 
-    <input type="checkbox" :checked="field.value" class="h-4 w-4 cursor-pointer accent-active"
-      @change="emit('change', field.id, ($event.target as HTMLInputElement).checked)" />
+    <input
+      type="checkbox"
+      :checked="field.value"
+      class="h-4 w-4 cursor-pointer accent-active"
+      @change="emit('change', field.id, ($event.target as HTMLInputElement).checked)"
+    />
   </label>
 </template>

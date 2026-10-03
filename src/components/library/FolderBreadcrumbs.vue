@@ -63,16 +63,24 @@ function goToFolder(crumb: Folder) {
 
 <template>
   <nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Навигация по папкам">
-    <button v-if="currentFolder" type="button"
+    <button
+      v-if="currentFolder"
+      type="button"
       class="mr-1 shrink-0 rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-      :aria-label="isPluginRoot ? 'К источникам' : 'Назад'" @click="goUp">
+      :aria-label="isPluginRoot ? 'К источникам' : 'Назад'"
+      @click="goUp"
+    >
       <IconArrowLeft class="h-4 w-4" />
     </button>
 
     <template v-for="(crumb, i) in breadcrumbs" :key="crumb.id">
-      <button type="button" class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
+      <button
+        type="button"
+        class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
         :class="i === breadcrumbs.length - 1 ? 'font-medium text-fg' : 'text-fg-muted'"
-        :title="crumb.path || crumb.name" @click="goToFolder(crumb)">
+        :title="crumb.path || crumb.name"
+        @click="goToFolder(crumb)"
+      >
         {{ crumb.name }}
       </button>
 

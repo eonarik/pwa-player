@@ -45,8 +45,15 @@ function commit() {
       <p v-if="field.description" class="text-xs text-fg-muted">{{ field.description }}</p>
     </div>
 
-    <input v-model.number="local" type="number" :min="field.min" :max="field.max" :step="field.step ?? 1"
-      class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none" @blur="commit"
-      @keydown.enter="commit" />
+    <input
+      v-model.number="local"
+      type="number"
+      :min="field.min"
+      :max="field.max"
+      :step="field.step ?? 1"
+      class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
+      @blur="commit"
+      @keydown.enter="commit"
+    />
   </div>
 </template>

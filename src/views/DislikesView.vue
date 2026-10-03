@@ -93,15 +93,21 @@ function clearDislikes() {
 
           <ShowSourceCheckbox />
 
-          <button v-if="!isEmpty" type="button"
+          <button
+            v-if="!isEmpty"
+            type="button"
             class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="playAll">
+            @click="playAll"
+          >
             Играть всё
           </button>
 
-          <button v-if="!isEmpty" type="button"
+          <button
+            v-if="!isEmpty"
+            type="button"
             class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
-            @click="clearDislikes">
+            @click="clearDislikes"
+          >
             Очистить
           </button>
         </div>
@@ -118,27 +124,41 @@ function clearDislikes() {
     <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl p-2">
-        <div v-if="isEmpty" class="flex h-full flex-col items-center justify-center gap-3 py-20 text-sm text-fg-muted">
+        <div
+          v-if="isEmpty"
+          class="flex h-full flex-col items-center justify-center gap-3 py-20 text-sm text-fg-muted"
+        >
           <IconEyeOff class="h-10 w-10 text-fg-subtle" />
           <p>Дизлайков пока нет</p>
         </div>
 
         <!-- Режим поиска -->
         <template v-else-if="hasQuery">
-          <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+          <div
+            v-if="!hasResults"
+            class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+          >
             Ничего не найдено
           </div>
 
           <div v-else class="flex flex-col gap-4">
             <div v-for="group in result.groups" :key="group.artist">
-              <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+              <p
+                class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle"
+              >
                 {{ group.artist }}
               </p>
 
               <div class="flex flex-col gap-0.5">
-                <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
-                  :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isSearchCurrent(track.id)"
-                  :is-playing="isPlaying" @select="() => onSelectSearchTrack(track.id)">
+                <TrackListItem
+                  v-for="track in group.tracks"
+                  :key="track.id"
+                  :track="track"
+                  :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
+                  :is-current="isSearchCurrent(track.id)"
+                  :is-playing="isPlaying"
+                  @select="() => onSelectSearchTrack(track.id)"
+                >
                   <template #actions>
                     <TrackActions :track="track" />
                   </template>
@@ -150,9 +170,16 @@ function clearDislikes() {
 
         <!-- Обычный режим -->
         <div v-else class="flex flex-col gap-0.5">
-          <TrackResolvedItem v-for="(entry, index) in sortedEntries" :key="entry.trackId" :track-id="entry.trackId"
-            :index="index" :is-current="isCurrent(entry.trackId)" :is-playing="isPlaying"
-            :meta-label="formatRelativeTime(entry.dislikedAt)" @select="onSelectTrack(entry.trackId)" />
+          <TrackResolvedItem
+            v-for="(entry, index) in sortedEntries"
+            :key="entry.trackId"
+            :track-id="entry.trackId"
+            :index="index"
+            :is-current="isCurrent(entry.trackId)"
+            :is-playing="isPlaying"
+            :meta-label="formatRelativeTime(entry.dislikedAt)"
+            @select="onSelectTrack(entry.trackId)"
+          />
         </div>
       </div>
     </div>

@@ -66,8 +66,10 @@ function isCurrent(trackId: string): boolean {
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <div class="min-w-0">
           <nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Навигация">
-            <RouterLink :to="{ name: 'artist', params: { artistName } }"
-              class="truncate rounded-btn px-1.5 py-0.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg">
+            <RouterLink
+              :to="{ name: 'artist', params: { artistName } }"
+              class="truncate rounded-btn px-1.5 py-0.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+            >
               {{ artistName }}
             </RouterLink>
             <span class="shrink-0 text-fg-subtle">/</span>
@@ -89,9 +91,12 @@ function isCurrent(trackId: string): boolean {
         <div class="flex shrink-0 items-center gap-3">
           <ShowSourceCheckbox />
 
-          <button v-if="visibleTracks.length > 0" type="button"
+          <button
+            v-if="visibleTracks.length > 0"
+            type="button"
             class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="playAll">
+            @click="playAll"
+          >
             Играть всё
           </button>
         </div>
@@ -108,18 +113,30 @@ function isCurrent(trackId: string): boolean {
     <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl p-2">
-        <div v-if="tracks.length === 0" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+        <div
+          v-if="tracks.length === 0"
+          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+        >
           Альбом не найден
         </div>
 
-        <div v-else-if="visibleTracks.length === 0"
-          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+        <div
+          v-else-if="visibleTracks.length === 0"
+          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+        >
           Ничего не найдено
         </div>
 
         <div v-else class="flex flex-col gap-0.5">
-          <TrackListItem v-for="(track, index) in visibleTracks" :key="track.id" :track="track" :index="index"
-            :is-current="isCurrent(track.id)" :is-playing="isPlaying" @select="onSelectTrack">
+          <TrackListItem
+            v-for="(track, index) in visibleTracks"
+            :key="track.id"
+            :track="track"
+            :index="index"
+            :is-current="isCurrent(track.id)"
+            :is-playing="isPlaying"
+            @select="onSelectTrack"
+          >
             <template #actions>
               <TrackActions :track="track" />
             </template>

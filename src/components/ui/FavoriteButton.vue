@@ -39,12 +39,18 @@ function onClick() {
 </script>
 
 <template>
-  <button type="button" class="rounded-btn transition" :class="[
-    btnClass,
-    isFavorite
-      ? 'text-active hover:bg-hover-bg'
-      : 'text-fg-subtle hover:bg-hover-bg hover:text-fg',
-  ]" :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'" @click.stop="onClick">
+  <button
+    type="button"
+    class="rounded-btn transition"
+    :class="[
+      btnClass,
+      isFavorite
+        ? 'text-active hover:bg-hover-bg'
+        : 'text-fg-subtle hover:bg-hover-bg hover:text-fg',
+    ]"
+    :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'"
+    @click.stop="onClick"
+  >
     <IconHeart :filled="isFavorite" :class="iconClass" />
   </button>
 </template>

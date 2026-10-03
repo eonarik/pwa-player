@@ -41,9 +41,12 @@ function clearQueue() {
         </p>
       </div>
 
-      <button v-if="hasQueue" type="button"
+      <button
+        v-if="hasQueue"
+        type="button"
         class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
-        @click="clearQueue">
+        @click="clearQueue"
+      >
         Очистить
       </button>
     </div>
@@ -56,9 +59,16 @@ function clearQueue() {
     <!-- Список -->
     <div v-else class="flex-1 overflow-y-auto">
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-0.5 p-2">
-        <QueueTrackRow v-for="(track, index) in queue" :key="`${track.id}-${index}`" :track="track" :index="index"
-          :is-current="index === currentIndex" :is-playing="isPlaying" @select="playAt(index)"
-          @remove="removeAt(index)" />
+        <QueueTrackRow
+          v-for="(track, index) in queue"
+          :key="`${track.id}-${index}`"
+          :track="track"
+          :index="index"
+          :is-current="index === currentIndex"
+          :is-playing="isPlaying"
+          @select="playAt(index)"
+          @remove="removeAt(index)"
+        />
       </div>
     </div>
   </div>

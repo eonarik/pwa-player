@@ -53,9 +53,12 @@ function playAlbum(group: { tracks: LibraryTrack[] }) {
         <div class="flex shrink-0 items-center gap-3">
           <ShowSourceCheckbox />
 
-          <button v-if="tracksCount > 0" type="button"
+          <button
+            v-if="tracksCount > 0"
+            type="button"
             class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="playAll">
+            @click="playAll"
+          >
             Играть всё
           </button>
         </div>
@@ -65,33 +68,51 @@ function playAlbum(group: { tracks: LibraryTrack[] }) {
     <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-5xl">
-        <div v-if="albums.length === 0" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+        <div
+          v-if="albums.length === 0"
+          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
+        >
           У этого артиста нет треков
         </div>
 
-        <div v-else
-          class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-5 lg:grid-cols-5 lg:gap-6">
+        <div
+          v-else
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-5 lg:grid-cols-5 lg:gap-6"
+        >
           <div v-for="group in albums" :key="group.slug" class="group relative">
-            <RouterLink :to="{ name: 'album', params: { artistName, album: group.slug } }" class="block">
+            <RouterLink
+              :to="{ name: 'album', params: { artistName, album: group.slug } }"
+              class="block"
+            >
               <div class="relative aspect-square overflow-hidden bg-card-bg">
-                <img v-if="group.coverUrl" :src="group.coverUrl" :alt="group.name"
-                  class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+                <img
+                  v-if="group.coverUrl"
+                  :src="group.coverUrl"
+                  :alt="group.name"
+                  class="h-full w-full object-cover transition group-hover:scale-105"
+                  loading="lazy"
+                />
                 <div v-else class="flex h-full w-full items-center justify-center">
                   <IconPlaylist class="h-12 w-12 text-fg-subtle" />
                 </div>
 
                 <!-- Play — верхний правый угол -->
-                <button type="button"
+                <button
+                  type="button"
                   class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
-                  :aria-label="`Играть альбом ${group.name}`" @click.prevent.stop="playAlbum(group)">
+                  :aria-label="`Играть альбом ${group.name}`"
+                  @click.prevent.stop="playAlbum(group)"
+                >
                   <IconPlay class="h-5 w-5 translate-x-[1px]" />
                 </button>
               </div>
             </RouterLink>
 
             <div class="mt-2 min-w-0">
-              <RouterLink :to="{ name: 'album', params: { artistName, album: group.slug } }"
-                class="block truncate text-sm font-medium text-fg transition hover:text-active">
+              <RouterLink
+                :to="{ name: 'album', params: { artistName, album: group.slug } }"
+                class="block truncate text-sm font-medium text-fg transition hover:text-active"
+              >
                 {{ group.name }}
               </RouterLink>
               <p class="truncate text-xs text-fg-muted">

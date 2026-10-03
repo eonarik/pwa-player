@@ -16,7 +16,9 @@ const emit = defineEmits<{
 <template>
   <ListRow @click="emit('open')">
     <template #leading>
-      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg text-fg-muted">
+      <div
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg text-fg-muted"
+      >
         <IconFile class="h-5 w-5" />
       </div>
     </template>

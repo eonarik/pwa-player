@@ -9,10 +9,10 @@ import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibraryStore } from '@/stores/library'
 import type { LibraryTrack } from '@/types/library'
 import type { MetadataCandidate } from '@/services/metadata/TrackMetadataService'
+import { UNKNOWN_ARTIST_PLACEHOLDER } from '@/services/metadata/constants'
 
 const CONCURRENCY = 3
 const FLUSH_INTERVAL = 10
-const UNKNOWN_ARTIST_PLACEHOLDER = 'Yandex Disk'
 
 export interface MetadataIssue {
   track: LibraryTrack

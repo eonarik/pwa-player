@@ -56,8 +56,13 @@ const isDownloaded = computed(() => {
 </script>
 
 <template>
-  <ListRow :active="isCurrent" :disliked="isDisliked" :download-progress="downloadProgress" :downloaded="isDownloaded"
-    @click="emit('select')">
+  <ListRow
+    :active="isCurrent"
+    :disliked="isDisliked"
+    :download-progress="downloadProgress"
+    :downloaded="isDownloaded"
+    @click="emit('select')"
+  >
     <template #leading>
       <TrackCover :track="track">
         <PlayingIndicator v-if="isCurrent && isPlaying" />
@@ -67,8 +72,11 @@ const isDownloaded = computed(() => {
     <template #title>
       <p class="truncate text-sm font-medium">
         <template v-if="showSource && hasArtist">
-          <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
-            class="transition hover:text-active" @click.stop>
+          <RouterLink
+            :to="{ name: 'artist', params: { artistName: track.artist } }"
+            class="transition hover:text-active"
+            @click.stop
+          >
             {{ track.artist }}
           </RouterLink>
           <span> — </span>
@@ -80,8 +88,11 @@ const isDownloaded = computed(() => {
 
     <template #subtitle>
       <p v-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
-        <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }" class="transition hover:text-active"
-          @click.stop>
+        <RouterLink
+          :to="{ name: 'artist', params: { artistName: track.artist } }"
+          class="transition hover:text-active"
+          @click.stop
+        >
           {{ track.artist }}
         </RouterLink>
       </p>

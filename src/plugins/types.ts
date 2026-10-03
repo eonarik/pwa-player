@@ -310,7 +310,15 @@ export interface PluginStorage {
 export interface ModalOptions {
   title: string
   message?: string
-  type: 'input' | 'confirm' | 'custom'
+  /**
+   * Тип модалки:
+   * - 'input' — текстовое поле + подтверждение (например, пароль Яндекс.Диска).
+   * - 'confirm' — только подтверждение (например, удаление).
+   *
+   * Если понадобится произвольная модалка — расширить здесь
+   * и добавить рендер в ModalHost.vue.
+   */
+  type: 'input' | 'confirm'
   inputType?: 'text' | 'password'
   inputPlaceholder?: string
   confirmLabel?: string

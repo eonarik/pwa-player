@@ -35,6 +35,11 @@ function clear() {
   inputRef.value?.focus()
 }
 
+function onSearchClose() {
+  clear()
+  close()
+}
+
 onMounted(async () => {
   if (props.alwaysOpen) {
     await nextTick()
@@ -73,7 +78,7 @@ onMounted(async () => {
         class="absolute left-9 top-0 z-30 flex w-56 items-center rounded-btn bg-bg-elevated px-2 shadow-lg">
         <input ref="inputRef" v-model="modelValue" type="text" placeholder="Поиск…"
           class="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none"
-          @blur="close" @keydown.esc="clear(); close()" />
+          @blur="close" @keydown.esc="onSearchClose()" />
 
         <button v-if="modelValue" type="button"
           class="shrink-0 rounded-btn p-0.5 text-fg-subtle transition hover:text-fg" aria-label="Очистить"

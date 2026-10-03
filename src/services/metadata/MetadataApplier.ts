@@ -7,8 +7,7 @@ import {
 import { useLibraryStore } from '@/stores/library'
 import type { LibraryTrack } from '@/types/library'
 import type { MetadataCandidate, RemoteTrackMetadata } from './TrackMetadataService'
-
-const UNKNOWN_ARTIST_PLACEHOLDER = 'Yandex Disk'
+import { UNKNOWN_ARTIST_PLACEHOLDER } from './constants'
 
 export type ApplyResult =
   | { status: 'applied' }

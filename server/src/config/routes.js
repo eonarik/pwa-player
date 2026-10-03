@@ -1,4 +1,4 @@
-// server/src/config/routes.ts
+// server/src/config/routes.js
 
 import { Router } from 'express'
 import { loadSettings } from '../settings/client.js'

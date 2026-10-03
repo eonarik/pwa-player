@@ -31,8 +31,11 @@ function statusClass(status: string): string {
       Папок нет.
     </div>
 
-    <div v-for="folder in field.folders" :key="folder.name"
-      class="flex items-center justify-between gap-3 bg-card-bg px-4 py-3">
+    <div
+      v-for="folder in field.folders"
+      :key="folder.name"
+      class="flex items-center justify-between gap-3 bg-card-bg px-4 py-3"
+    >
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm text-fg">{{ folder.name }}</p>
         <p class="text-xs" :class="statusClass(folder.status)">
@@ -41,15 +44,21 @@ function statusClass(status: string): string {
       </div>
 
       <div class="flex shrink-0 items-center gap-1">
-        <button type="button"
+        <button
+          type="button"
           class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg disabled:opacity-50"
-          :disabled="disabled" @click="emit('action', 'rescan-folder', { name: folder.name })">
+          :disabled="disabled"
+          @click="emit('action', 'rescan-folder', { name: folder.name })"
+        >
           Обновить
         </button>
 
-        <button type="button"
+        <button
+          type="button"
           class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:bg-hover-bg hover:text-red-400 disabled:opacity-50"
-          :disabled="disabled" @click="emit('action', 'remove-folder', { name: folder.name })">
+          :disabled="disabled"
+          @click="emit('action', 'remove-folder', { name: folder.name })"
+        >
           Удалить
         </button>
       </div>

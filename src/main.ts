@@ -1,4 +1,4 @@
-// src/main.ts
+// src/main
 
 import { Buffer } from 'buffer'
 import process from 'process'
@@ -25,15 +25,15 @@ import { metadataPersistenceService } from '@/services/persistence/MetadataPersi
 
 import './assets/main.css'
 import { usePlaylistsStore } from './stores/playlists'
-import { useLibraryStore } from './stores/library.ts'
-import { usePlayerStore } from './stores/player.ts'
-import { downloadOrchestrator } from './services/download/DownloadOrchestrator.ts'
-import { syncService } from './services/download/SyncService.ts'
-import { downloadSpaceService } from './services/download/DownloadSpaceService.ts'
-import { librarySaveService } from './services/library/LibrarySaveService.ts'
-import { useHistoryStore } from './stores/history.ts'
-import { useDislikesStore } from './stores/dislikes.ts'
-import { useUiSettingsStore } from './stores/uiSettings.ts'
+import { useLibraryStore } from './stores/library'
+import { usePlayerStore } from './stores/player'
+import { downloadOrchestrator } from './services/download/DownloadOrchestrator'
+import { syncService } from './services/download/SyncService'
+import { downloadSpaceService } from './services/download/DownloadSpaceService'
+import { librarySaveService } from './services/library/LibrarySaveService'
+import { useHistoryStore } from './stores/history'
+import { useDislikesStore } from './stores/dislikes'
+import { useUiSettingsStore } from './stores/uiSettings'
 
 async function bootstrap() {
   try {

@@ -64,13 +64,22 @@ function ignore() {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4" @click.self="ignore">
-      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-bg-elevated shadow-xl">
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4"
+      @click.self="ignore"
+    >
+      <div
+        class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-bg-elevated shadow-xl"
+      >
         <!-- Шапка -->
         <div class="flex shrink-0 items-center justify-between px-5 py-4">
           <h2 class="text-lg font-medium text-fg">Проблемные треки</h2>
-          <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            aria-label="Закрыть" @click="ignore">
+          <button
+            type="button"
+            class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+            aria-label="Закрыть"
+            @click="ignore"
+          >
             <IconX class="h-5 w-5" />
           </button>
         </div>
@@ -82,18 +91,28 @@ function ignore() {
           </p>
 
           <div class="flex flex-col gap-3">
-            <div v-for="issue in issues" :key="issue.track.id" class="border-b border-hover-bg pb-3 last:border-b-0">
+            <div
+              v-for="issue in issues"
+              :key="issue.track.id"
+              class="border-b border-hover-bg pb-3 last:border-b-0"
+            >
               <p class="mb-2 truncate text-sm text-fg-muted">
                 <span class="text-fg-subtle">Оригинал:</span>
                 {{ [issue.track.artist, issue.track.title].filter(Boolean).join(' — ') }}
               </p>
 
-              <select :value="currentValue(issue.track.id)"
+              <select
+                :value="currentValue(issue.track.id)"
                 class="w-full rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg focus:outline-none"
-                @change="onSelect(issue.track.id, ($event.target as HTMLSelectElement).value)">
+                @change="onSelect(issue.track.id, ($event.target as HTMLSelectElement).value)"
+              >
                 <option value="-1" class="bg-bg-elevated text-fg-muted">Пропустить</option>
-                <option v-for="(candidate, index) in issue.candidates" :key="index" :value="String(index)"
-                  class="bg-bg-elevated text-fg">
+                <option
+                  v-for="(candidate, index) in issue.candidates"
+                  :key="index"
+                  :value="String(index)"
+                  class="bg-bg-elevated text-fg"
+                >
                   {{ candidateLabel(candidate) }}
                 </option>
               </select>
@@ -103,13 +122,18 @@ function ignore() {
 
         <!-- Кнопки -->
         <div class="flex shrink-0 items-center justify-end gap-2 px-5 py-4">
-          <button type="button" class="rounded-btn px-4 py-2 text-sm text-fg-muted transition hover:text-fg"
-            @click="ignore">
+          <button
+            type="button"
+            class="rounded-btn px-4 py-2 text-sm text-fg-muted transition hover:text-fg"
+            @click="ignore"
+          >
             Закрыть
           </button>
-          <button type="button"
+          <button
+            type="button"
             class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-            @click="apply">
+            @click="apply"
+          >
             Применить
           </button>
         </div>
