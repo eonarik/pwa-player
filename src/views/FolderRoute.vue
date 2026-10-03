@@ -7,7 +7,7 @@ import { useLibraryStore } from '@/stores/library'
 import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import type { Folder } from '@/types/library'
-import FolderView from '@/components/library/FolderView.vue'
+import FolderView from '@/views/FolderView.vue'
 
 const route = useRoute()
 const router = useRouter()

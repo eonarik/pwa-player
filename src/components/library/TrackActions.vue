@@ -13,6 +13,12 @@ import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import IconDots from '@/components/icons/IconDots.vue'
 import type { Track } from '@/types/track'
+import type { LibraryTrack } from "@/types/library.ts"
+import { downloadOrchestrator } from "@/services/download/DownloadOrchestrator.ts"
+import { downloadSpaceService } from "@/services/download/DownloadSpaceService.ts"
+import IconDownload from "../icons/IconDownload.vue"
+import IconCloudCheck from "../icons/IconCloudCheck.vue"
+import IconX from "../icons/IconX.vue"
 
 const props = defineProps<{
   track: Track
@@ -148,6 +154,70 @@ async function findMetadata(close: () => void): Promise<void> {
     closeMenu(close)
   }
 }
+
+const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
+
+const downloadProgress = computed(() => {
+  if (!isDownloading.value) return null
+  const p = downloadOrchestrator.getProgress(props.track.id)
+  if (!p || p.total <= 0) return null
+  return Math.round((p.written / p.total) * 100)
+})
+
+const downloadOrigin = computed(() => (props.track as LibraryTrack).origin ?? 'remote')
+
+const downloadLabel = computed(() => {
+  if (isDownloading.value) {
+    return downloadProgress.value !== null
+      ? `Скачивание… ${downloadProgress.value}% · Отменить`
+      : 'Отменить скачивание'
+  }
+  if (downloadOrigin.value === 'downloaded') return 'Удалить с устройства'
+  if (downloadOrigin.value === 'only-local') return 'Удалить с устройства'
+  return 'Скачать'
+})
+
+const canDownload = computed(() => {
+  // Локальный плагин — canDownload=false, не показываем
+  return props.track.pluginId !== 'local'
+})
+
+async function onDownload(close: () => void) {
+  close()
+
+  const track = props.track as LibraryTrack
+
+  if (isDownloading.value) {
+    downloadOrchestrator.cancel(track.id)
+    return
+  }
+
+  if (downloadOrigin.value === 'remote') {
+    try {
+      if (!downloadSpaceService.hasSpace.value) {
+        const ok = await downloadSpaceService.pickSpace()
+        if (!ok) return
+      }
+      await downloadOrchestrator.downloadTrack(track)
+    } catch (err) {
+      console.error('[track-actions] download failed', err)
+      toastService.error(err instanceof Error ? err.message : 'Не удалось скачать')
+    }
+    return
+  }
+
+  // downloaded / only-local
+  if (downloadOrigin.value === 'only-local') {
+    const ok = window.confirm('Удалить трек с устройства?')
+    if (!ok) return
+  }
+  try {
+    await downloadOrchestrator.removeDownloaded(track)
+  } catch (err) {
+    console.error('[track-actions] remove failed', err)
+    toastService.error(err instanceof Error ? err.message : 'Не удалось удалить')
+  }
+}
 </script>
 
 <template>
@@ -222,6 +292,17 @@ async function findMetadata(close: () => void): Promise<void> {
           class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
           @click="removeFromQueue(close)">
           Убрать из очереди
+        </button>
+
+        <button v-if="canDownload" type="button"
+          class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition" :class="downloadOrigin === 'remote' && !isDownloading
+            ? 'text-fg hover:bg-hover-bg'
+            : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
+            " @click="onDownload(close)">
+          <IconDownload v-if="downloadOrigin === 'remote' && !isDownloading" class="h-4 w-4 shrink-0" />
+          <IconCloudCheck v-else-if="downloadOrigin === 'downloaded'" class="h-4 w-4 shrink-0" />
+          <IconX v-else-if="isDownloading" class="h-4 w-4 shrink-0" />
+          <span class="truncate">{{ downloadLabel }}</span>
         </button>
       </template>
     </DropdownMenu>

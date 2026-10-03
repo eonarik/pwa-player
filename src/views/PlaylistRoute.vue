@@ -8,16 +8,20 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
+import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { pluralize } from '@/utils/pluralize'
+import { sortService } from '@/services/sort/SortService'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
+import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
+import MetadataMenu from '@/components/library/MetadataMenu.vue'
+import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
+import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
-import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import IconPencil from '@/components/icons/IconPencil.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
-import { sortService } from '@/services/sort/SortService'
 import type { LibraryTrack } from '@/types/library'
 
 const route = useRoute()
@@ -71,6 +75,31 @@ function onSelectSearchTrack(trackId: string) {
 
 function isSearchCurrent(trackId: string): boolean {
   return currentTrack.value?.id === trackId
+}
+
+// --- Поиск метаданных -----------------------------------------------
+
+const {
+  isLoading: isMetadataLoading,
+  progress: metadataProgress,
+  stats: metadataStats,
+  hasUnchecked: metadataHasUnchecked,
+  issues: metadataIssues,
+  search: metadataSearch,
+  cancel: metadataCancel,
+  reset: metadataReset,
+  dismissIssues: metadataDismissIssues,
+} = useMetadataSearch(resolvedTracks)
+
+const showMetadataIssues = ref(false)
+
+function openMetadataIssues() {
+  showMetadataIssues.value = true
+}
+
+function closeMetadataIssues() {
+  showMetadataIssues.value = false
+  metadataDismissIssues()
 }
 
 // --- Действия -------------------------------------------------------
@@ -130,8 +159,8 @@ function onRemoved() {
     </div>
 
     <template v-else>
-      <!-- Шапка -->
-      <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
+      <!-- Шапка: строка 1 -->
+      <div class="flex shrink-0 items-center justify-between gap-3 px-4 pt-3">
         <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
           <div class="flex min-w-0 flex-1 items-center gap-2">
             <template v-if="isRenaming">
@@ -162,7 +191,7 @@ function onRemoved() {
             </template>
           </div>
 
-          <div class="flex shrink-0 items-center gap-3">
+          <div class="flex shrink-0 items-center gap-2">
             <span class="text-xs text-fg-muted">
               <template v-if="unavailableCount > 0">
                 {{ resolvedTracks.length }} из {{ playlist.tracks.length }}
@@ -172,13 +201,22 @@ function onRemoved() {
               </template>
             </span>
 
-            <ShowSourceCheckbox />
+            <BatchDownloadButton :tracks="resolvedTracks" />
+          </div>
+        </div>
+      </div>
 
-            <button v-if="hasTracks" type="button"
-              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-              @click="playAll">
-              Играть всё
-            </button>
+      <!-- Шапка: строка 2 -->
+      <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
+        <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+          <div class="flex items-center gap-1">
+            <SearchInput v-model="query" />
+          </div>
+
+          <div class="flex shrink-0 items-center gap-2">
+            <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
+              :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
+              @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
 
             <button v-if="!isFavorites" type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"
@@ -189,16 +227,9 @@ function onRemoved() {
         </div>
       </div>
 
-      <!-- Поиск -->
-      <div class="shrink-0 px-4 py-2">
-        <div class="mx-auto w-full max-w-3xl">
-          <SearchInput v-model="query" />
-        </div>
-      </div>
-
       <!-- Контент -->
       <div class="flex-1 overflow-y-auto">
-        <div class="mx-auto w-full max-w-3xl p-2">
+        <div class="mx-auto w-full max-w-3xl">
           <div v-if="playlist.tracks.length === 0"
             class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
             Плейлист пуст
@@ -206,32 +237,34 @@ function onRemoved() {
 
           <!-- Режим поиска -->
           <template v-else-if="hasQuery">
-            <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-              Ничего не найдено
-            </div>
+            <div class="p-2">
+              <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+                Ничего не найдено
+              </div>
 
-            <div v-else class="flex flex-col gap-4">
-              <div v-for="group in result.groups" :key="group.artist">
-                <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-                  {{ group.artist }}
-                </p>
+              <div v-else class="flex flex-col gap-4">
+                <div v-for="group in result.groups" :key="group.artist">
+                  <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+                    {{ group.artist }}
+                  </p>
 
-                <div class="flex flex-col gap-0.5">
-                  <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
-                    :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
-                    :is-current="isSearchCurrent(track.id)" :is-playing="isPlaying"
-                    @select="() => onSelectSearchTrack(track.id)">
-                    <template #actions>
-                      <TrackActions :track="track" />
-                    </template>
-                  </TrackListItem>
+                  <div class="flex flex-col gap-0.5">
+                    <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
+                      :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
+                      :is-current="isSearchCurrent(track.id)" :is-playing="isPlaying"
+                      @select="() => onSelectSearchTrack(track.id)">
+                      <template #actions>
+                        <TrackActions :track="track" />
+                      </template>
+                    </TrackListItem>
+                  </div>
                 </div>
               </div>
             </div>
           </template>
 
           <!-- Обычный режим -->
-          <div v-else class="flex flex-col gap-0.5">
+          <div v-else class="flex flex-col gap-0.5 -mx-2.5 p-2">
             <TrackResolvedItem v-for="(snapshot, index) in playlist.tracks" :key="snapshot.trackId"
               :track-id="snapshot.trackId" :index="index" :is-current="isCurrent(snapshot.trackId)"
               :is-playing="isPlaying" :playlist-id="playlist.id"
@@ -240,6 +273,8 @@ function onRemoved() {
           </div>
         </div>
       </div>
+
+      <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
     </template>
   </div>
 </template>

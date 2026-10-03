@@ -1,4 +1,4 @@
-<!-- src/components/library/FolderView.vue -->
+<!-- src/views/FolderView.vue -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -12,21 +12,22 @@ import { toastService } from '@/services/ui/ToastService'
 import { sortService } from '@/services/sort/SortService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
-import Breadcrumbs from './Breadcrumbs.vue'
-import FolderList from './FolderList.vue'
-import TrackList from './TrackList.vue'
-import FolderSortMenu from './FolderSortMenu.vue'
-import FolderSyncMenu from './FolderSyncMenu.vue'
-import FolderSettingsMenu from './FolderSettingsMenu.vue'
-import MetadataMenu from './MetadataMenu.vue'
-import MetadataIssuesModal from './MetadataIssuesModal.vue'
-import TrackListItem from './TrackListItem.vue'
-import TrackActions from './TrackActions.vue'
-import FileListItem from './FileListItem.vue'
-import TextEditorModal from './TextEditorModal.vue'
+import Breadcrumbs from '@/components/library/Breadcrumbs.vue'
+import FolderList from '@/components/library/FolderList.vue'
+import TrackList from '@/components/library/TrackList.vue'
+import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
+import FolderSyncMenu from '@/components/library/FolderSyncMenu.vue'
+import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue'
+import MetadataMenu from '@/components/library/MetadataMenu.vue'
+import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
+import TrackListItem from '@/components/library/TrackListItem.vue'
+import TrackActions from '@/components/library/TrackActions.vue'
+import FileListItem from '@/components/library/FileListItem.vue'
+import TextEditorModal from '@/components/library/TextEditorModal.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import IconSpinner from '@/components/icons/IconSpinner.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
+import BatchDownloadButton from "@/components/library/BatchDownloadButton.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -192,14 +193,18 @@ function onSelectTrack(index: number) {
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <Breadcrumbs />
 
-        <span v-if="currentFolder && !isScanning" class="shrink-0 text-xs text-fg-muted">
-          <template v-if="hasFolders">{{ currentSubfolders.length }} папок</template>
-          <template v-if="hasFolders && hasTracks"> · </template>
-          <template v-if="hasTracks">{{ tracks.length }} треков</template>
-          <template v-if="!hasFolders && !hasTracks && !hasTextFiles">пусто</template>
-        </span>
+        <div class="flex items-center gap-2">
+          <span v-if="currentFolder && !isScanning" class="shrink-0 text-xs text-fg-muted">
+            <template v-if="hasFolders">{{ currentSubfolders.length }} папок</template>
+            <template v-if="hasFolders && hasTracks"> · </template>
+            <template v-if="hasTracks">{{ tracks.length }} треков</template>
+            <template v-if="!hasFolders && !hasTracks && !hasTextFiles">пусто</template>
+          </span>
 
-        <span v-else-if="isScanning" class="shrink-0 text-xs text-fg-muted">Сканирование…</span>
+          <span v-else-if="isScanning" class="shrink-0 text-xs text-fg-muted">Сканирование…</span>
+
+          <BatchDownloadButton :tracks="subtreeTracks" />
+        </div>
       </div>
     </div>
 

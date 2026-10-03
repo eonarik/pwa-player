@@ -66,11 +66,11 @@ onMounted(async () => {
       <IconSearch class="h-4 w-4" />
     </button>
 
-    <Transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 -translate-y-1"
-      enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-100 ease-in"
-      leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
+    <Transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 -translate-x-1"
+      enter-to-class="opacity-100 translate-x-0" leave-active-class="transition duration-100 ease-in"
+      leave-from-class="opacity-100 translate-x-0" leave-to-class="opacity-0 -translate-x-1">
       <div v-if="isOpen"
-        class="absolute left-0 top-full z-30 mt-1 flex w-56 items-center rounded-btn bg-bg-elevated px-2 shadow-lg">
+        class="absolute left-9 top-0 z-30 flex w-56 items-center rounded-btn bg-bg-elevated px-2 shadow-lg">
         <input ref="inputRef" v-model="modelValue" type="text" placeholder="Поиск…"
           class="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none"
           @blur="close" @keydown.esc="clear(); close()" />

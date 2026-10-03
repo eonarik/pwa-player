@@ -90,15 +90,15 @@ function formatDate(ts: number): string {
 
     <!-- Список -->
     <div class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-3xl p-2">
+      <div class="mx-auto w-full max-w-3xl">
         <div v-if="sortedPlaylists.length === 0"
           class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
           Плейлистов пока нет
         </div>
 
-        <div v-else class="flex flex-col gap-0.5">
+        <div v-else class="flex flex-col gap-0.5 -mx-2.5">
           <button v-for="playlist in sortedPlaylists" :key="playlist.id" type="button"
-            class="group flex items-center gap-3 rounded-card px-3 py-2 text-left text-fg transition hover:bg-hover-bg"
+            class="group flex items-center gap-3 px-3 py-2 text-left text-fg transition hover:bg-hover-bg"
             @click="openPlaylist(playlist)">
             <!-- Иконка -->
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg">

@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useLibraryStore } from '@/stores/library'
-import TrackListItem from './TrackListItem.vue'
+import TrackRow from './TrackRow.vue'
 import TrackActions from './TrackActions.vue'
 import IconX from '@/components/icons/IconX.vue'
 import type { LibraryTrack } from '@/types/library'
@@ -24,22 +24,18 @@ const emit = defineEmits<{
 const library = useLibraryStore()
 
 const track = computed<LibraryTrack | null>(() => library.getTrack(props.trackId))
-
-function onSelect() {
-  emit('select')
-}
 </script>
 
 <template>
-  <TrackListItem v-if="track" :track="track" :index="index" :is-current="isCurrent" :is-playing="isPlaying"
-    @select="onSelect">
+  <TrackRow v-if="track" :track="track" :index="index" :is-current="isCurrent" :is-playing="isPlaying" show-download
+    @select="emit('select')">
     <template #actions>
       <span v-if="metaLabel" class="mr-2 text-[10px] tabular-nums text-fg-subtle">
         {{ metaLabel }}
       </span>
       <TrackActions :track="track" :playlist-id="playlistId" @removed-from-playlist="emit('removed')" />
     </template>
-  </TrackListItem>
+  </TrackRow>
 
   <!-- Трек недоступен -->
   <div v-else class="group flex items-center gap-3 px-3 py-2 text-fg-subtle">
