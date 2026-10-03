@@ -9,6 +9,7 @@ import {
   YandexApiError,
 } from '../yandex/client.js'
 import { checkAccess } from '../middleware/requireAuth.js'
+import { invalidateSettingsCache, isSettingsPath } from '../settings/client.js'
 import { resolveDiskPath, toClientPath } from './paths.js'
 import { filterPublicItems } from './filter.js'
 
@@ -197,6 +198,12 @@ diskRouter.put('/text', async (req, res) => {
   try {
     await yandexUploadText(path, content)
     const meta = await yandexFileMeta(path)
+
+    // Если записали .settings.json — сбрасываем кэш настроек,
+    // иначе 5 минут (SETTINGS_CACHE_TTL_MS) применяется старая версия.
+    if (isSettingsPath(clientPath)) {
+      invalidateSettingsCache()
+    }
 
     res.json({
       ok: true,

@@ -62,23 +62,32 @@ metadataRouter.get('/track-metadata', async (req, res) => {
     itunesResults = cached.itunes ?? []
     deezerResults = cached.deezer ?? []
   } else {
+    let itunesFailed = false
+    let deezerFailed = false
+
     try {
       itunesResults = await searchItunes(artist, title)
     } catch (err) {
+      itunesFailed = true
       console.warn('[metadata] iTunes failed:', err.message)
     }
 
     try {
       deezerResults = await searchDeezer(artist, title)
     } catch (err) {
+      deezerFailed = true
       console.warn('[metadata] Deezer failed:', err.message)
     }
 
-    cache.set(cacheKey, {
-      itunes: itunesResults,
-      deezer: deezerResults,
-      fetchedAt: Date.now(),
-    })
+    // Кэшируем только если хотя бы один источник ответил успешно.
+    // Иначе — транзиентная ошибка (сеть, 5xx), не залипаем на 24 часа.
+    if (!itunesFailed || !deezerFailed) {
+      cache.set(cacheKey, {
+        itunes: itunesResults,
+        deezer: deezerResults,
+        fetchedAt: Date.now(),
+      })
+    }
   }
 
   // Считаем similarity для каждого

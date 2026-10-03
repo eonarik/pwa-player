@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useHistoryStore } from '@/stores/history'
 import { usePlaylistsStore } from '@/stores/playlists'
+import { useDislikesStore } from '@/stores/dislikes'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
@@ -31,6 +32,7 @@ const player = usePlayerStore()
 const library = useLibraryStore()
 const history = useHistoryStore()
 const playlists = usePlaylistsStore()
+const dislikes = useDislikesStore()
 const uiSettings = useUiSettingsStore()
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
@@ -168,6 +170,7 @@ onMounted(async () => {
     await metadataPersistenceService.load()
     await downloadSpaceService.load()
     await history.restore()
+    await dislikes.restore()
 
     for (const manifest of getPlugins()) {
       try {

@@ -1,8 +1,31 @@
-// server/src/auth/jwt.ts
+// server/src/auth/jwt.js
 
 import crypto from 'node:crypto'
 
-const SECRET = process.env.AUTH_SECRET ?? 'insecure-default-change-me'
+const DEFAULT_INSECURE_SECRET = 'insecure-default-change-me'
+
+function resolveSecret() {
+  const secret = process.env.AUTH_SECRET
+
+  if (secret && secret.length > 0) {
+    return secret
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[auth] AUTH_SECRET is required in production. ' + 'Set it in .env: `openssl rand -hex 32`.',
+    )
+  }
+
+  // DEV/TEST: разрешаем дефолт, но предупреждаем
+  console.warn(
+    '[auth] AUTH_SECRET is not set. Using insecure default. ' +
+      'This is OK for local development only.',
+  )
+  return DEFAULT_INSECURE_SECRET
+}
+
+const SECRET = resolveSecret()
 const TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 дней
 
 export function createToken() {
@@ -20,10 +43,15 @@ export function validateToken(token) {
 
   const expected = crypto.createHmac('sha256', SECRET).update(payloadStr).digest('base64url')
 
-  if (signature !== expected) return false
+  // Constant-time сравнение, чтобы не утекала длина совпадающего префикса
+  const sigBuf = Buffer.from(signature)
+  const expBuf = Buffer.from(expected)
+  if (sigBuf.length !== expBuf.length) return false
+  if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false
 
   try {
     const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString())
+    if (typeof payload.exp !== 'number') return false
     return payload.exp > Date.now()
   } catch {
     return false

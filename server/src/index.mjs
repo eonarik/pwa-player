@@ -1,3 +1,5 @@
+// server/src/index.mjs
+
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
@@ -16,7 +18,9 @@ app.use(
   }),
 )
 
-app.use(express.json({ limit: '100mb' }))
+// JSON-body: 1 МБ с запасом хватает для .settings.json и текстовых файлов.
+// Было 100mb — DoS-вектор, не нужен ни одному эндпоинту.
+app.use(express.json({ limit: '1mb' }))
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'cuei-player-server' })
