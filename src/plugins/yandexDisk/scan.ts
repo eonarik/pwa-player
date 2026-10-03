@@ -9,6 +9,7 @@ import { metadataPersistenceService } from '@/services/persistence/MetadataPersi
 import type { LibraryWriter } from '../types'
 import type { YandexItem } from './types'
 import { toPersisted } from './persist'
+import { PLUGIN_ID } from './constants'
 
 const ROOT_REMOTE_PATH = 'disk:/'
 
@@ -49,14 +50,19 @@ function partitionItems(items: YandexItem[]): PartitionedItems {
 
 // --- Построение ------------------------------------------------------
 
-function buildTrack(folder: Folder, item: YandexItem, rootId: string): LibraryTrack {
+/**
+ * sourceId — всегда чистый id плагина ('yandex').
+ * trackIdFromPath(sourceId, ...) даёт 'track:yandex:path/song.mp3'.
+ * track.pluginId === sourceId.
+ */
+function buildTrack(folder: Folder, item: YandexItem, sourceId: string): LibraryTrack {
   const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
-  const trackId = trackIdFromPath(rootId, trackPath)
+  const trackId = trackIdFromPath(sourceId, trackPath)
   const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
 
   return {
     id: trackId,
-    pluginId: rootId,
+    pluginId: sourceId,
     folderId: folder.id,
     filename: item.name,
     path: trackPath,
@@ -81,19 +87,21 @@ function buildTextFile(folder: Folder, item: YandexItem): TextFileRef {
 /**
  * Создаёт недостающие подпапки и возвращает полный список childFolderIds.
  * Существующие папки не трогает.
+ *
+ * sourceId — 'yandex'. Используется и для folderIdFromPath, и для Folder.source.
  */
 function ensureSubFolders(
   context: PluginContext,
   parent: Folder,
   subDirs: YandexItem[],
-  rootId: string,
+  sourceId: string,
 ): { childFolderIds: string[]; newFolders: Folder[] } {
   const childFolderIds: string[] = []
   const newFolders: Folder[] = []
 
   for (const item of subDirs) {
     const childPath = parent.path ? `${parent.path}/${item.name}` : item.name
-    const childId = folderIdFromPath(rootId, childPath)
+    const childId = folderIdFromPath(sourceId, childPath)
 
     let childFolder = context.writer.getFolder(childId)
     if (!childFolder) {
@@ -107,7 +115,7 @@ function ensureSubFolders(
         trackIds: [],
         totalTrackCount: 0,
         totalTextFileCount: 0,
-        source: rootId,
+        source: sourceId,
         scanStatus: undefined,
         ready: false,
       }
@@ -132,13 +140,15 @@ function ensureSubFolders(
  * - Папки: создаются недостающие, удаляются отсутствующие на сервере
  *   (вместе с поддеревом — рекурсивно).
  * - textFiles заменяются целиком.
+ *
+ * sourceId — 'yandex' (PLUGIN_ID). НЕ folderId!
  */
 export function mergeFolderContent(
   context: PluginContext,
   folder: Folder,
   items: YandexItem[],
   removeMissing: boolean,
-  rootId: string,
+  sourceId: string,
 ): void {
   const { subDirs, audioItems, textItems } = partitionItems(items)
 
@@ -147,7 +157,7 @@ export function mergeFolderContent(
   const newTracks: LibraryTrack[] = []
 
   for (const item of audioItems) {
-    const track = buildTrack(folder, item, rootId)
+    const track = buildTrack(folder, item, sourceId)
     if (!context.writer.getTrack(track.id)) {
       newTracks.push(track)
     }
@@ -158,11 +168,11 @@ export function mergeFolderContent(
   const textFiles: TextFileRef[] = textItems.map((item) => buildTextFile(folder, item))
 
   // 3. Подпапки
-  const { childFolderIds, newFolders } = ensureSubFolders(context, folder, subDirs, rootId)
+  const { childFolderIds, newFolders } = ensureSubFolders(context, folder, subDirs, sourceId)
 
   // 4. Записать новые треки / папки
-  if (newTracks.length > 0) context.writer.addTracks(newTracks, rootId)
-  if (newFolders.length > 0) context.writer.addFolders(newFolders, rootId)
+  if (newTracks.length > 0) context.writer.addTracks(newTracks, sourceId)
+  if (newFolders.length > 0) context.writer.addFolders(newFolders, sourceId)
 
   // 5. Сформировать финальный список треков папки
   const onlyLocalIds = folder.trackIds.filter((id) => {
@@ -246,11 +256,13 @@ export function removeSubtree(context: PluginContext, folderId: string): void {
 /**
  * Рекурсивно обходит папку и всё её поддерево, обновляя содержимое.
  * Возвращает количество треков и файлов в поддереве.
+ *
+ * sourceId — 'yandex'.
  */
 export async function refreshSubtree(
   context: PluginContext,
   rootFolder: Folder,
-  rootId: string,
+  sourceId: string,
 ): Promise<{ tracks: number; files: number }> {
   const walk = async (folder: Folder): Promise<{ tracks: number; files: number }> => {
     if (!folder.remotePath) return { tracks: 0, files: 0 }
@@ -265,24 +277,39 @@ export async function refreshSubtree(
       return { tracks: 0, files: 0 }
     }
 
-    // Обновляем содержимое текущей папки
-    mergeFolderContent(context, folder, response.items, true, rootId)
+    mergeFolderContent(context, folder, response.items, true, sourceId)
 
-    // Актуализируем folder из стора (после updateFolder)
     const updated = context.writer.getFolder(folder.id)
     if (!updated) return { tracks: 0, files: 0 }
 
-    // Рекурсивно обходим подпапки
     const childFolders = updated.childFolderIds
       .map((id) => context.writer.getFolder(id))
       .filter((f): f is Folder => Boolean(f))
 
+    // Параллельно, но не более CONCURRENCY воркеров
+    const CONCURRENCY = 5
+    let cursor = 0
+    const childResults: Array<{ tracks: number; files: number }> = Array.from({
+      length: childFolders.length,
+    })
+
+    const worker = async (): Promise<void> => {
+      while (cursor < childFolders.length) {
+        const i = cursor++
+        const child = childFolders[i]!
+        childResults[i] = await walk(child)
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, childFolders.length) }, () => worker()),
+    )
+
     let childTracks = 0
     let childFiles = 0
-    for (const child of childFolders) {
-      const result = await walk(child)
-      childTracks += result.tracks
-      childFiles += result.files
+    for (const r of childResults) {
+      childTracks += r.tracks
+      childFiles += r.files
     }
 
     const totalTracks = updated.trackIds.length + childTracks
@@ -306,17 +333,21 @@ export async function refreshSubtree(
 /**
  * Загружает корень Диска.
  * НЕ использует merge (нет существующей папки), строит всё с нуля.
+ *
+ * sourceId — 'yandex'.
+ * rootFolderId — 'folder:yandex:__root__'.
  */
-export async function loadRootContent(rootId: string): Promise<{
+export async function loadRootContent(
+  sourceId: string,
+  rootFolderId: string,
+): Promise<{
   folders: Folder[]
   tracks: LibraryTrack[]
-  textFiles: TextFileRef[]
 }> {
   const response = await yandexDiskService.listResources(ROOT_REMOTE_PATH)
 
   const folders: Folder[] = []
   const tracks: LibraryTrack[] = []
-  const textFiles: TextFileRef[] = []
   const childFolderIds: string[] = []
   const trackIds: string[] = []
 
@@ -324,7 +355,7 @@ export async function loadRootContent(rootId: string): Promise<{
 
   // Корневая папка
   const rootFolder: Folder = {
-    id: rootId,
+    id: rootFolderId,
     name: 'Яндекс.Диск',
     parentId: null,
     path: '',
@@ -333,7 +364,7 @@ export async function loadRootContent(rootId: string): Promise<{
     trackIds: [],
     totalTrackCount: 0,
     totalTextFileCount: 0,
-    source: rootId,
+    source: sourceId,
     scanStatus: 'scanned',
     ready: false,
   }
@@ -341,18 +372,18 @@ export async function loadRootContent(rootId: string): Promise<{
   // Подпапки первого уровня
   for (const item of subDirs) {
     const childPath = item.name
-    const childId = folderIdFromPath(rootId, childPath)
+    const childId = folderIdFromPath(sourceId, childPath)
     folders.push({
       id: childId,
       name: item.name,
-      parentId: rootId,
+      parentId: rootFolderId,
       path: childPath,
       remotePath: item.path,
       childFolderIds: [],
       trackIds: [],
       totalTrackCount: 0,
       totalTextFileCount: 0,
-      source: rootId,
+      source: sourceId,
       scanStatus: undefined,
       ready: false,
     })
@@ -361,15 +392,13 @@ export async function loadRootContent(rootId: string): Promise<{
 
   // Треки в корне
   for (const item of audioItems) {
-    const track = buildTrack(rootFolder, item, rootId)
+    const track = buildTrack(rootFolder, item, sourceId)
     tracks.push(track)
     trackIds.push(track.id)
   }
 
   // .txt в корне
-  for (const item of textItems) {
-    textFiles.push(buildTextFile(rootFolder, item))
-  }
+  const textFiles: TextFileRef[] = textItems.map((item) => buildTextFile(rootFolder, item))
 
   rootFolder.childFolderIds = childFolderIds
   rootFolder.trackIds = trackIds
@@ -380,7 +409,6 @@ export async function loadRootContent(rootId: string): Promise<{
   return {
     folders: [rootFolder, ...folders],
     tracks,
-    textFiles,
   }
 }
 
@@ -389,9 +417,11 @@ export async function loadRootContent(rootId: string): Promise<{
 /**
  * Если есть «неготовые» папки — обходит всё дерево рекурсивно.
  * Вызывается после load / restoreFromCache.
+ *
+ * sourceId — 'yandex'.
  */
-export async function backgroundScan(context: PluginContext, rootId: string): Promise<void> {
-  const allFolders = context.writer.getFoldersBySource(rootId)
+export async function backgroundScan(context: PluginContext, sourceId: string): Promise<void> {
+  const allFolders = context.writer.getFoldersBySource(sourceId)
   const unready = allFolders.filter((f) => f.ready !== true)
 
   console.info('[yandex] background scan check:', {
@@ -405,23 +435,23 @@ export async function backgroundScan(context: PluginContext, rootId: string): Pr
   if (!rootFolder) return
 
   console.info('[yandex] background scan: start')
-  await refreshSubtree(context, rootFolder, rootId)
+  await refreshSubtree(context, rootFolder, sourceId)
   console.info('[yandex] background scan: complete')
 
-  await yandexPersistenceService.save(toPersisted(currentLibraryFromWriter(context, rootId)))
+  await yandexPersistenceService.save(toPersisted(currentLibraryFromWriter(context, sourceId)))
 }
 
 // --- Поиск ближайшей существующей папки ------------------------------
 
 export function findNearestFolder(
   writer: LibraryWriter,
-  rootId: string,
+  sourceId: string,
   relativePath: string,
 ): Folder | null {
   const segments = relativePath.split('/').filter(Boolean)
   segments.pop()
 
-  const folders = writer.getFoldersBySource(rootId)
+  const folders = writer.getFoldersBySource(sourceId)
 
   while (segments.length > 0) {
     const candidatePath = segments.join('/')
@@ -438,18 +468,20 @@ export function findNearestFolder(
 /**
  * Собирает CollectedLibrary из текущего состояния стора для persistence.
  * Используется в backgroundScan / refreshFolder / saveCache.
+ *
+ * sourceId — 'yandex'.
  */
 export function currentLibraryFromWriter(
   context: PluginContext,
-  rootId: string,
+  sourceId: string,
 ): {
   folders: Folder[]
   tracks: LibraryTrack[]
   rootFolderId: string
   rootFolderName: string
 } {
-  const folders = context.writer.getFoldersBySource(rootId)
-  const tracks = context.writer.getTracksBySource(rootId)
+  const folders = context.writer.getFoldersBySource(sourceId)
+  const tracks = context.writer.getTracksBySource(sourceId)
   return {
     folders,
     tracks,
@@ -457,3 +489,7 @@ export function currentLibraryFromWriter(
     rootFolderName: 'Яндекс.Диск',
   }
 }
+
+// Явный реэкспорт, чтобы index.ts мог импортировать PLUGIN_ID не из constants
+// (на случай, если кто-то предпочтёт локальный импорт).
+export { PLUGIN_ID }

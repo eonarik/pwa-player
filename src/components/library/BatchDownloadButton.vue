@@ -12,7 +12,8 @@ const props = defineProps<{
 
 const tracksRef = toRef(props, 'tracks')
 
-const { isDownloading, progress, pendingCount, download, cancel } = useBatchDownload(tracksRef)
+const { isDownloading, progress, hasDownloadable, pendingCount, download, cancel } =
+  useBatchDownload(tracksRef)
 
 const label = computed(() => {
   if (isDownloading.value) {
@@ -20,7 +21,7 @@ const label = computed(() => {
     return p ? `${p.done}/${p.total} · Отменить` : 'Отмена'
   }
   if (pendingCount.value === 0) return 'Скачано'
-  return `Скачать`
+  return 'Скачать'
 })
 
 function onClick() {
@@ -34,13 +35,13 @@ function onClick() {
 </script>
 
 <template>
-  <button v-if="tracks.length > 0" type="button"
+  <button v-if="hasDownloadable" type="button"
     class="flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
     :class="isDownloading
-      ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
-      : pendingCount === 0
-        ? 'bg-card-bg text-fg-muted'
-        : 'bg-card-bg text-fg hover:bg-hover-bg'
+        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
+        : pendingCount === 0
+          ? 'bg-card-bg text-fg-muted'
+          : 'bg-card-bg text-fg hover:bg-hover-bg'
       " :disabled="pendingCount === 0 && !isDownloading" @click="onClick">
     <IconCheck v-if="pendingCount === 0 && !isDownloading" class="h-3.5 w-3.5" />
     <IconDownload v-else class="h-3.5 w-3.5" />

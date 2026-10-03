@@ -45,7 +45,9 @@ export const useLibraryStore = defineStore('library', () => {
   const breadcrumbs = computed<Folder[]>(() => {
     const crumbs: Folder[] = []
     let folder = currentFolder.value
-    while (folder) {
+    const visited = new Set<string>()
+    while (folder && !visited.has(folder.id)) {
+      visited.add(folder.id)
       crumbs.unshift(folder)
       folder = folder.parentId ? (folders.value[folder.parentId] ?? null) : null
     }
@@ -72,16 +74,24 @@ export const useLibraryStore = defineStore('library', () => {
     if (!folder) return []
 
     const result: LibraryTrack[] = []
+    const visited = new Set<string>()
 
-    for (const trackId of folder.trackIds) {
-      const track = tracks.value[trackId]
-      if (track) result.push(track)
+    const walk = (id: string): void => {
+      if (visited.has(id)) return
+      visited.add(id)
+      const f = folders.value[id]
+      if (!f) return
+
+      for (const trackId of f.trackIds) {
+        const track = tracks.value[trackId]
+        if (track) result.push(track)
+      }
+      for (const childId of f.childFolderIds) {
+        walk(childId)
+      }
     }
 
-    for (const childId of folder.childFolderIds) {
-      result.push(...getAllTracksInFolderRecursive(childId))
-    }
-
+    walk(folderId)
     return result
   }
 
@@ -149,13 +159,11 @@ export function createLibraryWriter(): LibraryWriter {
   }
 
   /**
-   * Пересчитывает totalTrackCount / totalTextFileCount для папки
+   * Пересчитывает totalTrackCount / totalTextFileCount ОДНОЙ папки
    * на основе её собственных треков/файлов и счётчиков детей.
-   *
-   * Затем поднимается к родителю (рекурсивно).
-   * `processed` защищает от повторного обхода одной ветки.
+   * НЕ поднимается к родителям — это делает recalcUpwards.
    */
-  function recalcAncestors(folderId: string, processed: Set<string>): void {
+  function recalcFolderCounters(folderId: string): void {
     const s = store()
     const folder = s.folders[folderId]
     if (!folder) return
@@ -178,10 +186,81 @@ export function createLibraryWriter(): LibraryWriter {
       totalTrackCount: ownTracks + childTracks,
       totalTextFileCount: ownFiles + childFiles,
     }
+  }
 
-    if (folder.parentId && !processed.has(folder.parentId)) {
-      processed.add(folderId)
-      recalcAncestors(folder.parentId, processed)
+  /**
+   * Пересчитывает счётчики для указанных папок и всех их предков.
+   *
+   * Каждая папка обрабатывается один раз, порядок — от листьев к корню.
+   * Это критично, когда изменения затронули несколько ветвей одновременно
+   * (например, removeTracks удалил треки сразу в двух сиблингах):
+   * иначе общий родитель пересчитается до того, как второй сиблинг
+   * обновит свой totalTrackCount.
+   */
+  function recalcUpwards(startIds: Iterable<string>): void {
+    const s = store()
+
+    // 1. Собираем все затронутые id: стартовые + все их предки
+    const allAffected = new Set<string>()
+    const stack = [...startIds]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      if (allAffected.has(id)) continue
+      allAffected.add(id)
+      const folder = s.folders[id]
+      if (folder?.parentId) stack.push(folder.parentId)
+    }
+
+    if (allAffected.size === 0) return
+
+    // 2. Считаем «расстояние до корня»: у листа 0, у корня максимум.
+    const depth = new Map<string, number>()
+    for (const id of allAffected) {
+      let d = 0
+      let current: string | null = id
+      while (current && !depth.has(current)) {
+        depth.set(current, d)
+        const f: Folder | undefined = s.folders[current]
+        current = f?.parentId ?? null
+        d++
+      }
+    }
+
+    // 3. Сортируем по глубине ASC — сначала листья, потом корни.
+    //    depth считается «шагов до корня», поэтому у корня значение больше.
+    const sorted = [...allAffected].sort((a, b) => (depth.get(a) ?? 0) - (depth.get(b) ?? 0))
+
+    // 4. Пересчитываем каждую один раз
+    for (const id of sorted) {
+      recalcFolderCounters(id)
+    }
+  }
+
+  /**
+   * Удаляет трек и revoke'ает его blob-обложку.
+   * Возвращает pluginId удалённого трека (для scheduleSave) или null.
+   */
+  function deleteTrackWithRevoke(trackId: string): string | null {
+    const s = store()
+    const track = s.tracks[trackId]
+    if (!track) return null
+
+    if (track.coverUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(track.coverUrl)
+    }
+    const pluginId = track.pluginId ?? null
+    delete s.tracks[trackId]
+    return pluginId
+  }
+
+  /**
+   * Сбрасывает currentFolderId, если папка была удалена.
+   * Может вызываться как из setLibrary, так и из removeBySource.
+   */
+  function resetCurrentFolderIfDeleted(): void {
+    const s = store()
+    if (s.currentFolderId && !s.folders[s.currentFolderId]) {
+      s.currentFolderId = null
     }
   }
 
@@ -189,9 +268,12 @@ export function createLibraryWriter(): LibraryWriter {
     setLibrary(collected: CollectedLibrary, sourceId: string): void {
       const s = store()
 
+      // 1. Удаляем старые папки source
       for (const [id, folder] of Object.entries(s.folders)) {
         if (matchesSource(folder.source, sourceId)) delete s.folders[id]
       }
+
+      // 2. Удаляем старые треки source (с revoke blob-обложек)
       for (const [id, track] of Object.entries(s.tracks)) {
         if (matchesSource(track.pluginId, sourceId)) {
           if (track.coverUrl?.startsWith('blob:')) {
@@ -201,12 +283,18 @@ export function createLibraryWriter(): LibraryWriter {
         }
       }
 
+      // 3. Добавляем новые папки
       for (const folder of collected.folders) {
         s.folders[folder.id] = { ...folder, source: folder.source ?? sourceId }
       }
+
+      // 4. Добавляем новые треки
       for (const track of collected.tracks) {
         s.tracks[track.id] = { ...track, pluginId: track.pluginId ?? sourceId }
       }
+
+      // 5. Если текущая папка была удалена — сбрасываем
+      resetCurrentFolderIfDeleted()
     },
 
     /**
@@ -241,12 +329,8 @@ export function createLibraryWriter(): LibraryWriter {
       // 2. Удаляем треки + revoke blob URL
       const pluginIds = new Set<string>()
       for (const trackId of allTrackIds) {
-        const track = s.tracks[trackId]
-        if (track?.coverUrl?.startsWith('blob:')) {
-          URL.revokeObjectURL(track.coverUrl)
-        }
-        if (track?.pluginId) pluginIds.add(track.pluginId)
-        delete s.tracks[trackId]
+        const pluginId = deleteTrackWithRevoke(trackId)
+        if (pluginId) pluginIds.add(pluginId)
       }
 
       // 3. Удаляем папки
@@ -267,12 +351,12 @@ export function createLibraryWriter(): LibraryWriter {
       }
 
       // 5. Пересчитываем счётчики вверх
-      const processed = new Set<string>()
-      for (const parentId of parentIds) {
-        recalcAncestors(parentId, processed)
-      }
+      recalcUpwards(parentIds)
 
-      // 6. Сохраняем затронутые плагины
+      // 6. Если текущая папка удалена — сбрасываем
+      resetCurrentFolderIfDeleted()
+
+      // 7. Сохраняем затронутые плагины
       for (const pluginId of pluginIds) {
         librarySaveService.scheduleSave(pluginId)
       }
@@ -280,17 +364,26 @@ export function createLibraryWriter(): LibraryWriter {
 
     removeBySource(sourceId: string): void {
       const s = store()
+      const pluginIds = new Set<string>()
+
       for (const [id, folder] of Object.entries(s.folders)) {
-        if (matchesSource(folder.source, sourceId)) delete s.folders[id]
+        if (matchesSource(folder.source, sourceId)) {
+          if (folder.source) pluginIds.add(folder.source)
+          delete s.folders[id]
+        }
       }
+
       for (const [id, track] of Object.entries(s.tracks)) {
         if (matchesSource(track.pluginId, sourceId)) {
           if (track.coverUrl?.startsWith('blob:')) {
             URL.revokeObjectURL(track.coverUrl)
           }
+          if (track.pluginId) pluginIds.add(track.pluginId)
           delete s.tracks[id]
         }
       }
+
+      resetCurrentFolderIfDeleted()
     },
 
     updateTrackOrigin(trackId: string, origin: TrackOrigin): void {
@@ -349,6 +442,11 @@ export function createLibraryWriter(): LibraryWriter {
         }
       }
 
+      // Пересчитываем счётчики (включая предков)
+      if (affectedFolders.size > 0) {
+        recalcUpwards(affectedFolders)
+      }
+
       librarySaveService.scheduleSave(sourceId)
     },
 
@@ -389,10 +487,7 @@ export function createLibraryWriter(): LibraryWriter {
       }
 
       // 3. Пересчитываем счётчики вверх по дереву
-      const processed = new Set<string>()
-      for (const folderId of affectedFolderIds) {
-        recalcAncestors(folderId, processed)
-      }
+      recalcUpwards(affectedFolderIds)
 
       // 4. Сохраняем затронутые плагины
       for (const pluginId of pluginIds) {
@@ -412,7 +507,15 @@ export function createLibraryWriter(): LibraryWriter {
       const s = store()
       const existing = s.folders[folderId]
       if (!existing) return
+
+      const needsRecalc = 'trackIds' in patch || 'childFolderIds' in patch || 'textFiles' in patch
+
       s.folders[folderId] = { ...existing, ...patch }
+
+      if (needsRecalc) {
+        recalcUpwards([folderId])
+      }
+
       if (existing.source) librarySaveService.scheduleSave(existing.source)
     },
 

@@ -3,7 +3,7 @@
 import TrackRow from './TrackRow.vue'
 import type { Track } from '@/types/track'
 
-const props = defineProps<{
+defineProps<{
   track: Track
   index: number
   isCurrent: boolean

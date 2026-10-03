@@ -215,23 +215,6 @@ export class FileSystemService {
     }
   }
 
-  async countAudioFiles(dirHandle: FileSystemDirectoryHandle): Promise<number> {
-    let count = 0
-
-    const walk = async (handle: FileSystemDirectoryHandle): Promise<void> => {
-      for await (const entry of handle.values()) {
-        if (entry.kind === 'file' && this.isAudioFile(entry.name)) {
-          count++
-        } else if (entry.kind === 'directory') {
-          await walk(entry)
-        }
-      }
-    }
-
-    await walk(dirHandle)
-    return count
-  }
-
   // --- Хелперы ----------------------------------------------------------
 
   private isAudioFile(name: string): boolean {

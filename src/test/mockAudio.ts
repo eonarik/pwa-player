@@ -1,7 +1,5 @@
 // src/test/mockAudio.ts
 
-import { vi } from 'vitest'
-
 /**
  * Мок HTMLAudioElement для тестов AudioService.
  * Управляется извне: можно эмулировать любые события через emit*.

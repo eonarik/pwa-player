@@ -12,7 +12,7 @@ import { toastService } from '@/services/ui/ToastService'
 import { sortService } from '@/services/sort/SortService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
-import Breadcrumbs from '@/components/library/Breadcrumbs.vue'
+import FolderBreadcrumbs from '@/components/library/FolderBreadcrumbs.vue'
 import FolderList from '@/components/library/FolderList.vue'
 import TrackList from '@/components/library/TrackList.vue'
 import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
@@ -191,7 +191,7 @@ function onSelectTrack(index: number) {
     <!-- Шапка: строка 1 -->
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 pt-3">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <Breadcrumbs />
+        <FolderBreadcrumbs />
 
         <div class="flex items-center gap-2">
           <span v-if="currentFolder && !isScanning" class="shrink-0 text-xs text-fg-muted">

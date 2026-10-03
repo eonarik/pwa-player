@@ -60,13 +60,11 @@ html {
 
 /* Верхний/нижний отступ для iPhone notch и home-indicator */
 .app-safe-top {
-  padding-top: calc(var(--spacing) * 2);
   padding-top: calc(env(safe-area-inset-top, 0px) + calc(var(--spacing) * 2));
 }
 
 .app-safe-bottom {
-  padding-bottom: calc(var(--spacing) * 2);
-  padding-bottom: calc(env(safe-area-inset-top, 0px) + calc(var(--spacing) * 2));
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + calc(var(--spacing) * 2));
 }
 
 /* --- Скроллбар ------------------------------------------------------ */

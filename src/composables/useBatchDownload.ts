@@ -3,6 +3,7 @@
 import { computed, type Ref } from 'vue'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
+import { pluginCanDownload } from '@/plugins/registry'
 import { toastService } from '@/services/ui/ToastService'
 import type { LibraryTrack } from '@/types/library'
 
@@ -10,14 +11,20 @@ export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
   const isDownloading = computed(() => downloadOrchestrator.isBatchDownloading.value)
   const progress = computed(() => downloadOrchestrator.batchProgress.value)
 
-  /** Сколько из переданных треков ещё не скачано */
-  const pendingCount = computed(
-    () => tracks.value.filter((t) => !t.origin || t.origin === 'remote').length,
+  /** Только треки из плагинов, которые умеют скачивать */
+  const downloadableTracks = computed(() =>
+    tracks.value.filter((t) => pluginCanDownload(t.pluginId)),
   )
 
-  /** Убедиться, что спейс выбран и доступен. */
+  /** Показывать ли кнопку вообще */
+  const hasDownloadable = computed(() => downloadableTracks.value.length > 0)
+
+  /** Сколько из downloadable ещё не скачано */
+  const pendingCount = computed(
+    () => downloadableTracks.value.filter((t) => !t.origin || t.origin === 'remote').length,
+  )
+
   async function ensureSpace(): Promise<boolean> {
-    // Права потеряны после перезагрузки — запрашиваем
     if (downloadSpaceService.needsPermission.value) {
       const state = await downloadSpaceService.requestAccess()
       if (state !== 'granted') {
@@ -38,13 +45,13 @@ export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
   }
 
   async function download(): Promise<void> {
-    if (tracks.value.length === 0) return
+    if (downloadableTracks.value.length === 0) return
 
     try {
       const ok = await ensureSpace()
       if (!ok) return
 
-      const result = await downloadOrchestrator.downloadMany(tracks.value)
+      const result = await downloadOrchestrator.downloadMany(downloadableTracks.value)
 
       if (result.aborted) {
         toastService.info(`Отменено. Скачано: ${result.succeeded}, пропущено: ${result.skipped}`)
@@ -71,6 +78,7 @@ export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
   return {
     isDownloading,
     progress,
+    hasDownloadable,
     pendingCount,
     download,
     cancel,

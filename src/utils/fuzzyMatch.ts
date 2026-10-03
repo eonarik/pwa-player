@@ -5,8 +5,8 @@ function jaro(a: string, b: string): number {
   if (a.length === 0 || b.length === 0) return 0
 
   const matchDistance = Math.floor(Math.max(a.length, b.length) / 2) - 1
-  const aMatches = new Array<boolean>(a.length).fill(false)
-  const bMatches = new Array<boolean>(b.length).fill(false)
+  const aMatches = Array.from<boolean>({ length: a.length }).fill(false)
+  const bMatches = Array.from<boolean>({ length: b.length }).fill(false)
 
   let matches = 0
 

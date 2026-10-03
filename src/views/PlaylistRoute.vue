@@ -18,7 +18,6 @@ import TrackActions from '@/components/library/TrackActions.vue'
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
 import MetadataMenu from '@/components/library/MetadataMenu.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
-import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import IconPencil from '@/components/icons/IconPencil.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -55,8 +54,6 @@ const unavailableCount = computed(() => {
   if (!playlist.value) return 0
   return playlist.value.tracks.length - resolvedTracks.value.length
 })
-
-const hasTracks = computed(() => resolvedTracks.value.length > 0)
 
 // --- Поиск -----------------------------------------------------------
 
@@ -127,11 +124,6 @@ function deletePlaylist() {
   if (!confirmed) return
   playlists.deletePlaylist(playlist.value.id)
   router.replace({ name: 'playlists' })
-}
-
-function playAll() {
-  if (resolvedTracks.value.length === 0) return
-  player.setQueue(resolvedTracks.value, 0)
 }
 
 function onSelectTrack(index: number) {

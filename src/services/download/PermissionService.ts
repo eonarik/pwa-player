@@ -1,7 +1,5 @@
 // src/services/download/PermissionService.ts
 
-import { ref } from 'vue'
-
 export type PermissionState = 'granted' | 'prompt' | 'denied'
 
 /**
@@ -47,9 +45,3 @@ export async function hasPermission(
 ): Promise<boolean> {
   return (await queryPermission(handle, mode)) === 'granted'
 }
-
-/**
- * Реактивное состояние: требуется ли запрос прав.
- * Используется UI, чтобы показать баннер «Восстановить доступ».
- */
-export const permissionNeeded = ref(false)

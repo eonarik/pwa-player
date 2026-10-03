@@ -1,6 +1,6 @@
 <!-- src/views/SettingsView.vue -->
 <script setup lang="ts">
-import { computed, ref, defineAsyncComponent, type Component, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useHistoryStore } from '@/stores/history'

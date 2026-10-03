@@ -3,7 +3,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
-import { usePlayerStore } from '@/stores/player'
 import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
@@ -11,7 +10,6 @@ import type { PluginManifest } from '@/plugins/types'
 
 const router = useRouter()
 const library = useLibraryStore()
-const player = usePlayerStore()
 
 interface PluginMeta {
   manifest: PluginManifest

@@ -50,6 +50,12 @@ function isEmpty(folder: Folder): boolean {
   )
 }
 
+function folderStatus(folder: Folder): 'scanning' | 'pending' | 'ready' {
+  if (folder.scanStatus === 'scanning') return 'scanning'
+  if (folder.ready === true) return 'ready'
+  return 'pending'
+}
+
 function hasNoTracks(folder: Folder): boolean {
   return folder.ready === true && folder.totalTrackCount === 0
 }
@@ -169,12 +175,12 @@ function onArrowClick(folder: Folder, e: Event) {
                       ? 'bg-active/15 text-active hover:bg-active/25'
                       : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
             ]" :disabled="isScanning(folder) || isEmpty(folder) || hasNoTracks(folder)" :aria-label="isScanning(folder)
-                ? `Сканирование ${folder.name}`
-                : folderPlayState(folder) === 'playing'
-                  ? 'Пауза'
-                  : folderPlayState(folder) === 'paused'
-                    ? 'Продолжить'
-                    : `Играть папку ${folder.name}`
+              ? `Сканирование ${folder.name}`
+              : folderPlayState(folder) === 'playing'
+                ? 'Пауза'
+                : folderPlayState(folder) === 'paused'
+                  ? 'Продолжить'
+                  : `Играть папку ${folder.name}`
               " @click="toggleFolderPlayback(folder, $event)">
             <IconSpinner v-if="isScanning(folder)" class="h-5 w-5 animate-spin" />
             <IconPause v-else-if="folderPlayState(folder) === 'playing'" class="h-5 w-5" />
@@ -182,10 +188,10 @@ function onArrowClick(folder: Folder, e: Event) {
           </button>
 
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
-              ? 'bg-card-bg text-fg-muted'
-              : folderPlayState(folder) !== 'idle'
-                ? 'bg-active/15 text-active'
-                : 'bg-card-bg text-fg-muted'
+            ? 'bg-card-bg text-fg-muted'
+            : folderPlayState(folder) !== 'idle'
+              ? 'bg-active/15 text-active'
+              : 'bg-card-bg text-fg-muted'
             ">
             <IconFolder class="h-5 w-5" />
           </div>
@@ -200,10 +206,11 @@ function onArrowClick(folder: Folder, e: Event) {
       <!-- Subtitle -->
       <template #subtitle>
         <p class="truncate text-xs" :class="folderPlayState(folder) !== 'idle' && !isScanning(folder)
-            ? 'text-active/60'
-            : 'text-fg-muted'
+          ? 'text-active/60'
+          : 'text-fg-muted'
           ">
-          <template v-if="isScanning(folder)">Сканирование…</template>
+          <template v-if="folderStatus(folder) === 'scanning'">Сканирование…</template>
+          <template v-else-if="folderStatus(folder) === 'pending'">Ожидает сканирования</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
       </template>

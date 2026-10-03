@@ -1,7 +1,7 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
 import { watchEffect, watch, onMounted, onUnmounted, ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
@@ -14,7 +14,6 @@ import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { syncService } from '@/services/download/SyncService'
 import { getPlugins, loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
-import { toastService } from '@/services/ui/ToastService'
 import { sortService } from '@/services/sort/SortService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPageTitle } from '@/navigation/title'
@@ -27,7 +26,6 @@ import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue
 import AppDrawer from '@/components/layout/AppDrawer.vue'
 import IconMenu from '@/components/icons/IconMenu.vue'
 
-const router = useRouter()
 const route = useRoute()
 const player = usePlayerStore()
 const library = useLibraryStore()
@@ -132,23 +130,6 @@ function closeDrawer() {
   isDrawerOpen.value = false
 }
 
-async function restoreSpaceAccess() {
-  const state = await downloadSpaceService.requestAccess()
-
-  if (state === 'granted') {
-    toastService.success('Доступ к папке скачивания восстановлен')
-    return
-  }
-
-  toastService.error('Доступ отклонён. Выберите папку заново')
-  const handle = await downloadSpaceService.pickSpace()
-  if (handle) {
-    toastService.success('Папка скачивания выбрана')
-  } else {
-    toastService.info('Папка не выбрана. Скачивание недоступно')
-  }
-}
-
 // --- Горячие клавиши, медиа-сессия, заголовок -------------------------
 
 useKeyboardShortcuts({
@@ -246,7 +227,11 @@ onMounted(async () => {
     <SpacePermissionModal v-if="downloadSpaceService.needsPermission.value" />
 
     <!-- FullPlayer -->
-    <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />
+    <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 translate-y-4"
+      enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-4">
+      <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />
+    </Transition>
 
     <!-- Шторка -->
     <AppDrawer :open="isDrawerOpen" @close="closeDrawer" />

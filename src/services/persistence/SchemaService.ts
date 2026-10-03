@@ -1,6 +1,6 @@
 // src/services/persistence/SchemaService.ts
 
-import { get, set, del, clear, createStore } from 'idb-keyval'
+import { get, set, clear, createStore } from 'idb-keyval'
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './schema'
 
 /**

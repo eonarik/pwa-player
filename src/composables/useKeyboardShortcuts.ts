@@ -1,6 +1,7 @@
 // src/composables/useKeyboardShortcuts.ts
 
 import { onMounted, onUnmounted } from 'vue'
+import { modalService } from '@/services/ui/ModalService'
 
 interface KeyboardOptions {
   onToggle: () => void
@@ -14,6 +15,7 @@ interface KeyboardOptions {
 /**
  * Глобальные горячие клавиши плеера.
  * Игнорирует события внутри input/textarea/contenteditable,
+ * при открытой модалке (ModalService),
  * а также Space на сфокусированных кнопках/ссылках — иначе
  * сработает и наш хендлер, и браузерный click.
  */
@@ -34,10 +36,15 @@ export function useKeyboardShortcuts(options: KeyboardOptions) {
   function isButtonLikeTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
     const tag = target.tagName
-    return tag === 'BUTTON' || tag === 'A'
+    if (tag === 'BUTTON' || tag === 'A') return true
+    // role=button ведёт себя как кнопка — Space вызывает click
+    return target.closest('[role="button"]') !== null
   }
 
   function handler(e: KeyboardEvent) {
+    // Модалка открыта — не перехватываем хоткеи
+    if (modalService.active.value !== null) return
+
     if (isEditableTarget(e.target)) return
     if (e.ctrlKey || e.metaKey || e.altKey) return
 

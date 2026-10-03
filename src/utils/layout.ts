@@ -154,7 +154,13 @@ export function toEnglishLayout(text: string): string {
 /** Убирает умлауты и диакритику (ä → a, é → e, ñ → n). */
 export function normalizeUmlauts(text: string): string {
   return Array.from(text)
-    .map((char) => UMLAUTS[char.toLowerCase()] ?? char)
+    .map((char) => {
+      const lower = char.toLowerCase()
+      const replacement = UMLAUTS[lower]
+      if (replacement === undefined) return char
+      // Сохраняем регистр: если исходный символ заглавный — заглавная и замена
+      return char !== lower ? replacement.toUpperCase() : replacement
+    })
     .join('')
 }
 

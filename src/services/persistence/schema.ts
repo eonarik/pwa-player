@@ -17,6 +17,6 @@
  * 4 — нормализованная библиотека, Яндекс.Диск как отдельный источник
  * 5 — добавлен pluginId в Track, PlaylistTrackSnapshot, PlayHistoryEntry
  */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export const SCHEMA_VERSION_KEY = 'player:schemaVersion'

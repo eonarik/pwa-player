@@ -7,7 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
-import pkg from './package.json'
+import pkg from './package.json' with { type: 'json' }
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

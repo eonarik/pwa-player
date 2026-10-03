@@ -52,33 +52,41 @@ export function useMediaSession(options: MediaSessionOptions) {
 
   // --- Синхронизация метаданных ----------------------------------------
 
-  watch(currentTrack, (track) => {
-    if (!track) {
-      navigator.mediaSession.metadata = null
-      return
-    }
+  watch(
+    currentTrack,
+    (track) => {
+      if (!track) {
+        navigator.mediaSession.metadata = null
+        return
+      }
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      artwork: track.coverUrl
-        ? [
-            {
-              src: track.coverUrl,
-              sizes: '512x512',
-              type: 'image/jpeg',
-            },
-          ]
-        : [],
-    })
-  })
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        artwork: track.coverUrl
+          ? [
+              {
+                src: track.coverUrl,
+                sizes: '512x512',
+                type: 'image/jpeg',
+              },
+            ]
+          : [],
+      })
+    },
+    { immediate: true },
+  )
 
   // --- Синхронизация playbackState -------------------------------------
 
-  watch(isPlaying, (playing) => {
-    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
-  })
+  watch(
+    isPlaying,
+    (playing) => {
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+    },
+    { immediate: true },
+  )
 
   // --- Очистка при unmount ---------------------------------------------
 

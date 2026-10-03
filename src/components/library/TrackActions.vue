@@ -16,6 +16,7 @@ import type { Track } from '@/types/track'
 import type { LibraryTrack } from "@/types/library.ts"
 import { downloadOrchestrator } from "@/services/download/DownloadOrchestrator.ts"
 import { downloadSpaceService } from "@/services/download/DownloadSpaceService.ts"
+import { pluginCanDownload } from "@/plugins/registry.ts"
 import IconDownload from "../icons/IconDownload.vue"
 import IconCloudCheck from "../icons/IconCloudCheck.vue"
 import IconX from "../icons/IconX.vue"
@@ -177,10 +178,7 @@ const downloadLabel = computed(() => {
   return 'Скачать'
 })
 
-const canDownload = computed(() => {
-  // Локальный плагин — canDownload=false, не показываем
-  return props.track.pluginId !== 'local'
-})
+const canDownload = computed(() => pluginCanDownload(props.track.pluginId))
 
 async function onDownload(close: () => void) {
   close()

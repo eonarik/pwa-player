@@ -202,4 +202,37 @@ describe('createLibraryWriter', () => {
       expect(Object.keys(library.tracks)).toHaveLength(0)
     })
   })
+
+  it('recalc: удаление треков в двух сиблингах → корректный totalTrackCount у родителя', () => {
+    const writer = createLibraryWriter()
+    const library = useLibraryStore()
+
+    writer.setLibrary(
+      makeCollected(
+        [
+          makeFolder({ id: 'P', parentId: null, source: 'local' }),
+          makeFolder({ id: 'A', parentId: 'P', source: 'local' }),
+          makeFolder({ id: 'B', parentId: 'P', source: 'local' }),
+        ],
+        [
+          makeTrack({ id: 't1', folderId: 'A' }),
+          makeTrack({ id: 't2', folderId: 'A' }),
+          makeTrack({ id: 't3', folderId: 'B' }),
+        ],
+      ),
+      'local',
+    )
+
+    // вручную синхронизируем счётчики
+    writer.updateFolder('P', { childFolderIds: ['A', 'B'] })
+    writer.updateFolder('A', { trackIds: ['t1', 't2'] })
+    writer.updateFolder('B', { trackIds: ['t3'] })
+    expect(library.folders['P']!.totalTrackCount).toBe(3)
+
+    writer.removeTracks(['t1', 't3'])
+
+    expect(library.folders['A']!.totalTrackCount).toBe(1)
+    expect(library.folders['B']!.totalTrackCount).toBe(0)
+    expect(library.folders['P']!.totalTrackCount).toBe(1)
+  })
 })

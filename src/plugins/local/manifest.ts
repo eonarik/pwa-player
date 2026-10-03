@@ -9,6 +9,7 @@ export const manifest: PluginManifest = {
   icon: '📁',
   version: '0.1.0',
   enabled: true,
+  canDownload: false,
   entry: () => import('./index'),
   getSettings: getLocalSettingsSchema,
   runSettingsAction: runLocalSettingsAction,

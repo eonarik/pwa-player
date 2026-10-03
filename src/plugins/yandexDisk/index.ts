@@ -80,21 +80,18 @@ const yandexPlugin: LibrarySource = {
       }
     }
 
-    const rootId = folderIdFromPath(PLUGIN_ID, '')
-    const { folders, tracks } = await loadRootContent(rootId)
+    const rootFolderId = folderIdFromPath(PLUGIN_ID, '')
+    const { folders, tracks } = await loadRootContent(PLUGIN_ID, rootFolderId)
 
     const rootCollected: CollectedLibrary = {
       folders,
       tracks,
-      rootFolderId: rootId,
+      rootFolderId,
       rootFolderName: 'Яндекс.Диск',
     }
 
     context.writer.setLibrary(rootCollected, PLUGIN_ID)
-
-    // Сохраняем сразу — чтобы F5 до окончания backgroundScan не потерял корень
     await yandexPersistenceService.save(toPersisted(rootCollected))
-
     void backgroundScan(context, PLUGIN_ID)
   },
 

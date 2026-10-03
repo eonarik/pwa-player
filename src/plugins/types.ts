@@ -24,6 +24,13 @@ export interface PluginManifest {
   /** Если false — плагин не регистрируется (но остаётся в коде) */
   readonly enabled: boolean
   /**
+   * Может ли плагин скачивать треки на устройство.
+   * Синхронный флаг — чтобы UI мог решить, показывать ли кнопку,
+   * не загружая модуль плагина.
+   * Должен совпадать с LibrarySource.canDownload.
+   */
+  readonly canDownload: boolean
+  /**
    * Ленивая загрузка модуля плагина.
    * Возвращает LibrarySource (default export модуля).
    */

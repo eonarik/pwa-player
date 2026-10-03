@@ -5,19 +5,19 @@ import ListRow from '@/components/ui/ListRow.vue'
 import PlayingIndicator from '@/components/ui/PlayingIndicator.vue'
 import TrackCover from '@/components/ui/TrackCover.vue'
 import { useDislikesStore } from '@/stores/dislikes'
-import { useDownloadOrchestrator } from '@/composables/useDownloadOrchestrator'
 import { useTrackDisplay } from '@/composables/useTrackDisplay'
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { formatDuration } from '@/utils/formatDuration'
 import type { Track } from '@/types/track'
-import { downloadOrchestrator } from "@/services/download/DownloadOrchestrator"
+import type { LibraryTrack, TrackOrigin } from '@/types/library'
 
 const props = withDefaults(
   defineProps<{
-    track: Track
+    track: Track | LibraryTrack
     index: number
     isCurrent: boolean
     isPlaying: boolean
-    /** Показывать ли синюю полоску скачивания */
+    /** Показывать ли полоску прогресса скачивания */
     showDownload?: boolean
   }>(),
   { showDownload: false },
@@ -28,7 +28,6 @@ const emit = defineEmits<{
 }>()
 
 const dislikes = useDislikesStore()
-const orchestrator = useDownloadOrchestrator()
 
 const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
 
@@ -37,17 +36,22 @@ const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
 )
 
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
+
 const downloadProgress = computed<number | null>(() => {
   if (!props.showDownload) return null
   if (!isDownloading.value) return null
-  const p = orchestrator.getProgress(props.track.id)
+  const p = downloadOrchestrator.getProgress(props.track.id)
   if (!p || p.total <= 0) return 0
   return Math.min(1, p.written / p.total)
 })
 
+function trackOrigin(t: Track | LibraryTrack): TrackOrigin | undefined {
+  return 'origin' in t ? (t as LibraryTrack).origin : undefined
+}
+
 const isDownloaded = computed(() => {
   if (!props.showDownload) return false
-  return props.track.origin === 'downloaded'
+  return trackOrigin(props.track) === 'downloaded'
 })
 </script>
 

@@ -64,6 +64,11 @@ export function resetPlugin(id: string): void {
   }
 }
 
+export function pluginCanDownload(source: string): boolean {
+  const manifest = registry.get(pluginIdFromSource(source))?.manifest
+  return manifest?.canDownload ?? false
+}
+
 /**
  * Возвращает id плагина из source.
  */

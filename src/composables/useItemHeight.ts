@@ -14,14 +14,12 @@ import { onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 export function useItemHeight(elRef: Ref<HTMLElement | null>) {
   const height = ref(0)
   let observer: ResizeObserver | null = null
-  let observedEl: HTMLElement | null = null
 
   function attach(el: HTMLElement | null) {
     if (observer) {
       observer.disconnect()
       observer = null
     }
-    observedEl = el
     if (!el) return
 
     observer = new ResizeObserver((entries) => {
@@ -51,7 +49,6 @@ export function useItemHeight(elRef: Ref<HTMLElement | null>) {
       observer.disconnect()
       observer = null
     }
-    observedEl = null
   })
 
   return height

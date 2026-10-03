@@ -36,7 +36,7 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
 }
 
 async function restoreBaseTracks(persisted: PersistedTrack[], concurrency = 8): Promise<Track[]> {
-  const results: Track[] = new Array(persisted.length)
+  const results: Track[] = Array.from({ length: persisted.length })
   let cursor = 0
 
   const worker = async (): Promise<void> => {
