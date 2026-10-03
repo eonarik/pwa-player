@@ -7,6 +7,8 @@ import { usePlayerStore } from '@/stores/player'
 import { filterTracksByArtist, groupByAlbum } from '@/utils/artists'
 import { pluralize } from '@/utils/pluralize'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
+import IconPlaylist from '@/components/icons/IconPlaylist.vue'
+import IconPlay from '@/components/icons/IconPlay.vue'
 import type { LibraryTrack } from '@/types/library'
 
 const route = useRoute()
@@ -75,21 +77,14 @@ function playAlbum(group: { tracks: LibraryTrack[] }) {
                 <img v-if="group.coverUrl" :src="group.coverUrl" :alt="group.name"
                   class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
                 <div v-else class="flex h-full w-full items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                    class="h-12 w-12 text-fg-subtle">
-                    <path d="M9 18V5l12-2v13" />
-                    <circle cx="6" cy="18" r="3" />
-                    <circle cx="18" cy="16" r="3" />
-                  </svg>
+                  <IconPlaylist class="h-12 w-12 text-fg-subtle" />
                 </div>
 
-                <!-- Play — верхний правый угол, ~1/4 плитки -->
+                <!-- Play — верхний правый угол -->
                 <button type="button"
                   class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
                   :aria-label="`Играть альбом ${group.name}`" @click.prevent.stop="playAlbum(group)">
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 translate-x-[1px]">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <IconPlay class="h-5 w-5 translate-x-[1px]" />
                 </button>
               </div>
             </RouterLink>

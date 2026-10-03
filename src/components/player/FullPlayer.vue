@@ -6,17 +6,21 @@ import { usePlayerStore } from '@/stores/player'
 import { useDominantColor } from '@/composables/useDominantColor'
 import { rgbToString } from '@/utils/dominantColor'
 import PlayerProgressBar from './PlayerProgressBar.vue'
+import DislikeButton from '@/components/ui/DislikeButton.vue'
+import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 import IconPlay from '@/components/icons/IconPlay.vue'
 import IconPause from '@/components/icons/IconPause.vue'
 import IconNext from '@/components/icons/IconNext.vue'
 import IconPrev from '@/components/icons/IconPrev.vue'
 import IconShuffle from '@/components/icons/IconShuffle.vue'
 import IconRepeat from '@/components/icons/IconRepeat.vue'
+import IconVolume from '@/components/icons/IconVolume.vue'
 import IconVolumeMute from '@/components/icons/IconVolumeMute.vue'
-import IconList from "../icons/IconList.vue"
-import TrackReactionButtons from "../ui/TrackReactionButtons.vue"
+import IconList from '@/components/icons/IconList.vue'
+import IconPlaylist from '@/components/icons/IconPlaylist.vue'
+import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
 
-const props = defineProps<{
+defineProps<{
   title: string
 }>()
 
@@ -128,12 +132,10 @@ watch(
         <header class="app-safe-top flex shrink-0 items-center gap-2 px-3 py-2">
           <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg" aria-label="Назад"
             @click="emit('close')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-6 w-6">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
+            <IconArrowLeft class="h-6 w-6" />
           </button>
 
-          <h2 class="flex-1 truncate text-base font-medium text-fg">
+          <h2 class="flex-1 truncate text-center text-base font-medium text-fg">
             {{ title }}
           </h2>
 
@@ -147,62 +149,59 @@ watch(
             <div class="relative">
               <div v-if="currentTrack?.coverUrl" class="glow-pulse pointer-events-none absolute inset-0 -z-10"
                 :style="glowStyle" aria-hidden="true" />
-              <div class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden bg-bg-elevated shadow-2xl">
+
+              <div
+                class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden rounded-card bg-bg-elevated shadow-2xl">
                 <img v-if="currentTrack?.coverUrl" :src="currentTrack.coverUrl" :alt="currentTrack.album"
                   class="h-full w-full object-cover" />
                 <div v-else class="flex h-full w-full items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
-                    class="h-1/2 w-1/2 text-fg-subtle">
-                    <path d="M9 18V5l12-2v13" />
-                    <circle cx="6" cy="18" r="3" />
-                    <circle cx="18" cy="16" r="3" />
-                  </svg>
+                  <IconPlaylist class="h-1/2 w-1/2 text-fg-subtle" />
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Title + artist (центр) + кнопки (сверху справа) -->
+          <!-- Title + artist + eye-off + heart -->
           <div class="relative w-full max-w-sm pb-6">
             <div class="min-w-0 px-12 text-center">
               <p class="truncate text-xl font-medium text-fg">
                 {{ currentTrack?.title ?? 'Ничего не играет' }}
               </p>
-              <p v-if="currentTrack?.artist" class="mt-1 truncate text-sm">
-                <RouterLink :to="{ name: 'artist', params: { artistName: currentTrack.artist } }"
-                  class="text-active/80 transition hover:text-active">
-                  {{ currentTrack.artist }}
-                </RouterLink>
+              <p class="mt-1 truncate text-sm text-fg-muted">
+                {{ currentTrack?.artist ?? '—' }}
               </p>
             </div>
 
-            <div class="absolute right-0 top-0 flex items-start gap-1">
-              <TrackReactionButtons :track="currentTrack" size="md" dislike-mode="skip" />
+            <!-- Дизлайк — слева -->
+            <div class="absolute left-0 -top-1 flex items-start">
+              <DislikeButton :track="currentTrack" size="lg" mode="skip" />
+            </div>
+
+            <!-- Избранное — справа -->
+            <div class="absolute right-0 -top-1 flex items-start">
+              <FavoriteButton :track="currentTrack" size="lg" />
             </div>
           </div>
 
-          <!-- Volume + repeat + shuffle -->
+          <!-- Volume + shuffle + repeat + queue -->
           <div class="flex w-full max-w-sm items-center justify-between pb-8">
             <button type="button" class="rounded-btn p-2 transition" :class="muted || volume === 0
-              ? 'text-fg hover:bg-hover-bg'
-              : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
+                ? 'text-fg hover:bg-hover-bg'
+                : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
               " :aria-label="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()">
               <IconVolumeMute v-if="muted || volume === 0" class="h-6 w-6" />
-              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-6 w-6">
-                <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
-              </svg>
+              <IconVolume v-else class="h-6 w-6" />
             </button>
 
             <div class="flex items-center gap-4">
               <button type="button" class="rounded-btn p-2 transition"
-                :class="shuffle ? 'text-active' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
+                :class="shuffle ? 'text-fg' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
                 aria-label="Перемешать" @click="player.toggleShuffle()">
                 <IconShuffle class="h-6 w-6" />
               </button>
 
               <button type="button" class="relative rounded-btn p-2 transition"
-                :class="repeatMode !== 'off' ? 'text-active' : 'text-fg-muted hover:text-fg'"
+                :class="repeatMode !== 'off' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
                 :aria-pressed="repeatMode !== 'off'" :aria-label="`Повтор: ${repeatMode}`"
                 @click="player.cycleRepeat()">
                 <IconRepeat class="h-6 w-6" />
@@ -212,9 +211,8 @@ watch(
                 </span>
               </button>
 
-              <!-- Очередь -->
-              <RouterLink :to="{ name: 'queue' }" @click="emit('close')" class="relative rounded-btn p-2 transition"
-                aria-label="Очередь">
+              <RouterLink :to="{ name: 'queue' }" class="rounded-btn p-2 text-fg-muted transition hover:text-fg"
+                aria-label="Очередь" @click="emit('close')">
                 <IconList class="h-6 w-6" />
               </RouterLink>
             </div>
@@ -223,7 +221,7 @@ watch(
           <!-- Прогресс -->
           <div class="w-full max-w-sm pb-8">
             <PlayerProgressBar :current-time="currentTime" :duration="duration" size="lg" :show-time="true"
-              time-position="fixed" @seek="onSeek" />
+              @seek="onSeek" />
           </div>
 
           <!-- Транспорт -->

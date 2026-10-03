@@ -15,6 +15,8 @@ import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
+import IconPencil from '@/components/icons/IconPencil.vue'
+import IconTrash from '@/components/icons/IconTrash.vue'
 import { sortService } from '@/services/sort/SortService'
 import type { LibraryTrack } from '@/types/library'
 
@@ -155,9 +157,7 @@ function onRemoved() {
               <button v-if="!isFavorites" type="button"
                 class="rounded-btn p-1 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
                 aria-label="Переименовать" @click="startRename">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
-                  <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
+                <IconPencil class="h-3.5 w-3.5" />
               </button>
             </template>
           </div>
@@ -183,10 +183,7 @@ function onRemoved() {
             <button v-if="!isFavorites" type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"
               aria-label="Удалить плейлист" @click="deletePlaylist">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-                <path
-                  d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6" />
-              </svg>
+              <IconTrash class="h-4 w-4" />
             </button>
           </div>
         </div>

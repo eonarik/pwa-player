@@ -3,6 +3,7 @@
 import { computed, reactive } from 'vue'
 import { syncService } from '@/services/download/SyncService'
 import { useLibraryStore } from '@/stores/library'
+import IconX from '@/components/icons/IconX.vue'
 import type { SelectedIssues } from '@/services/download/types'
 
 const emit = defineEmits<{
@@ -11,13 +12,11 @@ const emit = defineEmits<{
 
 const library = useLibraryStore()
 
-/** Отмеченные элементы: ключи — `${pluginId}:${relativePath}` и trackId */
 const selected = reactive({
   onlyLocal: new Set<string>(),
   missing: new Set<string>(),
 })
 
-// Предзаполняем: всё отмечено
 for (const issue of syncService.issues.value) {
   for (const item of issue.onlyLocal) {
     selected.onlyLocal.add(`${issue.pluginId}:${item.relativePath}`)
@@ -111,9 +110,7 @@ function ignore() {
           <h2 class="text-lg font-medium text-fg">Обновление с устройства</h2>
           <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
             aria-label="Закрыть" @click="ignore">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <IconX class="h-5 w-5" />
           </button>
         </div>
 
@@ -124,11 +121,8 @@ function ignore() {
               {{ pluginName(issue.pluginId) }}
             </p>
 
-            <!-- Новые файлы -->
             <div v-if="issue.onlyLocal.length > 0" class="mb-4">
-              <p class="mb-2 text-sm text-fg">
-                Найдены новые треки, добавить в источник?
-              </p>
+              <p class="mb-2 text-sm text-fg">Найдены новые треки, добавить в источник?</p>
               <div class="flex flex-col gap-1">
                 <label v-for="item in issue.onlyLocal" :key="item.relativePath"
                   class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg">
@@ -141,7 +135,6 @@ function ignore() {
               </div>
             </div>
 
-            <!-- Отсутствующие -->
             <div v-if="issue.missing.length > 0">
               <p class="mb-2 text-sm text-fg">
                 Следующие треки не найдены на устройстве. Пометить как «в облаке»?

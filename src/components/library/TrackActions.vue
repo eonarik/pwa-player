@@ -1,17 +1,18 @@
 <!-- src/components/library/TrackActions.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { useLibraryStore } from '@/stores/library'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
 import { metadataApplier } from '@/services/metadata/MetadataApplier'
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { toastService } from '@/services/ui/ToastService'
 import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
+import DropdownMenu from '@/components/ui/DropdownMenu.vue'
+import IconDots from '@/components/icons/IconDots.vue'
 import type { Track } from '@/types/track'
-import type { LibraryTrack } from '@/types/library'
-import { metadataPersistenceService } from "@/services/persistence/MetadataPersistenceService.ts"
 
 const props = defineProps<{
   track: Track
@@ -28,78 +29,61 @@ const playlists = usePlaylistsStore()
 const library = useLibraryStore()
 const uiSettings = useUiSettingsStore()
 
-const isMenuOpen = ref(false)
 const isSubmenuOpen = ref(false)
 const isCreatingNew = ref(false)
 const newPlaylistName = ref('')
 const isSearchingMetadata = ref(false)
-
-const buttonRef = ref<HTMLElement | null>(null)
-const menuRef = ref<HTMLElement | null>(null)
-const menuPosition = ref({ top: 0, left: 0 })
+const inputRef = ref<HTMLInputElement | null>(null)
 
 const userPlaylists = computed(() =>
   playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
 )
 
-function openMenu() {
-  if (!buttonRef.value) return
-  const rect = buttonRef.value.getBoundingClientRect()
-  const MENU_WIDTH = 256
-  const menuLeft = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
-  menuPosition.value = {
-    top: rect.bottom + 4,
-    left: Math.max(8, menuLeft),
-  }
-  isMenuOpen.value = true
-}
-
-function closeMenu() {
-  isMenuOpen.value = false
+function closeMenu(close: () => void): void {
   isSubmenuOpen.value = false
   isCreatingNew.value = false
   newPlaylistName.value = ''
+  close()
 }
 
-function toggleSubmenu() {
+function toggleSubmenu(): void {
   isSubmenuOpen.value = !isSubmenuOpen.value
 }
 
-function addToPlaylist(playlistId: string) {
+function addToPlaylist(playlistId: string, close: () => void): void {
   playlists.addTrackToPlaylist(playlistId, props.track)
-  closeMenu()
+  closeMenu(close)
 }
 
-async function startCreate() {
+async function startCreate(): Promise<void> {
   isCreatingNew.value = true
   newPlaylistName.value = ''
   await nextTick()
-  const input = menuRef.value?.querySelector<HTMLInputElement>('input')
-  input?.focus()
+  inputRef.value?.focus()
 }
 
-function confirmCreate() {
+function confirmCreate(close: () => void): void {
   const name = newPlaylistName.value.trim()
   if (!name) return
   const id = playlists.createPlaylist(name)
   playlists.addTrackToPlaylist(id, props.track)
-  closeMenu()
+  closeMenu(close)
 }
 
-function removeFromPlaylist() {
+function removeFromPlaylist(close: () => void): void {
   if (!props.playlistId) return
   playlists.removeTrackFromPlaylist(props.playlistId, props.track.id)
   emit('removed-from-playlist')
-  closeMenu()
+  closeMenu(close)
 }
 
-function removeFromQueue() {
+function removeFromQueue(close: () => void): void {
   if (props.queueIndex === undefined) return
   emit('removed-from-queue')
-  closeMenu()
+  closeMenu(close)
 }
 
-async function findMetadata() {
+async function findMetadata(close: () => void): Promise<void> {
   if (isSearchingMetadata.value) return
   isSearchingMetadata.value = true
 
@@ -107,7 +91,7 @@ async function findMetadata() {
   if (!libraryTrack) {
     toastService.error('Трек не найден в библиотеке')
     isSearchingMetadata.value = false
-    closeMenu()
+    closeMenu(close)
     return
   }
 
@@ -119,18 +103,17 @@ async function findMetadata() {
     )
 
     if (result.status === 'aborted') {
-      closeMenu()
+      closeMenu(close)
       return
     }
 
     if (result.status === 'error') {
       toastService.error(`Ошибка поиска: ${result.message}`)
-      closeMenu()
+      closeMenu(close)
       return
     }
 
     if (result.status === 'not-found') {
-      // Кэшируем «не найдено», чтобы не искать повторно
       metadataPersistenceService.setInMemory(libraryTrack.id, {
         artist: null,
         title: null,
@@ -142,7 +125,7 @@ async function findMetadata() {
       await metadataPersistenceService.flush()
 
       toastService.info('Метаданные не найдены')
-      closeMenu()
+      closeMenu(close)
       return
     }
 
@@ -152,7 +135,6 @@ async function findMetadata() {
       await metadataPersistenceService.flush()
       toastService.success('Метаданные обновлены')
     } else if (applyResult.status === 'issue') {
-      // Confident=false — не применяем, показываем тост
       const incoming = result.data
       toastService.error(
         `Найдено другое: ${incoming.artist} — ${incoming.title} (${Math.round(incoming.similarity * 100)}%)`,
@@ -163,49 +145,26 @@ async function findMetadata() {
     toastService.error('Не удалось найти метаданные')
   } finally {
     isSearchingMetadata.value = false
-    closeMenu()
+    closeMenu(close)
   }
 }
-
-function onClickOutside(e: MouseEvent) {
-  if (
-    menuRef.value &&
-    !menuRef.value.contains(e.target as Node) &&
-    buttonRef.value &&
-    !buttonRef.value.contains(e.target as Node)
-  ) {
-    closeMenu()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', onClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', onClickOutside)
-})
 </script>
 
 <template>
   <div class="flex items-center gap-0.5">
     <TrackReactionButtons :track="track" size="sm" dislike-mode="toggle" />
 
-    <!-- Кнопка меню -->
-    <button ref="buttonRef" type="button"
-      class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg" aria-label="Действия"
-      @click.stop="isMenuOpen ? closeMenu() : openMenu()">
-      <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
-        <circle cx="5" cy="12" r="1.5" />
-        <circle cx="12" cy="12" r="1.5" />
-        <circle cx="19" cy="12" r="1.5" />
-      </svg>
-    </button>
+    <DropdownMenu :width="256">
+      <template #trigger="{ toggle, setTriggerRef }">
+        <button :ref="setTriggerRef" type="button"
+          class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg" aria-label="Действия"
+          @click.stop="toggle">
+          <IconDots class="h-4 w-4" />
+        </button>
+      </template>
 
-    <!-- Меню -->
-    <Teleport to="body">
-      <div v-if="isMenuOpen" ref="menuRef" class="fixed z-[100] w-64 overflow-hidden bg-bg-elevated shadow-lg"
-        :style="{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }" @click.stop>
+      <template #default="{ close }">
+        <!-- Добавить в плейлист -->
         <button type="button"
           class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
           @click="toggleSubmenu">
@@ -216,7 +175,7 @@ onUnmounted(() => {
         <div v-if="isSubmenuOpen">
           <button v-for="p in userPlaylists" :key="p.id" type="button"
             class="block w-full truncate px-6 py-2 text-left text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            @click="addToPlaylist(p.id)">
+            @click="addToPlaylist(p.id, close)">
             {{ p.name }}
           </button>
 
@@ -226,8 +185,8 @@ onUnmounted(() => {
             + Создать новый
           </button>
 
-          <form v-else class="px-4 py-2" @submit.prevent="confirmCreate">
-            <input v-model="newPlaylistName" type="text" placeholder="Название плейлиста"
+          <form v-else class="px-4 py-2" @submit.prevent="confirmCreate(close)">
+            <input ref="inputRef" v-model="newPlaylistName" type="text" placeholder="Название плейлиста"
               class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
               @keydown.esc="isCreatingNew = false" />
             <div class="mt-2 flex items-center justify-end gap-2">
@@ -244,28 +203,27 @@ onUnmounted(() => {
           </form>
         </div>
 
+        <!-- Найти метаданные -->
         <button type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
-          :disabled="isSearchingMetadata" @click="findMetadata">
+          :disabled="isSearchingMetadata" @click="findMetadata(close)">
           {{ isSearchingMetadata ? 'Поиск…' : 'Найти метаданные' }}
         </button>
 
-        <template v-if="playlistId">
-          <button type="button"
-            class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
-            @click="removeFromPlaylist">
-            Убрать из плейлиста
-          </button>
-        </template>
+        <!-- Убрать из плейлиста -->
+        <button v-if="playlistId" type="button"
+          class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
+          @click="removeFromPlaylist(close)">
+          Убрать из плейлиста
+        </button>
 
-        <template v-if="queueIndex !== undefined">
-          <button type="button"
-            class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
-            @click="removeFromQueue">
-            Убрать из очереди
-          </button>
-        </template>
-      </div>
-    </Teleport>
+        <!-- Убрать из очереди -->
+        <button v-if="queueIndex !== undefined" type="button"
+          class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
+          @click="removeFromQueue(close)">
+          Убрать из очереди
+        </button>
+      </template>
+    </DropdownMenu>
   </div>
 </template>

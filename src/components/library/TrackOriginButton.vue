@@ -2,14 +2,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTrackDownload } from '@/composables/useTrackDownload'
+import IconDownload from '@/components/icons/IconDownload.vue'
+import IconCheck from '@/components/icons/IconCheck.vue'
+import IconFolder from '@/components/icons/IconFolder.vue'
 import type { LibraryTrack } from '@/types/library'
 
 const props = defineProps<{
   track: LibraryTrack
 }>()
 
-const { isDownloading, progressRatio, download, cancel, remove } =
-  useTrackDownload(computed(() => props.track))
+const { isDownloading, progressRatio, download, cancel, remove } = useTrackDownload(
+  computed(() => props.track),
+)
 
 const origin = computed(() => props.track.origin ?? 'remote')
 
@@ -45,9 +49,9 @@ async function onClick() {
 <template>
   <button type="button" class="group relative flex h-7 w-7 shrink-0 items-center justify-center rounded-btn transition"
     :class="isDownloading
-        ? 'text-active'
+        ? 'text-emerald-400'
         : origin === 'downloaded'
-          ? 'text-active hover:bg-red-500/10 hover:text-red-400'
+          ? 'text-emerald-500 hover:bg-red-500/10 hover:text-red-400'
           : origin === 'only-local'
             ? 'text-amber-500 hover:bg-red-500/10 hover:text-red-400'
             : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'
@@ -67,24 +71,17 @@ async function onClick() {
 
     <!-- Remote -->
     <template v-else-if="origin === 'remote'">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-        <path d="M16 16l-4 4-4-4M12 20V10" />
-        <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
-      </svg>
+      <IconDownload class="h-4 w-4" />
     </template>
 
     <!-- Downloaded -->
     <template v-else-if="origin === 'downloaded'">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-4 w-4">
-        <path d="M20 6L9 17l-5-5" />
-      </svg>
+      <IconCheck class="h-4 w-4" />
     </template>
 
     <!-- Only-local -->
     <template v-else>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-        <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-      </svg>
+      <IconFolder class="h-4 w-4" />
     </template>
   </button>
 </template>

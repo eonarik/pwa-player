@@ -1,6 +1,7 @@
 <!-- src/components/ui/TrackCover.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
+import IconPlaylist from '@/components/icons/IconPlaylist.vue'
 import type { Track } from '@/types/track'
 
 const props = defineProps<{
@@ -28,12 +29,7 @@ const hasAlbum = computed(() => Boolean(props.track.album?.trim()))
     </span>
 
     <!-- Иконка ноты -->
-    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5 text-fg-subtle"
-      aria-hidden="true">
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
-    </svg>
+    <IconPlaylist v-else class="h-5 w-5 text-fg-subtle" />
 
     <!-- Слот для оверлея (PlayingIndicator и т.п.) -->
     <slot />

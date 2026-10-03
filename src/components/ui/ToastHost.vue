@@ -1,6 +1,7 @@
 <!-- src/components/ui/ToastHost.vue -->
 <script setup lang="ts">
 import { toastService } from '@/services/ui/ToastService'
+import IconX from '@/components/icons/IconX.vue'
 import type { Toast, ToastType } from '@/services/ui/ToastService'
 
 const toasts = toastService.toasts
@@ -38,13 +39,9 @@ function classesFor(type: ToastType): string {
         <div v-for="toast in toasts" :key="toast.id"
           class="pointer-events-auto flex items-center gap-3 rounded-card px-4 py-3 shadow-lg"
           :class="classesFor(toast.type)" role="status">
-          <span class="shrink-0 text-base leading-none">
-            {{ iconFor(toast.type) }}
-          </span>
+          <span class="shrink-0 text-base leading-none">{{ iconFor(toast.type) }}</span>
 
-          <p class="min-w-0 flex-1 text-sm">
-            {{ toast.message }}
-          </p>
+          <p class="min-w-0 flex-1 text-sm">{{ toast.message }}</p>
 
           <button v-if="toast.action" type="button"
             class="shrink-0 rounded-btn bg-hover-bg px-3 py-1 text-xs font-medium transition hover:bg-active-bg"
@@ -54,9 +51,7 @@ function classesFor(type: ToastType): string {
 
           <button v-else type="button" class="shrink-0 rounded-btn p-1 opacity-60 transition hover:opacity-100"
             aria-label="Закрыть" @click="dismiss(toast.id)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <IconX class="h-3.5 w-3.5" />
           </button>
         </div>
       </TransitionGroup>

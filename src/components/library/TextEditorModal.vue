@@ -3,6 +3,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { yandexDiskService } from '@/plugins/yandexDisk/YandexDiskService'
 import { toastService } from '@/services/ui/ToastService'
+import IconX from '@/components/icons/IconX.vue'
+import IconMaximize from '@/components/icons/IconMaximize.vue'
+import IconMinimize from '@/components/icons/IconMinimize.vue'
 import type { TextFileRef } from '@/types/library'
 
 const props = defineProps<{
@@ -130,20 +133,13 @@ onUnmounted(() => {
             <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
               :aria-label="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'"
               :title="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'" @click="toggleFullscreen">
-              <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                class="h-5 w-5">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
-              </svg>
+              <IconMinimize v-if="isFullscreen" class="h-5 w-5" />
+              <IconMaximize v-else class="h-5 w-5" />
             </button>
 
             <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
               aria-label="Закрыть" @click="cancel">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <IconX class="h-5 w-5" />
             </button>
           </div>
         </div>

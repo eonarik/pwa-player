@@ -26,6 +26,16 @@
   --radius-modal: 1.5rem;
 }
 
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"]:disabled {
+  cursor: not-allowed;
+}
+
 /* Отключает overscroll / rubber-band эффект на мобильных */
 html,
 body {

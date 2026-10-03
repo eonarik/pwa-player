@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { metadataApplier } from '@/services/metadata/MetadataApplier'
+import IconX from '@/components/icons/IconX.vue'
 import type { MetadataIssue } from '@/composables/useMetadataSearch'
 
 const props = defineProps<{
@@ -32,7 +33,13 @@ function formatSimilarity(s: number): string {
   return `${Math.round(s * 100)}%`
 }
 
-function candidateLabel(c: { artist: string; title: string; album: string; source: string; similarity: number }): string {
+function candidateLabel(c: {
+  artist: string
+  title: string
+  album: string
+  source: string
+  similarity: number
+}): string {
   const parts = [c.artist, c.title].filter(Boolean).join(' — ')
   return `${parts} · ${c.album} · ${c.source} · ${formatSimilarity(c.similarity)}`
 }
@@ -64,9 +71,7 @@ function ignore() {
           <h2 class="text-lg font-medium text-fg">Проблемные треки</h2>
           <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
             aria-label="Закрыть" @click="ignore">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <IconX class="h-5 w-5" />
           </button>
         </div>
 

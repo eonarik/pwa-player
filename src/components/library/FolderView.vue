@@ -25,6 +25,7 @@ import TrackActions from './TrackActions.vue'
 import FileListItem from './FileListItem.vue'
 import TextEditorModal from './TextEditorModal.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
+import IconSpinner from '@/components/icons/IconSpinner.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
 
 const library = useLibraryStore()
@@ -33,7 +34,7 @@ const uiSettings = useUiSettingsStore()
 
 const { currentTracks, currentFolder, currentSubfolders } = storeToRefs(library)
 const { currentTrack, isPlaying } = storeToRefs(player)
-const { showSource, showFiles } = storeToRefs(uiSettings)
+const { showFiles } = storeToRefs(uiSettings)
 
 const tracks = computed(() => currentTracks.value)
 
@@ -231,10 +232,7 @@ function onSelectTrack(index: number) {
     <!-- Сканирование -->
     <div v-if="isScanning" class="flex flex-1 items-center justify-center">
       <div class="flex flex-col items-center gap-3">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          class="h-8 w-8 animate-spin text-fg">
-          <path d="M12 3a9 9 0 019 9" />
-        </svg>
+        <IconSpinner class="h-8 w-8 animate-spin text-fg" />
         <p class="text-sm text-fg-muted">Сканирование папки…</p>
       </div>
     </div>
@@ -311,10 +309,8 @@ function onSelectTrack(index: number) {
       </div>
     </div>
 
-    <!-- Модалка несовпадений -->
     <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
 
-    <!-- Модалка редактирования файла -->
     <TextEditorModal v-if="openedFile" :file="openedFile" @close="closeFile" />
   </div>
 </template>

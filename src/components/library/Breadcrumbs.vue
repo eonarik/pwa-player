@@ -4,13 +4,12 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
+import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
 import type { Folder } from '@/types/library'
 
 const router = useRouter()
 const library = useLibraryStore()
 const { breadcrumbs, currentFolder } = storeToRefs(library)
-
-const pluginId = computed(() => currentFolder.value?.source ?? '')
 
 const isPluginRoot = computed(() => {
   const folder = currentFolder.value
@@ -67,9 +66,7 @@ function goToFolder(crumb: Folder) {
     <button v-if="currentFolder" type="button"
       class="mr-1 shrink-0 rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
       :aria-label="isPluginRoot ? 'К источникам' : 'Назад'" @click="goUp">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-        <path d="M19 12H5M12 19l-7-7 7-7" />
-      </svg>
+      <IconArrowLeft class="h-4 w-4" />
     </button>
 
     <template v-for="(crumb, i) in breadcrumbs" :key="crumb.id">
