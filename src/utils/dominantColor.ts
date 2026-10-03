@@ -13,29 +13,57 @@ export const FALLBACK_RGB: Rgb = { r: 234, g: 240, b: 255 }
 const SAMPLE_SIZE = 64
 
 /** Отсечки для «мусорных» пикселей */
-const MIN_SUM = 60 // слишком тёмные
-const MAX_SUM = 720 // слишком светлые
+const MIN_SUM = 60
+const MAX_SUM = 720
 const MIN_ALPHA = 128
 
+/** Максимальный размер кэша. LRU-эвикция при переполнении. */
+const CACHE_MAX_SIZE = 200
+
+/**
+ * Простой LRU-кэш: Map сохраняет порядок вставки,
+ * при переполнении удаляем самый старый ключ (первый в Map).
+ * При чтении существующего ключа — переставляем его в конец (свежий).
+ */
 const cache = new Map<string, Rgb | null>()
+
+function cacheGet(key: string): Rgb | null | undefined {
+  if (!cache.has(key)) return undefined
+  const value = cache.get(key)!
+  // Переставляем в конец — свежий
+  cache.delete(key)
+  cache.set(key, value)
+  return value
+}
+
+function cacheSet(key: string, value: Rgb | null): void {
+  if (cache.has(key)) cache.delete(key)
+  cache.set(key, value)
+  if (cache.size > CACHE_MAX_SIZE) {
+    // Удаляем самый старый (первый в Map)
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+}
 
 /**
  * Извлекает доминирующий цвет из изображения.
  * Возвращает null, если не удалось (CORS, битая картинка, все пиксели отсеяны).
- * Результат кэшируется в памяти по src.
+ * Результат кэшируется в памяти (LRU, до 200 записей).
  */
 export async function extractDominantColor(src: string): Promise<Rgb | null> {
-  if (cache.has(src)) return cache.get(src) ?? null
+  const cached = cacheGet(src)
+  if (cached !== undefined) return cached
 
   try {
     const img = await loadImage(src)
     const color = computeDominant(img)
-    cache.set(src, color)
+    cacheSet(src, color)
     return color
   } catch (err) {
     // CORS, сеть, битый URL — не шумим, просто кэшируем null
     console.warn('[dominantColor] failed for', src, err)
-    cache.set(src, null)
+    cacheSet(src, null)
     return null
   }
 }

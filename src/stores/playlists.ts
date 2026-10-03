@@ -50,22 +50,24 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     }
   }
 
-  async function save(): Promise<void> {
-    // JSON.stringify разворачивает Vue reactive proxy в plain-объекты.
-    // Object.values превращает Record<string, Playlist> в Playlist[].
+  function save(): void {
     const plain = Object.values(playlists.value).map((p) =>
       JSON.parse(JSON.stringify(p)),
     ) as Playlist[]
-    await playlistPersistenceService.save(plain)
+    playlistPersistenceService.save(plain)
   }
 
   watch(
     playlists,
     () => {
-      void save()
+      save()
     },
     { deep: true },
   )
+
+  async function flush(): Promise<void> {
+    await playlistPersistenceService.flush()
+  }
 
   // --- Внутренние хелперы ---------------------------------------------
 
@@ -200,5 +202,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     toggleFavorite,
     getPlaylist,
     clear,
+    flush,
   }
 })

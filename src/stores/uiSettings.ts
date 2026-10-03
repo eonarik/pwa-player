@@ -5,6 +5,7 @@ import { ref, watch } from 'vue'
 import { get, set } from 'idb-keyval'
 
 const UI_SETTINGS_KEY = 'player:uiSettings'
+const SAVE_DEBOUNCE_MS = 300
 
 const DEFAULT_METADATA_THRESHOLD = 0.5
 const DEFAULT_SEARCH_THRESHOLD = 0.5
@@ -23,6 +24,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   const searchThreshold = ref(DEFAULT_SEARCH_THRESHOLD)
 
   let isLoaded = false
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
 
   async function load(): Promise<void> {
     if (isLoaded) return
@@ -52,7 +54,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     }
   }
 
-  async function save(): Promise<void> {
+  async function persistNow(): Promise<void> {
     if (!isLoaded) return
     try {
       await set(UI_SETTINGS_KEY, {
@@ -66,8 +68,26 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     }
   }
 
+  function save(): void {
+    if (!isLoaded) return
+    if (saveTimer !== null) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = null
+      void persistNow()
+    }, SAVE_DEBOUNCE_MS)
+  }
+
+  /** Дождаться окончания pending-сохранения (для beforeunload) */
+  async function flush(): Promise<void> {
+    if (saveTimer !== null) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+    await persistNow()
+  }
+
   watch([showSource, showFiles, metadataThreshold, searchThreshold], () => {
-    void save()
+    save()
   })
 
   function toggleShowSource(): void {
@@ -89,6 +109,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     searchThreshold,
 
     load,
+    flush,
     toggleShowSource,
     setMetadataThreshold,
     setSearchThreshold,

@@ -42,6 +42,22 @@
 - **`player.ts`** — упрощены `hasNext` / `hasPrev` (shuffle = «есть ещё
   треки, кроме текущего»). Добавлены `shuffleArray` (Fisher-Yates) и
   `findNonDislikedIndexFrom`.
+  - **Дебаунс сохранения в сторах** — `playlists`, `history`, `dislikes` и
+    `uiSettings` теперь сохраняют в IDB с задержкой 300–500 мс. Раньше запись
+    происходила на каждое изменение (например, при быстром добавлении треков
+    в плейлист или передвижении ползунка порога). Добавлены методы `flush()`
+    и вызовы в `beforeunload` / `visibilitychange`.
+- **`dominantColor` cache** — теперь LRU с лимитом 200 записей. Раньше кэш
+  рос неограниченно.
+- **`useDominantColor`** — обёрнут `extractDominantColor` в `try/catch`;
+  при ошибке сбрасывается в `FALLBACK_RGB`, а не оставляет старый цвет.
+- **`MetadataPersistenceService.get`** — при чтении истёкшей записи «не найдено»
+  она удаляется из памяти, а не возвращается пустой.
+
+### Added
+
+- **`flush()`** в `playlists` / `history` / `dislikes` / `uiSettings` —
+  для синхронизации при `beforeunload`.
 
 ## [0.3.1] — 2026-10-04
 

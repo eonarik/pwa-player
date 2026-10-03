@@ -39,18 +39,22 @@ export const useDislikesStore = defineStore('dislikes', () => {
     }
   }
 
-  async function save(): Promise<void> {
+  function save(): void {
     const plain = entries.value.map((e) => JSON.parse(JSON.stringify(e))) as DislikeEntry[]
-    await dislikesPersistenceService.save(plain)
+    dislikesPersistenceService.save(plain)
   }
 
   watch(
     entries,
     () => {
-      void save()
+      save()
     },
     { deep: true },
   )
+
+  async function flush(): Promise<void> {
+    await dislikesPersistenceService.flush()
+  }
 
   // --- Внутренние хелперы ---------------------------------------------
 
@@ -111,5 +115,6 @@ export const useDislikesStore = defineStore('dislikes', () => {
     undislike,
     toggleDislike,
     clear,
+    flush,
   }
 })

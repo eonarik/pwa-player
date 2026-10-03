@@ -9,22 +9,17 @@ export interface OriginalMetadata {
   title: string
   album: string
   coverUrl: string | undefined
-  /** Был ли coverUrl blob-URL (тогда не восстанавливаем — blob мог умереть) */
   coverUrlWasBlob: boolean
 }
 
 export interface MetadataCacheEntry {
   trackId: string
-  /** Найденные метаданные */
   artist: string | null
   title: string | null
   album: string | null
   coverUrl: string | null
-  /** Когда искали */
   fetchedAt: number
-  /** Similarity с исходным треком (0..1). null, если artist исходного был пуст. */
   similarity: number | null
-  /** Оригинальные метаданные до применения (для отката). null, если не применяли. */
   original: OriginalMetadata | null
 }
 
@@ -64,6 +59,7 @@ export class MetadataPersistenceService {
     if (!entry) return undefined
 
     if (entry.artist === null && Date.now() - entry.fetchedAt > NOT_FOUND_TTL_MS) {
+      this.cache.delete(trackId)
       return undefined
     }
 

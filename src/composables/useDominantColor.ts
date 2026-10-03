@@ -21,12 +21,18 @@ export function useDominantColor(src: Ref<string | null | undefined>): Ref<Rgb> 
       }
 
       const token = ++requestToken
-      const extracted = await extractDominantColor(value)
 
-      // Пока грузили — src мог смениться; отбрасываем устаревшее
-      if (token !== requestToken) return
-
-      color.value = extracted ?? FALLBACK_RGB
+      try {
+        const extracted = await extractDominantColor(value)
+        // Пока грузили — src мог смениться; отбрасываем устаревшее
+        if (token !== requestToken) return
+        color.value = extracted ?? FALLBACK_RGB
+      } catch (err) {
+        // extractDominantColor не должен бросать, но на всякий случай
+        if (token !== requestToken) return
+        console.warn('[useDominantColor] extract failed', err)
+        color.value = FALLBACK_RGB
+      }
     },
     { immediate: true },
   )

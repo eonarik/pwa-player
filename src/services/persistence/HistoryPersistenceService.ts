@@ -5,9 +5,13 @@ import type { PlayHistoryEntry } from '@/types/history'
 import type { PersistedHistory } from './historyTypes'
 
 const HISTORY_KEY = 'player:history'
+const SAVE_DEBOUNCE_MS = 500
 
 export class HistoryPersistenceService {
   private static instance: HistoryPersistenceService | null = null
+
+  private saveTimer: ReturnType<typeof setTimeout> | null = null
+  private pending: PlayHistoryEntry[] | null = null
 
   static getInstance(): HistoryPersistenceService {
     if (!HistoryPersistenceService.instance) {
@@ -16,7 +20,29 @@ export class HistoryPersistenceService {
     return HistoryPersistenceService.instance
   }
 
-  async save(entries: PlayHistoryEntry[]): Promise<void> {
+  save(entries: PlayHistoryEntry[]): void {
+    this.pending = entries
+    if (this.saveTimer !== null) return
+
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null
+      const toSave = this.pending
+      this.pending = null
+      if (!toSave) return
+      void this.persistNow(toSave)
+    }, SAVE_DEBOUNCE_MS)
+  }
+
+  async saveNow(entries: PlayHistoryEntry[]): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    this.pending = null
+    await this.persistNow(entries)
+  }
+
+  private async persistNow(entries: PlayHistoryEntry[]): Promise<void> {
     try {
       const payload: PersistedHistory = {
         entries,
@@ -25,7 +51,18 @@ export class HistoryPersistenceService {
       await set(HISTORY_KEY, payload)
     } catch (err) {
       console.error('[HistoryPersistenceService] failed to save', err)
-      throw err
+    }
+  }
+
+  async flush(): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    const toSave = this.pending
+    this.pending = null
+    if (toSave) {
+      await this.persistNow(toSave)
     }
   }
 
@@ -40,6 +77,11 @@ export class HistoryPersistenceService {
   }
 
   async clear(): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    this.pending = null
     await del(HISTORY_KEY)
   }
 }

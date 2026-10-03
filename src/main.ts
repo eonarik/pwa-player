@@ -31,6 +31,9 @@ import { downloadOrchestrator } from './services/download/DownloadOrchestrator.t
 import { syncService } from './services/download/SyncService.ts'
 import { downloadSpaceService } from './services/download/DownloadSpaceService.ts'
 import { librarySaveService } from './services/library/LibrarySaveService.ts'
+import { useHistoryStore } from './stores/history.ts'
+import { useDislikesStore } from './stores/dislikes.ts'
+import { useUiSettingsStore } from './stores/uiSettings.ts'
 
 async function bootstrap() {
   try {
@@ -51,19 +54,19 @@ async function bootstrap() {
 
   app.mount('#app')
 
-  window.addEventListener('beforeunload', () => {
+  const flushAll = () => {
     void librarySaveService.flushAll()
     void metadataPersistenceService.flush()
-  })
-  window.addEventListener('pagehide', () => {
-    void librarySaveService.flushAll()
-    void metadataPersistenceService.flush()
-  })
+    void usePlaylistsStore().flush()
+    void useHistoryStore().flush()
+    void useDislikesStore().flush()
+    void useUiSettingsStore().flush()
+  }
+
+  window.addEventListener('beforeunload', flushAll)
+  window.addEventListener('pagehide', flushAll)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      void librarySaveService.flushAll()
-      void metadataPersistenceService.flush()
-    }
+    if (document.visibilityState === 'hidden') flushAll()
   })
 
   if (import.meta.env.DEV) {

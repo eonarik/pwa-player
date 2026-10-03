@@ -5,9 +5,13 @@ import type { Playlist } from '@/types/playlist'
 import type { PersistedPlaylists } from './playlistTypes'
 
 const PLAYLISTS_KEY = 'player:playlists'
+const SAVE_DEBOUNCE_MS = 500
 
 export class PlaylistPersistenceService {
   private static instance: PlaylistPersistenceService | null = null
+
+  private saveTimer: ReturnType<typeof setTimeout> | null = null
+  private pending: Playlist[] | null = null
 
   static getInstance(): PlaylistPersistenceService {
     if (!PlaylistPersistenceService.instance) {
@@ -16,7 +20,35 @@ export class PlaylistPersistenceService {
     return PlaylistPersistenceService.instance
   }
 
-  async save(playlists: Playlist[]): Promise<void> {
+  /**
+   * Сохраняет плейлисты с дебаунсом 500 мс.
+   * Частые изменения (например, добавление трека в цикле) сольются в одну запись.
+   */
+  save(playlists: Playlist[]): void {
+    this.pending = playlists
+
+    if (this.saveTimer !== null) return
+
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null
+      const toSave = this.pending
+      this.pending = null
+      if (!toSave) return
+      void this.persistNow(toSave)
+    }, SAVE_DEBOUNCE_MS)
+  }
+
+  /** Немедленное сохранение — при beforeunload / visibilitychange */
+  async saveNow(playlists: Playlist[]): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    this.pending = null
+    await this.persistNow(playlists)
+  }
+
+  private async persistNow(playlists: Playlist[]): Promise<void> {
     try {
       const payload: PersistedPlaylists = {
         playlists,
@@ -25,7 +57,19 @@ export class PlaylistPersistenceService {
       await set(PLAYLISTS_KEY, payload)
     } catch (err) {
       console.error('[PlaylistPersistenceService] failed to save', err)
-      throw err
+    }
+  }
+
+  /** Дожидается окончания pending-сохранения (для тестов и beforeunload) */
+  async flush(): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    const toSave = this.pending
+    this.pending = null
+    if (toSave) {
+      await this.persistNow(toSave)
     }
   }
 
@@ -40,6 +84,11 @@ export class PlaylistPersistenceService {
   }
 
   async clear(): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    this.pending = null
     await del(PLAYLISTS_KEY)
   }
 }

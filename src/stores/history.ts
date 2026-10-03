@@ -48,18 +48,22 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  async function save(): Promise<void> {
+  function save(): void {
     const plain = entries.value.map((e) => JSON.parse(JSON.stringify(e))) as PlayHistoryEntry[]
-    await historyPersistenceService.save(plain)
+    historyPersistenceService.save(plain)
   }
 
   watch(
     entries,
     () => {
-      void save()
+      save()
     },
     { deep: true },
   )
+
+  async function flush(): Promise<void> {
+    await historyPersistenceService.flush()
+  }
 
   // --- Внутренние хелперы ---------------------------------------------
 
@@ -121,5 +125,6 @@ export const useHistoryStore = defineStore('history', () => {
     recordPlay,
     clear,
     getEntry,
+    flush,
   }
 })
