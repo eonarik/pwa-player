@@ -1,6 +1,6 @@
 // src/services/metadata/TrackMetadataService.ts
 
-const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
+const PROXY_URL = ''
 const REQUEST_TIMEOUT_MS = 10_000
 
 export interface MetadataCandidate {

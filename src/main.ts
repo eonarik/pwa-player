@@ -34,6 +34,7 @@ import { librarySaveService } from './services/library/LibrarySaveService'
 import { useHistoryStore } from './stores/history'
 import { useDislikesStore } from './stores/dislikes'
 import { useUiSettingsStore } from './stores/uiSettings'
+import { initTooltip, tooltip } from './directives/tooltip'
 
 async function bootstrap() {
   try {
@@ -48,6 +49,9 @@ async function bootstrap() {
   const app = createApp(App)
   app.use(createPinia())
   app.use(router)
+
+  app.directive('tooltip', tooltip)
+  initTooltip()
 
   const playlists = usePlaylistsStore()
   await playlists.restore()

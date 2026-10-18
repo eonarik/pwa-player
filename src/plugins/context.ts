@@ -20,7 +20,7 @@ export function createPluginContext(pluginId: string): PluginContext {
     showToast: (message, type = 'info') => {
       toastService.show(message, type)
     },
-    proxyUrl: import.meta.env.VITE_DISK_PROXY_URL ?? '',
+    proxyUrl: '',
     getDownloadDir: async () => {
       if (!downloadSpaceService.hasSpace.value) return null
       return downloadSpaceService.getPluginDir(pluginId)

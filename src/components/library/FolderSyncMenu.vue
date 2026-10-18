@@ -1,9 +1,10 @@
 <!-- src/components/library/FolderSyncMenu.vue -->
 <script setup lang="ts">
+import { computed } from "vue";
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
+import IconRefresh from '@/components/icons/IconRefresh.vue'
 
-defineProps<{
+const props = defineProps<{
   canRefresh: boolean
   canRefreshFromDevice: boolean
   isRefreshing: boolean
@@ -24,18 +25,23 @@ const onRefreshDevice = (close: () => void) => {
   close()
   emit('refresh-device')
 }
+
+const label = computed(() => props.isRefreshing
+  ? 'Обновление с облака…'
+  : props.isRefreshingFromDevice
+    ? 'Сканирование устройства…'
+    : 'Синхронизация'
+)
+
 </script>
 
 <template>
   <DropdownMenu :width="256">
-    <template #trigger="{ isOpen, toggle, setTriggerRef }">
+    <template #trigger="{ toggle, setTriggerRef }">
       <button :ref="setTriggerRef" type="button"
-        class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg disabled:opacity-50"
-        :disabled="isRefreshing || isRefreshingFromDevice" @click.stop="toggle">
-        <span v-if="isRefreshing">Обновление…</span>
-        <span v-else-if="isRefreshingFromDevice">Сканирование…</span>
-        <span v-else>Синхронизация</span>
-        <IconChevronDown class="h-3 w-3 transition" :class="isOpen ? 'rotate-180' : ''" />
+        class="flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="isRefreshing || isRefreshingFromDevice" v-tooltip="label" :aria-label="label" @click.stop="toggle">
+        <IconRefresh class="h-4 w-4" :class="isRefreshing || isRefreshingFromDevice ? 'animate-spin' : ''" />
       </button>
     </template>
 

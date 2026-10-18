@@ -3,20 +3,42 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
-## [Unreleased]
+## [0.4.0] — 2026-10-18
 
-- O(n²) в шаблонах (`HistoryView`, `DislikesView`, `PlaylistsView`,
-  `PlaylistRoute`, `SearchView`, `AlbumView`, `FolderView`) — `.findIndex(...)`
-  внутри `v-for`.
-- Действие «Очистить метаданные» для отдельного трека в `TrackActions`.
-- Чекбокс «Показывать файлы» в `SettingsView`.
-- Отделение Яндекс.Диска в опциональный плагин с флагом сборки.
-- Синхронизация настроек между устройствами.
-- Светлая тема.
-- Восстановление позиции скролла внутри списков.
-- Range-запросы для `/api/disk/download`.
-- Модалки с `role="dialog"` и единый `isAnyModalOpen`.
-- `SettingsView.onPluginChange` — реализовать обработку `change` от плагинов.
+### Security
+
+- **OAuth Яндекс.Диска вместо JWT-пароля.** Токен доступа хранится только в серверной сессии (`express-session` + `memorystore`). В браузере — только `HttpOnly`, `SameSite=Lax` cookie.
+- Право `cloud_api:disk.app_folder` — приложение имеет доступ только к папке `app:/` (Приложения / CUEI media player), а не ко всему Диску пользователя.
+- Удалён `AUTH_SECRET`, JWT-токены и файл `.settings.json` (перенесены в legacy для плагина Логии).
+- `CSRF` защита через `SameSite=Lax` и проверку `Origin`.
+
+### Added
+
+- Модульный монолит на бэкенде: `core/`, `plugins/`, `shared/`, `modules.js`.
+- `plugins/yandex` — API для работы с Яндекс.Диском через сессию.
+- `plugins/feedback` — обратная связь через `nodemailer` (SMTP Яндекса) с rate limit (1 сообщение в минуту с IP).
+- `v-tooltip` — кастомная директива для всплывающих подсказок (вместо нативных `title`).
+- `MarkdownText.vue` + `services/markdown` — extensible-рендерер для `emptyStateMessage`.
+- `emptyStateMessage` в `manifest.options` — подсказка в пустом корне источника (например, куда кидать музыку на Яндекс.Диске).
+
+### Changed
+
+- **Фронт:** `AuthService` переписан на `me()` / `startOAuth()` / `logout()`. Все запросы к API идут с `credentials: 'include'`.
+- `YandexDiskService` больше не использует `?token=`, работает через same-origin (`PROXY_URL = ''`).
+- `connect()` в плагине Яндекса делает редирект на OAuth. `HomeView` автоматически подхватывает возврат (`?auth=ok`) и загружает библиотеку без повторного клика.
+- `SCHEMA_VERSION = 4` (данные сбрасываются при первом запуске; с 0.4.0 — только миграции).
+- Тултипы добавлены на все иконочные кнопки.
+
+### Removed
+
+- `passport-yandex` (заменён на `passport-oauth2` с PKCE S256).
+- Legacy-код (`auth/`, `settings/`, `middleware/`, `disk/`, `config/`) перенесён в `server/src/_legacy/` для плагина Логии (0.5.0).
+
+### Fixed
+
+- Сессия не сохранялась при OAuth-редиректе (исправлено через `req.user` и `passport-oauth2`).
+- `App has already been mounted` в директиве `v-tooltip`.
+- Неверное позиционирование и «прыгающий» тултип при смене текста.
 
 ## [0.3.2] — 2026-10-04
 

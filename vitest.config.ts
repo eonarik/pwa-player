@@ -36,6 +36,7 @@ export default defineConfig({
           name: 'server',
           environment: 'node',
           include: ['server/src/**/*.spec.js'],
+          exclude: ['server/src/_legacy/**', 'server/node_modules/**'],
         },
       },
     ],

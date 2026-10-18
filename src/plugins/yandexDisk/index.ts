@@ -41,32 +41,21 @@ const yandexPlugin: LibrarySource = {
     return typeof window !== 'undefined'
   },
 
-  async connect(context: PluginContext): Promise<void> {
+  async connect(_context: PluginContext): Promise<void> {
     const alive = await yandexDiskService.ping()
-    if (!alive) throw new Error('Прокси-сервер недоступен')
+    if (!alive) throw new Error('Сервер недоступен')
 
-    const config = await yandexDiskService.getConfig()
-    if (!config.hasSettings) throw new Error('Сервер не настроен. Обратитесь к администратору')
+    const me = await authService.me()
+    if (me.authenticated) return
 
-    if (authService.isAuthenticated()) {
-      const valid = await authService.check()
-      if (valid) return
-    }
+    authService.startOAuth()
+    throw new Error('redirect')
+  },
 
-    const password = await context.showModal<string>({
-      title: 'Вход в Яндекс.Диск',
-      message: 'Введите пароль для доступа к приватным папкам',
-      type: 'input',
-      inputType: 'password',
-      inputPlaceholder: 'Пароль',
-      confirmLabel: 'Войти',
-      cancelLabel: 'Отмена',
-    })
-
-    if (!password) throw new Error('cancelled')
-
-    const ok = await authService.login(password)
-    if (!ok) throw new Error('Неверный пароль')
+  async disconnect(context: PluginContext): Promise<void> {
+    context.writer.removeBySource(PLUGIN_ID)
+    await yandexPersistenceService.clear()
+    await authService.logout()
   },
 
   async load(context: PluginContext, options?: LoadOptions): Promise<void> {
@@ -329,12 +318,6 @@ const yandexPlugin: LibrarySource = {
   async saveCache(context: PluginContext): Promise<void> {
     const collected = currentLibraryFromWriter(context, PLUGIN_ID)
     await yandexPersistenceService.save(toPersisted(collected))
-  },
-
-  async disconnect(context: PluginContext): Promise<void> {
-    context.writer.removeBySource(PLUGIN_ID)
-    await yandexPersistenceService.clear()
-    authService.logout()
   },
 }
 

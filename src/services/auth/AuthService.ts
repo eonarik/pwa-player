@@ -1,17 +1,15 @@
 // src/services/auth/AuthService.ts
 
-const PROXY_URL = import.meta.env.VITE_DISK_PROXY_URL?.replace(/\/+$/, '') ?? ''
-const TOKEN_KEY = 'player:authToken'
-const AUTH_TIMEOUT_MS = 10_000
+const PROXY_URL = ''
+const REQUEST_TIMEOUT_MS = 10_000
+
+export interface AuthMeResponse {
+  authenticated: boolean
+  expiresAt?: number | null
+}
 
 export class AuthService {
   private static instance: AuthService | null = null
-
-  private token: string | null = null
-
-  private constructor() {
-    this.token = localStorage.getItem(TOKEN_KEY)
-  }
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -20,62 +18,44 @@ export class AuthService {
     return AuthService.instance
   }
 
-  getToken(): string | null {
-    return this.token
-  }
-
-  isAuthenticated(): boolean {
-    return this.token !== null
-  }
-
-  async login(password: string): Promise<boolean> {
+  /**
+   * Текущий статус авторизации.
+   * Токена в JS нет — только cookie на сервере.
+   */
+  async me(): Promise<AuthMeResponse> {
     try {
-      const res = await fetch(`${PROXY_URL}/api/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-        signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
+      const res = await fetch(`${PROXY_URL}/api/auth/me`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
-
-      if (!res.ok) return false
-
-      const data = (await res.json()) as { ok: boolean; token?: string }
-      if (!data.ok || !data.token) return false
-
-      this.token = data.token
-      localStorage.setItem(TOKEN_KEY, data.token)
-      return true
-    } catch (err) {
-      console.error('[auth] login failed', err)
-      return false
-    }
-  }
-
-  logout(): void {
-    this.token = null
-    localStorage.removeItem(TOKEN_KEY)
-  }
-
-  async check(): Promise<boolean> {
-    if (!this.token) return false
-
-    try {
-      const res = await fetch(`${PROXY_URL}/api/auth/check`, {
-        headers: { Authorization: `Bearer ${this.token}` },
-        signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
-      })
-      if (!res.ok) {
-        this.logout()
-        return false
-      }
-      return true
+      if (!res.ok) return { authenticated: false }
+      return (await res.json()) as AuthMeResponse
     } catch {
-      return false
+      return { authenticated: false }
     }
   }
 
-  authHeaders(): Record<string, string> {
-    return this.token ? { Authorization: `Bearer ${this.token}` } : {}
+  /**
+   * Редирект на Яндекс OAuth.
+   * Страница уйдёт — вызывающий код должен это учесть.
+   */
+  startOAuth(): void {
+    window.location.href = `${PROXY_URL}/api/auth/yandex/start`
+  }
+
+  /**
+   * Выход: уничтожает серверную сессию и чистит cookie.
+   */
+  async logout(): Promise<void> {
+    try {
+      await fetch(`${PROXY_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch (err) {
+      console.warn('[auth] logout failed', err)
+    }
   }
 }
 

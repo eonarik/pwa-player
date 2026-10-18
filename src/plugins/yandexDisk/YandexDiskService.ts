@@ -1,10 +1,9 @@
 // src/plugins/yandexDisk/YandexDiskService.ts
 
-import { authService } from '@/services/auth/AuthService'
 import { compareStrings } from '@/utils/sort'
-import type { YandexConfig, YandexResourcesResponse } from './types'
+import type { YandexResourcesResponse } from './types'
 
-const PROXY_URL = (import.meta.env.VITE_DISK_PROXY_URL ?? '').replace(/\/+$/, '')
+const PROXY_URL = ''
 const REQUEST_TIMEOUT_MS = 10_000
 
 export class AuthRequiredError extends Error {
@@ -46,23 +45,13 @@ export class YandexDiskService {
     }
   }
 
-  async getConfig(): Promise<YandexConfig> {
-    const res = await fetch(`${PROXY_URL}/api/config`, {
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    })
-    if (!res.ok) {
-      throw new Error(`Failed to fetch config: HTTP ${res.status}`)
-    }
-    return res.json() as Promise<YandexConfig>
-  }
-
   async listResources(path = '/'): Promise<YandexResourcesResponse> {
     const params = new URLSearchParams({ path })
 
     try {
       const response = await fetch(`${PROXY_URL}/api/disk/resources?${params.toString()}`, {
+        credentials: 'include',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        headers: authService.authHeaders(),
       })
 
       if (response.status === 401) {
@@ -92,24 +81,16 @@ export class YandexDiskService {
 
   buildDownloadUrl(path: string): string {
     const params = new URLSearchParams({ path })
-    const token = authService.getToken()
-    if (token) params.set('token', token)
     return `${PROXY_URL}/api/disk/download?${params.toString()}`
   }
 
-  // --- Текстовые файлы -------------------------------------------------
-
-  /**
-   * Читает текстовый файл с Диска.
-   * Возвращает содержимое или null, если файл недоступен.
-   */
   async readTextFile(remotePath: string): Promise<TextFileResponse | null> {
     const params = new URLSearchParams({ path: remotePath })
 
     try {
       const res = await fetch(`${PROXY_URL}/api/disk/text?${params.toString()}`, {
+        credentials: 'include',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        headers: authService.authHeaders(),
       })
 
       if (res.status === 401) {
@@ -124,19 +105,13 @@ export class YandexDiskService {
     }
   }
 
-  /**
-   * Записывает содержимое в текстовый файл на Диске.
-   * Перезаписывает существующий файл.
-   */
   async writeTextFile(remotePath: string, content: string): Promise<WriteTextFileResponse> {
     const params = new URLSearchParams({ path: remotePath })
 
     const res = await fetch(`${PROXY_URL}/api/disk/text?${params.toString()}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authService.authHeaders(),
-      },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })

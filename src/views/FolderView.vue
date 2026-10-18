@@ -5,7 +5,7 @@ import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
-import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
+import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
@@ -25,9 +25,9 @@ import TrackActions from '@/components/library/TrackActions.vue'
 import FileListItem from '@/components/library/FileListItem.vue'
 import TextEditorModal from '@/components/library/TextEditorModal.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
+import MarkdownText from "@/components/ui/MarkdownText.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -184,6 +184,15 @@ function onSelectTrack(index: number) {
   if (isScanning.value) return
   player.setQueue(tracks.value, index)
 }
+
+const emptyStateMessage = computed(() => {
+  const folder = currentFolder.value
+  if (!folder || !folder.source) return null
+  if (folder.parentId !== null) return null
+  const pluginId = pluginIdFromSource(folder.source)
+  const manifest = getPlugins().find((p) => p.id === pluginId)
+  return manifest?.options?.emptyStateMessage ?? null
+})
 </script>
 
 <template>
@@ -216,52 +225,29 @@ function onSelectTrack(index: number) {
           <FolderSortMenu />
         </div>
 
-        <div v-if="!isScanning" class="flex shrink-0 items-center gap-2">
-          <MetadataMenu
-            :is-loading="isMetadataLoading"
-            :progress="metadataProgress"
-            :stats="metadataStats"
-            :has-unchecked="metadataHasUnchecked"
-            :issues-count="metadataIssues.length"
-            @search="metadataSearch"
-            @cancel="metadataCancel"
-            @reset="metadataReset"
-            @open-issues="openMetadataIssues"
-          />
+        <div class="flex shrink-0 items-center gap-2">
+          <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
+            :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
+            @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
+
 
           <template v-if="canRefresh || canRefreshFromDevice">
-            <FolderSyncMenu
-              :can-refresh="canRefresh"
-              :can-refresh-from-device="canRefreshFromDevice"
-              :is-refreshing="isRefreshing"
-              :is-refreshing-from-device="isRefreshingFromDevice"
-              @refresh-cloud="refreshFromCloud"
-              @refresh-device="refreshFromDevice"
-            />
-          </template>
+            <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
 
-          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
+            <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
+              :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"
+              @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
+          </template>
 
           <FolderSettingsMenu />
         </div>
       </div>
     </div>
 
-    <!-- Сканирование -->
-    <div v-if="isScanning" class="flex flex-1 items-center justify-center">
-      <div class="flex flex-col items-center gap-3">
-        <IconSpinner class="h-8 w-8 animate-spin text-fg" />
-        <p class="text-sm text-fg-muted">Сканирование папки…</p>
-      </div>
-    </div>
-
     <!-- Режим поиска -->
-    <div v-else-if="hasQuery" class="flex-1 overflow-y-auto">
+    <div v-if="hasQuery" class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl p-2">
-        <div
-          v-if="!hasResults"
-          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
-        >
+        <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
           Ничего не найдено
         </div>
 
@@ -271,32 +257,22 @@ function onSelectTrack(index: number) {
               Найдено: {{ searchFlatTracks.length }} · Групп: {{ result.groups.length }}
             </span>
 
-            <button
-              type="button"
+            <button type="button"
               class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-              @click="player.setQueue(searchFlatTracks, 0)"
-            >
+              @click="player.setQueue(searchFlatTracks, 0)">
               Играть всё
             </button>
           </div>
 
           <div v-for="group in result.groups" :key="group.artist">
-            <p
-              class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle"
-            >
+            <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
               {{ group.artist }}
             </p>
 
             <div class="flex flex-col gap-0.5">
-              <TrackListItem
-                v-for="track in group.tracks"
-                :key="track.id"
-                :track="track"
-                :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
-                :is-current="isSearchCurrent(track.id)"
-                :is-playing="isPlaying"
-                @select="() => onSelectSearchTrack(track.id)"
-              >
+              <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
+                :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isSearchCurrent(track.id)"
+                :is-playing="isPlaying" @select="() => onSelectSearchTrack(track.id)">
                 <template #actions>
                   <TrackActions :track="track" />
                 </template>
@@ -322,12 +298,7 @@ function onSelectTrack(index: number) {
             Файлы
           </p>
           <div class="flex flex-col gap-0.5">
-            <FileListItem
-              v-for="file in textFiles"
-              :key="file.path"
-              :file="file"
-              @open="openFile(file)"
-            />
+            <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="openFile(file)" />
           </div>
         </div>
 
@@ -338,20 +309,15 @@ function onSelectTrack(index: number) {
           <TrackList :key="currentFolder?.id" :tracks="tracks" @select="onSelectTrack" />
         </div>
 
-        <div
-          v-if="!hasFolders && !hasTracks && !hasTextFiles"
-          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted"
-        >
-          В этой папке пусто
+        <div v-if="!hasFolders && !hasTracks && !hasTextFiles"
+          class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted">
+          <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />
+          <span v-else>В этой папке пусто</span>
         </div>
       </div>
     </div>
 
-    <MetadataIssuesModal
-      v-if="showMetadataIssues"
-      :issues="metadataIssues"
-      @close="closeMetadataIssues"
-    />
+    <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
 
     <TextEditorModal v-if="openedFile" :file="openedFile" @close="closeFile" />
   </div>

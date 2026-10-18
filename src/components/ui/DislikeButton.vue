@@ -55,18 +55,13 @@ function onClick() {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="rounded-btn transition"
-    :class="[
-      btnClass,
-      isDisliked
-        ? 'text-red-400 hover:bg-hover-bg'
-        : 'text-fg-subtle hover:bg-hover-bg hover:text-fg',
-    ]"
-    :aria-label="isDisliked ? 'Показывать при воспроизведении' : 'Скрывать при воспроизведении'"
-    @click.stop="onClick"
-  >
+  <button type="button" class="rounded-btn transition" :class="[
+    btnClass,
+    isDisliked
+      ? 'text-red-400 hover:bg-hover-bg'
+      : 'text-fg-subtle hover:bg-hover-bg hover:text-fg',
+  ]" v-tooltip="isDisliked ? 'Показывать при воспроизведении' : 'Скрывать при воспроизведении'"
+    :aria-label="isDisliked ? 'Показывать при воспроизведении' : 'Скрывать при воспроизведении'" @click.stop="onClick">
     <IconEyeOff :class="iconClass" />
   </button>
 </template>

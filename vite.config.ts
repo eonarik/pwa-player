@@ -70,4 +70,13 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1500,
   },
+  // Vite проксирует /api/* на localhost:3000 (иначе cookie не будут работать в dev-режиме)
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: false,
+      },
+    },
+  },
 })

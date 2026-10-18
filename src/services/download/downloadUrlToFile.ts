@@ -31,7 +31,7 @@ export async function downloadUrlToFile(
     throw new DOMException('Aborted', 'AbortError')
   }
 
-  const response = await fetch(url, { signal })
+  const response = await fetch(url, { signal, credentials: 'include' })
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: HTTP ${response.status}`)
   }

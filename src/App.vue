@@ -26,6 +26,7 @@ import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue'
 import AppDrawer from '@/components/layout/AppDrawer.vue'
 import IconMenu from '@/components/icons/IconMenu.vue'
+import FeedbackModal from '@/components/ui/FeedbackModal.vue'
 
 const route = useRoute()
 const player = usePlayerStore()
@@ -132,6 +133,16 @@ function closeDrawer() {
   isDrawerOpen.value = false
 }
 
+const isFeedbackOpen = ref(false)
+
+function openFeedback() {
+  isFeedbackOpen.value = true
+}
+
+function closeFeedback() {
+  isFeedbackOpen.value = false
+}
+
 // --- Горячие клавиши, медиа-сессия, заголовок -------------------------
 
 useKeyboardShortcuts({
@@ -195,18 +206,13 @@ onMounted(async () => {
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
     <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2">
-      <button
-        type="button"
+      <button type="button"
         class="flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-        aria-label="Меню"
-        @click="openDrawer"
-      >
+        aria-label="Меню" @click="openDrawer">
         <IconMenu class="h-4 w-4" />
         <span class="hidden md:inline">Меню</span>
-        <span
-          v-if="queueBadge"
-          class="ml-0.5 rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active"
-        >
+        <span v-if="queueBadge"
+          class="ml-0.5 rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">
           {{ queueBadge }}
         </span>
       </button>
@@ -226,13 +232,8 @@ onMounted(async () => {
     </main>
 
     <!-- Мини-плеер + свайп вверх -->
-    <div
-      ref="playerFooterRef"
-      @pointerdown="onFooterPointerDown"
-      @pointermove="onFooterPointerMove"
-      @pointerup="onFooterPointerUp"
-      @pointercancel="onFooterPointerUp"
-    >
+    <div ref="playerFooterRef" @pointerdown="onFooterPointerDown" @pointermove="onFooterPointerMove"
+      @pointerup="onFooterPointerUp" @pointercancel="onFooterPointerUp">
       <PlayerControls @open="openFullPlayer" />
     </div>
 
@@ -240,20 +241,16 @@ onMounted(async () => {
     <ToastHost />
     <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
     <SpacePermissionModal v-if="downloadSpaceService.needsPermission.value" />
+    <FeedbackModal v-if="isFeedbackOpen" @close="closeFeedback" />
 
     <!-- FullPlayer -->
-    <Transition
-      enter-active-class="transition duration-300 ease-out"
-      enter-from-class="opacity-0 translate-y-4"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition duration-200 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-4"
-    >
+    <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 translate-y-4"
+      enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-4">
       <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />
     </Transition>
 
     <!-- Шторка -->
-    <AppDrawer :open="isDrawerOpen" @close="closeDrawer" />
+    <AppDrawer :open="isDrawerOpen" @close="closeDrawer" @open-feedback="openFeedback" />
   </div>
 </template>

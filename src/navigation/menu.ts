@@ -8,16 +8,19 @@ import IconHistory from '@/components/icons/IconHistory.vue'
 import IconList from '@/components/icons/IconList.vue'
 import IconEyeOff from '@/components/icons/IconEyeOff.vue'
 import IconSettings from '@/components/icons/IconSettings.vue'
+import IconFeedback from '@/components/icons/IconFeedback.vue'
 
 export interface MenuItem {
   /** route.name для router.push / RouterLink */
-  route: string
+  route?: string
   /** Отображаемое имя */
   label: string
   /** Иконка */
   icon: Component
   /** Показывать бейдж с числом треков в очереди */
   queueBadge?: boolean
+  /** Если задано — пункт открывает модалку, а не роут */
+  modal?: 'feedback'
 }
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -28,4 +31,5 @@ export const MENU_ITEMS: MenuItem[] = [
   { route: 'queue', label: 'Очередь', icon: IconList, queueBadge: true },
   { route: 'dislikes', label: 'Дизлайки', icon: IconEyeOff },
   { route: 'settings', label: 'Настройки', icon: IconSettings },
+  { label: 'Обратная связь', icon: IconFeedback, modal: 'feedback' },
 ]

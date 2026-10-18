@@ -11,4 +11,10 @@ export const manifest: PluginManifest = {
   enabled: true,
   canDownload: true,
   entry: () => import('./index'),
+  options: {
+    emptyStateMessage:
+      'Музыка хранится в папке **«Приложения / CUEI media player»** на вашем Яндекс.Диске.\n' +
+      'Добавьте туда треки — и они появятся в плеере.\n\n' +
+      'Папка создаётся автоматически при первом подключении.',
+  },
 }

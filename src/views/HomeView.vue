@@ -1,13 +1,14 @@
 <!-- src/views/HomeView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
 import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import type { PluginManifest } from '@/plugins/types'
 
+const route = useRoute()
 const router = useRouter()
 const library = useLibraryStore()
 
@@ -39,6 +40,15 @@ onMounted(async () => {
     }
   }
   pluginMetas.value = metas
+
+  // Автоподключение после возврата с OAuth
+  if (route.query.auth === 'ok') {
+    await router.replace({ path: route.path })
+    const yandexMeta = metas.find((m) => m.manifest.id === 'yandex')
+    if (yandexMeta) {
+      await connectPlugin({ manifest: yandexMeta.manifest })
+    }
+  }
 })
 
 function openPlugin(row: { manifest: PluginManifest; hasData: boolean }) {
@@ -72,9 +82,8 @@ async function connectPlugin(row: { manifest: PluginManifest }) {
     toastService.success(`Источник «${row.manifest.name}» подключён`)
     openPlugin({ manifest: row.manifest, hasData: true })
   } catch (err) {
-    if (err instanceof Error && err.message === 'cancelled') {
-      return
-    }
+    if (err instanceof Error && err.message === 'cancelled') return
+    if (err instanceof Error && err.message === 'redirect') return
     const message = err instanceof Error ? err.message : 'Не удалось подключить источник'
     toastService.error(message)
   } finally {
@@ -113,14 +122,9 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
       <div v-if="plugins.length === 0" class="text-sm text-fg-muted">Плагины не найдены</div>
 
       <div v-else class="flex flex-col gap-2">
-        <div
-          v-for="row in plugins"
-          :key="row.manifest.id"
-          class="flex items-center gap-4 rounded-card bg-card-bg p-4 transition hover:bg-hover-bg"
-        >
-          <div
-            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-btn bg-hover-bg text-2xl"
-          >
+        <div v-for="row in plugins" :key="row.manifest.id"
+          class="flex items-center gap-4 rounded-card bg-card-bg p-4 transition hover:bg-hover-bg">
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-btn bg-hover-bg text-2xl">
             {{ row.manifest.icon }}
           </div>
 
@@ -137,30 +141,21 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
 
           <div class="flex shrink-0 items-center gap-2">
             <template v-if="row.hasData">
-              <button
-                type="button"
+              <button type="button"
                 class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-                @click="openPlugin(row)"
-              >
+                @click="openPlugin(row)">
                 Открыть
               </button>
-              <button
-                type="button"
+              <button type="button"
                 class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-red-500/10 hover:text-red-400"
-                :disabled="isLoading === row.manifest.id"
-                @click="disconnectPlugin(row)"
-              >
+                :disabled="isLoading === row.manifest.id" @click="disconnectPlugin(row)">
                 Отключить
               </button>
             </template>
 
-            <button
-              v-else
-              type="button"
+            <button v-else type="button"
               class="rounded-btn bg-card-bg px-4 py-2 text-sm text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!row.available || isLoading === row.manifest.id"
-              @click="connectPlugin(row)"
-            >
+              :disabled="!row.available || isLoading === row.manifest.id" @click="connectPlugin(row)">
               {{ isLoading === row.manifest.id ? 'Подключение…' : 'Подключить' }}
             </button>
           </div>

@@ -13,6 +13,7 @@ import { getPlugins } from '@/plugins/registry'
 import type { PluginManifest } from '@/plugins/types'
 import type { PluginSettingsSchema } from '@/plugins/settingsTypes'
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue'
+import { authService } from "@/services/auth/AuthService"
 
 const uiSettings = useUiSettingsStore()
 const history = useHistoryStore()
@@ -151,11 +152,12 @@ function clearMetadataCache() {
 async function resetAll() {
   if (
     !window.confirm(
-      'Сбросить все данные приложения? Это удалит библиотеку, плейлисты, историю, настройки. Действие необратимо.',
+      'Сбросить все данные приложения? Это удалит библиотеку, плейлисты, историю, настройки и отключит Яндекс.Диск. Действие необратимо.',
     )
   ) {
     return
   }
+  await authService.logout()
   await schemaService.clearAll()
   location.reload()
 }
@@ -183,16 +185,9 @@ async function resetAll() {
               <p class="text-xs text-fg-muted">Чем выше, тем строже поиск</p>
             </div>
 
-            <input
-              v-model.number="localSearchThreshold"
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
+            <input v-model.number="localSearchThreshold" type="number" min="0" max="1" step="0.05"
               class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
-              @blur="applySearchThreshold"
-              @keydown.enter="applySearchThreshold"
-            />
+              @blur="applySearchThreshold" @keydown.enter="applySearchThreshold" />
           </div>
         </section>
 
@@ -208,16 +203,9 @@ async function resetAll() {
               <p class="text-xs text-fg-muted">Ниже порога — трек в «Проблемные»</p>
             </div>
 
-            <input
-              v-model.number="localMetadataThreshold"
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
+            <input v-model.number="localMetadataThreshold" type="number" min="0" max="1" step="0.05"
               class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
-              @blur="applyMetadataThreshold"
-              @keydown.enter="applyMetadataThreshold"
-            />
+              @blur="applyMetadataThreshold" @keydown.enter="applyMetadataThreshold" />
           </div>
         </section>
 
@@ -227,19 +215,13 @@ async function resetAll() {
             Отображение
           </h2>
 
-          <label
-            class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3"
-          >
+          <label class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3">
             <div class="min-w-0">
               <p class="text-sm text-fg">Показывать источник</p>
               <p class="text-xs text-fg-muted">Путь к папке в списках треков</p>
             </div>
 
-            <input
-              v-model="showSource"
-              type="checkbox"
-              class="h-4 w-4 cursor-pointer accent-active"
-            />
+            <input v-model="showSource" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
           </label>
         </section>
 
@@ -265,22 +247,15 @@ async function resetAll() {
                 <p v-else class="text-xs text-fg-muted">Для скачивания треков</p>
               </div>
 
-              <button
-                v-if="needsPermission"
-                type="button"
+              <button v-if="needsPermission" type="button"
                 class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-                @click="restoreAccess"
-              >
+                @click="restoreAccess">
                 Восстановить
               </button>
 
-              <button
-                v-else
-                type="button"
+              <button v-else type="button"
                 class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg disabled:opacity-50"
-                :disabled="isPickingSpace"
-                @click="pickSpace"
-              >
+                :disabled="isPickingSpace" @click="pickSpace">
                 {{ isPickingSpace ? '…' : hasSpace ? 'Сменить' : 'Выбрать' }}
               </button>
             </div>
@@ -298,14 +273,9 @@ async function resetAll() {
                 <span class="text-sm font-medium text-fg">{{ p.manifest.name }}</span>
               </div>
 
-              <PluginSettingsSection
-                v-for="section in p.schema.sections"
-                :key="section.id"
-                :section="section"
-                :disabled="isPluginActionRunning"
-                @action="(id, payload) => onPluginAction(p.manifest, id, payload)"
-                @change="(id, value) => onPluginChange(p.manifest, id, value)"
-              />
+              <PluginSettingsSection v-for="section in p.schema.sections" :key="section.id" :section="section"
+                :disabled="isPluginActionRunning" @action="(id, payload) => onPluginAction(p.manifest, id, payload)"
+                @change="(id, value) => onPluginChange(p.manifest, id, value)" />
             </div>
           </div>
         </section>
@@ -315,44 +285,36 @@ async function resetAll() {
           <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">Данные</h2>
 
           <div class="flex flex-col gap-2">
-            <button
-              type="button"
+            <button type="button"
               class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
-              @click="clearHistory"
-            >
+              @click="clearHistory">
               <div class="min-w-0">
                 <p class="text-sm text-fg">Очистить историю</p>
                 <p class="text-xs text-fg-muted">Удалить все записи о воспроизведении</p>
               </div>
             </button>
 
-            <button
-              type="button"
+            <button type="button"
               class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
-              @click="clearDislikes"
-            >
+              @click="clearDislikes">
               <div class="min-w-0">
                 <p class="text-sm text-fg">Очистить дизлайки</p>
                 <p class="text-xs text-fg-muted">Удалить все скрытые треки</p>
               </div>
             </button>
 
-            <button
-              type="button"
+            <button type="button"
               class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
-              @click="clearMetadataCache"
-            >
+              @click="clearMetadataCache">
               <div class="min-w-0">
                 <p class="text-sm text-fg">Очистить кэш метаданных</p>
                 <p class="text-xs text-fg-muted">Найденные обложки и метаданные будут забыты</p>
               </div>
             </button>
 
-            <button
-              type="button"
+            <button type="button"
               class="flex items-center justify-between gap-4 bg-red-500/10 px-4 py-3 text-left transition hover:bg-red-500/15"
-              @click="resetAll"
-            >
+              @click="resetAll">
               <div class="min-w-0">
                 <p class="text-sm text-red-400">Сбросить все данные</p>
                 <p class="text-xs text-red-400/70">

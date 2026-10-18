@@ -106,3 +106,24 @@ html {
     transform: translateX(300%);
   }
 }
+
+.cuei-tooltip {
+  position: fixed;
+  z-index: 9999;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-btn);
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  /* Убираем мерцание */
+  animation: tooltip-fade-in 100ms ease-out forwards;
+}
+
+@keyframes tooltip-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

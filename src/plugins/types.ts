@@ -12,6 +12,17 @@ import type { PluginSettingsSchema } from './settingsTypes'
  * Чтобы удалить плагин — удали папку. Чтобы отключить —
  * поставь enabled: false.
  */
+
+export interface PluginManifestOptions {
+  /**
+   * Markdown-текст, который показывается вместо «В этой папке пусто»,
+   * когда открыт пустой корень источника (parentId === null).
+   *
+   * Для остальных пустых папок текст не меняется.
+   */
+  readonly emptyStateMessage?: string
+}
+
 export interface PluginManifest {
   /** Уникальный id: 'local', 'yandex', 'dropbox' */
   readonly id: string
@@ -23,6 +34,7 @@ export interface PluginManifest {
   readonly version: string
   /** Если false — плагин не регистрируется (но остаётся в коде) */
   readonly enabled: boolean
+
   /**
    * Может ли плагин скачивать треки на устройство.
    * Синхронный флаг — чтобы UI мог решить, показывать ли кнопку,
@@ -30,11 +42,15 @@ export interface PluginManifest {
    * Должен совпадать с LibrarySource.canDownload.
    */
   readonly canDownload: boolean
+
   /**
    * Ленивая загрузка модуля плагина.
    * Возвращает LibrarySource (default export модуля).
    */
   readonly entry: () => Promise<{ default: LibrarySource }>
+
+  /** Косметические опции плагина (не влияют на регистрацию). */
+  readonly options?: PluginManifestOptions
 
   /**
    * Схема настроек плагина. SettingsView рендерит её декларативно.
