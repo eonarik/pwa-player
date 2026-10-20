@@ -2,6 +2,7 @@
 
 import { parseBlob } from 'music-metadata-browser'
 import type { TrackMetadata } from './types'
+import { guessMetadataFromFilename } from '@/utils/parseFilename'
 
 export interface ParseContext {
   folderName?: string
@@ -18,9 +19,12 @@ export async function parseTrackMetadata(
   file: File,
   context: ParseContext = {},
 ): Promise<TrackMetadata> {
+  const guessed = guessMetadataFromFilename(file.name)
+
   const fallback: TrackMetadata = {
-    title: titleFromFilename(file.name),
-    artist: '',
+    title: guessed.title,
+    artist: guessed.artist,
+    // Если нет тегов, альбом берем из контекста (папки)
     album: context.folderName?.trim() || context.rootFolderName?.trim() || 'Unknown Album',
   }
 
@@ -34,9 +38,15 @@ export async function parseTrackMetadata(
     const { common, format } = metadata
 
     const result: TrackMetadata = {
-      title: common.title?.trim() || fallback.title,
-      artist: common.artist?.trim() || common.albumartist?.trim() || fallback.artist,
-      album: common.album?.trim() || fallback.album,
+      // Если в тегах пусто, используем guessed
+      title: common.title?.trim() || guessed.title,
+      artist: common.artist?.trim() || common.albumartist?.trim() || guessed.artist,
+      // Альбом из тегов > папки > Unknown
+      album:
+        common.album?.trim() ||
+        context.folderName?.trim() ||
+        context.rootFolderName?.trim() ||
+        'Unknown Album',
       year: common.year,
       trackNumber: common.track?.no ?? undefined,
       genre: common.genre?.[0],
@@ -55,14 +65,6 @@ export async function parseTrackMetadata(
     console.warn(`[parseTrackMetadata] failed to parse "${file.name}"`, err)
     return fallback
   }
-}
-
-/**
- * Возвращает title из имени файла.
- * Убирает только расширение.
- */
-function titleFromFilename(filename: string): string {
-  return filename.replace(/\.[^.]+$/, '').trim() || filename
 }
 
 function createCoverUrl(picture: { data: Uint8Array | ArrayBuffer; format: string }): string {

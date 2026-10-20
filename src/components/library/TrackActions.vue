@@ -11,15 +11,17 @@ import { metadataPersistenceService } from '@/services/persistence/MetadataPersi
 import { toastService } from '@/services/ui/ToastService'
 import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
+import TrackMetadataModal from './TrackMetadataModal.vue'
 import IconDots from '@/components/icons/IconDots.vue'
 import type { Track } from '@/types/track'
-import type { LibraryTrack } from '@/types/library.ts'
-import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator.ts'
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService.ts'
-import { pluginCanDownload } from '@/plugins/registry.ts'
+import type { LibraryTrack } from '@/types/library'
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
+import { pluginCanDownload } from '@/plugins/registry'
 import IconDownload from '../icons/IconDownload.vue'
 import IconCloudCheck from '../icons/IconCloudCheck.vue'
 import IconX from '../icons/IconX.vue'
+import { modalService } from "@/services/ui/ModalService.ts"
 
 const props = defineProps<{
   track: Track
@@ -45,6 +47,17 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const userPlaylists = computed(() =>
   playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
 )
+
+// --- Логика кнопок метаданных ---
+const isManuallyEdited = computed(() => {
+  const entry = metadataPersistenceService.get(props.track.id)
+  return entry?.similarity === 1
+})
+
+const canSearchMetadata = computed(() => {
+  const t = props.track as LibraryTrack
+  return Boolean(t.artist?.trim() && t.title?.trim())
+})
 
 function closeMenu(close: () => void): void {
   isSubmenuOpen.value = false
@@ -90,8 +103,31 @@ function removeFromQueue(close: () => void): void {
   closeMenu(close)
 }
 
-async function findMetadata(close: () => void): Promise<void> {
+async function openMetadataEdit(closeMenu: () => void): Promise<void> {
+  closeMenu()
+  try {
+    await modalService.show({
+      type: 'custom',
+      component: TrackMetadataModal,
+      props: {
+        track: props.track,
+      },
+    })
+  } catch (err) {
+    console.error('[track-actions] metadata modal failed', err)
+  }
+}
+
+async function findMetadata(close: () => void, isOverwrite = false): Promise<void> {
   if (isSearchingMetadata.value) return
+
+  if (isOverwrite) {
+    const confirmed = window.confirm(
+      'Текущие метаданные будут перезаписаны результатами автопоиска. Продолжить?',
+    )
+    if (!confirmed) return
+  }
+
   isSearchingMetadata.value = true
 
   const libraryTrack = library.getTrack(props.track.id)
@@ -100,6 +136,23 @@ async function findMetadata(close: () => void): Promise<void> {
     isSearchingMetadata.value = false
     closeMenu(close)
     return
+  }
+
+  // Если это ручная перезапись — сбрасываем флаг ручной правки,
+  // чтобы metadataApplier.apply() смог применить новые теги.
+  if (isOverwrite) {
+    const entry = metadataPersistenceService.get(libraryTrack.id)
+    if (entry) {
+      // Удаляем или сбрасываем флаг (делаем similarity: null)
+      metadataPersistenceService.setInMemory(libraryTrack.id, {
+        artist: entry.artist,
+        title: entry.title,
+        album: entry.album,
+        coverUrl: entry.coverUrl,
+        similarity: null, // Больше не ручная правка
+        original: entry.original,
+      })
+    }
   }
 
   try {
@@ -156,6 +209,7 @@ async function findMetadata(close: () => void): Promise<void> {
   }
 }
 
+// --- Скачивание ---
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
 
 const downloadProgress = computed(() => {
@@ -226,8 +280,8 @@ async function onDownload(close: () => void) {
       <template #trigger="{ toggle, setTriggerRef }">
         <button :ref="setTriggerRef" type="button"
           class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg" aria-label="Действия"
-          @click.stop="toggle">
-          <IconDots v-tooltip="'Действия'" aria-label="Действия" class="h-4 w-4" />
+          v-tooltip="'Действия'" @click.stop="toggle">
+          <IconDots class="h-4 w-4" />
         </button>
       </template>
 
@@ -271,11 +325,34 @@ async function onDownload(close: () => void) {
           </form>
         </div>
 
-        <!-- Найти метаданные -->
-        <button type="button"
+        <!-- БЛОК МЕТАДАННЫХ -->
+        <!-- 1. Основная кнопка: Редактировать (если правили руками ИЛИ нет тегов) -->
+        <button v-if="isManuallyEdited || !canSearchMetadata" type="button"
+          class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+          @click="openMetadataEdit(close)">
+          Редактировать метаданные
+        </button>
+
+        <!-- 2. Основная кнопка: Найти (если не правили руками И есть теги для поиска) -->
+        <button v-else type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
-          :disabled="isSearchingMetadata" @click="findMetadata(close)">
+          :disabled="isSearchingMetadata" @click="findMetadata(close, false)">
           {{ isSearchingMetadata ? 'Поиск…' : 'Найти метаданные' }}
+        </button>
+
+        <!-- 3. Второстепенная кнопка: Найти (если правили руками, но хотим перезаписать) -->
+        <button v-if="isManuallyEdited" type="button"
+          class="block w-full px-4 py-1.5 text-left text-xs text-fg-subtle transition hover:bg-hover-bg hover:text-fg-muted disabled:opacity-50"
+          :disabled="isSearchingMetadata" @click="findMetadata(close, true)">
+          <span v-if="isSearchingMetadata">Поиск…</span>
+          <span v-else>Найти метаданные в интернете<br />(Приведет к сбросу ручных данных)</span>
+        </button>
+
+        <!-- 4. Второстепенная кнопка: Редактировать (если не правили руками, но нашли теги) -->
+        <button v-else-if="canSearchMetadata" type="button"
+          class="block w-full px-4 py-1.5 text-left text-xs text-fg-subtle transition hover:bg-hover-bg hover:text-fg-muted"
+          @click="openMetadataEdit(close)">
+          Редактировать вручную
         </button>
 
         <!-- Убрать из плейлиста -->
@@ -294,8 +371,8 @@ async function onDownload(close: () => void) {
 
         <button v-if="canDownload" type="button"
           class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition" :class="downloadOrigin === 'remote' && !isDownloading
-              ? 'text-fg hover:bg-hover-bg'
-              : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
+            ? 'text-fg hover:bg-hover-bg'
+            : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
             " @click="onDownload(close)">
           <IconDownload v-if="downloadOrigin === 'remote' && !isDownloading" class="h-4 w-4 shrink-0" />
           <IconCloudCheck v-else-if="downloadOrigin === 'downloaded'" class="h-4 w-4 shrink-0" />

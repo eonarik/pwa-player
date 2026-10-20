@@ -3,6 +3,7 @@
 import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
 import type { Track } from '@/types/track'
 import type { PluginSettingsSchema } from './settingsTypes'
+import type { Component } from 'vue'
 
 /**
  * Манифест плагина. Живёт рядом с кодом плагина (manifest.ts).
@@ -324,21 +325,17 @@ export interface PluginStorage {
 // --- Модалки ---------------------------------------------------------
 
 export interface ModalOptions {
-  title: string
+  title?: string
   message?: string
-  /**
-   * Тип модалки:
-   * - 'input' — текстовое поле + подтверждение (например, пароль Яндекс.Диска).
-   * - 'confirm' — только подтверждение (например, удаление).
-   *
-   * Если понадобится произвольная модалка — расширить здесь
-   * и добавить рендер в ModalHost.vue.
-   */
-  type: 'input' | 'confirm'
+  type: 'input' | 'confirm' | 'custom'
   inputType?: 'text' | 'password'
   inputPlaceholder?: string
   confirmLabel?: string
   cancelLabel?: string
+  /** Для type: 'custom' — компонент для рендера */
+  component?: Component
+  /** Для type: 'custom' — пропсы компонента */
+  props?: Record<string, unknown>
 }
 
 // --- Экспорт типа Track для удобства ---------------------------------

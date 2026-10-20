@@ -46,6 +46,16 @@ async function bootstrap() {
     console.error('[app] schema check failed', err)
   }
 
+  // Запрашиваем постоянное хранилище
+  if (navigator.storage && navigator.storage.persist) {
+    try {
+      const isPersisted = await navigator.storage.persist()
+      console.info(`[storage] Persistent storage granted: ${isPersisted}`)
+    } catch (err) {
+      console.warn('[storage] Failed to request persistent storage', err)
+    }
+  }
+
   const app = createApp(App)
   app.use(createPinia())
   app.use(router)

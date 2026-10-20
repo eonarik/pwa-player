@@ -9,6 +9,8 @@ import IconList from '@/components/icons/IconList.vue'
 import IconEyeOff from '@/components/icons/IconEyeOff.vue'
 import IconSettings from '@/components/icons/IconSettings.vue'
 import IconFeedback from '@/components/icons/IconFeedback.vue'
+import IconAlbum from '@/components/icons/IconAlbum.vue'
+import IconArtist from '@/components/icons/IconArtist.vue'
 
 export interface MenuItem {
   /** route.name для router.push / RouterLink */
@@ -26,6 +28,8 @@ export interface MenuItem {
 export const MENU_ITEMS: MenuItem[] = [
   { route: 'home', label: 'Главная', icon: IconHome },
   { route: 'search', label: 'Поиск', icon: IconSearch },
+  { route: 'artists', label: 'Исполнители', icon: IconArtist },
+  { route: 'albums', label: 'Альбомы', icon: IconAlbum },
   { route: 'playlists', label: 'Плейлисты', icon: IconPlaylist },
   { route: 'history', label: 'История', icon: IconHistory },
   { route: 'queue', label: 'Очередь', icon: IconList, queueBadge: true },

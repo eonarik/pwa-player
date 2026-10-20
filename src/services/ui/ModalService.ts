@@ -45,7 +45,7 @@ class ModalService {
   }
 
   /** Пользователь подтвердил (значение зависит от типа модалки) */
-  confirm(value: unknown): void {
+  confirm(value?: unknown): void {
     const modal = this.active.value
     if (!modal) return
     this.active.value = null

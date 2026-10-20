@@ -12,6 +12,8 @@ import ArtistView from '@/views/ArtistView.vue'
 import AlbumView from '@/views/AlbumView.vue'
 import SearchView from '@/views/SearchView.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import AlbumsView from '@/views/AlbumsView.vue'
+import ArtistsView from '@/views/ArtistsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,6 +39,8 @@ const router = createRouter({
       component: AlbumView,
       props: true,
     },
+    { path: '/artists', name: 'artists', component: ArtistsView },
+    { path: '/albums', name: 'albums', component: AlbumsView },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
