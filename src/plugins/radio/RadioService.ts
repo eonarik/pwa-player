@@ -1,0 +1,236 @@
+// src/plugins/radio/RadioService.ts
+
+import { RadioBrowserApi, StationSearchType } from 'radio-browser-api'
+import type { Station } from 'radio-browser-api'
+
+export type RadioSortOrder = 'clickCount' | 'votes' | 'clickTrend' | 'random' | 'bitrate' | 'name'
+
+export interface RadioStation {
+  id: string
+  name: string
+  url: string
+  favicon: string
+  tags: string[]
+  country: string
+  bitrate: number
+}
+
+export interface RadioCountry {
+  name: string
+  code: string
+  stationCount: number
+}
+
+export interface RadioTag {
+  name: string
+  stationCount: number
+}
+
+export interface TopStationsResult {
+  stations: RadioStation[]
+  /** Сырое количество до фильтрации — для hasMore */
+  total: number
+}
+
+// Базовый URL для прямых запросов (так как библиотека не оборачивает /countries и /tags)
+const API_BASE = 'https://de1.api.radio-browser.info'
+
+class RadioService {
+  private static instance: RadioService | null = null
+  private api: RadioBrowserApi
+
+  private constructor() {
+    this.api = new RadioBrowserApi('CUEI Media Player')
+  }
+
+  static getInstance(): RadioService {
+    if (!RadioService.instance) {
+      RadioService.instance = new RadioService()
+    }
+    return RadioService.instance
+  }
+
+  /**
+   * Список стран (по алфавиту).
+   * Возвращает null при ошибке сети/парсинга, [] при пустом успешном ответе.
+   */
+  async getCountries(): Promise<RadioCountry[] | null> {
+    try {
+      const res = await fetch(`${API_BASE}/json/countries`, {
+        headers: { Accept: 'application/json' },
+      })
+      if (!res.ok) {
+        console.error('[radio] getCountries: HTTP', res.status)
+        return null
+      }
+
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('application/json')) {
+        const text = await res.text()
+        console.error(
+          '[radio] getCountries: unexpected content-type',
+          contentType,
+          text.slice(0, 200),
+        )
+        return null
+      }
+
+      interface RawCountry {
+        name: string
+        iso_3166_1: string
+        stationcount: number
+      }
+
+      const data = (await res.json()) as RawCountry[]
+      if (!Array.isArray(data)) {
+        console.error('[radio] getCountries: response is not an array')
+        return null
+      }
+
+      return data
+        .filter((c) => Boolean(c.name))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+        .map((c) => ({
+          name: c.name,
+          code: c.iso_3166_1,
+          stationCount: c.stationcount ?? 0,
+        }))
+    } catch (err) {
+      console.error('[radio] getCountries failed', err)
+      return null
+    }
+  }
+
+  /**
+   * Список популярных тегов (по алфавиту).
+   * Возвращает null при ошибке, [] при пустом успешном ответе.
+   */
+  async getTags(limit = 20): Promise<RadioTag[] | null> {
+    try {
+      const res = await fetch(
+        `${API_BASE}/json/tags?hidebroken=true&order=stationcount&reverse=true&limit=${limit}`,
+        { headers: { Accept: 'application/json' } },
+      )
+      if (!res.ok) {
+        console.error('[radio] getTags: HTTP', res.status)
+        return null
+      }
+
+      interface RawTag {
+        name: string
+        stationcount: number
+      }
+
+      const data = (await res.json()) as RawTag[]
+      if (!Array.isArray(data)) {
+        console.error('[radio] getTags: response is not an array')
+        return null
+      }
+
+      return data
+        .filter((t) => Boolean(t.name))
+        .map((t) => ({
+          name: t.name,
+          stationCount: t.stationcount ?? 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+    } catch (err) {
+      console.error('[radio] getTags failed', err)
+      return null
+    }
+  }
+
+  /**
+   * Ищет станции по тегу.
+   */
+  async searchByTag(tag: string, limit = 20): Promise<RadioStation[]> {
+    try {
+      const stations = await this.api.getStationsBy(StationSearchType.byTag, tag, {
+        limit,
+        hideBroken: true,
+      })
+      return this.filterAndMap(stations)
+    } catch (err) {
+      console.error('[radio] searchByTag failed', err)
+      return []
+    }
+  }
+
+  /**
+   * Ищет станции по названию.
+   */
+  async searchByName(name: string, limit = 20): Promise<RadioStation[]> {
+    try {
+      const stations = await this.api.searchStations({
+        name,
+        limit,
+        hideBroken: true,
+      })
+      return this.filterAndMap(stations)
+    } catch (err) {
+      console.error('[radio] searchByName failed', err)
+      return []
+    }
+  }
+
+  /**
+   * Получает топ станций с учетом сортировки, страны и тега.
+   *
+   * Запрашивает limit * 3, чтобы после HTTPS-фильтрации осталось достаточно.
+   * total — сырое количество до фильтрации (для hasMore).
+   */
+  async getTopStations(
+    limit = 20,
+    offset = 0,
+    order: RadioSortOrder = 'clickCount',
+    countryCode?: string,
+    tags: string[] = [],
+  ): Promise<TopStationsResult> {
+    const rawLimit = limit * 3
+
+    try {
+      const query: Record<string, unknown> = {
+        limit: rawLimit,
+        offset,
+        hideBroken: true,
+        order,
+        reverse: order !== 'name',
+      }
+
+      if (countryCode) {
+        query.countryCode = countryCode
+      }
+
+      if (tags.length > 0) {
+        query.tagList = tags
+      }
+
+      const raw = await this.api.searchStations(query)
+      const filtered = this.filterAndMap(raw)
+
+      return {
+        stations: filtered.slice(0, limit),
+        total: raw.length,
+      }
+    } catch (err) {
+      console.error('[radio] getTopStations failed', err)
+      return { stations: [], total: 0 }
+    }
+  }
+
+  private filterAndMap(stations: Station[]): RadioStation[] {
+    return stations
+      .filter((station) => Boolean(station.urlResolved?.startsWith('https://')))
+      .map((station) => ({
+        id: station.id,
+        name: station.name.trim(),
+        url: station.urlResolved,
+        favicon: station.favicon || '',
+        tags: station.tags || [],
+        country: station.country || '',
+        bitrate: station.bitrate || 0,
+      }))
+  }
+}
+
+export const radioService = RadioService.getInstance()

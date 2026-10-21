@@ -27,15 +27,8 @@ export class PersistenceService {
     return PersistenceService.instance
   }
 
-  // --- State (queue + настройки) --------------------------------------
-
-  /**
-   * Сохраняет состояние с дебаунсом 1 сек.
-   * Дешёво по сравнению с playback (queue сохраняется редко).
-   */
   scheduleSaveState(state: PersistedState): void {
     this.pendingState = state
-
     if (this.stateTimer !== null) return
 
     this.stateTimer = setTimeout(async () => {
@@ -43,7 +36,6 @@ export class PersistenceService {
       const toSave = this.pendingState
       this.pendingState = null
       if (!toSave) return
-
       try {
         await set(STATE_KEY, toSave)
       } catch (err) {
@@ -52,7 +44,6 @@ export class PersistenceService {
     }, STATE_DEBOUNCE_MS)
   }
 
-  /** Немедленное сохранение состояния — вызывать при beforeunload */
   async saveStateNow(state: PersistedState): Promise<void> {
     if (this.stateTimer !== null) {
       clearTimeout(this.stateTimer)
@@ -76,15 +67,8 @@ export class PersistenceService {
     }
   }
 
-  // --- Playback (currentTime) -----------------------------------------
-
-  /**
-   * Сохраняет позицию воспроизведения с дебаунсом 2 сек.
-   * Меняется часто (rAF), поэтому отдельный канал.
-   */
   scheduleSavePlayback(playback: PersistedPlayback): void {
     this.pendingPlayback = playback
-
     if (this.playbackTimer !== null) return
 
     this.playbackTimer = setTimeout(async () => {
@@ -92,7 +76,6 @@ export class PersistenceService {
       const toSave = this.pendingPlayback
       this.pendingPlayback = null
       if (!toSave) return
-
       try {
         await set(PLAYBACK_KEY, toSave)
       } catch (err) {
@@ -101,7 +84,6 @@ export class PersistenceService {
     }, PLAYBACK_DEBOUNCE_MS)
   }
 
-  /** Немедленное сохранение позиции — при pause / ended / unload / beforeunload */
   async savePlaybackNow(playback: PersistedPlayback): Promise<void> {
     if (this.playbackTimer !== null) {
       clearTimeout(this.playbackTimer)
@@ -125,8 +107,6 @@ export class PersistenceService {
     }
   }
 
-  // --- Очистка -------------------------------------------------------
-
   async clear(): Promise<void> {
     await this.clearState()
     await this.clearPlayback()
@@ -140,13 +120,6 @@ export class PersistenceService {
     await del(PLAYBACK_KEY)
   }
 
-  // --- Сериализация трека ---------------------------------------------
-
-  /**
-   * Сериализует Track для IDB.
-   * toRaw нужен, потому что track может быть reactive proxy от Vue —
-   * FileSystemHandle внутри proxy не клонируется через structuredClone.
-   */
   toPersisted(track: Track): PersistedTrack {
     const raw = toRaw(track)
     return {
@@ -164,6 +137,9 @@ export class PersistenceService {
       path: raw.path,
       handle: raw.handle ? toRaw(raw.handle) : undefined,
       directoryHandle: raw.directoryHandle ? toRaw(raw.directoryHandle) : undefined,
+      source: typeof raw.source === 'string' ? raw.source : undefined,
+      // Сохраняем только http(s) ссылки, так как blob URL невалиден после перезагрузки
+      coverUrl: raw.coverUrl?.startsWith('http') ? raw.coverUrl : undefined,
     }
   }
 }

@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useDominantColor } from '@/composables/useDominantColor'
 import { rgbToString } from '@/utils/dominantColor'
+import { isLiveStream } from '@/plugins/registry'
 import PlayerProgressBar from './PlayerProgressBar.vue'
 import DislikeButton from '@/components/ui/DislikeButton.vue'
 import FavoriteButton from '@/components/ui/FavoriteButton.vue'
@@ -33,6 +34,8 @@ const player = usePlayerStore()
 const { currentTrack, isPlaying, currentTime, duration, repeatMode, shuffle, muted, volume } =
   storeToRefs(player)
 
+const isLive = computed(() => currentTrack.value ? isLiveStream(currentTrack.value.pluginId) : false)
+
 // --- Доминирующий цвет обложки + пульсация ---------------------------
 
 const coverSrc = computed(() => currentTrack.value?.coverUrl ?? null)
@@ -44,9 +47,6 @@ const glowStyle = computed(() => {
     background: `radial-gradient(ellipse 50% 12% at 50% 80%, ${rgbToString(c, 0.7)} 0%, ${rgbToString(c, 0)} 70%)`,
   }
 })
-
-const muteLabel = computed(() => (muted.value ? 'Включить звук' : 'Выключить звук'))
-const repeatLabel = computed(() => `Повтор: ${repeatMode.value}`)
 
 // --- Seek ------------------------------------------------------------
 
@@ -185,24 +185,26 @@ watch(
 
         <!-- Volume + shuffle + repeat + queue -->
         <div class="flex w-full max-w-sm items-center justify-between pb-8">
-          <button type="button" class="rounded-btn p-2 transition"
-            :class="muted || volume === 0 ? 'text-fg hover:bg-hover-bg' : 'text-fg-muted hover:bg-hover-bg hover:text-fg'"
-            :aria-label="muteLabel" v-tooltip="muteLabel" @click="player.toggleMute()">
+          <button type="button" class="rounded-btn p-2 transition" :class="muted || volume === 0
+              ? 'text-fg hover:bg-hover-bg'
+              : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
+            " :aria-label="muted ? 'Включить звук' : 'Выключить звук'"
+            :v-tooltip="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()">
             <IconVolumeMute v-if="muted || volume === 0" class="h-6 w-6" />
             <IconVolume v-else class="h-6 w-6" />
           </button>
 
           <div class="flex items-center gap-4">
-            <button type="button" class="rounded-btn p-2 transition"
+            <button v-if="!isLive" type="button" class="rounded-btn p-2 transition"
               :class="shuffle ? 'text-fg' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
               aria-label="Перемешать" v-tooltip="'Перемешать'" @click="player.toggleShuffle()">
               <IconShuffle class="h-6 w-6" />
             </button>
 
-            <button type="button" class="relative rounded-btn p-2 transition"
+            <button v-if="!isLive" type="button" class="relative rounded-btn p-2 transition"
               :class="repeatMode !== 'off' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
-              :aria-pressed="repeatMode !== 'off'" :aria-label="repeatLabel" v-tooltip="repeatLabel"
-              @click="player.cycleRepeat()">
+              :aria-pressed="repeatMode !== 'off'" :aria-label="`Повтор: ${repeatMode}`"
+              :v-tooltip="`Повтор: ${repeatMode}`" @click="player.cycleRepeat()">
               <IconRepeat class="h-6 w-6" />
               <span v-if="repeatMode === 'one'"
                 class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] font-bold">
@@ -217,28 +219,32 @@ watch(
           </div>
         </div>
 
-        <!-- Прогресс -->
+        <!-- Прогресс / Live Stream -->
         <div class="w-full max-w-sm pb-8">
-          <PlayerProgressBar :current-time="currentTime" :duration="duration" size="lg" :show-time="true"
+          <div v-if="isLive"
+            class="flex h-2 w-full items-center justify-center overflow-hidden rounded-full bg-active/20">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-active">Live Stream</span>
+          </div>
+          <PlayerProgressBar v-else :current-time="currentTime" :duration="duration" size="lg" :show-time="true"
             @seek="onSeek" />
         </div>
 
         <!-- Транспорт -->
         <div class="flex w-full max-w-sm items-center justify-center gap-6">
-          <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
+          <button v-if="!isLive" type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
             aria-label="Предыдущий трек" v-tooltip="'Предыдущий трек'" @click="player.prev()">
             <IconPrev class="h-8 w-8" />
           </button>
 
           <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
-            :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
+            :aria-label="isPlaying ? 'Пауза' : 'Играть'" :v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
             @click="player.toggle()">
             <IconPause v-if="isPlaying" class="h-8 w-8" />
             <IconPlay v-else class="h-8 w-8 translate-x-[1px]" />
           </button>
 
-          <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg" aria-label="Следующий трек"
-            v-tooltip="'Следующий трек'" @click="player.next()">
+          <button v-if="!isLive" type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
+            aria-label="Следующий трек" v-tooltip="'Следующий трек'" @click="player.next()">
             <IconNext class="h-8 w-8" />
           </button>
         </div>

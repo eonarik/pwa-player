@@ -97,6 +97,11 @@ export function activatePlugin(id: string, code: string): boolean {
   return true
 }
 
+export function isLiveStream(pluginId: string): boolean {
+  const manifest = registry.get(pluginIdFromSource(pluginId))?.manifest
+  return manifest?.isLiveStream ?? false
+}
+
 if (import.meta.env.DEV) {
   const ids = getPlugins().map((p) => `${p.icon} ${p.id}`)
   console.info(`[plugins] зарегистрировано: ${ids.length ? ids.join(', ') : 'нет'}`)

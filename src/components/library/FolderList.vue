@@ -111,7 +111,7 @@ async function playFolder(folder: Folder) {
 
   const tracks = library.getAllTracksInFolderRecursive(folder.id)
   if (tracks.length === 0) return
-  player.setQueue(tracks, 0)
+  player.playAll(tracks)
 }
 
 function isTrackInFolderTree(track: Track, folderId: string): boolean {

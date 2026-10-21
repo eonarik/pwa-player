@@ -59,7 +59,7 @@ function isSearchCurrent(trackId: string): boolean {
 
 function playAll() {
   if (resolvedTracks.value.length === 0) return
-  player.setQueue(resolvedTracks.value, 0)
+  player.playAll(resolvedTracks.value)
 }
 
 function onSelectTrack(trackId: string) {

@@ -2,10 +2,7 @@
 
 export interface PersistedTrack {
   id: string
-
-  /** id плагина-источника: 'local', 'yandex', ... */
   pluginId: string
-
   title: string
   artist: string
   album: string
@@ -16,17 +13,14 @@ export interface PersistedTrack {
   codec?: string
   filename: string
   path?: string
-  /** FileSystemFileHandle — сериализуется браузером */
   handle?: FileSystemFileHandle
-  /** Хэндл директории — для восстановления обложек */
   directoryHandle?: FileSystemDirectoryHandle
-  // coverUrl НЕ сохраняем — blob URL невалиден между сессиями
+  /** URL потока (для радио или стриминга) */
+  source?: string
+  /** URL обложки (если это не blob, а внешняя ссылка) */
+  coverUrl?: string
 }
 
-/**
- * Состояние плеера. НЕ включает currentTime —
- * позиция воспроизведения хранится отдельно (player:playback).
- */
 export interface PersistedState {
   tracks: PersistedTrack[]
   currentIndex: number
@@ -38,10 +32,6 @@ export interface PersistedState {
   savedAt: number
 }
 
-/**
- * Позиция воспроизведения. Хранится отдельно,
- * потому что меняется часто (10 раз в секунду).
- */
 export interface PersistedPlayback {
   currentTime: number
   trackId: string | null

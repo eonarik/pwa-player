@@ -8,6 +8,7 @@ import { useDislikesStore } from '@/stores/dislikes'
 import { useTrackDisplay } from '@/composables/useTrackDisplay'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { formatDuration } from '@/utils/formatDuration'
+import { isLiveStream } from '@/plugins/registry'
 import type { Track } from '@/types/track'
 import type { LibraryTrack, TrackOrigin } from '@/types/library'
 
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 
 const dislikes = useDislikesStore()
 
+const isLive = computed(() => isLiveStream(props.track.pluginId))
 const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
 
 const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
@@ -38,7 +40,7 @@ const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
 
 const downloadProgress = computed<number | null>(() => {
-  if (!props.showDownload) return null
+  if (!props.showDownload || isLive.value) return null
   if (!isDownloading.value) return null
   const p = downloadOrchestrator.getProgress(props.track.id)
   if (!p || p.total <= 0) return 0
@@ -50,19 +52,14 @@ function trackOrigin(t: Track | LibraryTrack): TrackOrigin | undefined {
 }
 
 const isDownloaded = computed(() => {
-  if (!props.showDownload) return false
+  if (!props.showDownload || isLive.value) return false
   return trackOrigin(props.track) === 'downloaded'
 })
 </script>
 
 <template>
-  <ListRow
-    :active="isCurrent"
-    :disliked="isDisliked"
-    :download-progress="downloadProgress"
-    :downloaded="isDownloaded"
-    @click="emit('select')"
-  >
+  <ListRow :active="isCurrent" :disliked="isDisliked" :download-progress="downloadProgress" :downloaded="isDownloaded"
+    @click="emit('select')">
     <template #leading>
       <TrackCover :track="track">
         <PlayingIndicator v-if="isCurrent && isPlaying" />
@@ -72,11 +69,8 @@ const isDownloaded = computed(() => {
     <template #title>
       <p class="truncate text-sm font-medium">
         <template v-if="showSource && hasArtist">
-          <RouterLink
-            :to="{ name: 'artist', params: { artistName: track.artist } }"
-            class="transition hover:text-active"
-            @click.stop
-          >
+          <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
+            class="transition hover:text-active" @click.stop>
             {{ track.artist }}
           </RouterLink>
           <span> — </span>
@@ -88,11 +82,8 @@ const isDownloaded = computed(() => {
 
     <template #subtitle>
       <p v-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
-        <RouterLink
-          :to="{ name: 'artist', params: { artistName: track.artist } }"
-          class="transition hover:text-active"
-          @click.stop
-        >
+        <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }" class="transition hover:text-active"
+          @click.stop>
           {{ track.artist }}
         </RouterLink>
       </p>
@@ -100,7 +91,11 @@ const isDownloaded = computed(() => {
     </template>
 
     <template #meta>
-      <span class="shrink-0 text-xs tabular-nums text-fg-muted">
+      <span v-if="isLive"
+        class="shrink-0 rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-active">
+        Live
+      </span>
+      <span v-else class="shrink-0 text-xs tabular-nums text-fg-muted">
         {{ formatDuration(track.duration) }}
       </span>
     </template>

@@ -9,10 +9,10 @@ import type { Track } from '@/types/track'
 import { useHistoryStore } from './history'
 import { useDislikesStore } from './dislikes'
 import { createLibraryWriter, useLibraryStore } from './library'
+import { isLiveStream } from '@/plugins/registry'
 
 export const usePlayerStore = defineStore('player', () => {
   // --- Состояние ------------------------------------------------------
-
   const queue = ref<Track[]>([])
   const currentIndex = ref(-1)
   const isPlaying = ref(false)
@@ -26,7 +26,6 @@ export const usePlayerStore = defineStore('player', () => {
   const currentTrack = shallowRef<Track | null>(null)
 
   // --- rAF-цикл для currentTime ---------------------------------------
-
   let rafId: number | null = null
 
   function startTimeLoop() {
@@ -51,20 +50,17 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
-  /** Синхронизирует currentTime из audioService прямо сейчас. */
   function syncCurrentTime(): void {
     currentTime.value = Math.round(audioService.currentTime * 10) / 10
   }
 
   // --- Подписка на события сервиса ------------------------------------
-
   const unsubscribers: Array<() => void> = []
   const libraryWriter = createLibraryWriter()
 
   unsubscribers.push(
     audioService.on('loadedmetadata', ({ duration: d }) => {
       duration.value = d
-
       const idx = currentIndex.value
       const track = queue.value[idx]
       if (track && Math.abs((track.duration ?? 0) - d) > 0.5) {
@@ -78,7 +74,7 @@ export const usePlayerStore = defineStore('player', () => {
       isPlaying.value = true
       startTimeLoop()
       const track = currentTrack.value
-      if (track) {
+      if (track && !isLiveStream(track.pluginId)) {
         useHistoryStore().recordPlay(track)
       }
     }),
@@ -104,7 +100,6 @@ export const usePlayerStore = defineStore('player', () => {
   )
 
   // --- Computed -------------------------------------------------------
-
   const hasNext = computed(() => {
     if (queue.value.length === 0) return false
     if (shuffle.value) return queue.value.length > 1
@@ -125,7 +120,6 @@ export const usePlayerStore = defineStore('player', () => {
   })
 
   // --- Сохранение -----------------------------------------------------
-
   function buildState() {
     return {
       tracks: queue.value.map((t) => persistenceService.toPersisted(t)),
@@ -163,7 +157,6 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // --- beforeunload / visibilitychange --------------------------------
-
   if (typeof window !== 'undefined') {
     const flush = () => {
       void flushState()
@@ -178,7 +171,6 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // --- Восстановление -------------------------------------------------
-
   async function restore(): Promise<boolean> {
     const state = await persistenceService.loadState()
     if (!state || state.tracks.length === 0) return false
@@ -218,7 +210,6 @@ export const usePlayerStore = defineStore('player', () => {
     const track = tracks[state.currentIndex]
     if (track && track.source) {
       audioService.load(track.source)
-
       if (savedTime > 0) {
         const unsub = audioService.on('loadedmetadata', () => {
           audioService.seek(savedTime)
@@ -233,14 +224,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   // --- Действия -------------------------------------------------------
 
-  /**
-   * Устанавливает очередь и начинает воспроизведение.
-   *
-   * - При shuffle очередь перемешивается один раз (Fisher-Yates),
-   *   играет первый не-дизлайкнутый.
-   * - Без shuffle играет с `startIndex`, пропуская дизлайкнутые вперёд.
-   * - Если все дизлайкнуты — играет с начала очереди (иначе ничего не заиграет).
-   */
   function setQueue(tracks: Track[], startIndex = 0) {
     if (tracks.length === 0) {
       queue.value = []
@@ -250,22 +233,33 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     const dislikes = useDislikesStore()
-    let finalTracks: Track[]
-    let safeIndex: number
+    const fromIndex = Math.min(Math.max(startIndex, 0), tracks.length - 1)
+    const firstPlayable = findNonDislikedIndexFrom(tracks, fromIndex, dislikes.dislikedIds)
+    const safeIndex = firstPlayable !== -1 ? firstPlayable : fromIndex
+
+    queue.value = tracks
+    playAt(safeIndex)
+  }
+
+  function playAll(tracks: Track[]) {
+    if (tracks.length === 0) return
+
+    const dislikes = useDislikesStore()
 
     if (shuffle.value) {
-      finalTracks = shuffleArray(tracks)
-      const firstPlayable = finalTracks.findIndex((t) => !dislikes.isDisliked(t.id))
-      safeIndex = firstPlayable !== -1 ? firstPlayable : 0
-    } else {
-      finalTracks = tracks
-      const fromIndex = Math.min(Math.max(startIndex, 0), tracks.length - 1)
-      const firstPlayable = findNonDislikedIndexFrom(finalTracks, fromIndex, dislikes.dislikedIds)
-      safeIndex = firstPlayable !== -1 ? firstPlayable : fromIndex
-    }
+      const shuffled = shuffleArray(tracks)
+      const firstPlayable = shuffled.findIndex((t) => !dislikes.isDisliked(t.id))
+      const safeIndex = firstPlayable !== -1 ? firstPlayable : 0
 
-    queue.value = finalTracks
-    playAt(safeIndex)
+      queue.value = shuffled
+      playAt(safeIndex)
+    } else {
+      const firstPlayable = findNonDislikedIndexFrom(tracks, 0, dislikes.dislikedIds)
+      const safeIndex = firstPlayable !== -1 ? firstPlayable : 0
+
+      queue.value = tracks
+      playAt(safeIndex)
+    }
   }
 
   function playAt(index: number) {
@@ -298,7 +292,6 @@ export const usePlayerStore = defineStore('player', () => {
   function stop(): void {
     audioService.unload()
     audioService.pause()
-    audioService.seek(0)
 
     queue.value = []
     currentIndex.value = -1
@@ -341,15 +334,9 @@ export const usePlayerStore = defineStore('player', () => {
     else play()
   }
 
-  /**
-   * Следующий трек.
-   *
-   * При shuffle очередь уже перемешана при setQueue — идём линейно вперёд.
-   * Дошли до конца — перемешиваем заново (без текущего), играем с первого
-   * не-дизлайкнутого. Дизлайкнутые пропускаются.
-   */
   function next() {
     if (queue.value.length === 0) return
+    if (currentTrack.value && isLiveStream(currentTrack.value.pluginId)) return
 
     const dislikes = useDislikesStore()
 
@@ -359,7 +346,6 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
 
-    // Конец очереди — повтор или shuffle-reset
     if (repeatMode.value === 'all') {
       const wrapIndex = findNonDislikedIndex(0, 1, dislikes.dislikedIds)
       if (wrapIndex !== -1) {
@@ -369,7 +355,6 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     if (shuffle.value) {
-      // Перемешиваем всё заново, исключая текущий
       const currentId = currentTrack.value?.id
       const rest = queue.value.filter((t) => t.id !== currentId)
       const reshuffled = shuffleArray(rest)
@@ -387,14 +372,9 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.pause()
   }
 
-  /**
-   * Предыдущий трек.
-   *
-   * При shuffle — линейно назад (очередь уже перемешана).
-   * Если играет > 3 сек — сначала seek в начало.
-   */
   function prev() {
     if (queue.value.length === 0) return
+    if (currentTrack.value && isLiveStream(currentTrack.value.pluginId)) return
 
     if (audioService.currentTime > 3) {
       audioService.seek(0)
@@ -446,11 +426,6 @@ export const usePlayerStore = defineStore('player', () => {
       repeatMode.value === 'off' ? 'all' : repeatMode.value === 'all' ? 'one' : 'off'
   }
 
-  /**
-   * Включает/выключает shuffle.
-   * При включении во время воспроизведения — перемешивает оставшиеся
-   * треки (после текущего), проигранные не трогает.
-   */
   function toggleShuffle() {
     shuffle.value = !shuffle.value
 
@@ -467,8 +442,6 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // --- Внутренние хелперы ---------------------------------------------
-
-  /** Перемешивание массива (Fisher-Yates) — не мутирует исходный */
   function shuffleArray<T>(arr: T[]): T[] {
     const result = [...arr]
     for (let i = result.length - 1; i > 0; i--) {
@@ -478,7 +451,6 @@ export const usePlayerStore = defineStore('player', () => {
     return result
   }
 
-  /** Ищет не-дизлайкнутый индекс начиная с `from`, двигаясь вперёд */
   function findNonDislikedIndexFrom(tracks: Track[], from: number, disliked: Set<string>): number {
     for (let i = from; i < tracks.length; i++) {
       const t = tracks[i]
@@ -505,7 +477,6 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // --- Очистка --------------------------------------------------------
-
   function $dispose() {
     stopTimeLoop()
     unsubscribers.forEach((fn) => fn())
@@ -529,6 +500,7 @@ export const usePlayerStore = defineStore('player', () => {
     progress,
 
     setQueue,
+    playAll,
     playAt,
     play,
     pause,

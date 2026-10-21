@@ -1,22 +1,24 @@
 // src/services/audio/AudioService.ts
 
+import Hls from 'hls.js'
 import type { AudioEventMap, AudioEventName, AudioListener } from './types'
 
 export class AudioService {
   private static instance: AudioService | null = null
 
   private audio: HTMLAudioElement
+  private hls: Hls | null = null
   private listeners: {
     [K in AudioEventName]?: Set<AudioListener<K>>
   } = {}
 
-  // Храним ссылки на нативные хендлеры, чтобы снять их при destroy()
   private nativeHandlers: Array<{
     event: string
     handler: EventListener
   }> = []
 
   private currentObjectUrl: string | null = null
+  private currentSrc: string | null = null
 
   private constructor() {
     this.audio = new Audio()
@@ -24,7 +26,6 @@ export class AudioService {
     this.bindNativeEvents()
   }
 
-  /** Singleton — везде используем AudioService.getInstance() */
   static getInstance(): AudioService {
     if (!AudioService.instance) {
       AudioService.instance = new AudioService()
@@ -66,20 +67,32 @@ export class AudioService {
    * @param source — URL, File или Blob
    */
   load(source: string | File | Blob): void {
-    // Чистим предыдущий objectURL, если был
+    this.destroyHls()
+
     if (this.currentObjectUrl) {
       URL.revokeObjectURL(this.currentObjectUrl)
       this.currentObjectUrl = null
     }
 
     if (typeof source === 'string') {
-      this.audio.src = source
+      this.currentSrc = source
+
+      // Если это HLS-поток (.m3u8) и браузер не поддерживает нативно
+      if (source.includes('.m3u8') && Hls.isSupported()) {
+        this.hls = new Hls()
+        this.hls.loadSource(source)
+        this.hls.attachMedia(this.audio)
+      } else {
+        // Обычный поток или нативная поддержка (Safari/iOS)
+        this.audio.src = source
+        this.audio.load()
+      }
     } else {
+      this.currentSrc = null
       this.currentObjectUrl = URL.createObjectURL(source)
       this.audio.src = this.currentObjectUrl
+      this.audio.load()
     }
-
-    this.audio.load()
   }
 
   /**
@@ -87,6 +100,7 @@ export class AudioService {
    * Останавливает воспроизведение, ревокает objectURL, снимает src.
    */
   unload(): void {
+    this.destroyHls()
     this.audio.pause()
     this.audio.removeAttribute('src')
     this.audio.load()
@@ -94,6 +108,14 @@ export class AudioService {
     if (this.currentObjectUrl) {
       URL.revokeObjectURL(this.currentObjectUrl)
       this.currentObjectUrl = null
+    }
+    this.currentSrc = null
+  }
+
+  private destroyHls(): void {
+    if (this.hls) {
+      this.hls.destroy()
+      this.hls = null
     }
   }
 
@@ -124,11 +146,8 @@ export class AudioService {
   seek(time: number): void {
     if (!Number.isFinite(time)) return
     const duration = this.audio.duration
-    if (!Number.isFinite(duration) || duration <= 0) {
-      this.audio.currentTime = 0
-      return
-    }
-    // Клампим в [0, duration], чтобы не ловить InvalidStateError
+    // Live-поток: duration === Infinity или NaN — перемотка невозможна
+    if (!Number.isFinite(duration) || duration <= 0) return
     this.audio.currentTime = Math.min(Math.max(time, 0), duration)
   }
 
@@ -227,6 +246,7 @@ export class AudioService {
   // --- Очистка ресурсов -------------------------------------------------
 
   destroy(): void {
+    this.destroyHls()
     this.audio.pause()
 
     this.nativeHandlers.forEach(({ event, handler }) => {

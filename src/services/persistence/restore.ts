@@ -20,10 +20,11 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     path: persisted.path,
     handle: persisted.handle,
     directoryHandle: persisted.directoryHandle,
+    coverUrl: persisted.coverUrl,
   }
 
   if (!persisted.handle) {
-    return { ...base, source: '' }
+    return { ...base, source: persisted.source ?? '' }
   }
 
   try {
@@ -31,7 +32,7 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     return { ...base, source: file }
   } catch (err) {
     console.warn(`[restore] can't read file for "${persisted.title}"`, err)
-    return { ...base, source: '' }
+    return { ...base, source: persisted.source ?? '' }
   }
 }
 
@@ -58,7 +59,6 @@ export async function restoreTracks(
 ): Promise<Track[]> {
   const tracks = await restoreBaseTracks(persisted, concurrency)
 
-  // Кэшируем URL, а не File. Один folder.jpg → один blob URL на папку.
   const coverCache = new Map<FileSystemDirectoryHandle, string | null>()
 
   for (const track of tracks) {

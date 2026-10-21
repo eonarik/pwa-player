@@ -269,7 +269,7 @@ const emptyStateMessage = computed(() => {
 
             <button type="button"
               class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-              @click="player.setQueue(searchFlatTracks, 0)">
+              @click="player.playAll(searchFlatTracks)">
               Играть всё
             </button>
           </div>
