@@ -256,7 +256,7 @@ export async function refreshSubtree(
 
     const worker = async (): Promise<void> => {
       while (cursor < childFolders.length) {
-        if (service.isCancelled && service.isCancelled()) break // <-- Выход из цикла
+        if (service.isCancelled && service.isCancelled()) break
         const i = cursor++
         const child = childFolders[i]!
         childResults[i] = await walk(child)
@@ -267,9 +267,13 @@ export async function refreshSubtree(
       Array.from({ length: Math.min(CONCURRENCY, childFolders.length) }, () => worker()),
     )
 
+    // Если нас отменили прямо сейчас, выходим, чтобы не обновлять сломанные данные
+    if (service.isCancelled && service.isCancelled()) return { tracks: 0, files: 0 }
+
     let childTracks = 0
     let childFiles = 0
     for (const r of childResults) {
+      if (!r) continue
       childTracks += r.tracks
       childFiles += r.files
     }

@@ -47,7 +47,7 @@ export function createYandexPlugin({
   service,
   isSelf = false,
 }: YandexPluginOptions): LibrarySource {
-  // Локальный флаг отмены. Привяжем его к сервису, чтобы scan.ts видел.
+  // Локальный флаг отмены для предотвращения гонки данных
   let cancelled = false
   service.isCancelled = () => cancelled
   service.setCancelled = (val: boolean) => {
@@ -66,7 +66,7 @@ export function createYandexPlugin({
         service.setDisconnected(false)
       }
       if (service.setCancelled) {
-        service.setCancelled(false) // <-- Сбрасываем отмену
+        service.setCancelled(false)
       }
 
       if (isSelf) {
@@ -79,10 +79,9 @@ export function createYandexPlugin({
           inputType: 'password',
         })
 
-        // Если null — значит пользователь нажал "Отмена"
+        // ВАЖНО: null означает отмену, а '' (пустая строка) — валидный пустой пароль
         if (code === null) throw new Error('cancelled')
 
-        // Если пустая строка — это валидный ввод (для common без пароля)
         let ctx = 'common'
         let password = code
 
@@ -358,15 +357,12 @@ export function createYandexPlugin({
     },
 
     async disconnect(context: PluginContext): Promise<void> {
-      // 1. Отменяем фоновые процессы
       if (service.setCancelled) {
         service.setCancelled(true)
       }
 
-      // 2. Очищаем библиотеку через writer
       context.writer.removeBySource(id)
 
-      // 3. ЯДЕРНАЯ ОЧИСТКА для триггера реактивности
       const library = useLibraryStore()
 
       library.folders = Object.fromEntries(
@@ -383,12 +379,10 @@ export function createYandexPlugin({
         }),
       )
 
-      // 4. Ставим флаг отключения
       if (service.setDisconnected) {
         service.setDisconnected(true)
       }
 
-      // 5. Очищаем кэш и токен
       await yandexPersistenceService.clear(id)
       if (service.logout) service.logout()
     },

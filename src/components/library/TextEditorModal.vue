@@ -9,6 +9,7 @@ import IconMaximize from '@/components/icons/IconMaximize.vue'
 import IconMinimize from '@/components/icons/IconMinimize.vue'
 import IconRefresh from '@/components/icons/IconRefresh.vue'
 import type { TextFileRef } from '@/types/library'
+import { mergeText } from "@/utils/mergeText"
 
 const props = defineProps<{
   file: TextFileRef
@@ -91,20 +92,28 @@ async function sync() {
 async function save() {
   if (isBusy.value) return
   isSaving.value = true
+
   try {
-    // Проверка на конфликт версий
     const currentRemote = await getService().readTextFile(props.file.remotePath)
 
     if (currentRemote && initialModified.value !== null && currentRemote.modified !== initialModified.value) {
-      const confirmed = window.confirm(
-        'Файл был изменён на Диске с момента открытия (возможно, с другого устройства). Сохранение перезапишет эти изменения. Продолжить?',
-      )
-      if (!confirmed) {
+      // Файл изменился на Диске — пробуем смержить
+      const merged = mergeText(initialContent.value, content.value, currentRemote.content)
+
+      if (merged.hasConflicts) {
+        // Если автоматически смержить не удалось — показываем конфликт
+        content.value = merged.text
+        toastService.error('Обнаружены конфликты. Разрешите их вручную и сохраните снова.')
         isSaving.value = false
         return
       }
+
+      // Если конфликтов нет — обновляем содержимое и сохраняем
+      content.value = merged.text
+      toastService.success('Изменения с Диска были автоматически объединены.')
     }
 
+    // Сохраняем итоговый результат
     const result = await getService().writeTextFile(props.file.remotePath, content.value)
     initialContent.value = content.value
     initialModified.value = result.modified
