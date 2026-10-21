@@ -19,7 +19,7 @@ const uiSettings = useUiSettingsStore()
 const history = useHistoryStore()
 const dislikes = useDislikesStore()
 
-const { showSource, metadataThreshold, searchThreshold } = storeToRefs(uiSettings)
+const { showSource, metadataThreshold, searchThreshold, playlistMatchThreshold } = storeToRefs(uiSettings)
 
 const spaceName = computed(() => downloadSpaceService.spaceName.value)
 const needsPermission = computed(() => downloadSpaceService.needsPermission.value)
@@ -36,6 +36,7 @@ const activeTab = ref<Tab>('general')
 // --- Пороги (локальные значения для валидации) -----------------------
 const localSearchThreshold = ref(searchThreshold.value)
 const localMetadataThreshold = ref(metadataThreshold.value)
+const localPlaylistThreshold = ref(playlistMatchThreshold.value)
 
 function applySearchThreshold() {
   const v = Number(localSearchThreshold.value)
@@ -55,6 +56,16 @@ function applyMetadataThreshold() {
   }
   uiSettings.setMetadataThreshold(v)
   localMetadataThreshold.value = v
+}
+
+function applyPlaylistThreshold() {
+  const v = Number(localPlaylistThreshold.value)
+  if (!Number.isFinite(v) || v < 0 || v > 1) {
+    localPlaylistThreshold.value = playlistMatchThreshold.value
+    return
+  }
+  uiSettings.setPlaylistMatchThreshold(v)
+  localPlaylistThreshold.value = v
 }
 
 // --- Спейс -----------------------------------------------------------
@@ -163,7 +174,7 @@ function clearMetadataCache() {
 
 async function resetAll() {
   if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return
-  yandexSelfService.logout() // Сбрасываем токен self
+  yandexSelfService.logout()
   await schemaService.clearAll()
   location.reload()
 }
@@ -226,6 +237,19 @@ async function resetAll() {
           </section>
 
           <section>
+            <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">Импорт плейлистов</h2>
+            <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
+              <div class="min-w-0">
+                <p class="text-sm text-fg">Порог совпадения</p>
+                <p class="text-xs text-fg-muted">Насколько строго искать треки при импорте</p>
+              </div>
+              <input v-model.number="localPlaylistThreshold" type="number" min="0" max="1" step="0.05"
+                class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
+                @blur="applyPlaylistThreshold" @keydown.enter="applyPlaylistThreshold" />
+            </div>
+          </section>
+
+          <section>
             <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">Отображение</h2>
             <label class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3">
               <div class="min-w-0">
@@ -280,7 +304,6 @@ async function resetAll() {
             Нет плагинов с настройками
           </section>
 
-          <!-- Секретные функции -->
           <section>
             <h2
               class="mb-2 cursor-pointer text-xs font-medium uppercase tracking-wider text-fg-subtle select-none hover:text-fg-muted transition"

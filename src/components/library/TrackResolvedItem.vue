@@ -14,6 +14,12 @@ const props = defineProps<{
   isPlaying: boolean
   playlistId?: string
   metaLabel?: string
+  /** Снимок из плейлиста/истории (если трек недоступен) */
+  snapshot?: {
+    title: string
+    artist: string
+    album?: string
+  }
 }>()
 
 const emit = defineEmits<{
@@ -44,8 +50,18 @@ const track = computed<LibraryTrack | null>(() => library.getTrack(props.trackId
     </div>
 
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm line-through">Источник недоступен</p>
-      <p class="truncate text-xs">Трек отсутствует в библиотеке</p>
+      <!-- Если есть snapshot — выводим Artist - Title -->
+      <template v-if="snapshot">
+        <p class="truncate text-sm line-through text-fg-muted">
+          {{ snapshot.artist ? `${snapshot.artist} - ${snapshot.title}` : snapshot.title }}
+        </p>
+        <p class="truncate text-[10px] text-fg-subtle">Источник недоступен</p>
+      </template>
+      <!-- Если snapshot нет (старое поведение) -->
+      <template v-else>
+        <p class="truncate text-sm line-through">Источник недоступен</p>
+        <p class="truncate text-xs">Трек отсутствует в библиотеке</p>
+      </template>
     </div>
 
     <span v-if="metaLabel" class="text-[10px] tabular-nums text-fg-disabled">
@@ -54,7 +70,7 @@ const track = computed<LibraryTrack | null>(() => library.getTrack(props.trackId
 
     <button v-if="playlistId" type="button"
       class="rounded-btn p-1.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-red-400 group-hover:opacity-100"
-      aria-label="Убрать из плейлиста" v-tooltip="'Убрать из плейлиста'" @click.stop="emit('removed')">
+      aria-label="Убрать из плейлиста" @click.stop="emit('removed')">
       <IconX class="h-4 w-4" />
     </button>
   </div>

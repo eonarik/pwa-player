@@ -1,7 +1,6 @@
 <!-- src/components/playlists/PlaylistShareMenu.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import IconShare from '@/components/icons/IconShare.vue'

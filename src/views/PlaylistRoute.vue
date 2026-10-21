@@ -1,6 +1,6 @@
 <!-- src/views/PlaylistRoute.vue -->
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlaylistsStore } from '@/stores/playlists'
@@ -12,17 +12,19 @@ import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { pluralize } from '@/utils/pluralize'
 import { sortService } from '@/services/sort/SortService'
+import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
+import { toastService } from '@/services/ui/ToastService'
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
 import MetadataMenu from '@/components/library/MetadataMenu.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
+import PlaylistShareMenu from '@/components/playlists/PlaylistShareMenu.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import IconPencil from '@/components/icons/IconPencil.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
 import type { LibraryTrack } from '@/types/library'
-import PlaylistShareMenu from "@/components/playlists/PlaylistShareMenu.vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -54,6 +56,46 @@ const resolvedTracks = computed<LibraryTrack[]>(() => {
 const unavailableCount = computed(() => {
   if (!playlist.value) return 0
   return playlist.value.tracks.length - resolvedTracks.value.length
+})
+
+// --- Автоматическое пересопоставление -------------------------------
+
+function rematchPlaylist() {
+  if (!playlist.value) return
+
+  const allTracks = Object.values(library.tracks)
+  let changed = false
+  const threshold = uiSettings.playlistMatchThreshold
+
+  for (const snapshot of playlist.value.tracks) {
+    const existing = library.getTrack(snapshot.trackId)
+
+    if (!existing) {
+      const match = findBestMatch({
+        title: snapshot.title,
+        artist: snapshot.artist,
+        album: snapshot.album,
+      }, allTracks, threshold)
+
+      if (match.track) {
+        snapshot.trackId = match.track.id
+        snapshot.pluginId = match.track.pluginId
+        snapshot.remotePath = match.track.remotePath
+        snapshot.title = match.track.title
+        snapshot.artist = match.track.artist
+        changed = true
+      }
+    }
+  }
+
+  if (changed) {
+    playlists.save()
+    toastService.info('Найдены новые совпадения в плейлисте')
+  }
+}
+
+onMounted(() => {
+  rematchPlaylist()
 })
 
 // --- Поиск -----------------------------------------------------------
@@ -178,7 +220,7 @@ function onRemoved() {
 
               <button v-if="!isFavorites" type="button"
                 class="rounded-btn p-1 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
-                aria-label="Переименовать" v-tooltip="'Переименовать'" @click="startRename">
+                aria-label="Переименовать" @click="startRename">
                 <IconPencil class="h-3.5 w-3.5" />
               </button>
             </template>
@@ -214,7 +256,7 @@ function onRemoved() {
 
             <button v-if="!isFavorites" type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"
-              aria-label="Удалить плейлист" v-tooltip="'Удалить плейлист'" @click="deletePlaylist">
+              aria-label="Удалить плейлист" @click="deletePlaylist">
               <IconTrash class="h-4 w-4" />
             </button>
           </div>
@@ -261,7 +303,7 @@ function onRemoved() {
           <div v-else class="flex flex-col gap-0.5 -mx-2.5 p-2">
             <TrackResolvedItem v-for="(snapshot, index) in playlist.tracks" :key="snapshot.trackId"
               :track-id="snapshot.trackId" :index="index" :is-current="isCurrent(snapshot.trackId)"
-              :is-playing="isPlaying" :playlist-id="playlist.id"
+              :is-playing="isPlaying" :playlist-id="playlist.id" :snapshot="snapshot"
               @select="onSelectTrack(resolvedTracks.findIndex((t) => t.id === snapshot.trackId))"
               @removed="onRemoved" />
           </div>

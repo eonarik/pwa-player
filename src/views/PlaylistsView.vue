@@ -5,10 +5,12 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { useLibraryStore } from '@/stores/library'
+import { useUiSettingsStore } from '@/stores/uiSettings'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { pluralize } from '@/utils/pluralize'
 import { toastService } from '@/services/ui/ToastService'
 import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser'
+import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
 import IconHeart from '@/components/icons/IconHeart.vue'
 import IconPlaylist from '@/components/icons/IconPlaylist.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -17,6 +19,7 @@ import type { Playlist, PlaylistExportTrack } from '@/types/playlist'
 const router = useRouter()
 const playlists = usePlaylistsStore()
 const library = useLibraryStore()
+const uiSettings = useUiSettingsStore()
 const { sortedPlaylists } = storeToRefs(playlists)
 
 const isCreating = ref(false)
@@ -106,30 +109,48 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
   if (!playlist) return
 
   let matched = 0
+  let fuzzyMatched = 0
   let unmatched = 0
 
+  const allTracks = Object.values(library.tracks)
+  const threshold = uiSettings.playlistMatchThreshold
+
   for (const t of tracks) {
-    // В 0.6.0 мы делаем жесткий поиск по совпадению строк (без порога 0.8)
-    const existingTrack = Object.values(library.tracks).find(
+    const exactMatch = allTracks.find(
       (libTrack) =>
         libTrack.title.toLowerCase().trim() === (t.title || '').toLowerCase().trim() &&
         libTrack.artist.toLowerCase().trim() === (t.artist || '').toLowerCase().trim()
     )
 
-    if (existingTrack) {
+    if (exactMatch) {
       matched++
       playlist.tracks.push({
-        trackId: existingTrack.id,
-        pluginId: existingTrack.pluginId,
-        title: existingTrack.title,
-        artist: existingTrack.artist,
-        album: existingTrack.album,
-        remotePath: existingTrack.remotePath,
+        trackId: exactMatch.id,
+        pluginId: exactMatch.pluginId,
+        title: exactMatch.title,
+        artist: exactMatch.artist,
+        album: exactMatch.album,
+        remotePath: exactMatch.remotePath,
+        addedAt: Date.now(),
+      })
+      continue
+    }
+
+    const bestMatch = findBestMatch(t, allTracks, threshold)
+
+    if (bestMatch.track) {
+      fuzzyMatched++
+      playlist.tracks.push({
+        trackId: bestMatch.track.id,
+        pluginId: bestMatch.track.pluginId,
+        title: bestMatch.track.title,
+        artist: bestMatch.track.artist,
+        album: bestMatch.track.album,
+        remotePath: bestMatch.track.remotePath,
         addedAt: Date.now(),
       })
     } else {
       unmatched++
-      // Добавляем как "неизвестный" снимок, чтобы пользователь видел, что трек был в файле
       playlist.tracks.push({
         trackId: `imported:${crypto.randomUUID()}`,
         pluginId: 'imported',
@@ -145,13 +166,14 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
   playlist.updatedAt = Date.now()
   playlists.save()
 
-  if (unmatched > 0) {
-    toastService.info(`Импортировано: ${tracks.length} (найдено в библиотеке: ${matched}, не найдено: ${unmatched})`)
+  if (unmatched > 0 || fuzzyMatched > 0) {
+    toastService.info(
+      `Импортировано: ${tracks.length} (точно: ${matched}, примерное: ${fuzzyMatched}, не найдено: ${unmatched})`
+    )
   } else {
     toastService.success(`Импортировано: ${tracks.length}`)
   }
 
-  // Переходим в созданный плейлист
   router.push({ name: 'playlist', params: { id: playlistId } })
 }
 </script>

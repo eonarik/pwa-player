@@ -9,12 +9,14 @@ const SAVE_DEBOUNCE_MS = 300
 
 const DEFAULT_METADATA_THRESHOLD = 0.5
 const DEFAULT_SEARCH_THRESHOLD = 0.5
+const DEFAULT_PLAYLIST_MATCH_THRESHOLD = 0.8
 
 interface PersistedUiSettings {
   showSource: boolean
   showFiles: boolean
   metadataThreshold: number
   searchThreshold: number
+  playlistMatchThreshold: number
 }
 
 export const useUiSettingsStore = defineStore('uiSettings', () => {
@@ -22,6 +24,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   const showFiles = ref(false)
   const metadataThreshold = ref(DEFAULT_METADATA_THRESHOLD)
   const searchThreshold = ref(DEFAULT_SEARCH_THRESHOLD)
+  const playlistMatchThreshold = ref(DEFAULT_PLAYLIST_MATCH_THRESHOLD)
 
   let isLoaded = false
   let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -47,6 +50,13 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
         ) {
           searchThreshold.value = data.searchThreshold
         }
+        if (
+          typeof data.playlistMatchThreshold === 'number' &&
+          data.playlistMatchThreshold >= 0 &&
+          data.playlistMatchThreshold <= 1
+        ) {
+          playlistMatchThreshold.value = data.playlistMatchThreshold
+        }
       }
       isLoaded = true
     } catch (err) {
@@ -62,6 +72,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
         showFiles: showFiles.value,
         metadataThreshold: metadataThreshold.value,
         searchThreshold: searchThreshold.value,
+        playlistMatchThreshold: playlistMatchThreshold.value,
       })
     } catch (err) {
       console.error('[uiSettings] failed to save', err)
@@ -77,7 +88,6 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     }, SAVE_DEBOUNCE_MS)
   }
 
-  /** Дождаться окончания pending-сохранения (для beforeunload) */
   async function flush(): Promise<void> {
     if (saveTimer !== null) {
       clearTimeout(saveTimer)
@@ -86,7 +96,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     await persistNow()
   }
 
-  watch([showSource, showFiles, metadataThreshold, searchThreshold], () => {
+  watch([showSource, showFiles, metadataThreshold, searchThreshold, playlistMatchThreshold], () => {
     save()
   })
 
@@ -102,16 +112,22 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     searchThreshold.value = Math.min(Math.max(value, 0), 1)
   }
 
+  function setPlaylistMatchThreshold(value: number): void {
+    playlistMatchThreshold.value = Math.min(Math.max(value, 0), 1)
+  }
+
   return {
     showSource,
     showFiles,
     metadataThreshold,
     searchThreshold,
+    playlistMatchThreshold,
 
     load,
     flush,
     toggleShowSource,
     setMetadataThreshold,
     setSearchThreshold,
+    setPlaylistMatchThreshold,
   }
 })
