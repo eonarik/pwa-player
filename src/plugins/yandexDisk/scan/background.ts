@@ -1,122 +1,16 @@
-// src/plugins/yandexDisk/scan.ts
+// src/plugins/yandexDisk/scan/background.ts
 
-import type { PluginContext, LibraryWriter } from '../types'
+import type { PluginContext, LibraryWriter } from '../../types'
 import type { Folder, LibraryTrack, TextFileRef } from '@/types/library'
-import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
-import type { YandexResourceItem, IYandexService } from './types'
-import { toPersisted } from './persist'
-import { mapWithConcurrency } from './concurrency'
-
-const ROOT_REMOTE_PATH = 'disk:/'
-
-function isTextFile(name: string): boolean {
-  return name.toLowerCase().endsWith('.txt')
-}
-
-function titleFromFilename(name: string): string {
-  return name.replace(/\.[^.]+$/, '')
-}
-
-interface PartitionedItems {
-  subDirs: YandexResourceItem[]
-  audioItems: YandexResourceItem[]
-  textItems: YandexResourceItem[]
-}
-
-function partitionItems(items: YandexResourceItem[]): PartitionedItems {
-  const subDirs: YandexResourceItem[] = []
-  const audioItems: YandexResourceItem[] = []
-  const textItems: YandexResourceItem[] = []
-
-  for (const item of items) {
-    if (item.type === 'dir') {
-      subDirs.push(item)
-    } else if (item.isAudio) {
-      audioItems.push(item)
-    } else if (item.type === 'file' && isTextFile(item.name)) {
-      textItems.push(item)
-    }
-  }
-
-  return { subDirs, audioItems, textItems }
-}
-
-function buildTrack(
-  folder: Folder,
-  item: YandexResourceItem,
-  sourceId: string,
-  service: IYandexService,
-): LibraryTrack {
-  const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
-  const trackId = trackIdFromPath(sourceId, trackPath)
-  const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
-
-  return {
-    id: trackId,
-    pluginId: sourceId,
-    folderId: folder.id,
-    filename: item.name,
-    path: trackPath,
-    remotePath: item.path,
-    source: service.buildDownloadUrl(item.path),
-    title: titleFromFilename(item.name),
-    artist: '',
-    album: folder.name ?? '',
-    coverUrl: cachedCover,
-  }
-}
-
-function buildTextFile(folder: Folder, item: YandexResourceItem): TextFileRef {
-  const textPath = folder.path ? `${folder.path}/${item.name}` : item.name
-  return {
-    name: item.name,
-    remotePath: item.path,
-    path: textPath,
-  }
-}
-
-function ensureSubFolders(
-  context: PluginContext,
-  parent: Folder,
-  subDirs: YandexResourceItem[],
-  sourceId: string,
-): { childFolderIds: string[]; newFolders: Folder[] } {
-  const childFolderIds: string[] = []
-  const newFolders: Folder[] = []
-
-  for (const item of subDirs) {
-    const childPath = parent.path ? `${parent.path}/${item.name}` : item.name
-    const childId = folderIdFromPath(sourceId, childPath)
-
-    let childFolder = context.writer.getFolder(childId)
-    if (!childFolder) {
-      childFolder = {
-        id: childId,
-        name: item.name,
-        parentId: parent.id,
-        path: childPath,
-        remotePath: item.path,
-        childFolderIds: [],
-        trackIds: [],
-        totalTrackCount: 0,
-        totalTextFileCount: 0,
-        source: sourceId,
-        scanStatus: undefined,
-        ready: false,
-      }
-      newFolders.push(childFolder)
-    }
-    childFolderIds.push(childId)
-  }
-
-  return { childFolderIds, newFolders }
-}
+import { toPersisted } from '../persist'
+import type { IYandexService } from '../types'
+import { partitionItems, buildTrack, buildTextFile, ensureSubFolders } from './helpers'
+import { mapWithConcurrency } from '../concurrency'
 
 export function mergeFolderContent(
   context: PluginContext,
   folder: Folder,
-  items: YandexResourceItem[],
+  items: import('../types').YandexResourceItem[],
   removeMissing: boolean,
   sourceId: string,
   service: IYandexService,
@@ -238,7 +132,6 @@ export async function refreshSubtree(
       return { tracks: 0, files: 0 }
     }
 
-    // Повторная проверка, так как пока ждали fetch, нас могли отменить
     if (isCancelled()) return { tracks: 0, files: 0 }
 
     mergeFolderContent(
@@ -264,7 +157,6 @@ export async function refreshSubtree(
       { shouldStop: isCancelled },
     )
 
-    // Если нас отменили прямо сейчас, выходим, чтобы не обновлять сломанные данные
     if (isCancelled()) return { tracks: 0, files: 0 }
 
     let childTracks = 0
@@ -291,80 +183,6 @@ export async function refreshSubtree(
   return walk(rootFolder)
 }
 
-export async function loadRootContent(
-  sourceId: string,
-  rootFolderId: string,
-  service: IYandexService,
-): Promise<{
-  folders: Folder[]
-  tracks: LibraryTrack[]
-}> {
-  const response = await service.listResources(ROOT_REMOTE_PATH)
-
-  const folders: Folder[] = []
-  const tracks: LibraryTrack[] = []
-  const childFolderIds: string[] = []
-  const trackIds: string[] = []
-
-  const { subDirs, audioItems, textItems } = partitionItems(
-    response._embedded?.items || response.items || [],
-  )
-
-  const rootFolder: Folder = {
-    id: rootFolderId,
-    name: 'Яндекс.Диск',
-    parentId: null,
-    path: '',
-    remotePath: ROOT_REMOTE_PATH,
-    childFolderIds: [],
-    trackIds: [],
-    totalTrackCount: 0,
-    totalTextFileCount: 0,
-    source: sourceId,
-    scanStatus: 'scanned',
-    ready: false,
-  }
-
-  for (const item of subDirs) {
-    const childPath = item.name
-    const childId = folderIdFromPath(sourceId, childPath)
-    folders.push({
-      id: childId,
-      name: item.name,
-      parentId: rootFolderId,
-      path: childPath,
-      remotePath: item.path,
-      childFolderIds: [],
-      trackIds: [],
-      totalTrackCount: 0,
-      totalTextFileCount: 0,
-      source: sourceId,
-      scanStatus: undefined,
-      ready: false,
-    })
-    childFolderIds.push(childId)
-  }
-
-  for (const item of audioItems) {
-    const track = buildTrack(rootFolder, item, sourceId, service)
-    tracks.push(track)
-    trackIds.push(track.id)
-  }
-
-  const textFiles: TextFileRef[] = textItems.map((item) => buildTextFile(rootFolder, item))
-
-  rootFolder.childFolderIds = childFolderIds
-  rootFolder.trackIds = trackIds
-  rootFolder.totalTrackCount = trackIds.length
-  rootFolder.totalTextFileCount = textFiles.length
-  rootFolder.textFiles = textFiles
-
-  return {
-    folders: [rootFolder, ...folders],
-    tracks,
-  }
-}
-
 export async function backgroundScan(
   context: PluginContext,
   sourceId: string,
@@ -384,7 +202,7 @@ export async function backgroundScan(
 
   if (service.isCancelled && service.isCancelled()) return
 
-  await import('./persistence').then(({ yandexPersistenceService }) =>
+  await import('../persistence').then(({ yandexPersistenceService }) =>
     yandexPersistenceService.save(
       sourceId,
       toPersisted(currentLibraryFromWriter(context, sourceId)),
