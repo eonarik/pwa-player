@@ -5,7 +5,8 @@ import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
-import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
+import { getPluginManifest } from '@/plugins/lookup'
 import { createPluginContext } from '@/plugins/context'
 import { syncService } from '@/services/download/SyncService'
 import { toastService } from '@/services/ui/ToastService'
@@ -190,9 +191,7 @@ const emptyStateMessage = computed(() => {
   const folder = currentFolder.value
   if (!folder || !folder.source) return null
   if (folder.parentId !== null) return null
-  const pluginId = pluginIdFromSource(folder.source)
-  const manifest = getPlugins().find((p) => p.id === pluginId)
-  return manifest?.options?.emptyStateMessage ?? null
+  return getPluginManifest(folder.source)?.options?.emptyStateMessage ?? null
 })
 </script>
 

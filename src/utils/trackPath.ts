@@ -1,10 +1,9 @@
 // src/utils/trackPath.ts
 
-import { getPlugins, pluginIdFromSource } from '@/plugins/registry'
 import { useLibraryStore } from '@/stores/library'
+import { getPluginName } from '@/plugins/lookup'
 import type { Track } from '@/types/track'
 
-const UNKNOWN_PLUGIN = '<unknown_source>'
 const UNKNOWN_FOLDER = '<unknown_folder>'
 
 const MAX_PATH_LENGTH = 30
@@ -30,11 +29,6 @@ export function getTrackPath(track: Track): string {
 
   const fullPath = `${pluginName}/${folder.path}`
   return truncatePath(fullPath)
-}
-
-function getPluginName(pluginId: string): string {
-  const plugin = getPlugins().find((p) => p.id === pluginIdFromSource(pluginId))
-  return plugin?.name ?? UNKNOWN_PLUGIN
 }
 
 function truncatePath(path: string): string {
