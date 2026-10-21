@@ -35,6 +35,7 @@ import { useHistoryStore } from './stores/history'
 import { useDislikesStore } from './stores/dislikes'
 import { useUiSettingsStore } from './stores/uiSettings'
 import { initTooltip, tooltip } from './directives/tooltip'
+import { getExtensionRoutes, loadExtensions } from './plugins/extensions.ts'
 
 async function bootstrap() {
   try {
@@ -56,12 +57,22 @@ async function bootstrap() {
     }
   }
 
+  // 1. Загружаем расширения ДО создания приложения
+  await loadExtensions()
+
   const app = createApp(App)
   app.use(createPinia())
-  app.use(router)
 
   app.directive('tooltip', tooltip)
   initTooltip()
+
+  // 2. Добавляем роуты от плагинов
+  const extRoutes = getExtensionRoutes()
+  for (const route of extRoutes) {
+    router.addRoute(route)
+  }
+
+  app.use(router)
 
   const playlists = usePlaylistsStore()
   await playlists.restore()

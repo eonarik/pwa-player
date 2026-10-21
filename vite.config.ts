@@ -1,23 +1,32 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // vite.config.ts
 
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { defineConfig } from 'vite'
-import vueJsx from '@vitejs/plugin-vue-jsx'
 import { VitePWA } from 'vite-plugin-pwa'
+
+import { federation } from '@module-federation/vite'
+import vueJsx from '@vitejs/plugin-vue-jsx'
 
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
 import pkg from './package.json' with { type: 'json' }
 
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const sharedDeps: any = {
+  vue: { singleton: true, eager: true },
+  pinia: { singleton: true, eager: true },
+}
 
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_HASH__: JSON.stringify(process.env.GIT_HASH ?? 'dev'),
+    'process.env': {},
   },
   plugins: [
     vue(),
@@ -60,6 +69,17 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
+    }),
+    federation({
+      name: 'cuei-host',
+      remotes: {
+        logii: {
+          type: 'module',
+          name: 'logii',
+          entry: 'http://localhost:5001/remoteEntry.js',
+        },
+      },
+      shared: sharedDeps,
     }),
   ],
   resolve: {

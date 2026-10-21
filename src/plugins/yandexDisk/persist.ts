@@ -1,18 +1,16 @@
 // src/plugins/yandexDisk/persist.ts
 
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
-import { PLUGIN_ID } from './constants'
-import { yandexDiskService } from './YandexDiskService'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { getFileFromPath } from '@/services/download/getFileFromPath'
-import type { PersistedYandexFolder, PersistedYandexLibrary, PersistedYandexTrack } from './types'
+import type { PersistedYandexLibrary, IYandexService } from './types'
 
 const ROOT_REMOTE_PATH = 'disk:/'
 
 // --- Сериализация -----------------------------------------------------
 
 export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary {
-  const folders: PersistedYandexFolder[] = collected.folders.map((f) => ({
+  const folders = collected.folders.map((f) => ({
     id: f.id,
     name: f.name,
     parentId: f.parentId,
@@ -24,18 +22,10 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
     totalTextFileCount: f.totalTextFileCount,
     scanStatus: f.scanStatus,
     ready: f.ready,
-    // Vue reactive proxy не клонируется через structuredClone —
-    // разворачиваем каждый элемент в plain object.
-    textFiles: f.textFiles
-      ? f.textFiles.map((t) => ({
-          name: t.name,
-          remotePath: t.remotePath,
-          path: t.path,
-        }))
-      : undefined,
+    textFiles: f.textFiles?.map((t) => ({ name: t.name, remotePath: t.remotePath, path: t.path })),
   }))
 
-  const tracks: PersistedYandexTrack[] = []
+  const tracks = []
   for (const t of collected.tracks) {
     const isOnlyLocal = t.origin === 'only-local'
     if (!t.remotePath && !isOnlyLocal) continue
@@ -67,7 +57,10 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
 
 // --- Десериализация ---------------------------------------------------
 
-export function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary {
+export function fromPersisted(
+  cached: PersistedYandexLibrary,
+  service: IYandexService,
+): CollectedLibrary {
   const folders: Folder[] = cached.folders.map((f) => ({
     id: f.id,
     name: f.name,
@@ -78,7 +71,7 @@ export function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary 
     trackIds: [...f.trackIds],
     totalTrackCount: f.totalTrackCount,
     totalTextFileCount: f.totalTextFileCount,
-    source: PLUGIN_ID,
+    source: cached.folders[0]?.id.split(':')[1] || 'yandex', // fallback
     scanStatus: f.scanStatus === 'scanning' ? undefined : f.scanStatus,
     ready: f.ready,
     textFiles: f.textFiles,
@@ -86,7 +79,7 @@ export function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary 
 
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
     const cachedCover = metadataPersistenceService.get(t.id)?.coverUrl ?? undefined
-    const source = t.remotePath ? yandexDiskService.buildDownloadUrl(t.remotePath) : ''
+    const source = t.remotePath ? service.buildDownloadUrl(t.remotePath) : ''
 
     return {
       id: t.id,
@@ -115,10 +108,6 @@ export function fromPersisted(cached: PersistedYandexLibrary): CollectedLibrary 
 
 // --- Локальные файлы --------------------------------------------------
 
-/**
- * Для треков со status 'downloaded' / 'only-local' подтягивает File
- * из папки скачивания. Если файла нет — откатывает origin в 'remote'.
- */
 export async function enrichWithLocalFiles(
   tracks: LibraryTrack[],
   targetDir: FileSystemDirectoryHandle,

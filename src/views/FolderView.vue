@@ -28,6 +28,7 @@ import SearchInput from '@/components/ui/SearchInput.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
 import MarkdownText from "@/components/ui/MarkdownText.vue"
+import { pluralize } from "@/utils/pluralize"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -204,9 +205,18 @@ const emptyStateMessage = computed(() => {
 
         <div class="flex items-center gap-2">
           <span v-if="currentFolder && !isScanning" class="shrink-0 text-xs text-fg-muted">
-            <template v-if="hasFolders">{{ currentSubfolders.length }} папок</template>
+            <template v-if="hasFolders">
+              {{ pluralize(currentSubfolders.length, ['папка', 'папки', 'папок']) }}
+            </template>
             <template v-if="hasFolders && hasTracks"> · </template>
-            <template v-if="hasTracks">{{ tracks.length }} треков</template>
+            <template v-if="hasTracks">
+              {{ pluralize(tracks.length, ['трек', 'трека', 'треков']) }}
+            </template>
+            <template v-if="hasTextFiles && (hasFolders || hasTracks)"> · </template>
+            <template v-if="hasTextFiles">
+              {{ pluralize(textFiles.length, ['файл', 'файла', 'файлов']) }}
+            </template>
+
             <template v-if="!hasFolders && !hasTracks && !hasTextFiles">пусто</template>
           </span>
 
@@ -319,6 +329,6 @@ const emptyStateMessage = computed(() => {
 
     <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
 
-    <TextEditorModal v-if="openedFile" :file="openedFile" @close="closeFile" />
+    <TextEditorModal v-if="openedFile" :file="openedFile" :plugin-id="currentFolder?.source" @close="closeFile" />
   </div>
 </template>

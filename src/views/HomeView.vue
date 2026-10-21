@@ -3,7 +3,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
-import { getPlugins, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
+import { getPlugins, isPluginActivated, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import type { PluginManifest } from '@/plugins/types'
@@ -32,6 +32,11 @@ const plugins = computed(() => {
 onMounted(async () => {
   const metas: PluginMeta[] = []
   for (const manifest of getPlugins()) {
+    // Пропускаем плагины, которые требуют активации, но не активированы
+    if (manifest.requiresActivation && !isPluginActivated(manifest.id)) {
+      continue
+    }
+
     try {
       const plugin = await loadPlugin(manifest.id)
       metas.push({ manifest, available: plugin.isAvailable() })

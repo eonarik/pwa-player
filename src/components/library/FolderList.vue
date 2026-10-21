@@ -28,14 +28,25 @@ type FolderPlayState = 'idle' | 'playing' | 'paused'
 function formatCount(folder: Folder): string {
   if (folder.ready !== true) return '…'
 
+  const subfolders = folder.childFolderIds.length
   const tracks = folder.totalTrackCount
   const files = folder.totalTextFileCount ?? 0
 
-  const tracksPart = pluralize(tracks, ['трек', 'трека', 'треков'])
-  if (files === 0) return tracksPart
+  const parts: string[] = []
 
-  const filesPart = pluralize(files, ['файл', 'файла', 'файлов'])
-  return `${tracksPart} · ${filesPart}`
+  if (subfolders > 0) {
+    parts.push(pluralize(subfolders, ['папка', 'папки', 'папок']))
+  }
+
+  if (tracks > 0) {
+    parts.push(pluralize(tracks, ['трек', 'трека', 'треков']))
+  }
+
+  if (files > 0) {
+    parts.push(pluralize(files, ['файл', 'файла', 'файлов']))
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : 'пусто'
 }
 
 function isScanning(folder: Folder): boolean {

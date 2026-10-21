@@ -18,7 +18,7 @@ export interface MenuItem {
   /** Отображаемое имя */
   label: string
   /** Иконка */
-  icon: Component
+  icon: Component | string
   /** Показывать бейдж с числом треков в очереди */
   queueBadge?: boolean
   /** Если задано — пункт открывает модалку, а не роут */

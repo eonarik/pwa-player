@@ -9,6 +9,7 @@ import AutocompleteInput from '@/components/ui/AutocompleteInput.vue'
 import CoverPicker from '@/components/library/CoverPicker.vue'
 import IconX from '@/components/icons/IconX.vue'
 import type { LibraryTrack } from '@/types/library'
+import { storeToRefs } from "pinia"
 
 const props = defineProps<{
   track: LibraryTrack
@@ -19,14 +20,24 @@ const library = useLibraryStore()
 const artist = ref(props.track.artist ?? '')
 const title = ref(props.track.title ?? '')
 const album = ref(props.track.album ?? '')
-const coverUrl = ref(props.track.coverUrl) // <-- Добавили
+const coverUrl = ref(props.track.coverUrl)
+
+const { tracks: allLibraryTracks } = storeToRefs(library)
 
 const allArtists = computed(() => {
-  return Object.values(library.tracks).map((t) => t.artist).filter((a): a is string => Boolean(a))
+  return Array.from(new Set(
+    Object.values(allLibraryTracks.value)
+      .map((t) => t.artist?.trim())
+      .filter((a): a is string => Boolean(a))
+  )).sort((a, b) => a.localeCompare(b, 'ru'))
 })
 
 const allAlbums = computed(() => {
-  return Object.values(library.tracks).map((t) => t.album).filter((a): a is string => Boolean(a))
+  return Array.from(new Set(
+    Object.values(allLibraryTracks.value)
+      .map((t) => t.album?.trim())
+      .filter((a): a is string => Boolean(a))
+  )).sort((a, b) => a.localeCompare(b, 'ru'))
 })
 
 function save() {

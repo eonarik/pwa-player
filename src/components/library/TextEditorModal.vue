@@ -2,19 +2,28 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { yandexDiskService } from '@/plugins/yandexDisk/YandexDiskService'
+import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService'
 import { toastService } from '@/services/ui/ToastService'
 import IconX from '@/components/icons/IconX.vue'
 import IconMaximize from '@/components/icons/IconMaximize.vue'
 import IconMinimize from '@/components/icons/IconMinimize.vue'
+import IconRefresh from '@/components/icons/IconRefresh.vue'
 import type { TextFileRef } from '@/types/library'
 
 const props = defineProps<{
   file: TextFileRef
+  pluginId?: string
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
+
+// Выбираем сервис в зависимости от плагина
+const getService = () => {
+  if (props.pluginId === 'yandex-self') return yandexSelfService
+  return yandexDiskService
+}
 
 const content = ref('')
 const initialContent = ref('')
@@ -31,7 +40,7 @@ const isBusy = computed(() => isLoading.value || isSaving.value || isSyncing.val
 async function load() {
   isLoading.value = true
   try {
-    const result = await yandexDiskService.readTextFile(props.file.remotePath)
+    const result = await getService().readTextFile(props.file.remotePath)
     if (!result) {
       toastService.error('Не удалось загрузить файл')
       emit('close')
@@ -47,9 +56,17 @@ async function load() {
 
 async function sync() {
   if (isBusy.value) return
+
+  if (isDirty.value) {
+    const confirmed = window.confirm(
+      'У вас есть несохранённые изменения. Синхронизация загрузит версию с Диска и удалит ваши правки. Продолжить?',
+    )
+    if (!confirmed) return
+  }
+
   isSyncing.value = true
   try {
-    const result = await yandexDiskService.readTextFile(props.file.remotePath)
+    const result = await getService().readTextFile(props.file.remotePath)
     if (!result) {
       toastService.error('Не удалось загрузить файл')
       return
@@ -75,7 +92,20 @@ async function save() {
   if (isBusy.value) return
   isSaving.value = true
   try {
-    const result = await yandexDiskService.writeTextFile(props.file.remotePath, content.value)
+    // Проверка на конфликт версий
+    const currentRemote = await getService().readTextFile(props.file.remotePath)
+
+    if (currentRemote && initialModified.value !== null && currentRemote.modified !== initialModified.value) {
+      const confirmed = window.confirm(
+        'Файл был изменён на Диске с момента открытия (возможно, с другого устройства). Сохранение перезапишет эти изменения. Продолжить?',
+      )
+      if (!confirmed) {
+        isSaving.value = false
+        return
+      }
+    }
+
+    const result = await getService().writeTextFile(props.file.remotePath, content.value)
     initialContent.value = content.value
     initialModified.value = result.modified
     toastService.success('Сохранено')
@@ -132,7 +162,7 @@ onUnmounted(() => {
           <div class="flex shrink-0 items-center gap-1">
             <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
               :aria-label="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'"
-              v-tooltip="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'" @click="toggleFullscreen">
+              :title="isFullscreen ? 'Свернуть' : 'Развернуть на весь экран'" @click="toggleFullscreen">
               <IconMinimize v-if="isFullscreen" class="h-5 w-5" />
               <IconMaximize v-else class="h-5 w-5" />
             </button>
@@ -158,9 +188,10 @@ onUnmounted(() => {
         <!-- Кнопки -->
         <div class="flex shrink-0 items-center justify-between gap-2 px-5 py-4">
           <button type="button"
-            class="rounded-btn bg-card-bg px-3 py-2 text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
-            :disabled="isBusy" @click="sync">
-            {{ isSyncing ? 'Синхронизация…' : 'Синхронизировать' }}
+            class="flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="isBusy" :aria-label="isSyncing ? 'Синхронизация…' : 'Синхронизировать с Диском'"
+            v-tooltip="isSyncing ? 'Синхронизация…' : 'Синхронизировать с Диском'" @click="sync">
+            <IconRefresh class="h-4 w-4" :class="isSyncing ? 'animate-spin' : ''" />
           </button>
 
           <div class="flex items-center gap-2">

@@ -9,7 +9,7 @@ import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { schemaService } from '@/services/persistence/SchemaService'
 import { toastService } from '@/services/ui/ToastService'
-import { getPlugins } from '@/plugins/registry'
+import { activatePlugin, getPlugins } from '@/plugins/registry'
 import type { PluginManifest } from '@/plugins/types'
 import type { PluginSettingsSchema } from '@/plugins/settingsTypes'
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue'
@@ -160,6 +160,26 @@ async function resetAll() {
   await authService.logout()
   await schemaService.clearAll()
   location.reload()
+}
+
+const activationCode = ref('')
+
+const isSecretSectionOpen = ref(false)
+
+function handleActivation() {
+  if (!activationCode.value.trim()) return
+
+  // Активируем yandex-self (или другой скрытый плагин)
+  const success = activatePlugin('yandex-self', activationCode.value)
+
+  if (success) {
+    toastService.success('Плагин активирован! Он появится на главной.')
+    activationCode.value = ''
+    // Перезагружаем страницу, чтобы HomeView подхватил изменения
+    setTimeout(() => window.location.reload(), 1000)
+  } else {
+    toastService.error('Неверный код активации')
+  }
 }
 </script>
 
@@ -345,6 +365,35 @@ async function resetAll() {
               </span>
             </div>
           </div>
+        </section>
+
+        <!-- Секретные функции -->
+        <section>
+          <h2
+            class="mb-2 cursor-pointer text-xs font-medium uppercase tracking-wider text-fg-subtle select-none hover:text-fg-muted transition"
+            @click="isSecretSectionOpen = !isSecretSectionOpen">
+            Секретные функции
+          </h2>
+
+          <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
+            <div v-if="isSecretSectionOpen" class="flex flex-col gap-2 bg-card-bg px-4 py-3">
+              <p class="text-xs text-fg-muted">
+                Введите код активации.
+              </p>
+              <div class="flex items-center gap-2">
+                <input v-model="activationCode" type="text" placeholder="Код активации"
+                  class="flex-1 rounded-btn bg-bg-elevated px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none"
+                  @keydown.enter="handleActivation" />
+                <button type="button"
+                  class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
+                  :disabled="!activationCode.trim()" @click="handleActivation">
+                  Активировать
+                </button>
+              </div>
+            </div>
+          </Transition>
         </section>
       </div>
     </div>

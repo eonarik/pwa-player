@@ -1,9 +1,10 @@
 // src/plugins/types.ts
 
+import type { Component } from 'vue'
+import type { RouteRecordRaw } from 'vue-router'
+import type { PluginSettingsSchema } from './settingsTypes'
 import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
 import type { Track } from '@/types/track'
-import type { PluginSettingsSchema } from './settingsTypes'
-import type { Component } from 'vue'
 
 /**
  * Манифест плагина. Живёт рядом с кодом плагина (manifest.ts).
@@ -43,6 +44,12 @@ export interface PluginManifest {
    * Должен совпадать с LibrarySource.canDownload.
    */
   readonly canDownload: boolean
+
+  /**
+   * Если true — плагин скрыт из HomeView и не грузится,
+   * пока пользователь не активирует его (флаг в localStorage).
+   */
+  readonly requiresActivation?: boolean
 
   /**
    * Ленивая загрузка модуля плагина.
@@ -336,6 +343,53 @@ export interface ModalOptions {
   component?: Component
   /** Для type: 'custom' — пропсы компонента */
   props?: Record<string, unknown>
+}
+
+export interface PluginMenuItem {
+  /** Уникальный ID пункта меню */
+  id: string
+  label: string
+  icon: Component | string
+  /** Роут, на который ведет пункт меню */
+  routeName: string
+}
+
+export interface PluginExtension {
+  /** Пункты меню, которые добавит плагин в AppDrawer */
+  menuItems?: PluginMenuItem[]
+
+  /**
+   * Роуты, которые добавит плагин через router.addRoute().
+   * Компоненты должны быть асинхронными (() => import(...)).
+   */
+  routes?: RouteRecordRaw[]
+
+  /**
+   * Дополнительные секции для SettingsView.
+   * Если плагин возвращает схему, она отрендерится в настройках.
+   */
+  getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>
+}
+
+export interface PluginManifest {
+  readonly id: string
+  readonly name: string
+  readonly icon: string
+  readonly version: string
+  readonly enabled: boolean
+  readonly canDownload: boolean
+  readonly entry: () => Promise<{ default: LibrarySource }>
+
+  /**
+   * Новое поле: расширения плагина (меню, роуты, настройки).
+   * Заменяет старые getSettings/runSettingsAction, но оставляем их для обратной совместимости (или переносим сюда).
+   */
+  readonly extension?: () => Promise<{ default: PluginExtension }>
+
+  readonly getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>
+  readonly runSettingsAction?: (actionId: string, payload?: unknown) => void | Promise<void>
+
+  readonly options?: PluginManifestOptions
 }
 
 // --- Экспорт типа Track для удобства ---------------------------------

@@ -77,6 +77,26 @@ export function pluginIdFromSource(source: string): string {
   return colon === -1 ? source : source.slice(0, colon)
 }
 
+export function isPluginActivated(id: string): boolean {
+  const manifest = registry.get(id)?.manifest
+  if (!manifest) return false
+  if (!manifest.requiresActivation) return true // Если не требует — доступен
+  return localStorage.getItem(`plugin-activated:${id}`) === 'true'
+}
+
+const ACTIVATION_CODES: Record<string, string> = {
+  'yandex-self': 'logii',
+}
+
+export function activatePlugin(id: string, code: string): boolean {
+  const expected = ACTIVATION_CODES[id]
+  if (!expected) return false
+  if (code.trim() !== expected) return false
+
+  localStorage.setItem(`plugin-activated:${id}`, 'true')
+  return true
+}
+
 if (import.meta.env.DEV) {
   const ids = getPlugins().map((p) => `${p.icon} ${p.id}`)
   console.info(`[plugins] зарегистрировано: ${ids.length ? ids.join(', ') : 'нет'}`)

@@ -5,15 +5,12 @@ import { usePlayerStore } from '@/stores/player'
 import { MENU_ITEMS } from '@/navigation/menu'
 import IconX from '@/components/icons/IconX.vue'
 import type { MenuItem } from '@/navigation/menu'
+import { getExtensionMenuItems } from '@/plugins/extensions'
+import { computed } from "vue"
 
-defineProps<{
-  open: boolean
-}>()
+const props = defineProps<{ open: boolean }>()
 
-const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'open-feedback'): void
-}>()
+const emit = defineEmits<{ (e: 'close'): void; (e: 'open-feedback'): void }>()
 
 function onModalItem(item: MenuItem): void {
   emit('close')
@@ -22,6 +19,27 @@ function onModalItem(item: MenuItem): void {
 
 const player = usePlayerStore()
 const { queue } = storeToRefs(player)
+
+const allMenuItems = computed<MenuItem[]>(() => {
+  const extItems = getExtensionMenuItems().map((item) => ({
+    route: item.routeName,
+    label: item.label,
+    icon: item.icon,
+  }))
+
+  // Вставляем плагины ПЕРЕД настройками
+  const settingsIndex = MENU_ITEMS.findIndex((item) => item.route === 'settings')
+
+  if (settingsIndex === -1) {
+    return [...MENU_ITEMS, ...extItems]
+  }
+
+  return [
+    ...MENU_ITEMS.slice(0, settingsIndex),
+    ...extItems,
+    ...MENU_ITEMS.slice(settingsIndex),
+  ]
+})
 </script>
 
 <template>
@@ -46,11 +64,16 @@ const { queue } = storeToRefs(player)
         </div>
 
         <nav class="flex flex-1 flex-col gap-1 px-4 py-2">
-          <template v-for="item in MENU_ITEMS" :key="item.label">
+          <template v-for="item in allMenuItems" :key="item.route || item.label">
             <RouterLink v-if="item.route" :to="{ name: item.route }"
               class="flex items-center gap-4 rounded-btn px-3 py-3 text-left text-md font-medium text-fg transition hover:bg-hover-bg"
               @click="emit('close')">
-              <component :is="item.icon" class="h-6 w-6 shrink-0 text-fg-muted" />
+              <!-- Если строка — выводим эмодзи/текст. Если компонент — рендерим его -->
+              <span v-if="typeof item.icon === 'string'"
+                class="flex h-6 w-6 shrink-0 items-center justify-center text-xl">
+                {{ item.icon }}
+              </span>
+              <component v-else :is="item.icon" class="h-6 w-6 shrink-0 text-fg-muted" />
               <span class="flex-1">{{ item.label }}</span>
               <span v-if="item.queueBadge && queue.length > 0"
                 class="rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">

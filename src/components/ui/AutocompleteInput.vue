@@ -24,24 +24,28 @@ const wrapperRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
 
-// Убираем дубликаты, пустые строки, сортируем
+// Стейт для поиска внутри выпадашки
+const searchQuery = ref('')
+
+// Все уникальные варианты (без фильтрации)
 const uniqueSuggestions = computed(() => {
   const items = Array.from(new Set(props.suggestions.filter(Boolean)))
   return items.sort((a, b) => a.localeCompare(b, 'ru'))
 })
 
-// Фильтруем по введенному тексту
+// Фильтрация происходит ТОЛЬКО по searchQuery, а не по modelValue
 const filteredSuggestions = computed(() => {
-  const query = props.modelValue.trim().toLowerCase()
+  const query = searchQuery.value.trim().toLowerCase()
   if (!query) return uniqueSuggestions.value
   return uniqueSuggestions.value.filter((s) => s.toLowerCase().includes(query))
 })
 
-// Показывать ли дропдаун
 const showDropdown = computed(() => isOpen.value && filteredSuggestions.value.length > 0)
 
 function toggleDropdown() {
   if (!isOpen.value) {
+    // При открытии показываем всё, сбрасываем поиск
+    searchQuery.value = ''
     isOpen.value = true
     activeIndex.value = -1
   } else {
@@ -52,6 +56,8 @@ function toggleDropdown() {
 function onInput(e: Event) {
   const target = e.target as HTMLInputElement
   emit('update:modelValue', target.value)
+  // Когда пользователь печатает — фильтруем по введенному тексту
+  searchQuery.value = target.value
   isOpen.value = true
   activeIndex.value = -1
 }
@@ -59,11 +65,13 @@ function onInput(e: Event) {
 function onSelect(value: string) {
   emit('update:modelValue', value)
   isOpen.value = false
+  searchQuery.value = ''
   inputRef.value?.focus()
 }
 
 function clear() {
   emit('update:modelValue', '')
+  searchQuery.value = ''
   isOpen.value = true
   inputRef.value?.focus()
 }
@@ -92,7 +100,6 @@ function onKeydown(e: KeyboardEvent) {
       if (activeIndex.value >= 0 && activeIndex.value < filteredSuggestions.value.length) {
         onSelect(filteredSuggestions.value[activeIndex.value]!)
       } else if (filteredSuggestions.value.length > 0) {
-        // Если ничего не выбрано стрелками, берем первый
         onSelect(filteredSuggestions.value[0]!)
       }
       break

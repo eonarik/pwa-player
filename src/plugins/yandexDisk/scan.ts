@@ -1,15 +1,11 @@
 // src/plugins/yandexDisk/scan.ts
 
-import type { PluginContext } from '../types'
+import type { PluginContext, LibraryWriter } from '../types'
 import type { Folder, LibraryTrack, TextFileRef } from '@/types/library'
-import { yandexDiskService } from './YandexDiskService'
-import { yandexPersistenceService } from './persistence'
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
-import type { LibraryWriter } from '../types'
-import type { YandexItem } from './types'
+import type { YandexResourceItem, IYandexService } from './types'
 import { toPersisted } from './persist'
-import { PLUGIN_ID } from './constants'
 
 const ROOT_REMOTE_PATH = 'disk:/'
 
@@ -19,21 +15,20 @@ function isTextFile(name: string): boolean {
   return name.toLowerCase().endsWith('.txt')
 }
 
-/** Имя файла без расширения — как title для трека с Диска (без ID3-тегов). */
 function titleFromFilename(name: string): string {
   return name.replace(/\.[^.]+$/, '')
 }
 
 interface PartitionedItems {
-  subDirs: YandexItem[]
-  audioItems: YandexItem[]
-  textItems: YandexItem[]
+  subDirs: YandexResourceItem[]
+  audioItems: YandexResourceItem[]
+  textItems: YandexResourceItem[]
 }
 
-function partitionItems(items: YandexItem[]): PartitionedItems {
-  const subDirs: YandexItem[] = []
-  const audioItems: YandexItem[] = []
-  const textItems: YandexItem[] = []
+function partitionItems(items: YandexResourceItem[]): PartitionedItems {
+  const subDirs: YandexResourceItem[] = []
+  const audioItems: YandexResourceItem[] = []
+  const textItems: YandexResourceItem[] = []
 
   for (const item of items) {
     if (item.type === 'dir') {
@@ -50,12 +45,12 @@ function partitionItems(items: YandexItem[]): PartitionedItems {
 
 // --- Построение ------------------------------------------------------
 
-/**
- * sourceId — всегда чистый id плагина ('yandex').
- * trackIdFromPath(sourceId, ...) даёт 'track:yandex:path/song.mp3'.
- * track.pluginId === sourceId.
- */
-function buildTrack(folder: Folder, item: YandexItem, sourceId: string): LibraryTrack {
+function buildTrack(
+  folder: Folder,
+  item: YandexResourceItem,
+  sourceId: string,
+  service: IYandexService,
+): LibraryTrack {
   const trackPath = folder.path ? `${folder.path}/${item.name}` : item.name
   const trackId = trackIdFromPath(sourceId, trackPath)
   const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
@@ -67,7 +62,7 @@ function buildTrack(folder: Folder, item: YandexItem, sourceId: string): Library
     filename: item.name,
     path: trackPath,
     remotePath: item.path,
-    source: yandexDiskService.buildDownloadUrl(item.path),
+    source: service.buildDownloadUrl(item.path),
     title: titleFromFilename(item.name),
     artist: '',
     album: folder.name ?? '',
@@ -75,7 +70,7 @@ function buildTrack(folder: Folder, item: YandexItem, sourceId: string): Library
   }
 }
 
-function buildTextFile(folder: Folder, item: YandexItem): TextFileRef {
+function buildTextFile(folder: Folder, item: YandexResourceItem): TextFileRef {
   const textPath = folder.path ? `${folder.path}/${item.name}` : item.name
   return {
     name: item.name,
@@ -84,16 +79,10 @@ function buildTextFile(folder: Folder, item: YandexItem): TextFileRef {
   }
 }
 
-/**
- * Создаёт недостающие подпапки и возвращает полный список childFolderIds.
- * Существующие папки не трогает.
- *
- * sourceId — 'yandex'. Используется и для folderIdFromPath, и для Folder.source.
- */
 function ensureSubFolders(
   context: PluginContext,
   parent: Folder,
-  subDirs: YandexItem[],
+  subDirs: YandexResourceItem[],
   sourceId: string,
 ): { childFolderIds: string[]; newFolders: Folder[] } {
   const childFolderIds: string[] = []
@@ -127,54 +116,35 @@ function ensureSubFolders(
   return { childFolderIds, newFolders }
 }
 
-// --- Сканирование одной папки (без рекурсии) -------------------------
+// --- Сканирование одной папки ---------------------------------------
 
-/**
- * Обходит одну папку на Диске и мержит её содержимое с библиотекой.
- *
- * Правила:
- * - Треки из remoteItems → создаются (если новых нет) / обновляются.
- * - Треки, которых нет в remoteItems, но есть в библиотеке → удаляются,
- *   ЕСЛИ origin !== 'only-local'.
- * - only-local треки сохраняются всегда.
- * - Папки: создаются недостающие, удаляются отсутствующие на сервере
- *   (вместе с поддеревом — рекурсивно).
- * - textFiles заменяются целиком.
- *
- * sourceId — 'yandex' (PLUGIN_ID). НЕ folderId!
- */
 export function mergeFolderContent(
   context: PluginContext,
   folder: Folder,
-  items: YandexItem[],
+  items: YandexResourceItem[],
   removeMissing: boolean,
   sourceId: string,
+  service: IYandexService,
 ): void {
   const { subDirs, audioItems, textItems } = partitionItems(items)
 
-  // 1. Треки: построить
   const remoteTrackIds: string[] = []
   const newTracks: LibraryTrack[] = []
 
   for (const item of audioItems) {
-    const track = buildTrack(folder, item, sourceId)
+    const track = buildTrack(folder, item, sourceId, service)
     if (!context.writer.getTrack(track.id)) {
       newTracks.push(track)
     }
     remoteTrackIds.push(track.id)
   }
 
-  // 2. Текстовые файлы
   const textFiles: TextFileRef[] = textItems.map((item) => buildTextFile(folder, item))
-
-  // 3. Подпапки
   const { childFolderIds, newFolders } = ensureSubFolders(context, folder, subDirs, sourceId)
 
-  // 4. Записать новые треки / папки
   if (newTracks.length > 0) context.writer.addTracks(newTracks, sourceId)
   if (newFolders.length > 0) context.writer.addFolders(newFolders, sourceId)
 
-  // 5. Сформировать финальный список треков папки
   const onlyLocalIds = folder.trackIds.filter((id) => {
     const t = context.writer.getTrack(id)
     return t?.origin === 'only-local'
@@ -182,7 +152,6 @@ export function mergeFolderContent(
 
   let finalTrackIds: string[]
   if (removeMissing) {
-    // Удаляем всё, чего нет на сервере, кроме only-local
     const currentRemoteIds = folder.trackIds.filter((id) => {
       const t = context.writer.getTrack(id)
       return t && t.origin !== 'only-local'
@@ -193,13 +162,11 @@ export function mergeFolderContent(
     }
     finalTrackIds = [...remoteTrackIds, ...onlyLocalIds]
   } else {
-    // Добавляем только новые, не трогая существующие
     const existing = new Set(folder.trackIds)
     const added = remoteTrackIds.filter((id) => !existing.has(id))
     finalTrackIds = Array.from(new Set([...folder.trackIds, ...added]))
   }
 
-  // 6. Удалить папки, которых больше нет на сервере (вместе с поддеревом)
   if (removeMissing) {
     const removedFolderIds = folder.childFolderIds.filter((id) => !childFolderIds.includes(id))
     for (const removedId of removedFolderIds) {
@@ -207,7 +174,6 @@ export function mergeFolderContent(
     }
   }
 
-  // 7. Обновить папку
   context.writer.updateFolder(folder.id, {
     childFolderIds: removeMissing
       ? childFolderIds
@@ -218,12 +184,6 @@ export function mergeFolderContent(
   })
 }
 
-/**
- * Рекурсивно удаляет папку и всё её поддерево:
- * - все вложенные папки и треки,
- * - ссылки из parentFolder.childFolderIds (родитель уже удаляется снаружи,
- *   но если функция вызывается для промежуточной — не повредит).
- */
 export function removeSubtree(context: PluginContext, folderId: string): void {
   const folder = context.writer.getFolder(folderId)
   if (!folder) return
@@ -253,31 +213,33 @@ export function removeSubtree(context: PluginContext, folderId: string): void {
 
 // --- Рекурсивный обход (refresh) -------------------------------------
 
-/**
- * Рекурсивно обходит папку и всё её поддерево, обновляя содержимое.
- * Возвращает количество треков и файлов в поддереве.
- *
- * sourceId — 'yandex'.
- */
 export async function refreshSubtree(
   context: PluginContext,
   rootFolder: Folder,
   sourceId: string,
+  service: IYandexService,
 ): Promise<{ tracks: number; files: number }> {
   const walk = async (folder: Folder): Promise<{ tracks: number; files: number }> => {
     if (!folder.remotePath) return { tracks: 0, files: 0 }
 
     let response
     try {
-      response = await yandexDiskService.listResources(folder.remotePath)
+      response = await service.listResources(folder.remotePath)
     } catch (err) {
       console.warn(
-        `[yandex] skip folder "${folder.path}": ${err instanceof Error ? err.message : err}`,
+        `[${sourceId}] skip folder "${folder.path}": ${err instanceof Error ? err.message : err}`,
       )
       return { tracks: 0, files: 0 }
     }
 
-    mergeFolderContent(context, folder, response.items, true, sourceId)
+    mergeFolderContent(
+      context,
+      folder,
+      response._embedded?.items || response.items || [],
+      true,
+      sourceId,
+      service,
+    )
 
     const updated = context.writer.getFolder(folder.id)
     if (!updated) return { tracks: 0, files: 0 }
@@ -286,7 +248,6 @@ export async function refreshSubtree(
       .map((id) => context.writer.getFolder(id))
       .filter((f): f is Folder => Boolean(f))
 
-    // Параллельно, но не более CONCURRENCY воркеров
     const CONCURRENCY = 5
     let cursor = 0
     const childResults: Array<{ tracks: number; files: number }> = Array.from({
@@ -330,30 +291,25 @@ export async function refreshSubtree(
 
 // --- Загрузка корня --------------------------------------------------
 
-/**
- * Загружает корень Диска.
- * НЕ использует merge (нет существующей папки), строит всё с нуля.
- *
- * sourceId — 'yandex'.
- * rootFolderId — 'folder:yandex:__root__'.
- */
 export async function loadRootContent(
   sourceId: string,
   rootFolderId: string,
+  service: IYandexService,
 ): Promise<{
   folders: Folder[]
   tracks: LibraryTrack[]
 }> {
-  const response = await yandexDiskService.listResources(ROOT_REMOTE_PATH)
+  const response = await service.listResources(ROOT_REMOTE_PATH)
 
   const folders: Folder[] = []
   const tracks: LibraryTrack[] = []
   const childFolderIds: string[] = []
   const trackIds: string[] = []
 
-  const { subDirs, audioItems, textItems } = partitionItems(response.items)
+  const { subDirs, audioItems, textItems } = partitionItems(
+    response._embedded?.items || response.items || [],
+  )
 
-  // Корневая папка
   const rootFolder: Folder = {
     id: rootFolderId,
     name: 'Яндекс.Диск',
@@ -369,7 +325,6 @@ export async function loadRootContent(
     ready: false,
   }
 
-  // Подпапки первого уровня
   for (const item of subDirs) {
     const childPath = item.name
     const childId = folderIdFromPath(sourceId, childPath)
@@ -390,14 +345,12 @@ export async function loadRootContent(
     childFolderIds.push(childId)
   }
 
-  // Треки в корне
   for (const item of audioItems) {
-    const track = buildTrack(rootFolder, item, sourceId)
+    const track = buildTrack(rootFolder, item, sourceId, service)
     tracks.push(track)
     trackIds.push(track.id)
   }
 
-  // .txt в корне
   const textFiles: TextFileRef[] = textItems.map((item) => buildTextFile(rootFolder, item))
 
   rootFolder.childFolderIds = childFolderIds
@@ -414,31 +367,23 @@ export async function loadRootContent(
 
 // --- Фоновый обход ---------------------------------------------------
 
-/**
- * Если есть «неготовые» папки — обходит всё дерево рекурсивно.
- * Вызывается после load / restoreFromCache.
- *
- * sourceId — 'yandex'.
- */
-export async function backgroundScan(context: PluginContext, sourceId: string): Promise<void> {
+export async function backgroundScan(
+  context: PluginContext,
+  sourceId: string,
+  service: IYandexService,
+): Promise<void> {
   const allFolders = context.writer.getFoldersBySource(sourceId)
   const unready = allFolders.filter((f) => f.ready !== true)
-
-  console.info('[yandex] background scan check:', {
-    total: allFolders.length,
-    unready: unready.length,
-  })
 
   if (unready.length === 0) return
 
   const rootFolder = allFolders.find((f) => f.parentId === null)
   if (!rootFolder) return
 
-  console.info('[yandex] background scan: start')
-  await refreshSubtree(context, rootFolder, sourceId)
-  console.info('[yandex] background scan: complete')
-
-  await yandexPersistenceService.save(toPersisted(currentLibraryFromWriter(context, sourceId)))
+  await refreshSubtree(context, rootFolder, sourceId, service)
+  await import('./persistence').then(({ yandexPersistenceService }) =>
+    yandexPersistenceService.save(toPersisted(currentLibraryFromWriter(context, sourceId))),
+  )
 }
 
 // --- Поиск ближайшей существующей папки ------------------------------
@@ -465,12 +410,6 @@ export function findNearestFolder(
 
 // --- Вспомогательное -------------------------------------------------
 
-/**
- * Собирает CollectedLibrary из текущего состояния стора для persistence.
- * Используется в backgroundScan / refreshFolder / saveCache.
- *
- * sourceId — 'yandex'.
- */
 export function currentLibraryFromWriter(
   context: PluginContext,
   sourceId: string,
@@ -489,7 +428,3 @@ export function currentLibraryFromWriter(
     rootFolderName: 'Яндекс.Диск',
   }
 }
-
-// Явный реэкспорт, чтобы index.ts мог импортировать PLUGIN_ID не из constants
-// (на случай, если кто-то предпочтёт локальный импорт).
-export { PLUGIN_ID }
