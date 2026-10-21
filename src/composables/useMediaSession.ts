@@ -2,6 +2,7 @@
 
 import { watch, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
+import { isLiveStream } from '@/plugins/registry'
 import type { Track } from '@/types/track'
 
 interface MediaSessionOptions {
@@ -15,10 +16,6 @@ interface MediaSessionOptions {
   onSeekBy: (delta: number) => void
 }
 
-/**
- * Связывает состояние плеера с Media Session API.
- * Работает в Chrome/Edge/Safari (частично), в Firefox — no-op.
- */
 export function useMediaSession(options: MediaSessionOptions) {
   const supported = typeof navigator !== 'undefined' && 'mediaSession' in navigator
 
@@ -28,29 +25,48 @@ export function useMediaSession(options: MediaSessionOptions) {
 
   const { currentTrack, isPlaying, onPlay, onPause, onNext, onPrev, onSeek, onSeekBy } = options
 
-  // --- Action handlers --------------------------------------------------
+  function isCurrentLive(): boolean {
+    const track = currentTrack.value
+    return track ? isLiveStream(track.pluginId) : false
+  }
+
+  function safeNext(): void {
+    if (isCurrentLive()) return
+    onNext()
+  }
+
+  function safePrev(): void {
+    if (isCurrentLive()) return
+    onPrev()
+  }
+
+  function safeSeek(time: number): void {
+    if (isCurrentLive()) return
+    onSeek(time)
+  }
+
+  function safeSeekBy(delta: number): void {
+    if (isCurrentLive()) return
+    onSeekBy(delta)
+  }
 
   navigator.mediaSession.setActionHandler('play', () => onPlay())
   navigator.mediaSession.setActionHandler('pause', () => onPause())
-  navigator.mediaSession.setActionHandler('nexttrack', () => onNext())
-  navigator.mediaSession.setActionHandler('previoustrack', () => onPrev())
+  navigator.mediaSession.setActionHandler('nexttrack', () => safeNext())
+  navigator.mediaSession.setActionHandler('previoustrack', () => safePrev())
 
-  // seekbackward / seekforward — опциональны, но приятны
   navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-    onSeekBy(-(details.seekOffset ?? 10))
+    safeSeekBy(-(details.seekOffset ?? 10))
   })
   navigator.mediaSession.setActionHandler('seekforward', (details) => {
-    onSeekBy(details.seekOffset ?? 10)
+    safeSeekBy(details.seekOffset ?? 10)
   })
 
-  // seekto — нужен для перемотки с локскрина
   navigator.mediaSession.setActionHandler('seekto', (details) => {
     if (details.seekTime != null) {
-      onSeek(details.seekTime)
+      safeSeek(details.seekTime)
     }
   })
-
-  // --- Синхронизация метаданных ----------------------------------------
 
   watch(
     currentTrack,
@@ -78,8 +94,6 @@ export function useMediaSession(options: MediaSessionOptions) {
     { immediate: true },
   )
 
-  // --- Синхронизация playbackState -------------------------------------
-
   watch(
     isPlaying,
     (playing) => {
@@ -87,8 +101,6 @@ export function useMediaSession(options: MediaSessionOptions) {
     },
     { immediate: true },
   )
-
-  // --- Очистка при unmount ---------------------------------------------
 
   onUnmounted(() => {
     navigator.mediaSession.metadata = null

@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { toastService } from '@/services/ui/ToastService'
 import { PLUGIN_ID } from './constants'
 import {
   getSavedStations,
@@ -38,26 +39,36 @@ function closeCatalog(): void {
 }
 
 function onAdd(station: SavedStation): void {
+  if (savedStationIds.value.has(station.id)) return
+
   const ok = addSavedStation(station)
   if (!ok) {
-    console.warn('[radio] station not persisted, localStorage unavailable')
+    toastService.error('Не удалось сохранить станцию')
+    return
   }
 
   refreshSaved()
-  closeCatalog()
+  toastService.success(`Станция «${station.name}» добавлена`)
+}
+
+function onPlay(station: SavedStation): void {
   playStation(station)
 }
 
 function onRemove(station: SavedStation): void {
-  const confirmed = window.confirm(`Удалить станцию «${station.name}»?`)
-  if (!confirmed) return
-
   removeSavedStation(station.id)
   refreshSaved()
+  toastService.info(`Станция «${station.name}» удалена`)
 
   if (player.currentTrack?.id === `radio:${station.id}`) {
     player.stop()
   }
+}
+
+function onRemoveFromSavedList(station: SavedStation): void {
+  const confirmed = window.confirm(`Удалить станцию «${station.name}»?`)
+  if (!confirmed) return
+  onRemove(station)
 }
 
 function playStation(station: SavedStation): void {
@@ -88,9 +99,7 @@ onMounted(() => {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Режим "Мои станции" -->
     <template v-if="viewMode === 'saved'">
-      <!-- Шапка -->
       <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-10">
         <div class="mx-auto flex w-full max-w-3xl items-center justify-between">
           <h1 class="text-lg font-medium text-fg">Радиостанции</h1>
@@ -104,11 +113,11 @@ onMounted(() => {
       </div>
 
       <RadioSavedList :stations="savedStations" :current-track-id="currentTrackId" :is-playing="player.isPlaying"
-        @play="playStation" @remove="onRemove" />
+        @play="playStation" @remove="onRemoveFromSavedList" />
     </template>
 
-    <!-- Режим "Каталог" -->
-    <RadioCatalog v-else-if="viewMode === 'catalog'" :saved-station-ids="savedStationIds" @add="onAdd"
+    <RadioCatalog v-else-if="viewMode === 'catalog'" :saved-station-ids="savedStationIds"
+      :current-track-id="currentTrackId" :is-playing="player.isPlaying" @add="onAdd" @play="onPlay" @remove="onRemove"
       @back="closeCatalog" />
   </div>
 </template>

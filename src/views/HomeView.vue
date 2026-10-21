@@ -24,16 +24,18 @@ const customDataMap = ref<Record<string, boolean>>({})
 interface DisplayPlugin extends PluginMeta {
   hasData: boolean
   isStateless: boolean
+  hasCustomData: boolean
 }
 
 const plugins = computed<DisplayPlugin[]>(() => {
   return pluginMetas.value.map((meta) => {
-    // Если плагин stateless, он всегда "подключен", если доступен
     if (meta.manifest.isStateless) {
+      const hasCustom = Boolean(customDataMap.value[meta.manifest.id])
       return {
         ...meta,
         hasData: true,
         isStateless: true,
+        hasCustomData: hasCustom,
       }
     }
 
@@ -42,6 +44,7 @@ const plugins = computed<DisplayPlugin[]>(() => {
         ...meta,
         hasData: customDataMap.value[meta.manifest.id] ?? false,
         isStateless: false,
+        hasCustomData: true,
       }
     }
 
@@ -50,7 +53,8 @@ const plugins = computed<DisplayPlugin[]>(() => {
       hasData: Object.values(library.folders).some(
         (f) => f.source !== undefined && pluginIdFromSource(f.source) === meta.manifest.id,
       ),
-      isStateless: false, // <-- Добавили поле сюда
+      isStateless: false,
+      hasCustomData: false,
     }
   })
 })
@@ -139,7 +143,6 @@ async function connectPlugin(row: { manifest: PluginManifest }) {
 async function disconnectPlugin(row: { manifest: PluginManifest }) {
   if (isLoading.value) return
 
-  // Stateless: очищаем данные
   if (row.manifest.isStateless) {
     const confirmed = window.confirm(`Очистить данные «${row.manifest.name}»?`)
     if (!confirmed) return
@@ -152,7 +155,6 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
     return
   }
 
-  // Обычные плагины: отключаем
   const confirmed = window.confirm(`Отключить «${row.manifest.name}»? Данные будут удалены.`)
   if (!confirmed) return
 
@@ -200,21 +202,19 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
           </div>
 
           <div class="flex shrink-0 items-center gap-2">
-            <!-- Stateless -->
             <template v-if="row.isStateless">
               <button type="button"
                 class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
                 @click="openPlugin(row)">
                 Открыть
               </button>
-              <button type="button"
+              <button v-if="row.hasCustomData" type="button"
                 class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-red-500/10 hover:text-red-400"
                 @click="disconnectPlugin(row)">
                 Очистить
               </button>
             </template>
 
-            <!-- Обычные -->
             <template v-else-if="row.hasData">
               <button type="button"
                 class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"

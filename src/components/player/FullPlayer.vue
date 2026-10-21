@@ -7,6 +7,7 @@ import { useDominantColor } from '@/composables/useDominantColor'
 import { rgbToString } from '@/utils/dominantColor'
 import { isLiveStream } from '@/plugins/registry'
 import PlayerProgressBar from './PlayerProgressBar.vue'
+import CoverImage from '@/components/ui/CoverImage.vue'
 import DislikeButton from '@/components/ui/DislikeButton.vue'
 import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 import IconPlay from '@/components/icons/IconPlay.vue'
@@ -18,7 +19,6 @@ import IconRepeat from '@/components/icons/IconRepeat.vue'
 import IconVolume from '@/components/icons/IconVolume.vue'
 import IconVolumeMute from '@/components/icons/IconVolumeMute.vue'
 import IconList from '@/components/icons/IconList.vue'
-import IconPlaylist from '@/components/icons/IconPlaylist.vue'
 import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
 
 defineProps<{
@@ -34,7 +34,18 @@ const player = usePlayerStore()
 const { currentTrack, isPlaying, currentTime, duration, repeatMode, shuffle, muted, volume } =
   storeToRefs(player)
 
-const isLive = computed(() => currentTrack.value ? isLiveStream(currentTrack.value.pluginId) : false)
+const isLive = computed(() =>
+  currentTrack.value ? isLiveStream(currentTrack.value.pluginId) : false,
+)
+
+const coverHasError = ref(false)
+
+watch(
+  () => currentTrack.value?.coverUrl,
+  () => {
+    coverHasError.value = false
+  },
+)
 
 // --- Доминирующий цвет обложки + пульсация ---------------------------
 
@@ -147,16 +158,13 @@ watch(
         <!-- Обложка + свечение -->
         <div class="flex w-full max-w-sm flex-1 items-center justify-center py-4">
           <div class="relative">
-            <div v-if="currentTrack?.coverUrl" class="glow-pulse pointer-events-none absolute inset-0 -z-10"
-              :style="glowStyle" aria-hidden="true" />
+            <div v-if="currentTrack?.coverUrl && !coverHasError"
+              class="glow-pulse pointer-events-none absolute inset-0 -z-10" :style="glowStyle" aria-hidden="true" />
 
             <div
               class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden rounded-card bg-bg-elevated shadow-2xl">
-              <img v-if="currentTrack?.coverUrl" :src="currentTrack.coverUrl" :alt="currentTrack.album"
-                class="h-full w-full object-cover" />
-              <div v-else class="flex h-full w-full items-center justify-center">
-                <IconPlaylist class="h-1/2 w-1/2 text-fg-subtle" />
-              </div>
+              <CoverImage :src="currentTrack?.coverUrl" :alt="currentTrack?.album ?? ''"
+                fallback-icon-class="h-1/2 w-1/2" @error="coverHasError = true" @load="coverHasError = false" />
             </div>
           </div>
         </div>
@@ -172,13 +180,11 @@ watch(
             </p>
           </div>
 
-          <!-- Дизлайк — слева -->
-          <div class="absolute left-0 -top-1 flex items-start">
+          <div v-if="!isLive" class="absolute left-0 -top-1 flex items-start">
             <DislikeButton :track="currentTrack" size="lg" mode="skip" />
           </div>
 
-          <!-- Избранное — справа -->
-          <div class="absolute right-0 -top-1 flex items-start">
+          <div v-if="!isLive" class="absolute right-0 -top-1 flex items-start">
             <FavoriteButton :track="currentTrack" size="lg" />
           </div>
         </div>
@@ -189,7 +195,7 @@ watch(
               ? 'text-fg hover:bg-hover-bg'
               : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
             " :aria-label="muted ? 'Включить звук' : 'Выключить звук'"
-            :v-tooltip="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()">
+            v-tooltip="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()">
             <IconVolumeMute v-if="muted || volume === 0" class="h-6 w-6" />
             <IconVolume v-else class="h-6 w-6" />
           </button>
@@ -204,7 +210,7 @@ watch(
             <button v-if="!isLive" type="button" class="relative rounded-btn p-2 transition"
               :class="repeatMode !== 'off' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
               :aria-pressed="repeatMode !== 'off'" :aria-label="`Повтор: ${repeatMode}`"
-              :v-tooltip="`Повтор: ${repeatMode}`" @click="player.cycleRepeat()">
+              v-tooltip="`Повтор: ${repeatMode}`" @click="player.cycleRepeat()">
               <IconRepeat class="h-6 w-6" />
               <span v-if="repeatMode === 'one'"
                 class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] font-bold">
@@ -223,7 +229,9 @@ watch(
         <div class="w-full max-w-sm pb-8">
           <div v-if="isLive"
             class="flex h-2 w-full items-center justify-center overflow-hidden rounded-full bg-active/20">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-active">Live Stream</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-active">
+              Live Stream
+            </span>
           </div>
           <PlayerProgressBar v-else :current-time="currentTime" :duration="duration" size="lg" :show-time="true"
             @seek="onSeek" />
@@ -237,7 +245,7 @@ watch(
           </button>
 
           <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
-            :aria-label="isPlaying ? 'Пауза' : 'Играть'" :v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
+            :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
             @click="player.toggle()">
             <IconPause v-if="isPlaying" class="h-8 w-8" />
             <IconPlay v-else class="h-8 w-8 translate-x-[1px]" />

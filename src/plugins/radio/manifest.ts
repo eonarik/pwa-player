@@ -17,14 +17,50 @@ export const manifest: PluginManifest = {
   extension: () => import('./extension'),
   hasCustomData: () => getSavedStations().length > 0,
   clearData: () => {
-    // Удаляем сохраненные станции
     localStorage.removeItem('radio:saved-stations')
 
-    // Удаляем сохраненные фильтры и настройки
     localStorage.removeItem('radio:topLimit')
     localStorage.removeItem('radio:topOrder')
     localStorage.removeItem('radio:topCountry')
     localStorage.removeItem('radio:topTags')
     localStorage.removeItem('radio:topHidden')
+    localStorage.removeItem('radio:searchQuery')
+
+    localStorage.removeItem('radio:cache:countries')
+    localStorage.removeItem('radio:cache:top')
+    localStorage.removeItem('radio:cache:search')
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('radio:cache:tags')) localStorage.removeItem(key)
+    }
+  },
+
+  getSettings: () => ({
+    sections: [
+      {
+        id: 'radio-cache',
+        title: 'Кеш',
+        description:
+          'Страны, теги и последние результаты поиска сохраняются локально, чтобы радио работало при недоступности сервера.',
+        fields: [
+          {
+            type: 'action',
+            id: 'clear-cache',
+            label: 'Очистить кеш радио',
+            description: 'Удалить сохранённые страны, теги и результаты поиска. Станции останутся.',
+          },
+        ],
+      },
+    ],
+  }),
+
+  runSettingsAction: async (actionId: string) => {
+    if (actionId === 'clear-cache') {
+      const { radioBrowserClient } = await import('./RadioBrowserClient')
+      const { radioService } = await import('./RadioService')
+      const { toastService } = await import('@/services/ui/ToastService')
+      radioBrowserClient.clearCache()
+      radioService.clearCache()
+      toastService.success('Кеш радио очищен')
+    }
   },
 }

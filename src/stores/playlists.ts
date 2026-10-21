@@ -144,6 +144,31 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     return true
   }
 
+  function addTracksToPlaylist(playlistId: string, tracks: Track[]): number {
+    const playlist = playlists.value[playlistId]
+    if (!playlist) return 0
+
+    const existing = new Set(playlist.tracks.map((t) => t.trackId))
+    let added = 0
+    const now = Date.now()
+
+    for (const track of tracks) {
+      if (existing.has(track.id)) continue
+      existing.add(track.id)
+      playlist.tracks.push({
+        ...toSnapshot(track),
+        addedAt: now,
+      })
+      added++
+    }
+
+    if (added > 0) {
+      playlist.updatedAt = now
+    }
+
+    return added
+  }
+
   function removeTrackFromPlaylist(playlistId: string, trackId: string): boolean {
     const playlist = playlists.value[playlistId]
     if (!playlist) return false
@@ -197,6 +222,7 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     renamePlaylist,
     deletePlaylist,
     addTrackToPlaylist,
+    addTracksToPlaylist,
     removeTrackFromPlaylist,
     isFavorite,
     toggleFavorite,

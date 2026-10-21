@@ -3,7 +3,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
+import { isLiveStream } from '@/plugins/registry'
 import PlayerProgressBar from './PlayerProgressBar.vue'
+import NowPlayingInfo from './NowPlayingInfo.vue'
 import IconPlay from '@/components/icons/IconPlay.vue'
 import IconPause from '@/components/icons/IconPause.vue'
 import IconNext from '@/components/icons/IconNext.vue'
@@ -22,6 +24,10 @@ const emit = defineEmits<{
 const player = usePlayerStore()
 const { currentTrack, isPlaying, currentTime, duration, volume, muted, repeatMode, shuffle } =
   storeToRefs(player)
+
+const isLive = computed(() =>
+  currentTrack.value ? isLiveStream(currentTrack.value.pluginId) : false,
+)
 
 // --- Coarse pointer (мобилка) для пропсов прогресса ------------------
 
@@ -72,32 +78,24 @@ function onFooterClick(e: MouseEvent) {
 
 <template>
   <footer class="w-full bg-bg" @click="onFooterClick">
-    <!-- Прогресс -->
-    <PlayerProgressBar :current-time="currentTime" :duration="duration" size="sm" :interactive="!isCoarsePointer"
-      :expand-on-hover="!isCoarsePointer" :show-time-on-hover="!isCoarsePointer" time-position="floating"
-      @seek="onSeek" />
+    <!-- Прогресс (для live не рендерим) -->
+    <PlayerProgressBar v-if="!isLive" :current-time="currentTime" :duration="duration" size="sm"
+      :interactive="!isCoarsePointer" :expand-on-hover="!isCoarsePointer" :show-time-on-hover="!isCoarsePointer"
+      time-position="floating" @seek="onSeek" />
+    <div v-else class="flex h-1 w-full items-center justify-center bg-active/20">
+      <span class="text-[9px] font-bold uppercase tracking-widest text-active/80">Live</span>
+    </div>
 
     <!-- === Мобильная версия === -->
     <div class="grid grid-cols-[1fr_auto] items-stretch md:hidden">
-      <button type="button" data-player-open class="flex min-w-0 items-center gap-3 pl-2 text-left"
+      <button type="button" data-player-open class="flex min-w-0 items-center pl-2 text-left"
         :aria-label="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'"
         v-tooltip="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'">
-        <div class="aspect-square h-16 w-16 shrink-0 overflow-hidden bg-card-bg">
-          <img v-if="currentTrack?.coverUrl" :src="currentTrack.coverUrl" :alt="currentTrack.album"
-            class="h-full w-full object-cover" />
-        </div>
-        <div class="min-w-0">
-          <p class="truncate text-base font-medium text-fg">
-            {{ currentTrack?.title ?? 'Ничего не играет' }}
-          </p>
-          <p v-if="currentTrack?.artist" class="truncate text-xs text-fg-muted">
-            {{ currentTrack.artist }}
-          </p>
-        </div>
+        <NowPlayingInfo :track="currentTrack" cover-class="h-16 w-16" fallback-icon-class="h-6 w-6" />
       </button>
 
       <div class="flex items-center pr-2">
-        <button type="button" class="rounded-full p-2 text-fg-muted transition hover:text-fg"
+        <button v-if="!isLive" type="button" class="rounded-full p-2 text-fg-muted transition hover:text-fg"
           aria-label="Предыдущий трек" v-tooltip="'Предыдущий трек'" @click="player.prev()">
           <IconPrev class="h-6 w-6" />
         </button>
@@ -109,7 +107,7 @@ function onFooterClick(e: MouseEvent) {
           <IconPlay v-else class="h-7 w-7 translate-x-[1px]" />
         </button>
 
-        <button type="button" class="rounded-full p-2 text-fg-muted transition hover:text-fg"
+        <button v-if="!isLive" type="button" class="rounded-full p-2 text-fg-muted transition hover:text-fg"
           aria-label="Следующий трек" v-tooltip="'Следующий трек'" @click="player.next()">
           <IconNext class="h-6 w-6" />
         </button>
@@ -118,37 +116,24 @@ function onFooterClick(e: MouseEvent) {
 
     <!-- === Десктопная версия === -->
     <div class="hidden w-full items-stretch md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-      <!-- Левая часть: cover | title/artist | favorite -->
       <div class="flex min-w-0 items-center gap-3">
-        <button type="button" data-player-open class="flex min-w-0 items-center gap-3 text-left"
+        <button type="button" data-player-open class="flex min-w-0 items-center text-left"
           :aria-label="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'"
           v-tooltip="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'">
-          <div class="aspect-square h-16 w-16 shrink-0 overflow-hidden bg-card-bg">
-            <img v-if="currentTrack?.coverUrl" :src="currentTrack.coverUrl" :alt="currentTrack.album"
-              class="h-full w-full object-cover" />
-          </div>
-          <div class="min-w-0">
-            <p class="truncate text-base font-medium text-fg">
-              {{ currentTrack?.title ?? 'Ничего не играет' }}
-            </p>
-            <p class="truncate text-sm text-fg-muted">
-              {{ currentTrack?.artist ?? '—' }}
-            </p>
-          </div>
+          <NowPlayingInfo :track="currentTrack" cover-class="h-16 w-16" fallback-icon-class="h-6 w-6" />
         </button>
 
-        <TrackReactionButtons :track="currentTrack" size="md" dislike-mode="skip" />
+        <TrackReactionButtons v-if="!isLive" :track="currentTrack" size="md" dislike-mode="skip" />
       </div>
 
-      <!-- Центр: shuffle | prev | play | next | repeat -->
       <div class="flex items-center justify-center gap-1">
-        <button type="button" class="rounded-btn p-2 transition"
+        <button v-if="!isLive" type="button" class="rounded-btn p-2 transition"
           :class="shuffle ? 'text-active' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
           aria-label="Перемешать" v-tooltip="'Перемешать'" @click="player.toggleShuffle()">
           <IconShuffle class="h-5 w-5" />
         </button>
 
-        <button type="button" class="rounded-btn p-2 text-fg-muted transition hover:text-fg"
+        <button v-if="!isLive" type="button" class="rounded-btn p-2 text-fg-muted transition hover:text-fg"
           aria-label="Предыдущий трек" v-tooltip="'Предыдущий трек'" @click="player.prev()">
           <IconPrev class="h-6 w-6" />
         </button>
@@ -160,12 +145,12 @@ function onFooterClick(e: MouseEvent) {
           <IconPlay v-else class="h-7 w-7 translate-x-[1px]" />
         </button>
 
-        <button type="button" class="rounded-btn p-2 text-fg-muted transition hover:text-fg" aria-label="Следующий трек"
-          v-tooltip="'Следующий трек'" @click="player.next()">
+        <button v-if="!isLive" type="button" class="rounded-btn p-2 text-fg-muted transition hover:text-fg"
+          aria-label="Следующий трек" v-tooltip="'Следующий трек'" @click="player.next()">
           <IconNext class="h-6 w-6" />
         </button>
 
-        <button type="button" class="relative rounded-btn p-2 transition"
+        <button v-if="!isLive" type="button" class="relative rounded-btn p-2 transition"
           :class="repeatMode !== 'off' ? 'text-active' : 'text-fg-muted hover:text-fg'"
           :aria-pressed="repeatMode !== 'off'" :aria-label="repeatLabel" v-tooltip="repeatLabel"
           @click="player.cycleRepeat()">
@@ -176,7 +161,6 @@ function onFooterClick(e: MouseEvent) {
         </button>
       </div>
 
-      <!-- Правая часть: queue | mute + volume -->
       <div class="flex items-center justify-end gap-1 pr-6">
         <RouterLink :to="{ name: 'queue' }" class="rounded-btn p-2 text-fg-muted transition hover:text-fg"
           aria-label="Очередь" v-tooltip="'Очередь'">

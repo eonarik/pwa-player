@@ -4,6 +4,7 @@ import { ref, computed } from 'vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import IconChevronDown from '@/components/icons/IconChevronDown.vue'
 import type { RadioSortOrder, RadioTag } from './RadioService'
+import SectionTitle from "@/components/ui/SectionTitle.vue"
 
 export type RadioCountryEntry = {
   name: string
@@ -80,7 +81,7 @@ function isTagSelected(name: string): boolean {
   <div class="flex flex-col gap-4">
     <!-- Сортировка -->
     <div class="max-w-xs">
-      <p class="mb-2 text-[10px] uppercase tracking-wider text-fg-subtle">Сортировка</p>
+      <SectionTitle text="Сортировка" padding-x="none" />
       <DropdownMenu :width="160" align="left">
         <template #trigger="{ toggle, setTriggerRef }">
           <button :ref="setTriggerRef" type="button"
@@ -105,7 +106,7 @@ function isTagSelected(name: string): boolean {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Страна -->
       <div>
-        <p class="mb-2 text-[10px] uppercase tracking-wider text-fg-subtle">Страна</p>
+        <SectionTitle text="Страна" padding-x="none" />
         <div v-if="countriesError" class="flex flex-col items-start gap-2 bg-card-bg p-2 rounded">
           <span class="text-xs text-red-400">Ошибка загрузки</span>
           <button type="button" class="text-xs text-active hover:underline" @click="emit('retry-countries')">
@@ -117,15 +118,15 @@ function isTagSelected(name: string): boolean {
             class="mb-2 w-full rounded bg-card-bg px-2 py-1 text-xs text-fg placeholder:text-fg-subtle focus:outline-none" />
           <div class="flex max-h-32 flex-col gap-1 overflow-y-auto pr-1">
             <button type="button" class="text-left text-xs px-2 py-1 rounded transition" :class="topCountry === ''
-                ? 'bg-active/20 text-active font-medium'
-                : 'text-fg hover:bg-hover-bg'
+              ? 'bg-active/20 text-active font-medium'
+              : 'text-fg hover:bg-hover-bg'
               " @click="setCountry('')">
               Все страны
             </button>
             <button v-for="c in filteredCountries" :key="c.code" type="button"
               class="flex items-center justify-between gap-2 text-left text-xs px-2 py-1 rounded transition" :class="topCountry === c.code
-                  ? 'bg-active/20 text-active font-medium'
-                  : 'text-fg hover:bg-hover-bg'
+                ? 'bg-active/20 text-active font-medium'
+                : 'text-fg hover:bg-hover-bg'
                 " @click="setCountry(c.code)">
               <span class="truncate">{{ c.name }}</span>
               <span v-if="showCounts" class="shrink-0 text-[10px] tabular-nums text-fg-subtle">
@@ -138,7 +139,7 @@ function isTagSelected(name: string): boolean {
 
       <!-- Теги -->
       <div>
-        <p class="mb-2 text-[10px] uppercase tracking-wider text-fg-subtle">Теги</p>
+        <SectionTitle text="Теги" padding-x="none" />
         <div v-if="tagsError" class="flex flex-col items-start gap-2 bg-card-bg p-2 rounded">
           <span class="text-xs text-red-400">Ошибка загрузки</span>
           <button type="button" class="text-xs text-active hover:underline" @click="emit('retry-tags')">
@@ -151,15 +152,15 @@ function isTagSelected(name: string): boolean {
           <div class="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
             <button type="button" class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition"
               :class="topTags.length === 0
-                  ? 'bg-active/20 border-active/20 text-active font-medium'
-                  : 'text-fg-muted hover:bg-hover-bg'
+                ? 'bg-active/20 border-active/20 text-active font-medium'
+                : 'text-fg-muted hover:bg-hover-bg'
                 " @click="emit('update:topTags', [])">
               Все
             </button>
             <button v-for="t in filteredTags" :key="t.name" type="button"
               class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition" :class="isTagSelected(t.name)
-                  ? 'bg-active/20 border-active/20 text-active font-medium'
-                  : 'text-fg-muted hover:bg-hover-bg'
+                ? 'bg-active/20 border-active/20 text-active font-medium'
+                : 'text-fg-muted hover:bg-hover-bg'
                 " @click="toggleTag(t.name)">
               {{ t.name }}
               <span v-if="showCounts" class="ml-0.5 tabular-nums opacity-60">

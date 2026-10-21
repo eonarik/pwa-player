@@ -6,6 +6,7 @@ import { metadataPersistenceService } from '@/services/persistence/MetadataPersi
 import { schemaService } from '@/services/persistence/SchemaService'
 import { toastService } from '@/services/ui/ToastService'
 import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService'
+import SectionTitle from '@/components/ui/SectionTitle.vue'
 
 const history = useHistoryStore()
 const dislikes = useDislikesStore()
@@ -39,7 +40,7 @@ async function resetAll(): Promise<void> {
 <template>
   <div class="flex flex-col gap-6">
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">Очистка</h2>
+      <SectionTitle text="Очистка" />
       <div class="flex flex-col gap-2">
         <button type="button"
           class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
@@ -69,9 +70,7 @@ async function resetAll(): Promise<void> {
     </section>
 
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-        Опасная зона
-      </h2>
+      <SectionTitle text="Опасная зона" />
       <button type="button"
         class="flex w-full items-center justify-between gap-4 bg-red-500/10 px-4 py-3 text-left transition hover:bg-red-500/15"
         @click="resetAll">

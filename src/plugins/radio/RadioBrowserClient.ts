@@ -1,20 +1,14 @@
 // src/plugins/radio/RadioBrowserClient.ts
 
-/**
- * Прямой клиент к Radio Browser API для эндпоинтов, которые
- * не оборачивает библиотека `radio-browser-api`:
- * - `/json/countries`
- * - `/json/tags`
- *
- * Библиотека используется для поиска станций (`searchStations`,
- * `getStationsBy`) — там её типы и обработка удобнее.
- */
-
-// Базовый URL. При необходимости можно добавить фолбэки на другие зеркала
-// (de2.api.radio-browser.info, at1.api.radio-browser.info).
 const API_BASE = 'https://de1.api.radio-browser.info'
-
 const REQUEST_TIMEOUT_MS = 10_000
+
+/** «Свежий» TTL: до него — не обновляем. После — пробуем обновить. */
+const COUNTRIES_TTL_MS = 24 * 60 * 60 * 1000
+const TAGS_TTL_MS = 24 * 60 * 60 * 1000
+
+const COUNTRIES_STORAGE_KEY = 'radio:cache:countries'
+const TAGS_STORAGE_KEY = 'radio:cache:tags'
 
 export interface RadioCountry {
   name: string
@@ -36,6 +30,43 @@ interface RawCountry {
 interface RawTag {
   name: string
   stationcount: number
+}
+
+interface PersistedCache<T> {
+  data: T
+  fetchedAt: number
+}
+
+interface CacheReadResult<T> {
+  data: T
+  age: number
+  fresh: boolean
+}
+
+/**
+ * Читает кеш. Не удаляет запись при истечении TTL — просроченные данные
+ * могут быть единственным спасением, если сервер недоступен.
+ */
+function readCache<T>(key: string, ttl: number): CacheReadResult<T> | null {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PersistedCache<T>
+    if (!parsed || typeof parsed.fetchedAt !== 'number') return null
+    const age = Date.now() - parsed.fetchedAt
+    return { data: parsed.data, age, fresh: age < ttl }
+  } catch {
+    return null
+  }
+}
+
+function writeCache<T>(key: string, data: T): void {
+  try {
+    const payload: PersistedCache<T> = { data, fetchedAt: Date.now() }
+    localStorage.setItem(key, JSON.stringify(payload))
+  } catch (err) {
+    console.warn('[radio-browser] failed to persist cache', key, err)
+  }
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -67,6 +98,9 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 export class RadioBrowserClient {
   private static instance: RadioBrowserClient | null = null
 
+  private countriesInFlight: Promise<RadioCountry[] | null> | null = null
+  private tagsInFlight: Map<number, Promise<RadioTag[] | null>> = new Map()
+
   static getInstance(): RadioBrowserClient {
     if (!RadioBrowserClient.instance) {
       RadioBrowserClient.instance = new RadioBrowserClient()
@@ -75,47 +109,125 @@ export class RadioBrowserClient {
   }
 
   /**
-   * Список стран (по алфавиту).
-   * Возвращает null при ошибке сети/парсинга, [] при пустом успешном ответе.
+   * Список стран. Логика:
+   * - Свежий кеш (< 24 ч) — отдаём без запроса.
+   * - Просроченный кеш — пробуем обновить; при ошибке отдаём старый.
+   * - Нет кеша — запрос; при ошибке — null.
    */
   async getCountries(): Promise<RadioCountry[] | null> {
-    const data = await fetchJson<RawCountry[]>(`${API_BASE}/json/countries`)
-    if (data === null) return null
-    if (!Array.isArray(data)) {
-      console.error('[radio-browser] countries: response is not an array')
-      return null
+    const cached = readCache<RadioCountry[]>(COUNTRIES_STORAGE_KEY, COUNTRIES_TTL_MS)
+
+    if (cached?.fresh) {
+      if (import.meta.env.DEV) console.debug('[radio-browser] countries HIT (fresh)')
+      return cached.data
     }
 
-    return data
-      .filter((c) => Boolean(c.name))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-      .map((c) => ({
-        name: c.name,
-        code: c.iso_3166_1,
-        stationCount: c.stationcount ?? 0,
-      }))
+    if (this.countriesInFlight) return this.countriesInFlight
+
+    if (import.meta.env.DEV) {
+      console.debug('[radio-browser] countries MISS', cached ? '(stale, refreshing)' : '(no cache)')
+    }
+
+    this.countriesInFlight = (async () => {
+      const data = await fetchJson<RawCountry[]>(`${API_BASE}/json/countries`)
+      if (data === null) {
+        if (cached) {
+          console.warn('[radio-browser] countries refresh failed, using stale cache')
+          return cached.data
+        }
+        return null
+      }
+
+      if (!Array.isArray(data)) {
+        console.error('[radio-browser] countries: response is not an array')
+        return cached?.data ?? null
+      }
+
+      const mapped = data
+        .filter((c) => Boolean(c.name))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+        .map((c) => ({
+          name: c.name,
+          code: c.iso_3166_1,
+          stationCount: c.stationcount ?? 0,
+        }))
+
+      writeCache(COUNTRIES_STORAGE_KEY, mapped)
+      return mapped
+    })().finally(() => {
+      this.countriesInFlight = null
+    })
+
+    return this.countriesInFlight
   }
 
   /**
-   * Список популярных тегов (по алфавиту).
-   * Возвращает null при ошибке, [] при пустом успешном ответе.
+   * Список тегов. Логика как у стран.
    */
   async getTags(limit = 20): Promise<RadioTag[] | null> {
-    const url = `${API_BASE}/json/tags?hidebroken=true&order=stationcount&reverse=true&limit=${limit}`
-    const data = await fetchJson<RawTag[]>(url)
-    if (data === null) return null
-    if (!Array.isArray(data)) {
-      console.error('[radio-browser] tags: response is not an array')
-      return null
+    const key = `${TAGS_STORAGE_KEY}:${limit}`
+    const cached = readCache<RadioTag[]>(key, TAGS_TTL_MS)
+
+    if (cached?.fresh) {
+      if (import.meta.env.DEV) console.debug('[radio-browser] tags HIT (fresh)', limit)
+      return cached.data
     }
 
-    return data
-      .filter((t) => Boolean(t.name))
-      .map((t) => ({
-        name: t.name,
-        stationCount: t.stationcount ?? 0,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+    const inFlight = this.tagsInFlight.get(limit)
+    if (inFlight) return inFlight
+
+    if (import.meta.env.DEV) {
+      console.debug(
+        '[radio-browser] tags MISS',
+        limit,
+        cached ? '(stale, refreshing)' : '(no cache)',
+      )
+    }
+
+    const promise = (async () => {
+      const url = `${API_BASE}/json/tags?hidebroken=true&order=stationcount&reverse=true&limit=${limit}`
+      const data = await fetchJson<RawTag[]>(url)
+
+      if (data === null) {
+        if (cached) {
+          console.warn('[radio-browser] tags refresh failed, using stale cache', limit)
+          return cached.data
+        }
+        return null
+      }
+
+      if (!Array.isArray(data)) {
+        console.error('[radio-browser] tags: response is not an array')
+        return cached?.data ?? null
+      }
+
+      const mapped = data
+        .filter((t) => Boolean(t.name))
+        .map((t) => ({
+          name: t.name,
+          stationCount: t.stationcount ?? 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+
+      writeCache(key, mapped)
+      return mapped
+    })().finally(() => {
+      this.tagsInFlight.delete(limit)
+    })
+
+    this.tagsInFlight.set(limit, promise)
+    return promise
+  }
+
+  clearCache(): void {
+    try {
+      localStorage.removeItem(COUNTRIES_STORAGE_KEY)
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith(TAGS_STORAGE_KEY)) localStorage.removeItem(key)
+      }
+    } catch {
+      // ignore
+    }
   }
 }
 

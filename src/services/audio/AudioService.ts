@@ -42,7 +42,6 @@ export class AudioService {
     }
     this.listeners[event].add(listener)
 
-    // Возвращаем unsubscribe-функцию — удобно для onUnmounted
     return () => this.off(event, listener)
   }
 
@@ -62,10 +61,6 @@ export class AudioService {
 
   // --- Загрузка источника ----------------------------------------------
 
-  /**
-   * Загружает трек.
-   * @param source — URL, File или Blob
-   */
   load(source: string | File | Blob): void {
     this.destroyHls()
 
@@ -77,13 +72,11 @@ export class AudioService {
     if (typeof source === 'string') {
       this.currentSrc = source
 
-      // Если это HLS-поток (.m3u8) и браузер не поддерживает нативно
       if (source.includes('.m3u8') && Hls.isSupported()) {
         this.hls = new Hls()
         this.hls.loadSource(source)
         this.hls.attachMedia(this.audio)
       } else {
-        // Обычный поток или нативная поддержка (Safari/iOS)
         this.audio.src = source
         this.audio.load()
       }
@@ -95,10 +88,6 @@ export class AudioService {
     }
   }
 
-  /**
-   * Полная выгрузка текущего источника.
-   * Останавливает воспроизведение, ревокает objectURL, снимает src.
-   */
   unload(): void {
     this.destroyHls()
     this.audio.pause()
@@ -122,10 +111,14 @@ export class AudioService {
   // --- Управление воспроизведением -------------------------------------
 
   async play(): Promise<void> {
-    console.log('[audio] play() called, src:', this.audio.src, 'paused:', this.audio.paused)
+    if (import.meta.env.DEV) {
+      console.log('[audio] play() called, src:', this.audio.src, 'paused:', this.audio.paused)
+    }
     try {
       await this.audio.play()
-      console.log('[audio] play() resolved')
+      if (import.meta.env.DEV) {
+        console.log('[audio] play() resolved')
+      }
     } catch (err) {
       console.error('[audio] play() rejected', err)
       const message = err instanceof Error ? err.message : 'Unknown play() error'
@@ -143,10 +136,13 @@ export class AudioService {
     this.pause()
   }
 
+  /**
+   * Перемотка. Для live-потоков (`duration === Infinity` или `NaN`)
+   * перемотка невозможна — no-op.
+   */
   seek(time: number): void {
     if (!Number.isFinite(time)) return
     const duration = this.audio.duration
-    // Live-поток: duration === Infinity или NaN — перемотка невозможна
     if (!Number.isFinite(duration) || duration <= 0) return
     this.audio.currentTime = Math.min(Math.max(time, 0), duration)
   }
@@ -158,7 +154,6 @@ export class AudioService {
   // --- Громкость --------------------------------------------------------
 
   setVolume(value: number): void {
-    // HTMLAudioElement.volume принимает только [0, 1]
     this.audio.volume = Math.min(Math.max(value, 0), 1)
   }
 
@@ -196,6 +191,14 @@ export class AudioService {
     return this.audio.src
   }
 
+  /**
+   * Live-поток: `duration` не финализирован (`Infinity`/`NaN`).
+   * Прогресс-бар и перемотка для такого потока бессмысленны.
+   */
+  get isLive(): boolean {
+    return !Number.isFinite(this.audio.duration)
+  }
+
   // --- Привязка нативных событий ---------------------------------------
 
   private bindNativeEvents(): void {
@@ -231,7 +234,6 @@ export class AudioService {
       muted: this.muted,
     }))
 
-    // error — отдельно, потому что payload собирается из MediaError
     const errorHandler: EventListener = () => {
       const mediaError = this.audio.error
       this.emit('error', {

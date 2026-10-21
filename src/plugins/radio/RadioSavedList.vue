@@ -4,6 +4,7 @@ import IconPlay from '@/components/icons/IconPlay.vue'
 import IconRadio from '@/components/icons/IconRadio.vue'
 import IconX from '@/components/icons/IconX.vue'
 import type { SavedStation } from './index'
+import SectionTitle from "@/components/ui/SectionTitle.vue";
 
 defineProps<{
   stations: SavedStation[]
@@ -36,8 +37,8 @@ function onRemove(station: SavedStation, e: Event): void {
 
 <template>
   <div class="flex-1 overflow-y-auto">
-    <div class="mx-auto w-full max-w-3xl p-2 pt-4">
-      <p class="text-[10px] uppercase tracking-wider text-fg-subtle mb-3 px-1">Мои станции</p>
+    <div class="mx-auto w-full max-w-3xl py-2 pt-4">
+      <SectionTitle text="Мои станции" />
 
       <div v-if="stations.length === 0" class="flex flex-col items-center justify-center py-20 text-sm text-fg-muted">
         <IconRadio class="mb-3 h-10 w-10 text-fg-subtle" />

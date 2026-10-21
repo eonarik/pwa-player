@@ -5,6 +5,7 @@ import { activatePlugin } from '@/plugins/registry'
 import { getAllSettingsSchemas, type PluginSettingsEntry } from '@/plugins/extensions'
 import { toastService } from '@/services/ui/ToastService'
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue'
+import SectionTitle from '@/components/ui/SectionTitle.vue'
 import type { PluginManifest } from '@/plugins/types'
 
 const pluginSchemas = ref<PluginSettingsEntry[]>([])
@@ -43,7 +44,6 @@ onMounted(() => {
   loadPluginSchemas()
 })
 
-// --- Активация скрытых плагинов ---------------------------------------
 const isSecretSectionOpen = ref(false)
 const activationCode = ref('')
 
@@ -83,11 +83,7 @@ function handleActivation(): void {
     </section>
 
     <section>
-      <h2
-        class="mb-2 cursor-pointer text-xs font-medium uppercase tracking-wider text-fg-subtle select-none hover:text-fg-muted transition"
-        @click="isSecretSectionOpen = !isSecretSectionOpen">
-        Секретные функции
-      </h2>
+      <SectionTitle text="Секретные функции" clickable @click="isSecretSectionOpen = !isSecretSectionOpen" />
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-1"
         enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in"
         leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">

@@ -8,6 +8,7 @@ import FileListItem from '@/components/library/FileListItem.vue'
 import MarkdownText from '@/components/ui/MarkdownText.vue'
 import type { ArtistGroup } from '@/composables/useLibrarySearch'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
+import SectionTitle from "@/components/ui/SectionTitle.vue"
 
 const props = defineProps<{
   hasFolders: boolean
@@ -84,25 +85,19 @@ function isSearchCurrent(trackId: string): boolean {
   <div v-else class="flex-1 overflow-y-auto">
     <div class="mx-auto w-full max-w-3xl">
       <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
-        <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-          Папки
-        </p>
+        <SectionTitle text="Папки" />
         <FolderList />
       </div>
 
       <div v-if="hasTextFiles" class="pb-4">
-        <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-          Файлы
-        </p>
+        <SectionTitle text="Файлы" />
         <div class="flex flex-col gap-0.5">
           <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
         </div>
       </div>
 
       <div v-if="hasTracks" class="pb-4">
-        <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-          Треки
-        </p>
+        <SectionTitle text="Треки" />
         <TrackList :key="currentFolderId ?? 'no-folder'" :tracks="tracks"
           @select="(i: number) => emit('select-track', i)" />
       </div>

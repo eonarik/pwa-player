@@ -31,7 +31,7 @@ function fieldKey(field: PluginSettingsField): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="px-4 flex flex-col gap-2">
     <div v-if="section.title">
       <p class="text-xs font-medium uppercase tracking-wider text-fg-subtle">
         {{ section.title }}
@@ -42,12 +42,7 @@ function fieldKey(field: PluginSettingsField): string {
     </div>
 
     <template v-for="field in section.fields" :key="fieldKey(field)">
-      <ActionField
-        v-if="field.type === 'action'"
-        :field="field"
-        :disabled="disabled"
-        @action="onAction"
-      />
+      <ActionField v-if="field.type === 'action'" :field="field" :disabled="disabled" @action="onAction" />
 
       <TextField v-else-if="field.type === 'text'" :field="field" @change="onChange" />
 
@@ -55,12 +50,7 @@ function fieldKey(field: PluginSettingsField): string {
 
       <ToggleField v-else-if="field.type === 'toggle'" :field="field" @change="onChange" />
 
-      <FolderListField
-        v-else-if="field.type === 'folderList'"
-        :field="field"
-        :disabled="disabled"
-        @action="onAction"
-      />
+      <FolderListField v-else-if="field.type === 'folderList'" :field="field" :disabled="disabled" @action="onAction" />
     </template>
   </div>
 </template>

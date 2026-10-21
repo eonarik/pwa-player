@@ -46,7 +46,6 @@ const userPlaylists = computed(() =>
   playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
 )
 
-// --- Логика метаданных ---
 const isLive = computed(() => isLiveStream(props.track.pluginId))
 
 const isManuallyEdited = computed(() => {
@@ -247,7 +246,7 @@ async function onDownload(close: () => void) {
 
 <template>
   <div class="flex items-center gap-0.5">
-    <TrackReactionButtons :track="track" size="sm" dislike-mode="toggle" />
+    <TrackReactionButtons v-if="!isLive" :track="track" size="sm" dislike-mode="toggle" />
 
     <DropdownMenu :width="256">
       <template #trigger="{ toggle, setTriggerRef }">
@@ -259,46 +258,48 @@ async function onDownload(close: () => void) {
       </template>
 
       <template #default="{ close }">
-        <!-- Добавить в плейлист (доступно всегда) -->
-        <button type="button"
-          class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-          @click="toggleSubmenu">
-          <span>Добавить в плейлист</span>
-          <span class="text-fg-muted">{{ isSubmenuOpen ? '▾' : '▸' }}</span>
-        </button>
-
-        <div v-if="isSubmenuOpen">
-          <button v-for="p in userPlaylists" :key="p.id" type="button"
-            class="block w-full truncate px-6 py-2 text-left text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            @click="addToPlaylist(p.id, close)">
-            {{ p.name }}
+        <!-- Добавить в плейлист (скрыто для live) -->
+        <template v-if="!isLive">
+          <button type="button"
+            class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+            @click="toggleSubmenu">
+            <span>Добавить в плейлист</span>
+            <span class="text-fg-muted">{{ isSubmenuOpen ? '▾' : '▸' }}</span>
           </button>
 
-          <button v-if="!isCreatingNew" type="button"
-            class="block w-full px-6 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
-            @click="startCreate">
-            + Создать новый
-          </button>
+          <div v-if="isSubmenuOpen">
+            <button v-for="p in userPlaylists" :key="p.id" type="button"
+              class="block w-full truncate px-6 py-2 text-left text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+              @click="addToPlaylist(p.id, close)">
+              {{ p.name }}
+            </button>
 
-          <form v-else class="px-4 py-2" @submit.prevent="confirmCreate(close)">
-            <input ref="inputRef" v-model="newPlaylistName" type="text" placeholder="Название плейлиста"
-              class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
-              @keydown.esc="isCreatingNew = false" />
-            <div class="mt-2 flex items-center justify-end gap-2">
-              <button type="button" class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:text-fg"
-                @click="isCreatingNew = false">
-                Отмена
-              </button>
-              <button type="submit"
-                class="rounded-btn bg-accent px-3 py-1 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-                :disabled="!newPlaylistName.trim()">
-                Создать
-              </button>
-            </div>
-          </form>
-        </div>
+            <button v-if="!isCreatingNew" type="button"
+              class="block w-full px-6 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
+              @click="startCreate">
+              + Создать новый
+            </button>
 
-        <!-- Метаданные (скрыты для радио) -->
+            <form v-else class="px-4 py-2" @submit.prevent="confirmCreate(close)">
+              <input ref="inputRef" v-model="newPlaylistName" type="text" placeholder="Название плейлиста"
+                class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
+                @keydown.esc="isCreatingNew = false" />
+              <div class="mt-2 flex items-center justify-end gap-2">
+                <button type="button" class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:text-fg"
+                  @click="isCreatingNew = false">
+                  Отмена
+                </button>
+                <button type="submit"
+                  class="rounded-btn bg-accent px-3 py-1 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
+                  :disabled="!newPlaylistName.trim()">
+                  Создать
+                </button>
+              </div>
+            </form>
+          </div>
+        </template>
+
+        <!-- Метаданные (скрыты для live) -->
         <template v-if="!isLive">
           <button v-if="isManuallyEdited" type="button"
             class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
@@ -342,7 +343,7 @@ async function onDownload(close: () => void) {
           Убрать из очереди
         </button>
 
-        <!-- Скачать (скрыто для радио) -->
+        <!-- Скачать (скрыто для live) -->
         <button v-if="canDownload" type="button"
           class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition" :class="downloadOrigin === 'remote' && !isDownloading
               ? 'text-fg hover:bg-hover-bg'

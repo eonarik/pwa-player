@@ -2,6 +2,8 @@
 
 import { onMounted, onUnmounted } from 'vue'
 import { modalService } from '@/services/ui/ModalService'
+import { usePlayerStore } from '@/stores/player'
+import { isLiveStream } from '@/plugins/registry'
 
 interface KeyboardOptions {
   onToggle: () => void
@@ -12,44 +14,38 @@ interface KeyboardOptions {
   onVolumeBy: (delta: number) => void
 }
 
-/**
- * Глобальные горячие клавиши плеера.
- * Игнорирует события внутри input/textarea/contenteditable,
- * при открытой модалке (ModalService),
- * а также Space на сфокусированных кнопках/ссылках — иначе
- * сработает и наш хендлер, и браузерный click.
- */
 export function useKeyboardShortcuts(options: KeyboardOptions) {
+  const player = usePlayerStore()
+
   function isEditableTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
     const tag = target.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
     if (target.isContentEditable) return true
-    // jsdom не реализует isContentEditable, поэтому проверяем атрибут
     return target.closest('[contenteditable="true"], [contenteditable=""]') !== null
   }
 
-  /**
-   * Space на кнопке/ссылке вызывает браузерный click.
-   * Если мы тоже обработаем Space — будет двойное срабатывание.
-   */
   function isButtonLikeTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
     const tag = target.tagName
     if (tag === 'BUTTON' || tag === 'A') return true
-    // role=button ведёт себя как кнопка — Space вызывает click
     return target.closest('[role="button"]') !== null
   }
 
+  function isCurrentLive(): boolean {
+    const track = player.currentTrack
+    return track ? isLiveStream(track.pluginId) : false
+  }
+
   function handler(e: KeyboardEvent) {
-    // Модалка открыта — не перехватываем хоткеи
     if (modalService.active.value !== null) return
 
     if (isEditableTarget(e.target)) return
     if (e.ctrlKey || e.metaKey || e.altKey) return
 
-    // Space на кнопке — отдаём браузеру, он сделает click
     if (e.code === 'Space' && isButtonLikeTarget(e.target)) return
+
+    const live = isCurrentLive()
 
     switch (e.code) {
       case 'Space':
@@ -58,11 +54,13 @@ export function useKeyboardShortcuts(options: KeyboardOptions) {
         break
 
       case 'ArrowRight':
+        if (live) return
         e.preventDefault()
         options.onSeekBy(e.shiftKey ? 30 : 5)
         break
 
       case 'ArrowLeft':
+        if (live) return
         e.preventDefault()
         options.onSeekBy(e.shiftKey ? -30 : -5)
         break
@@ -78,11 +76,13 @@ export function useKeyboardShortcuts(options: KeyboardOptions) {
         break
 
       case 'KeyN':
+        if (live) return
         e.preventDefault()
         options.onNext()
         break
 
       case 'KeyP':
+        if (live) return
         e.preventDefault()
         options.onPrev()
         break

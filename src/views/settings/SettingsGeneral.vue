@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { toastService } from '@/services/ui/ToastService'
+import SectionTitle from '@/components/ui/SectionTitle.vue'
 
 const uiSettings = useUiSettingsStore()
 const { showSource, metadataThreshold, searchThreshold, playlistMatchThreshold } =
@@ -71,7 +72,7 @@ async function restoreAccess(): Promise<void> {
 <template>
   <div class="flex flex-col gap-6">
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">Поиск</h2>
+      <SectionTitle text="Поиск" />
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Порог совпадения</p>
@@ -84,7 +85,7 @@ async function restoreAccess(): Promise<void> {
     </section>
 
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">Метаданные</h2>
+      <SectionTitle text="Метаданные" />
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Порог совпадения</p>
@@ -97,9 +98,7 @@ async function restoreAccess(): Promise<void> {
     </section>
 
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-        Импорт плейлистов
-      </h2>
+      <SectionTitle text="Импорт плейлистов" />
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Порог совпадения</p>
@@ -112,9 +111,7 @@ async function restoreAccess(): Promise<void> {
     </section>
 
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-        Отображение
-      </h2>
+      <SectionTitle text="Отображение" />
       <label class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Показывать источник</p>
@@ -125,9 +122,7 @@ async function restoreAccess(): Promise<void> {
     </section>
 
     <section>
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-        Папка скачивания
-      </h2>
+      <SectionTitle text="Папка скачивания" />
       <div class="flex flex-col gap-2 bg-card-bg px-4 py-3">
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
