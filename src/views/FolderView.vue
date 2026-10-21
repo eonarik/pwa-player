@@ -1,35 +1,21 @@
 <!-- src/views/FolderView.vue -->
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
-import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
 import { getPluginManifest } from '@/plugins/lookup'
-import { createPluginContext } from '@/plugins/context'
-import { syncService } from '@/services/download/SyncService'
-import { toastService } from '@/services/ui/ToastService'
 import { sortService } from '@/services/sort/SortService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
-import FolderBreadcrumbs from '@/components/library/FolderBreadcrumbs.vue'
-import FolderList from '@/components/library/FolderList.vue'
-import TrackList from '@/components/library/TrackList.vue'
-import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
-import FolderSyncMenu from '@/components/library/FolderSyncMenu.vue'
-import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue'
-import MetadataMenu from '@/components/library/MetadataMenu.vue'
+import { useFolderSync } from '@/composables/useFolderSync'
+import FolderHeader from './folder/FolderHeader.vue'
+import FolderFilters from './folder/FolderFilters.vue'
+import FolderContent from './folder/FolderContent.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
-import TrackListItem from '@/components/library/TrackListItem.vue'
-import TrackActions from '@/components/library/TrackActions.vue'
-import FileListItem from '@/components/library/FileListItem.vue'
 import TextEditorModal from '@/components/library/TextEditorModal.vue'
-import SearchInput from '@/components/ui/SearchInput.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
-import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
-import MarkdownText from "@/components/ui/MarkdownText.vue"
-import { pluralize } from "@/utils/pluralize"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -52,7 +38,7 @@ const subtreeTracks = computed<LibraryTrack[]>(() => {
   return library.getAllTracksInFolderRecursive(folder.id)
 })
 
-// --- Текстовые файлы (с сортировкой, с учётом showFiles) -------------
+// --- Текстовые файлы -------------------------------------------------
 
 const textFiles = computed<TextFileRef[]>(() => {
   if (!showFiles.value) return []
@@ -64,11 +50,11 @@ const hasTextFiles = computed(() => textFiles.value.length > 0)
 
 const openedFile = ref<TextFileRef | null>(null)
 
-function openFile(file: TextFileRef) {
+function openFile(file: TextFileRef): void {
   openedFile.value = file
 }
 
-function closeFile() {
+function closeFile(): void {
   openedFile.value = null
 }
 
@@ -81,14 +67,15 @@ const { query, hasQuery, hasResults, result } = useLibrarySearch(
 
 const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
 
-function onSelectSearchTrack(trackId: string) {
+function onSelectSearchTrack(trackId: string): void {
   const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
   if (idx < 0) return
   player.setQueue(searchFlatTracks.value, idx)
 }
 
-function isSearchCurrent(trackId: string): boolean {
-  return currentTrack.value?.id === trackId
+function playSearchAll(): void {
+  if (searchFlatTracks.value.length === 0) return
+  player.playAll(searchFlatTracks.value)
 }
 
 // --- Поиск метаданных -----------------------------------------------
@@ -107,82 +94,29 @@ const {
 
 const showMetadataIssues = ref(false)
 
-function openMetadataIssues() {
+function openMetadataIssues(): void {
   showMetadataIssues.value = true
 }
 
-function closeMetadataIssues() {
+function closeMetadataIssues(): void {
   showMetadataIssues.value = false
   metadataDismissIssues()
 }
 
-// --- Синхронизация ---------------------------------------------------
+// --- Синхронизация --------------------------------------------------
 
-const canRefresh = ref(false)
-const canRefreshFromDevice = ref(false)
-
-watch(
-  () => currentFolder.value?.source,
-  async (sourceId) => {
-    if (!sourceId) {
-      canRefresh.value = false
-      canRefreshFromDevice.value = false
-      return
-    }
-    try {
-      const plugin = await loadPlugin(pluginIdFromSource(sourceId))
-      canRefresh.value = typeof plugin.scanFolder === 'function'
-      canRefreshFromDevice.value =
-        plugin.canDownload === true && typeof plugin.scanDownloadDir === 'function'
-    } catch {
-      canRefresh.value = false
-      canRefreshFromDevice.value = false
-    }
-  },
-  { immediate: true },
-)
-
-const isRefreshing = ref(false)
-const isRefreshingFromDevice = ref(false)
-
-async function refreshFromCloud() {
-  const folder = currentFolder.value
-  if (!folder || !folder.source) return
-
-  try {
-    const plugin = await loadPlugin(pluginIdFromSource(folder.source))
-    if (!plugin.scanFolder) return
-
-    isRefreshing.value = true
-    const context = createPluginContext(pluginIdFromSource(folder.source))
-    await plugin.scanFolder(context, folder.id, { recursive: true, removeMissing: true })
-    toastService.success('Обновлено с облака')
-  } catch (err) {
-    console.error('[folder-view] cloud refresh failed', err)
-    toastService.error('Не удалось обновить с облака')
-  } finally {
-    isRefreshing.value = false
-  }
-}
-
-async function refreshFromDevice() {
-  if (isRefreshingFromDevice.value) return
-
-  isRefreshingFromDevice.value = true
-  try {
-    await syncService.syncAll()
-    toastService.info('Сканирование устройства завершено')
-  } catch (err) {
-    console.error('[folder-view] device refresh failed', err)
-    toastService.error('Не удалось обновить с устройства')
-  } finally {
-    isRefreshingFromDevice.value = false
-  }
-}
+const {
+  canRefresh,
+  canRefreshFromDevice,
+  isRefreshing,
+  isRefreshingFromDevice,
+  refreshFromCloud,
+  refreshFromDevice,
+} = useFolderSync(currentFolder)
 
 // --- Действия -------------------------------------------------------
 
-function onSelectTrack(index: number) {
+function onSelectTrack(index: number): void {
   if (isScanning.value) return
   player.setQueue(tracks.value, index)
 }
@@ -197,134 +131,24 @@ const emptyStateMessage = computed(() => {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка: строка 1 -->
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 pt-3">
-      <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <FolderBreadcrumbs />
+    <FolderHeader :current-folder="currentFolder" :subfolders-count="currentSubfolders.length"
+      :tracks-count="tracks.length" :files-count="textFiles.length" :subtree-tracks="subtreeTracks"
+      :is-scanning="isScanning" />
 
-        <div class="flex items-center gap-2">
-          <span v-if="currentFolder && !isScanning" class="shrink-0 text-xs text-fg-muted">
-            <template v-if="hasFolders">
-              {{ pluralize(currentSubfolders.length, ['папка', 'папки', 'папок']) }}
-            </template>
-            <template v-if="hasFolders && hasTracks"> · </template>
-            <template v-if="hasTracks">
-              {{ pluralize(tracks.length, ['трек', 'трека', 'треков']) }}
-            </template>
-            <template v-if="hasTextFiles && (hasFolders || hasTracks)"> · </template>
-            <template v-if="hasTextFiles">
-              {{ pluralize(textFiles.length, ['файл', 'файла', 'файлов']) }}
-            </template>
+    <FolderFilters v-model:query="query" :metadata-loading="isMetadataLoading" :metadata-progress="metadataProgress"
+      :metadata-stats="metadataStats" :metadata-has-unchecked="metadataHasUnchecked"
+      :metadata-issues-count="metadataIssues.length" :can-refresh="canRefresh"
+      :can-refresh-from-device="canRefreshFromDevice" :is-refreshing="isRefreshing"
+      :is-refreshing-from-device="isRefreshingFromDevice" @metadata-search="metadataSearch"
+      @metadata-cancel="metadataCancel" @metadata-reset="metadataReset" @open-issues="openMetadataIssues"
+      @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
 
-            <template v-if="!hasFolders && !hasTracks && !hasTextFiles">пусто</template>
-          </span>
-
-          <span v-else-if="isScanning" class="shrink-0 text-xs text-fg-muted">Сканирование…</span>
-
-          <BatchDownloadButton :tracks="subtreeTracks" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Шапка: строка 2 -->
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
-      <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <div class="flex items-center gap-1">
-          <SearchInput v-model="query" />
-          <FolderSortMenu />
-        </div>
-
-        <div class="flex shrink-0 items-center gap-2">
-          <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
-            :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
-            @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
-
-
-          <template v-if="canRefresh || canRefreshFromDevice">
-            <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
-
-            <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
-              :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"
-              @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
-          </template>
-
-          <FolderSettingsMenu />
-        </div>
-      </div>
-    </div>
-
-    <!-- Режим поиска -->
-    <div v-if="hasQuery" class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-3xl p-2">
-        <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-          Ничего не найдено
-        </div>
-
-        <div v-else class="flex flex-col gap-4">
-          <div class="flex items-center justify-between gap-3 px-3 py-1">
-            <span class="text-xs text-fg-muted">
-              Найдено: {{ searchFlatTracks.length }} · Групп: {{ result.groups.length }}
-            </span>
-
-            <button type="button"
-              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-              @click="player.playAll(searchFlatTracks)">
-              Играть всё
-            </button>
-          </div>
-
-          <div v-for="group in result.groups" :key="group.artist">
-            <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-              {{ group.artist }}
-            </p>
-
-            <div class="flex flex-col gap-0.5">
-              <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
-                :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isSearchCurrent(track.id)"
-                :is-playing="isPlaying" @select="() => onSelectSearchTrack(track.id)">
-                <template #actions>
-                  <TrackActions :track="track" />
-                </template>
-              </TrackListItem>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Обычный режим -->
-    <div v-else class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-3xl">
-        <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
-          <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-            Папки
-          </p>
-          <FolderList />
-        </div>
-
-        <div v-if="hasTextFiles" class="pb-4">
-          <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-            Файлы
-          </p>
-          <div class="flex flex-col gap-0.5">
-            <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="openFile(file)" />
-          </div>
-        </div>
-
-        <div v-if="hasTracks" class="pb-4">
-          <p class="px-5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-            Треки
-          </p>
-          <TrackList :key="currentFolder?.id" :tracks="tracks" @select="onSelectTrack" />
-        </div>
-
-        <div v-if="!hasFolders && !hasTracks && !hasTextFiles"
-          class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted">
-          <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />
-          <span v-else>В этой папке пусто</span>
-        </div>
-      </div>
-    </div>
+    <FolderContent :has-folders="hasFolders" :has-text-files="hasTextFiles" :has-tracks="hasTracks"
+      :text-files="textFiles" :tracks="tracks" :empty-state-message="emptyStateMessage"
+      :current-folder-id="currentFolder?.id ?? null" :is-scanning="isScanning" :has-query="hasQuery"
+      :has-results="hasResults" :search-flat-tracks="searchFlatTracks" :groups="result.groups" :is-playing="isPlaying"
+      :current-track-id="currentTrack?.id ?? null" @select-track="onSelectTrack"
+      @select-search-track="onSelectSearchTrack" @open-file="openFile" @play-search-all="playSearchAll" />
 
     <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
 
