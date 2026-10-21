@@ -5,6 +5,7 @@ import type {
   YandexTextResponse,
   YandexWriteResponse,
 } from '../yandexDisk/types'
+import { cleanDiskPath } from '@/shared/paths'
 
 const API_URL = '/api/yandex-self'
 const TOKEN_KEY = 'yandex-self-token'
@@ -51,14 +52,10 @@ export class YandexSelfService implements IYandexService {
     localStorage.removeItem(TOKEN_KEY)
   }
 
-  private cleanPath(path: string): string {
-    return path.replace(/^disk:/, '').replace(/^\/+/, '') || '/'
-  }
-
   async listResources(path: string): Promise<YandexResourcesResponse> {
     if (!this.token) throw new Error('Not authenticated')
 
-    const clean = this.cleanPath(path)
+    const clean = cleanDiskPath(path)
     const params = new URLSearchParams({ path: clean })
 
     const res = await fetch(`${API_URL}/resources?${params.toString()}`, {
@@ -77,14 +74,14 @@ export class YandexSelfService implements IYandexService {
   }
 
   buildDownloadUrl(path: string): string {
-    const clean = this.cleanPath(path)
+    const clean = cleanDiskPath(path)
     const params = new URLSearchParams({ path: clean })
     if (this.token) params.set('token', this.token)
     return `${API_URL}/download?${params.toString()}`
   }
 
   async readTextFile(remotePath: string): Promise<YandexTextResponse | null> {
-    const clean = this.cleanPath(remotePath)
+    const clean = cleanDiskPath(remotePath)
     const params = new URLSearchParams({ path: clean })
     const res = await fetch(`${API_URL}/text?${params.toString()}`, {
       headers: { Authorization: `Bearer ${this.token}` },
@@ -94,7 +91,7 @@ export class YandexSelfService implements IYandexService {
   }
 
   async writeTextFile(remotePath: string, content: string): Promise<YandexWriteResponse> {
-    const clean = this.cleanPath(remotePath)
+    const clean = cleanDiskPath(remotePath)
     const params = new URLSearchParams({ path: clean })
     const res = await fetch(`${API_URL}/text?${params.toString()}`, {
       method: 'PUT',
