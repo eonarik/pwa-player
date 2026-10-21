@@ -9,7 +9,12 @@ import {
   type RadioSortOrder,
   type RadioTag,
 } from './RadioService'
-import { getSavedStations, addSavedStation, type SavedStation } from './index'
+import {
+  getSavedStations,
+  addSavedStation,
+  removeSavedStation,
+  type SavedStation,
+} from './index'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import IconPlay from '@/components/icons/IconPlay.vue'
@@ -57,10 +62,12 @@ const topTags = ref<string[]>(JSON.parse(localStorage.getItem('radio:topTags') |
 const currentPage = ref(1)
 const hasMore = ref(true)
 
-const countries = ref<{ name: string; code: string; stationCount: number }[]>([])
+const countries = ref<RadioCountryList>([])
 const tags = ref<RadioTag[]>([])
 const countriesError = ref(false)
 const tagsError = ref(false)
+
+type RadioCountryList = { name: string; code: string; stationCount: number }[]
 
 const countryFilter = ref('')
 const tagFilter = ref('')
@@ -76,6 +83,13 @@ const filteredTags = computed(() => {
   if (!q) return tags.value
   return tags.value.filter((t) => t.name.toLowerCase().includes(q))
 })
+
+/**
+ * Счётчики станций в Radio Browser — общее число в базе,
+ * без учёта выбранных фильтров. Показываем их только когда фильтры пусты,
+ * чтобы не вводить в заблуждение.
+ */
+const showCounts = computed(() => !topCountry.value && topTags.value.length === 0)
 
 const isTopLoading = ref(false)
 const topStations = ref<RadioStation[]>([])
@@ -177,6 +191,10 @@ function closeCatalog() {
   error.value = ''
 }
 
+function refreshSaved(): void {
+  savedStations.value = getSavedStations()
+}
+
 // --- Действия ---
 
 async function search() {
@@ -185,7 +203,14 @@ async function search() {
   error.value = ''
 
   try {
-    searchResults.value = await radioService.searchByName(searchQuery.value.trim(), 10)
+    searchResults.value = await radioService.searchByName(
+      searchQuery.value.trim(),
+      10,
+      {
+        countryCode: topCountry.value || undefined,
+        tags: topTags.value,
+      },
+    )
     if (searchResults.value.length === 0) {
       error.value = 'Станции не найдены'
     }
@@ -204,12 +229,20 @@ function addAndPlay(station: RadioStation) {
     favicon: station.favicon,
   }
 
-  addSavedStation(saved)
-  savedStations.value = getSavedStations()
+  const ok = addSavedStation(saved)
+  if (!ok) {
+    // localStorage недоступен — всё равно попробуем проиграть
+    console.warn('[radio] station not persisted, localStorage unavailable')
+  }
+
+  refreshSaved()
 
   searchResults.value = []
   searchQuery.value = ''
   error.value = ''
+
+  // Возвращаемся к «Моим станциям», чтобы пользователь увидел добавленное
+  closeCatalog()
 
   playStation(saved)
 }
@@ -219,9 +252,8 @@ function removeStation(station: SavedStation, e: Event) {
   const confirmed = window.confirm(`Удалить станцию «${station.name}»?`)
   if (!confirmed) return
 
-  const stations = getSavedStations().filter((s) => s.id !== station.id)
-  localStorage.setItem('radio:saved-stations', JSON.stringify(stations))
-  savedStations.value = getSavedStations()
+  removeSavedStation(station.id)
+  refreshSaved()
 
   if (player.currentTrack?.id === `radio:${station.id}`) {
     player.stop()
@@ -414,19 +446,19 @@ function isTagSelected(name: string): boolean {
                     class="mb-2 w-full rounded bg-card-bg px-2 py-1 text-xs text-fg placeholder:text-fg-subtle focus:outline-none" />
                   <div class="flex max-h-32 flex-col gap-1 overflow-y-auto pr-1">
                     <button type="button" class="text-left text-xs px-2 py-1 rounded transition" :class="topCountry === ''
-                      ? 'bg-active/20 text-active font-medium'
-                      : 'text-fg hover:bg-hover-bg'
+                        ? 'bg-active/20 text-active font-medium'
+                        : 'text-fg hover:bg-hover-bg'
                       " @click="topCountry = ''">
                       Все страны
                     </button>
                     <button v-for="c in filteredCountries" :key="c.code" type="button"
                       class="flex items-center justify-between gap-2 text-left text-xs px-2 py-1 rounded transition"
                       :class="topCountry === c.code
-                        ? 'bg-active/20 text-active font-medium'
-                        : 'text-fg hover:bg-hover-bg'
+                          ? 'bg-active/20 text-active font-medium'
+                          : 'text-fg hover:bg-hover-bg'
                         " @click="topCountry = c.code">
                       <span class="truncate">{{ c.name }}</span>
-                      <span class="shrink-0 text-[10px] tabular-nums text-fg-subtle">
+                      <span v-if="showCounts" class="shrink-0 text-[10px] tabular-nums text-fg-subtle">
                         {{ c.stationCount }}
                       </span>
                     </button>
@@ -449,18 +481,20 @@ function isTagSelected(name: string): boolean {
                   <div class="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
                     <button type="button"
                       class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition" :class="topTags.length === 0
-                        ? 'bg-active/20 border-active/20 text-active font-medium'
-                        : 'text-fg-muted hover:bg-hover-bg'
+                          ? 'bg-active/20 border-active/20 text-active font-medium'
+                          : 'text-fg-muted hover:bg-hover-bg'
                         " @click="topTags = []">
                       Все
                     </button>
                     <button v-for="t in filteredTags" :key="t.name" type="button"
                       class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition" :class="isTagSelected(t.name)
-                        ? 'bg-active/20 border-active/20 text-active font-medium'
-                        : 'text-fg-muted hover:bg-hover-bg'
+                          ? 'bg-active/20 border-active/20 text-active font-medium'
+                          : 'text-fg-muted hover:bg-hover-bg'
                         " @click="toggleTag(t.name)">
                       {{ t.name }}
-                      <span class="ml-0.5 tabular-nums opacity-60">{{ t.stationCount }}</span>
+                      <span v-if="showCounts" class="ml-0.5 tabular-nums opacity-60">
+                        {{ t.stationCount }}
+                      </span>
                     </button>
                   </div>
                 </template>

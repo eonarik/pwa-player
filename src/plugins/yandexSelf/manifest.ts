@@ -6,7 +6,7 @@ import { createLibraryWriter } from '@/stores/library'
 export const manifest: PluginManifest = {
   id: 'yandex-self',
   name: 'Логии',
-  icon: '🎧',
+  icon: '🐹',
   version: '0.1.0',
   enabled: true,
   canDownload: true,

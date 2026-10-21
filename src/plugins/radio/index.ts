@@ -14,18 +14,39 @@ const STORAGE_KEY = 'radio:saved-stations'
 export function getSavedStations(): SavedStation[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (s): s is SavedStation =>
+        Boolean(s) && typeof s.id === 'string' && typeof s.name === 'string' && typeof s.url === 'string',
+    )
   } catch {
     return []
   }
 }
 
-export function addSavedStation(station: SavedStation) {
-  const stations = getSavedStations()
-  if (!stations.find((s) => s.id === station.id)) {
-    stations.push(station)
+function persistSavedStations(stations: SavedStation[]): boolean {
+  try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stations))
+    return true
+  } catch (err) {
+    console.warn('[radio] failed to persist saved stations', err)
+    return false
   }
+}
+
+export function addSavedStation(station: SavedStation): boolean {
+  const stations = getSavedStations()
+  if (stations.find((s) => s.id === station.id)) return true
+
+  stations.push(station)
+  return persistSavedStations(stations)
+}
+
+export function removeSavedStation(stationId: string): boolean {
+  const stations = getSavedStations().filter((s) => s.id !== stationId)
+  return persistSavedStations(stations)
 }
 
 const radioPlugin: LibrarySource = {
@@ -51,8 +72,8 @@ const radioPlugin: LibrarySource = {
     return typeof track.source === 'string' ? track.source : ''
   },
 
-  async disconnect(context: PluginContext): Promise<void> {
-    context.writer.removeBySource(PLUGIN_ID)
+  async disconnect(_context: PluginContext): Promise<void> {
+    // Stateless-плагин: библиотеку не трогаем
   },
 }
 

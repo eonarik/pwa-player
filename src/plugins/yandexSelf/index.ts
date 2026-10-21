@@ -5,7 +5,7 @@ import { yandexSelfService } from './YandexSelfService'
 const yandexSelfPlugin = createYandexPlugin({
   id: 'yandex-self',
   name: 'Логии',
-  icon: '📜',
+  icon: '🐹',
   service: yandexSelfService,
   isSelf: true,
 })

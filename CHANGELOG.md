@@ -3,6 +3,23 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.8.1] — 2026-10-21
+
+### Fixed
+
+- **Добавленные станции не видны сразу** — после `addAndPlay` в `RadioView` пользователь оставался в каталоге; станция добавлялась в `localStorage`, но «Мои станции» не открывались. Теперь `addAndPlay` переключает `viewMode` на `'saved'` и обновляет список.
+- **Счётчики станций в фильтрах врут при активных фильтрах** — `stationcount` из `/json/tags` и `/json/countries` — это общее число в базе Radio Browser, без учёта выбранной страны/других тегов. Счётчики теперь показываются только при пустых фильтрах.
+- **Поиск игнорирует фильтры** — `searchByName` не передавал `countryCode` и `tagList` в `searchStations`. Теперь поиск идёт в пересечении с выбранной страной и тегами.
+- **`removeStation` чистил `localStorage` вручную** — вынесено в `removeSavedStation` в `plugins/radio/index.ts`.
+- **`getSavedStations` падал на битом JSON** — добавлена валидация структуры.
+- **`addSavedStation` глотал ошибку `localStorage.setItem`** — теперь возвращает `boolean`, вызывающий код логирует.
+
+### Changed
+
+- **`radio/index.ts`** — `disconnect` больше не вызывает `removeBySource` (для stateless-плагина это no-op, библиотеку радио не трогает).
+- **`RadioService.searchByName`** — принимает `SearchStationsOptions` (`countryCode`, `tags`).
+- **`RadioView`** — сортировка в фильтрах вынесена отдельной строкой (`max-w-xs`), страна и теги — в `grid md:grid-cols-2`.
+
 ## [0.8.0] — 2026-10-21
 
 ### Added

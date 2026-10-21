@@ -32,6 +32,11 @@ export interface TopStationsResult {
   total: number
 }
 
+export interface SearchStationsOptions {
+  countryCode?: string
+  tags?: string[]
+}
+
 // Базовый URL для прямых запросов (так как библиотека не оборачивает /countries и /tags)
 const API_BASE = 'https://de1.api.radio-browser.info'
 
@@ -157,15 +162,29 @@ class RadioService {
   }
 
   /**
-   * Ищет станции по названию.
+   * Ищет станции по названию с учётом фильтров (страна, теги).
    */
-  async searchByName(name: string, limit = 20): Promise<RadioStation[]> {
+  async searchByName(
+    name: string,
+    limit = 20,
+    options: SearchStationsOptions = {},
+  ): Promise<RadioStation[]> {
     try {
-      const stations = await this.api.searchStations({
+      const query: Record<string, unknown> = {
         name,
         limit,
         hideBroken: true,
-      })
+      }
+
+      if (options.countryCode) {
+        query.countryCode = options.countryCode
+      }
+
+      if (options.tags && options.tags.length > 0) {
+        query.tagList = options.tags
+      }
+
+      const stations = await this.api.searchStations(query)
       return this.filterAndMap(stations)
     } catch (err) {
       console.error('[radio] searchByName failed', err)
