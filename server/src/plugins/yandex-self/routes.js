@@ -8,6 +8,7 @@ import {
   yandexDownloadText,
   yandexUploadText,
 } from '../../shared/yandexApi.js'
+import { mapAndFilterItems, normalizePath } from './filter.js'
 
 export const selfRoutes = Router()
 
@@ -21,14 +22,12 @@ selfRoutes.post('/auth', async (req, res) => {
   }
 })
 
-// Выносим middleware в функцию, чтобы можно было применить её с опциями
+// Middleware для проверки JWT
 function requireAuth(options = { allowQuery: false }) {
   return (req, res, next) => {
-    // 1. Проверяем заголовок
     const authHeader = req.headers.authorization
     let token = authHeader?.split(' ')[1]
 
-    // 2. Если разрешено — проверяем query (для <audio>)
     if (!token && options.allowQuery && typeof req.query.token === 'string') {
       token = req.query.token
     }
@@ -46,31 +45,18 @@ function requireAuth(options = { allowQuery: false }) {
 
 // Применяем строгую проверку ко всем роутам, кроме /download
 selfRoutes.use((req, res, next) => {
-  // Пропускаем /download без проверки здесь, он проверит сам
   if (req.path === '/download') return next()
   return requireAuth({ allowQuery: false })(req, res, next)
 })
 
 selfRoutes.get('/resources', async (req, res) => {
-  let { path = '/' } = req.query
-
-  path = path.replace(/^disk:/, '')
-  if (!path.startsWith('/')) path = '/' + path
-  if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1)
-
-  const token = process.env.YANDEX_SELF_TOKEN
+  const { path: rawPath = '/' } = req.query
   const root = process.env.YANDEX_SELF_PATH || '/'
-  let cleanRoot = root.replace(/\/+$/, '')
-  if (cleanRoot && !cleanRoot.startsWith('/')) cleanRoot = '/' + cleanRoot
 
-  if (cleanRoot && path.startsWith(cleanRoot)) {
-    path = path.slice(cleanRoot.length)
-    if (!path.startsWith('/')) path = '/' + path
-  }
-  if (path === '') path = '/'
-
+  const { path, cleanRoot } = normalizePath(rawPath, root)
   const allowedFolders = req.selfAuth.allowedFolders
 
+  // Проверка прав на запрашиваемую папку
   if (Array.isArray(allowedFolders) && allowedFolders.length === 0) {
     res.status(403).json({ error: 'Доступ запрещён' })
     return
@@ -89,58 +75,30 @@ selfRoutes.get('/resources', async (req, res) => {
 
   try {
     const diskPath = path === '/' ? `disk:${cleanRoot}` : `disk:${cleanRoot}${path}`
+    const data = await yandexListResources(process.env.YANDEX_SELF_TOKEN, diskPath)
 
-    const data = await yandexListResources(token, diskPath)
-
-    let items = (data._embedded?.items || []).map((item) => ({
-      ...item,
-      isAudio: item.type === 'file' && /\.(mp3|flac|wav|ogg|m4a|aac|opus|wma)$/i.test(item.name),
-    }))
-
-    if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
-      items = items.filter((item) => {
-        const itemPath = path === '/' ? '/' + item.name : path + '/' + item.name
-        return allowedFolders.some((f) => {
-          const cleanF = f.replace(/\/+$/, '')
-          return (
-            cleanF === itemPath ||
-            cleanF.startsWith(itemPath + '/') ||
-            itemPath.startsWith(cleanF + '/')
-          )
-        })
-      })
-    }
+    const items = mapAndFilterItems(data._embedded?.items || [], path, allowedFolders)
 
     data._embedded = { ...data._embedded, items }
     data.total = items.length
+    data.items = items // Для совместимости с фронтендом
 
     res.json(data)
   } catch (err) {
-    console.log(`[yandex-self] Error:`, err.message)
-    res.status(500).json({ error: err.message })
+    console.log(`[yandex-self] List error:`, err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
-// Отдельный роут для скачивания, который разрешает токен в query
 selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) => {
-  let { path = '' } = req.query
-  if (!path) {
+  const { path: rawPath = '' } = req.query
+  if (!rawPath) {
     res.status(400).json({ error: 'path is required' })
     return
   }
 
-  path = path.replace(/^disk:/, '')
-  if (!path.startsWith('/')) path = '/' + path
-
-  const token = process.env.YANDEX_SELF_TOKEN
   const root = process.env.YANDEX_SELF_PATH || '/'
-  let cleanRoot = root.replace(/\/+$/, '')
-  if (cleanRoot && !cleanRoot.startsWith('/')) cleanRoot = '/' + cleanRoot
-
-  if (cleanRoot && path.startsWith(cleanRoot)) {
-    path = path.slice(cleanRoot.length)
-    if (!path.startsWith('/')) path = '/' + path
-  }
+  const { path, cleanRoot } = normalizePath(rawPath, root)
 
   const allowedFolders = req.selfAuth.allowedFolders
   if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
@@ -156,7 +114,7 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
 
   try {
     const diskPath = path === '/' ? `disk:${cleanRoot}` : `disk:${cleanRoot}${path}`
-    const href = await yandexDownloadHref(token, diskPath)
+    const href = await yandexDownloadHref(process.env.YANDEX_SELF_TOKEN, diskPath)
 
     if (!href) {
       res.status(404).json({ error: 'Download link not found' })
@@ -194,26 +152,15 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
 })
 
 selfRoutes.get('/text', requireAuth({ allowQuery: true }), async (req, res) => {
-  let { path = '' } = req.query
-  if (!path) {
+  const { path: rawPath = '' } = req.query
+  if (!rawPath) {
     res.status(400).json({ error: 'path is required' })
     return
   }
 
-  path = path.replace(/^disk:/, '')
-  if (!path.startsWith('/')) path = '/' + path
-
-  const token = process.env.YANDEX_SELF_TOKEN
   const root = process.env.YANDEX_SELF_PATH || '/'
-  let cleanRoot = root.replace(/\/+$/, '')
-  if (cleanRoot && !cleanRoot.startsWith('/')) cleanRoot = '/' + cleanRoot
+  const { path, cleanRoot } = normalizePath(rawPath, root)
 
-  if (cleanRoot && path.startsWith(cleanRoot)) {
-    path = path.slice(cleanRoot.length)
-    if (!path.startsWith('/')) path = '/' + path
-  }
-
-  // Проверка прав
   const allowedFolders = req.selfAuth.allowedFolders
   if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
     const isAllowed = allowedFolders.some((f) => {
@@ -228,8 +175,8 @@ selfRoutes.get('/text', requireAuth({ allowQuery: true }), async (req, res) => {
 
   try {
     const diskPath = path === '/' ? `disk:${cleanRoot}` : `disk:${cleanRoot}${path}`
-    const meta = await yandexResourceMeta(token, diskPath)
-    const content = await yandexDownloadText(token, diskPath)
+    const meta = await yandexResourceMeta(process.env.YANDEX_SELF_TOKEN, diskPath)
+    const content = await yandexDownloadText(process.env.YANDEX_SELF_TOKEN, diskPath)
 
     res.json({
       content: content ?? '',
@@ -242,10 +189,9 @@ selfRoutes.get('/text', requireAuth({ allowQuery: true }), async (req, res) => {
   }
 })
 
-// PUT /text
 selfRoutes.put('/text', requireAuth({ allowQuery: true }), async (req, res) => {
-  let { path = '' } = req.query
-  if (!path) {
+  const { path: rawPath = '' } = req.query
+  if (!rawPath) {
     res.status(400).json({ error: 'path is required' })
     return
   }
@@ -256,20 +202,9 @@ selfRoutes.put('/text', requireAuth({ allowQuery: true }), async (req, res) => {
     return
   }
 
-  path = path.replace(/^disk:/, '')
-  if (!path.startsWith('/')) path = '/' + path
-
-  const token = process.env.YANDEX_SELF_TOKEN
   const root = process.env.YANDEX_SELF_PATH || '/'
-  let cleanRoot = root.replace(/\/+$/, '')
-  if (cleanRoot && !cleanRoot.startsWith('/')) cleanRoot = '/' + cleanRoot
+  const { path, cleanRoot } = normalizePath(rawPath, root)
 
-  if (cleanRoot && path.startsWith(cleanRoot)) {
-    path = path.slice(cleanRoot.length)
-    if (!path.startsWith('/')) path = '/' + path
-  }
-
-  // Проверка прав
   const allowedFolders = req.selfAuth.allowedFolders
   if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
     const isAllowed = allowedFolders.some((f) => {
@@ -284,8 +219,8 @@ selfRoutes.put('/text', requireAuth({ allowQuery: true }), async (req, res) => {
 
   try {
     const diskPath = path === '/' ? `disk:${cleanRoot}` : `disk:${cleanRoot}${path}`
-    await yandexUploadText(token, diskPath, content)
-    const meta = await yandexResourceMeta(token, diskPath)
+    await yandexUploadText(process.env.YANDEX_SELF_TOKEN, diskPath, content)
+    const meta = await yandexResourceMeta(process.env.YANDEX_SELF_TOKEN, diskPath)
 
     res.json({ ok: true, modified: meta.modified ?? null })
   } catch (err) {

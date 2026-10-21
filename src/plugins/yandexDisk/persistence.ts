@@ -3,8 +3,6 @@
 import { get, set, del } from 'idb-keyval'
 import type { PersistedYandexLibrary } from './types'
 
-const YANDEX_LIBRARY_KEY = 'player:yandexLibrary'
-
 /** Кэш живёт 24 часа */
 export const YANDEX_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -18,24 +16,28 @@ export class YandexPersistenceService {
     return YandexPersistenceService.instance
   }
 
-  async save(library: PersistedYandexLibrary): Promise<void> {
+  private getKey(pluginId: string): string {
+    return `player:library:${pluginId}`
+  }
+
+  async save(pluginId: string, library: PersistedYandexLibrary): Promise<void> {
     try {
-      await set(YANDEX_LIBRARY_KEY, {
+      await set(this.getKey(pluginId), {
         ...library,
         savedAt: Date.now(),
       })
     } catch (err) {
-      console.error('[yandex-plugin] failed to save library', err)
+      console.error(`[${pluginId}] failed to save library`, err)
       throw err
     }
   }
 
-  async load(): Promise<PersistedYandexLibrary | null> {
+  async load(pluginId: string): Promise<PersistedYandexLibrary | null> {
     try {
-      const data = await get<PersistedYandexLibrary>(YANDEX_LIBRARY_KEY)
+      const data = await get<PersistedYandexLibrary>(this.getKey(pluginId))
       return data ?? null
     } catch (err) {
-      console.error('[yandex-plugin] failed to load library', err)
+      console.error(`[${pluginId}] failed to load library`, err)
       return null
     }
   }
@@ -44,8 +46,8 @@ export class YandexPersistenceService {
     return Date.now() - library.savedAt < YANDEX_CACHE_TTL_MS
   }
 
-  async clear(): Promise<void> {
-    await del(YANDEX_LIBRARY_KEY)
+  async clear(pluginId: string): Promise<void> {
+    await del(this.getKey(pluginId))
   }
 }
 

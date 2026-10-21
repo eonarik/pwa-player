@@ -1,9 +1,9 @@
 <!-- src/views/HomeView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
-import { getPlugins, isPluginActivated, loadPlugin, pluginIdFromSource } from '@/plugins/registry'
+import { getPlugins, loadPlugin, pluginIdFromSource, isPluginActivated } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import type { PluginManifest } from '@/plugins/types'
@@ -29,10 +29,10 @@ const plugins = computed(() => {
   }))
 })
 
-onMounted(async () => {
+async function loadPlugins() {
   const metas: PluginMeta[] = []
   for (const manifest of getPlugins()) {
-    // Пропускаем плагины, которые требуют активации, но не активированы
+    // Пропускаем скрытые плагины, если они не активированы
     if (manifest.requiresActivation && !isPluginActivated(manifest.id)) {
       continue
     }
@@ -45,11 +45,15 @@ onMounted(async () => {
     }
   }
   pluginMetas.value = metas
+}
+
+onMounted(async () => {
+  await loadPlugins()
 
   // Автоподключение после возврата с OAuth
   if (route.query.auth === 'ok') {
     await router.replace({ path: route.path })
-    const yandexMeta = metas.find((m) => m.manifest.id === 'yandex')
+    const yandexMeta = pluginMetas.value.find((m) => m.manifest.id === 'yandex')
     if (yandexMeta) {
       await connectPlugin({ manifest: yandexMeta.manifest })
     }
@@ -107,6 +111,10 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
     const plugin = await loadPlugin(row.manifest.id)
     const context = createPluginContext(row.manifest.id)
     await plugin.disconnect(context)
+
+    // Принудительно перезагружаем список плагинов и ждем тик
+    await loadPlugins()
+    await nextTick()
 
     toastService.info(`Источник «${row.manifest.name}» отключён`)
   } catch (err) {

@@ -1,10 +1,10 @@
 // src/plugins/yandexDisk/YandexDiskService.ts
-
 import { compareStrings } from '@/utils/sort'
-import type { YandexResourcesResponse } from './types'
+import type { YandexResourcesResponse, YandexResourceItem } from './types'
 
 const PROXY_URL = ''
 const REQUEST_TIMEOUT_MS = 10_000
+const DISCONNECTED_KEY = 'yandex-disconnected'
 
 export class AuthRequiredError extends Error {
   constructor() {
@@ -32,6 +32,18 @@ export class YandexDiskService {
       YandexDiskService.instance = new YandexDiskService()
     }
     return YandexDiskService.instance
+  }
+
+  isDisconnected(): boolean {
+    return localStorage.getItem(DISCONNECTED_KEY) === 'true'
+  }
+
+  setDisconnected(val: boolean) {
+    if (val) {
+      localStorage.setItem(DISCONNECTED_KEY, 'true')
+    } else {
+      localStorage.removeItem(DISCONNECTED_KEY)
+    }
   }
 
   async ping(): Promise<boolean> {
@@ -65,9 +77,13 @@ export class YandexDiskService {
         throw new Error(error.error ?? `HTTP ${response.status}`)
       }
 
-      const data = (await response.json()) as YandexResourcesResponse
-      data.items.sort((a, b) => compareStrings(a.name, b.name))
-      return data
+      const data = (await response.json()) as YandexResourcesResponse & {
+        items?: YandexResourceItem[]
+      }
+      const items = data.items || data._embedded?.items || []
+      items.sort((a, b) => compareStrings(a.name, b.name))
+
+      return { ...data, items, total: items.length }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'TimeoutError') {
         throw new Error(`Таймаут запроса к Диску: ${path}`)

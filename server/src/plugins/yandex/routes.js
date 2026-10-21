@@ -1,21 +1,62 @@
 // server/src/plugins/yandex/routes.js
-
 import { Router } from 'express'
 import { requireSession } from '../../core/index.js'
 import { YandexApiError } from '../../shared/errors.js'
-import { listResources, getDownloadHref, getFileMeta, uploadText } from './service.js'
+import {
+  yandexListResources,
+  yandexDownloadHref,
+  yandexResourceMeta,
+  yandexDownloadText,
+  yandexUploadText,
+} from '../../shared/yandexApi.js'
+import { normalizeClientPath } from '../../shared/paths.js'
+
+const APP_ROOT = 'app:/'
+
+function resolveDiskPath(clientPath) {
+  const clean = normalizeClientPath(clientPath)
+  if (clean === '') return APP_ROOT
+  return `${APP_ROOT}${clean}`
+}
+
+function toClientPath(diskPath) {
+  if (diskPath === APP_ROOT) return '/'
+  if (diskPath.startsWith(APP_ROOT)) {
+    return diskPath.slice(APP_ROOT.length - 1)
+  }
+  return diskPath
+}
 
 export const yandexRoutes = Router()
-
 yandexRoutes.use(requireSession)
 
 yandexRoutes.get('/resources', async (req, res, next) => {
   const clientPath = typeof req.query.path === 'string' ? req.query.path : '/'
+  const token = req.user.accessToken
 
   try {
-    const result = await listResources(req.user.accessToken, clientPath)
-    res.json(result)
+    const path = resolveDiskPath(clientPath)
+    const data = await yandexListResources(token, path)
+
+    // 1. Добавляем isAudio
+    let items = (data._embedded?.items || []).map((item) => ({
+      ...item,
+      path: toClientPath(item.path),
+      isAudio: item.type === 'file' && /\.(mp3|flac|wav|ogg|m4a|aac|opus|wma)$/i.test(item.name),
+    }))
+
+    data._embedded = { ...data._embedded, items }
+    data.total = items.length
+    data.path = clientPath
+    data.items = items
+
+    res.json(data)
   } catch (err) {
+    if (err instanceof YandexApiError) {
+      const status = Number.isFinite(err.status) ? err.status : 500
+      res.status(status).json({ error: err.message })
+      return
+    }
     next(err)
   }
 })
@@ -28,7 +69,8 @@ yandexRoutes.get('/download', async (req, res, next) => {
   }
 
   try {
-    const href = await getDownloadHref(req.user.accessToken, clientPath)
+    const path = resolveDiskPath(clientPath)
+    const href = await yandexDownloadHref(req.user.accessToken, path)
     if (!href) {
       res.status(404).json({ error: 'Download link not found' })
       return
@@ -71,17 +113,12 @@ yandexRoutes.get('/text', async (req, res, next) => {
   }
 
   try {
-    const meta = await getFileMeta(req.user.accessToken, clientPath)
-    // Текстовое содержимое — через download href (тот же механизм, что и аудио)
-    const href = await getDownloadHref(req.user.accessToken, clientPath)
-    let content = ''
-    if (href) {
-      const fileRes = await fetch(href)
-      if (fileRes.ok) content = await fileRes.text()
-    }
+    const path = resolveDiskPath(clientPath)
+    const meta = await yandexResourceMeta(req.user.accessToken, path)
+    const content = await yandexDownloadText(req.user.accessToken, path)
 
     res.json({
-      content,
+      content: content ?? '',
       modified: meta.modified ?? null,
       size: meta.size ?? null,
     })
@@ -104,14 +141,16 @@ yandexRoutes.put('/text', async (req, res, next) => {
   }
 
   try {
-    const meta = await uploadText(req.user.accessToken, clientPath, content)
+    const path = resolveDiskPath(clientPath)
+    await yandexUploadText(req.user.accessToken, path, content)
+    const meta = await yandexResourceMeta(req.user.accessToken, path)
     res.json({ ok: true, modified: meta.modified ?? null })
   } catch (err) {
     next(err)
   }
 })
 
-// Централизованный error handler для плагина
+// Error handler
 yandexRoutes.use((err, _req, res, _next) => {
   if (err instanceof YandexApiError) {
     const status = Number.isFinite(err.status) ? err.status : 500

@@ -26,6 +26,8 @@ import {
   refreshSubtree,
 } from './scan'
 import { enrichWithLocalFiles, fromPersisted, toPersisted } from './persist'
+import { authService } from '@/services/auth/AuthService'
+import { useLibraryStore } from '@/stores/library'
 import type { IYandexService } from './types'
 
 const YANDEX_CONCURRENCY = 5
@@ -45,6 +47,13 @@ export function createYandexPlugin({
   service,
   isSelf = false,
 }: YandexPluginOptions): LibrarySource {
+  // Локальный флаг отмены. Привяжем его к сервису, чтобы scan.ts видел.
+  let cancelled = false
+  service.isCancelled = () => cancelled
+  service.setCancelled = (val: boolean) => {
+    cancelled = val
+  }
+
   return {
     id,
     name,
@@ -53,18 +62,27 @@ export function createYandexPlugin({
     isAvailable: () => typeof window !== 'undefined',
 
     async connect(context: PluginContext): Promise<void> {
+      if (service.setDisconnected) {
+        service.setDisconnected(false)
+      }
+      if (service.setCancelled) {
+        service.setCancelled(false) // <-- Сбрасываем отмену
+      }
+
       if (isSelf) {
         if (!service.login) throw new Error('Service does not support login')
 
-        // Всегда спрашиваем при подключении (если нет валидного токена)
         const code = await context.showModal<string>({
           title: `Вход в ${name}`,
           message: 'Введите пароль (необязательно)',
           type: 'input',
           inputType: 'password',
         })
-        if (!code) throw new Error('cancelled')
 
+        // Если null — значит пользователь нажал "Отмена"
+        if (code === null) throw new Error('cancelled')
+
+        // Если пустая строка — это валидный ввод (для common без пароля)
         let ctx = 'common'
         let password = code
 
@@ -79,6 +97,12 @@ export function createYandexPlugin({
       } else {
         const alive = service.ping ? await service.ping() : true
         if (!alive) throw new Error('Сервер недоступен')
+
+        const me = await authService.me()
+        if (me.authenticated) return
+
+        authService.startOAuth()
+        throw new Error('redirect')
       }
     },
 
@@ -104,12 +128,16 @@ export function createYandexPlugin({
       }
 
       context.writer.setLibrary(rootCollected, id)
-      await yandexPersistenceService.save(toPersisted(rootCollected))
+      await yandexPersistenceService.save(id, toPersisted(rootCollected))
       void backgroundScan(context, id, service)
     },
 
     async restoreFromCache(context: PluginContext): Promise<boolean> {
-      const cached = await yandexPersistenceService.load()
+      if (service.isDisconnected && service.isDisconnected()) {
+        return false
+      }
+
+      const cached = await yandexPersistenceService.load(id)
       if (!cached || !yandexPersistenceService.isFresh(cached)) return false
 
       const collected = fromPersisted(cached, service)
@@ -201,7 +229,7 @@ export function createYandexPlugin({
       const folder = context.writer.getFolder(folderId)
       if (!folder || !folder.remotePath) return
       await refreshSubtree(context, folder, id, service)
-      await yandexPersistenceService.save(toPersisted(currentLibraryFromWriter(context, id)))
+      await yandexPersistenceService.save(id, toPersisted(currentLibraryFromWriter(context, id)))
     },
 
     buildStreamUrl(track: LibraryTrack): string {
@@ -326,12 +354,42 @@ export function createYandexPlugin({
 
     async saveCache(context: PluginContext): Promise<void> {
       const collected = currentLibraryFromWriter(context, id)
-      await yandexPersistenceService.save(toPersisted(collected))
+      await yandexPersistenceService.save(id, toPersisted(collected))
     },
 
     async disconnect(context: PluginContext): Promise<void> {
+      // 1. Отменяем фоновые процессы
+      if (service.setCancelled) {
+        service.setCancelled(true)
+      }
+
+      // 2. Очищаем библиотеку через writer
       context.writer.removeBySource(id)
-      await yandexPersistenceService.clear()
+
+      // 3. ЯДЕРНАЯ ОЧИСТКА для триггера реактивности
+      const library = useLibraryStore()
+
+      library.folders = Object.fromEntries(
+        Object.entries(library.folders).filter(([, f]) => {
+          if (!f.source) return true
+          return f.source !== id && !f.source.startsWith(id + ':')
+        }),
+      )
+
+      library.tracks = Object.fromEntries(
+        Object.entries(library.tracks).filter(([, t]) => {
+          if (!t.pluginId) return true
+          return t.pluginId !== id && !t.pluginId.startsWith(id + ':')
+        }),
+      )
+
+      // 4. Ставим флаг отключения
+      if (service.setDisconnected) {
+        service.setDisconnected(true)
+      }
+
+      // 5. Очищаем кэш и токен
+      await yandexPersistenceService.clear(id)
       if (service.logout) service.logout()
     },
   }

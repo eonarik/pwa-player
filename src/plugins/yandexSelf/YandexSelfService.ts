@@ -2,15 +2,31 @@
 import type {
   IYandexService,
   YandexResourcesResponse,
+  YandexTextResponse,
+  YandexWriteResponse,
 } from '../yandexDisk/types'
 
 const API_URL = '/api/yandex-self'
+const TOKEN_KEY = 'yandex-self-token'
+const DISCONNECTED_KEY = 'yandex-self-disconnected'
 
 export class YandexSelfService implements IYandexService {
   private token: string | null = null
 
   constructor() {
-    this.token = localStorage.getItem('yandex-self-token')
+    this.token = localStorage.getItem(TOKEN_KEY)
+  }
+
+  isDisconnected(): boolean {
+    return localStorage.getItem(DISCONNECTED_KEY) === 'true'
+  }
+
+  setDisconnected(val: boolean) {
+    if (val) {
+      localStorage.setItem(DISCONNECTED_KEY, 'true')
+    } else {
+      localStorage.removeItem(DISCONNECTED_KEY)
+    }
   }
 
   async login(ctx: string, password: string): Promise<boolean> {
@@ -23,7 +39,7 @@ export class YandexSelfService implements IYandexService {
       if (!res.ok) return false
       const data = await res.json()
       this.token = data.token
-      localStorage.setItem('yandex-self-token', data.token!)
+      localStorage.setItem(TOKEN_KEY, data.token!)
       return true
     } catch {
       return false
@@ -32,10 +48,9 @@ export class YandexSelfService implements IYandexService {
 
   logout() {
     this.token = null
-    localStorage.removeItem('yandex-self-token')
+    localStorage.removeItem(TOKEN_KEY)
   }
 
-  // Очищаем путь от 'disk:/' перед отправкой
   private cleanPath(path: string): string {
     return path.replace(/^disk:/, '').replace(/^\/+/, '') || '/'
   }
@@ -64,39 +79,23 @@ export class YandexSelfService implements IYandexService {
   buildDownloadUrl(path: string): string {
     const clean = this.cleanPath(path)
     const params = new URLSearchParams({ path: clean })
-
-    // Добавляем токен в query, чтобы <audio> мог его передать
-    if (this.token) {
-      params.set('token', this.token)
-    }
-
+    if (this.token) params.set('token', this.token)
     return `${API_URL}/download?${params.toString()}`
   }
 
-  async readTextFile(
-    remotePath: string,
-  ): Promise<{ content: string; modified: string | null; size: number | null } | null> {
+  async readTextFile(remotePath: string): Promise<YandexTextResponse | null> {
     const clean = this.cleanPath(remotePath)
     const params = new URLSearchParams({ path: clean })
-
-    try {
-      const res = await fetch(`${API_URL}/text?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${this.token}` },
-      })
-      if (!res.ok) return null
-      return res.json()
-    } catch {
-      return null
-    }
+    const res = await fetch(`${API_URL}/text?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+    })
+    if (!res.ok) return null
+    return res.json()
   }
 
-  async writeTextFile(
-    remotePath: string,
-    content: string,
-  ): Promise<{ ok: boolean; modified: string | null }> {
+  async writeTextFile(remotePath: string, content: string): Promise<YandexWriteResponse> {
     const clean = this.cleanPath(remotePath)
     const params = new URLSearchParams({ path: clean })
-
     const res = await fetch(`${API_URL}/text?${params.toString()}`, {
       method: 'PUT',
       headers: {
@@ -105,12 +104,7 @@ export class YandexSelfService implements IYandexService {
       },
       body: JSON.stringify({ content }),
     })
-
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: 'Unknown error' }))
-      throw new Error(error.error || 'Failed to save')
-    }
-
+    if (!res.ok) throw new Error('Failed to write')
     return res.json()
   }
 }

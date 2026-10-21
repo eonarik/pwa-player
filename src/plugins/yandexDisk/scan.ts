@@ -9,8 +9,6 @@ import { toPersisted } from './persist'
 
 const ROOT_REMOTE_PATH = 'disk:/'
 
-// --- Хелперы ----------------------------------------------------------
-
 function isTextFile(name: string): boolean {
   return name.toLowerCase().endsWith('.txt')
 }
@@ -42,8 +40,6 @@ function partitionItems(items: YandexResourceItem[]): PartitionedItems {
 
   return { subDirs, audioItems, textItems }
 }
-
-// --- Построение ------------------------------------------------------
 
 function buildTrack(
   folder: Folder,
@@ -116,8 +112,6 @@ function ensureSubFolders(
   return { childFolderIds, newFolders }
 }
 
-// --- Сканирование одной папки ---------------------------------------
-
 export function mergeFolderContent(
   context: PluginContext,
   folder: Folder,
@@ -126,6 +120,9 @@ export function mergeFolderContent(
   sourceId: string,
   service: IYandexService,
 ): void {
+  // Если нас отменили — прерываемся
+  if (service.isCancelled && service.isCancelled()) return
+
   const { subDirs, audioItems, textItems } = partitionItems(items)
 
   const remoteTrackIds: string[] = []
@@ -211,8 +208,6 @@ export function removeSubtree(context: PluginContext, folderId: string): void {
   if (foldersToRemove.length > 0) context.writer.removeFolders(foldersToRemove)
 }
 
-// --- Рекурсивный обход (refresh) -------------------------------------
-
 export async function refreshSubtree(
   context: PluginContext,
   rootFolder: Folder,
@@ -220,6 +215,8 @@ export async function refreshSubtree(
   service: IYandexService,
 ): Promise<{ tracks: number; files: number }> {
   const walk = async (folder: Folder): Promise<{ tracks: number; files: number }> => {
+    // Проверка отмены
+    if (service.isCancelled && service.isCancelled()) return { tracks: 0, files: 0 }
     if (!folder.remotePath) return { tracks: 0, files: 0 }
 
     let response
@@ -231,6 +228,9 @@ export async function refreshSubtree(
       )
       return { tracks: 0, files: 0 }
     }
+
+    // Повторная проверка, так как пока ждали fetch, нас могли отменить
+    if (service.isCancelled && service.isCancelled()) return { tracks: 0, files: 0 }
 
     mergeFolderContent(
       context,
@@ -256,6 +256,7 @@ export async function refreshSubtree(
 
     const worker = async (): Promise<void> => {
       while (cursor < childFolders.length) {
+        if (service.isCancelled && service.isCancelled()) break // <-- Выход из цикла
         const i = cursor++
         const child = childFolders[i]!
         childResults[i] = await walk(child)
@@ -288,8 +289,6 @@ export async function refreshSubtree(
 
   return walk(rootFolder)
 }
-
-// --- Загрузка корня --------------------------------------------------
 
 export async function loadRootContent(
   sourceId: string,
@@ -365,13 +364,13 @@ export async function loadRootContent(
   }
 }
 
-// --- Фоновый обход ---------------------------------------------------
-
 export async function backgroundScan(
   context: PluginContext,
   sourceId: string,
   service: IYandexService,
 ): Promise<void> {
+  if (service.isCancelled && service.isCancelled()) return
+
   const allFolders = context.writer.getFoldersBySource(sourceId)
   const unready = allFolders.filter((f) => f.ready !== true)
 
@@ -381,12 +380,16 @@ export async function backgroundScan(
   if (!rootFolder) return
 
   await refreshSubtree(context, rootFolder, sourceId, service)
+
+  if (service.isCancelled && service.isCancelled()) return
+
   await import('./persistence').then(({ yandexPersistenceService }) =>
-    yandexPersistenceService.save(toPersisted(currentLibraryFromWriter(context, sourceId))),
+    yandexPersistenceService.save(
+      sourceId,
+      toPersisted(currentLibraryFromWriter(context, sourceId)),
+    ),
   )
 }
-
-// --- Поиск ближайшей существующей папки ------------------------------
 
 export function findNearestFolder(
   writer: LibraryWriter,
@@ -407,8 +410,6 @@ export function findNearestFolder(
 
   return folders.find((f) => f.parentId === null) ?? null
 }
-
-// --- Вспомогательное -------------------------------------------------
 
 export function currentLibraryFromWriter(
   context: PluginContext,

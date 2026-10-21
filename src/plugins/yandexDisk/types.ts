@@ -2,8 +2,6 @@
 
 import type { ScanStatus, TextFileRef, TrackOrigin } from '@/types/library'
 
-// --- Типы ответов API Яндекс.Диска ---
-
 export interface YandexResourceItem {
   path: string
   name: string
@@ -41,20 +39,21 @@ export interface YandexDownloadResponse {
   size: number
 }
 
-// --- Интерфейс сервиса ---
-
 export interface IYandexService {
   ping?(): Promise<boolean>
   login?(ctx: string, password: string): Promise<boolean>
-  checkContext?(ctx: string): Promise<boolean>
   logout?(): void
+  isDisconnected?(): boolean
+  setDisconnected?(val: boolean): void
+  /** Проверка: отменили ли мы текущие фоновые процессы */
+  isCancelled?(): boolean
+  /** Установить флаг отмены */
+  setCancelled?(val: boolean): void
   listResources(path: string): Promise<YandexResourcesResponse>
   buildDownloadUrl(path: string): string
   readTextFile(remotePath: string): Promise<YandexTextResponse | null>
   writeTextFile(remotePath: string, content: string): Promise<YandexWriteResponse>
 }
-
-// --- Типы для Persistence ---
 
 export interface PersistedYandexFolder {
   id: string
