@@ -1,7 +1,7 @@
 // src/plugins/extensions.ts
 
 import { getPlugins } from './registry'
-import type { PluginMenuItem } from './types'
+import type { PluginMenuItem, PluginManifest } from './types'
 import type { RouteRecordRaw } from 'vue-router'
 import type { PluginSettingsSchema } from './settingsTypes'
 import { loadRemotePlugins } from './remoteLoader'
@@ -16,6 +16,22 @@ interface LoadedExtension {
 
 let extensions: LoadedExtension[] = []
 
+async function loadSettingsSchema(
+  manifest: PluginManifest,
+  extensionGetSettings: (() => PluginSettingsSchema | Promise<PluginSettingsSchema>) | null,
+): Promise<PluginSettingsSchema | null> {
+  // Приоритет: extension.getSettings → manifest.getSettings
+  const getter = extensionGetSettings ?? manifest.getSettings
+  if (!getter) return null
+
+  try {
+    return await getter()
+  } catch (err) {
+    console.error(`[extensions] failed to load settings for ${manifest.id}`, err)
+    return null
+  }
+}
+
 export async function loadExtensions(): Promise<void> {
   extensions = []
 
@@ -24,27 +40,35 @@ export async function loadExtensions(): Promise<void> {
   const allPlugins = [...localPlugins, ...remotePlugins]
 
   for (const manifest of allPlugins) {
-    if (!manifest.extension) continue
+    // Расширение может отсутствовать — тогда плагин не даёт меню/роутов,
+    // но может давать настройки через manifest.getSettings.
+    let ext: {
+      menuItems?: PluginMenuItem[]
+      routes?: RouteRecordRaw[]
+      getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>
+    } | null = null
 
-    try {
-      const mod = await manifest.extension()
-      const ext = mod.default
-
-      let settingsSchema: PluginSettingsSchema | null = null
-      if (ext.getSettings) {
-        settingsSchema = await ext.getSettings()
+    if (manifest.extension) {
+      try {
+        const mod = await manifest.extension()
+        ext = mod.default
+      } catch (err) {
+        console.error(`[extensions] Failed to load extension for ${manifest.id}`, err)
       }
-
-      extensions.push({
-        pluginId: manifest.id,
-        menuItems: ext.menuItems ?? [],
-        routes: ext.routes ?? [],
-        settingsSchema,
-        runSettingsAction: manifest.runSettingsAction ?? null,
-      })
-    } catch (err) {
-      console.error(`[extensions] Failed to load extension for ${manifest.id}`, err)
     }
+
+    const settingsSchema = await loadSettingsSchema(manifest, ext?.getSettings ?? null)
+
+    // Плагин без расширения и без настроек — пропускаем.
+    if (!ext && !settingsSchema) continue
+
+    extensions.push({
+      pluginId: manifest.id,
+      menuItems: ext?.menuItems ?? [],
+      routes: ext?.routes ?? [],
+      settingsSchema,
+      runSettingsAction: manifest.runSettingsAction ?? null,
+    })
   }
 }
 
@@ -71,6 +95,41 @@ export function getExtensionSettings(): Array<{
       schema: e.settingsSchema!,
       runAction: e.runSettingsAction,
     }))
+}
+
+/**
+ * Все схемы настроек с манифестом плагина — для рендера
+ * `PluginSettingsSection` в `SettingsPlugins.vue`.
+ *
+ * Объединяет:
+ * - `manifest.getSettings` (если задан в манифесте)
+ * - `extension.getSettings` (если задан в расширении)
+ *
+ * Приоритет: `extension.getSettings` → `manifest.getSettings`
+ * (расширение может переопределить схему).
+ */
+export interface PluginSettingsEntry {
+  manifest: PluginManifest
+  schema: PluginSettingsSchema
+  runAction: ((id: string, payload?: unknown) => void | Promise<void>) | null
+}
+
+export function getAllSettingsSchemas(): PluginSettingsEntry[] {
+  const result: PluginSettingsEntry[] = []
+
+  for (const manifest of getPlugins()) {
+    const ext = extensions.find((e) => e.pluginId === manifest.id)
+    const schema = ext?.settingsSchema ?? null
+    if (!schema) continue
+
+    result.push({
+      manifest,
+      schema,
+      runAction: ext?.runSettingsAction ?? manifest.runSettingsAction ?? null,
+    })
+  }
+
+  return result
 }
 
 /** Очистка (для тестов) */

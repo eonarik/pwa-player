@@ -1,51 +1,37 @@
 <!-- src/views/settings/SettingsPlugins.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getPlugins, activatePlugin } from '@/plugins/registry'
+import { activatePlugin } from '@/plugins/registry'
+import { getAllSettingsSchemas, type PluginSettingsEntry } from '@/plugins/extensions'
 import { toastService } from '@/services/ui/ToastService'
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue'
 import type { PluginManifest } from '@/plugins/types'
-import type { PluginSettingsSchema } from '@/plugins/settingsTypes'
 
-interface PluginSchema {
-  manifest: PluginManifest
-  schema: PluginSettingsSchema
-}
-
-const pluginSchemas = ref<PluginSchema[]>([])
+const pluginSchemas = ref<PluginSettingsEntry[]>([])
 const isPluginActionRunning = ref(false)
 
-async function loadPluginSchemas(): Promise<void> {
-  const result: PluginSchema[] = []
-  for (const manifest of getPlugins()) {
-    if (!manifest.getSettings) continue
-    try {
-      const schema = await manifest.getSettings()
-      result.push({ manifest, schema })
-    } catch (err) {
-      console.warn(`[settings] failed to load settings for ${manifest.id}`, err)
-    }
-  }
-  pluginSchemas.value = result
+function loadPluginSchemas(): void {
+  pluginSchemas.value = getAllSettingsSchemas()
 }
 
 async function onPluginAction(
   manifest: PluginManifest,
+  runAction: PluginSettingsEntry['runAction'],
   actionId: string,
   payload?: unknown,
 ): Promise<void> {
-  if (!manifest.runSettingsAction) return
+  if (!runAction) return
   if (isPluginActionRunning.value) return
 
   isPluginActionRunning.value = true
   try {
-    await manifest.runSettingsAction(actionId, payload)
+    await runAction(actionId, payload)
   } catch (err) {
     console.error('[settings] plugin action failed', err)
     toastService.error('Не удалось выполнить действие')
   } finally {
     isPluginActionRunning.value = false
-    await loadPluginSchemas()
+    loadPluginSchemas()
   }
 }
 
@@ -54,7 +40,7 @@ function onPluginChange(manifest: PluginManifest, fieldId: string, value: unknow
 }
 
 onMounted(() => {
-  void loadPluginSchemas()
+  loadPluginSchemas()
 })
 
 // --- Активация скрытых плагинов ---------------------------------------
@@ -86,8 +72,9 @@ function handleActivation(): void {
             <span class="text-sm font-medium text-fg">{{ p.manifest.name }}</span>
           </div>
           <PluginSettingsSection v-for="section in p.schema.sections" :key="section.id" :section="section"
-            :disabled="isPluginActionRunning" @action="(id, payload) => onPluginAction(p.manifest, id, payload)"
-            @change="(id, value) => onPluginChange(p.manifest, id, value)" />
+            :disabled="isPluginActionRunning" @action="
+              (id, payload) => onPluginAction(p.manifest, p.runAction, id, payload)
+            " @change="(id, value) => onPluginChange(p.manifest, id, value)" />
         </div>
       </div>
     </section>
