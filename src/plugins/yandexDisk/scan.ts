@@ -6,6 +6,7 @@ import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import type { YandexResourceItem, IYandexService } from './types'
 import { toPersisted } from './persist'
+import { mapWithConcurrency } from './concurrency'
 
 const ROOT_REMOTE_PATH = 'disk:/'
 
@@ -208,15 +209,23 @@ export function removeSubtree(context: PluginContext, folderId: string): void {
   if (foldersToRemove.length > 0) context.writer.removeFolders(foldersToRemove)
 }
 
+interface RefreshTotals {
+  tracks: number
+  files: number
+}
+
+const REFRESH_CONCURRENCY = 5
+
 export async function refreshSubtree(
   context: PluginContext,
   rootFolder: Folder,
   sourceId: string,
   service: IYandexService,
-): Promise<{ tracks: number; files: number }> {
-  const walk = async (folder: Folder): Promise<{ tracks: number; files: number }> => {
-    // Проверка отмены
-    if (service.isCancelled && service.isCancelled()) return { tracks: 0, files: 0 }
+): Promise<RefreshTotals> {
+  const isCancelled = (): boolean => Boolean(service.isCancelled?.())
+
+  const walk = async (folder: Folder): Promise<RefreshTotals> => {
+    if (isCancelled()) return { tracks: 0, files: 0 }
     if (!folder.remotePath) return { tracks: 0, files: 0 }
 
     let response
@@ -230,7 +239,7 @@ export async function refreshSubtree(
     }
 
     // Повторная проверка, так как пока ждали fetch, нас могли отменить
-    if (service.isCancelled && service.isCancelled()) return { tracks: 0, files: 0 }
+    if (isCancelled()) return { tracks: 0, files: 0 }
 
     mergeFolderContent(
       context,
@@ -248,27 +257,15 @@ export async function refreshSubtree(
       .map((id) => context.writer.getFolder(id))
       .filter((f): f is Folder => Boolean(f))
 
-    const CONCURRENCY = 5
-    let cursor = 0
-    const childResults: Array<{ tracks: number; files: number }> = Array.from({
-      length: childFolders.length,
-    })
-
-    const worker = async (): Promise<void> => {
-      while (cursor < childFolders.length) {
-        if (service.isCancelled && service.isCancelled()) break
-        const i = cursor++
-        const child = childFolders[i]!
-        childResults[i] = await walk(child)
-      }
-    }
-
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, childFolders.length) }, () => worker()),
+    const childResults = await mapWithConcurrency(
+      childFolders,
+      REFRESH_CONCURRENCY,
+      (child) => walk(child),
+      { shouldStop: isCancelled },
     )
 
     // Если нас отменили прямо сейчас, выходим, чтобы не обновлять сломанные данные
-    if (service.isCancelled && service.isCancelled()) return { tracks: 0, files: 0 }
+    if (isCancelled()) return { tracks: 0, files: 0 }
 
     let childTracks = 0
     let childFiles = 0
