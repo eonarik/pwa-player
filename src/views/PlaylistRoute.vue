@@ -22,6 +22,7 @@ import SearchInput from '@/components/ui/SearchInput.vue'
 import IconPencil from '@/components/icons/IconPencil.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
 import type { LibraryTrack } from '@/types/library'
+import PlaylistShareMenu from "@/components/playlists/PlaylistShareMenu.vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -194,6 +195,7 @@ function onRemoved() {
             </span>
 
             <BatchDownloadButton :tracks="resolvedTracks" />
+            <PlaylistShareMenu :playlist="playlist" />
           </div>
         </div>
       </div>

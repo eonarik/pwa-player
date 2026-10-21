@@ -4,19 +4,24 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlaylistsStore } from '@/stores/playlists'
+import { useLibraryStore } from '@/stores/library'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { pluralize } from '@/utils/pluralize'
+import { toastService } from '@/services/ui/ToastService'
+import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser'
 import IconHeart from '@/components/icons/IconHeart.vue'
 import IconPlaylist from '@/components/icons/IconPlaylist.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
-import type { Playlist } from '@/types/playlist'
+import type { Playlist, PlaylistExportTrack } from '@/types/playlist'
 
 const router = useRouter()
 const playlists = usePlaylistsStore()
+const library = useLibraryStore()
 const { sortedPlaylists } = storeToRefs(playlists)
 
 const isCreating = ref(false)
 const newName = ref('')
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 function openPlaylist(playlist: Playlist) {
   router.push({ name: 'playlist', params: { id: playlist.id } })
@@ -52,6 +57,103 @@ function formatDate(ts: number): string {
   const d = new Date(ts)
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// --- Импорт ---------------------------------------------------------
+
+function triggerImport() {
+  fileInputRef.value?.click()
+}
+
+async function onFileSelected(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  try {
+    const content = await file.text()
+    const format = detectPlaylistFormat(content)
+
+    if (format === 'json') {
+      const parsed = parseJSON(content)
+      if (!parsed) {
+        toastService.error('Неверный формат JSON плейлиста')
+        return
+      }
+      createPlaylistFromImport(parsed.name, parsed.tracks)
+    } else if (format === 'm3u') {
+      const parsed = parseM3U(content)
+      const name = file.name.replace(/\.[^.]+$/, '')
+      createPlaylistFromImport(name, parsed)
+    } else {
+      toastService.error('Не удалось распознать формат плейлиста')
+    }
+  } catch (err) {
+    console.error('[import] failed', err)
+    toastService.error('Ошибка чтения файла')
+  } finally {
+    target.value = ''
+  }
+}
+
+function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
+  if (tracks.length === 0) {
+    toastService.error('Плейлист пуст')
+    return
+  }
+
+  const playlistId = playlists.createPlaylist(name)
+  const playlist = playlists.getPlaylist(playlistId)
+  if (!playlist) return
+
+  let matched = 0
+  let unmatched = 0
+
+  for (const t of tracks) {
+    // В 0.6.0 мы делаем жесткий поиск по совпадению строк (без порога 0.8)
+    const existingTrack = Object.values(library.tracks).find(
+      (libTrack) =>
+        libTrack.title.toLowerCase().trim() === (t.title || '').toLowerCase().trim() &&
+        libTrack.artist.toLowerCase().trim() === (t.artist || '').toLowerCase().trim()
+    )
+
+    if (existingTrack) {
+      matched++
+      playlist.tracks.push({
+        trackId: existingTrack.id,
+        pluginId: existingTrack.pluginId,
+        title: existingTrack.title,
+        artist: existingTrack.artist,
+        album: existingTrack.album,
+        remotePath: existingTrack.remotePath,
+        addedAt: Date.now(),
+      })
+    } else {
+      unmatched++
+      // Добавляем как "неизвестный" снимок, чтобы пользователь видел, что трек был в файле
+      playlist.tracks.push({
+        trackId: `imported:${crypto.randomUUID()}`,
+        pluginId: 'imported',
+        title: t.title || 'Unknown Title',
+        artist: t.artist || '',
+        album: t.album,
+        remotePath: t.path,
+        addedAt: Date.now(),
+      })
+    }
+  }
+
+  playlist.updatedAt = Date.now()
+  playlists.save()
+
+  if (unmatched > 0) {
+    toastService.info(`Импортировано: ${tracks.length} (найдено в библиотеке: ${matched}, не найдено: ${unmatched})`)
+  } else {
+    toastService.success(`Импортировано: ${tracks.length}`)
+  }
+
+  // Переходим в созданный плейлист
+  router.push({ name: 'playlist', params: { id: playlistId } })
+}
 </script>
 
 <template>
@@ -61,11 +163,21 @@ function formatDate(ts: number): string {
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <h1 class="text-lg font-medium text-fg">Плейлисты</h1>
 
-        <button v-if="!isCreating" type="button"
-          class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-          @click="startCreate">
-          Создать плейлист
-        </button>
+        <div class="flex items-center gap-2">
+          <button v-if="!isCreating" type="button"
+            class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
+            @click="triggerImport">
+            Импортировать
+          </button>
+
+          <button v-if="!isCreating" type="button"
+            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
+            @click="startCreate">
+            Создать плейлист
+          </button>
+        </div>
+
+        <input ref="fileInputRef" type="file" accept=".m3u,.json" class="hidden" @change="onFileSelected" />
       </div>
     </div>
 
@@ -120,7 +232,7 @@ function formatDate(ts: number): string {
             <!-- Удалить -->
             <button v-if="playlist.id !== FAVORITES_PLAYLIST_ID" type="button"
               class="rounded-btn p-1.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-red-400 group-hover:opacity-100"
-              aria-label="Удалить" v-tooltip="'Удалить'" @click.stop="deletePlaylist(playlist)">
+              aria-label="Удалить" @click.stop="deletePlaylist(playlist)">
               <IconTrash class="h-4 w-4" />
             </button>
           </button>
