@@ -3,6 +3,50 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.8.2] — 2026-10-22
+
+Технический релиз: рефакторинг, разбиение крупных файлов, устранение дублирования. Без новых пользовательских функций.
+
+### Changed
+
+- **`AudioService`** — динамический импорт `hls.js` (`await import('hls.js')`), чтобы не тянуть ~150 КБ в основной бандл. `AudioService.load` стал `async`; обновлены вызовы в `player.ts`, `restore.ts`, `playerRestore.ts`, тестах.
+- **`SettingsView`** — загрузка схем через `getAllSettingsSchemas()` из `extensions.ts`. Объединяет `manifest.getSettings` и `extension.getSettings` (приоритет — `extension`). Раньше `extension.getSettings` игнорировался.
+- **`PlayerControls.vue`** — скрыты `Prev`/`Next`/`PlayerProgressBar` для `isLiveStream` (как в `FullPlayer`).
+- **`useMediaSession`** — для live-треков не регистрируются `nexttrack`/`previoustrack`/`seek*` (no-op).
+- **`useKeyboardShortcuts`** — `N`/`P`/`←`/`→` для live-треков — no-op.
+
+### Fixed
+
+- **Live-треки в избранном** — `FavoriteButton` для `isLiveStream` больше не показывается в `TrackActions`, `FullPlayer`, `PlayerControls`, `RadioView`. Snapshot без URL не сохраняется, «мёртвых» записей в «Избранном» нет.
+- **Live-треки в дизлайках** — `DislikeButton` для live скрыт там же. `mode="skip"` для live больше не вызывает `player.next()`.
+- **«Добавить в плейлист» для live** — пункт скрыт в `TrackActions` для `isLiveStream`.
+- **`HomeView`** — кнопка «Очистить» для stateless-плагинов показывается только при `hasCustomData() === true`.
+- **`SettingsView.resetAll()`** — чистит `localStorage` (включая `radio:saved-stations`, `plugin-activated:*`), иначе данные выживали после «Сбросить все данные».
+- **`RadioView.removeStation`** — заменён `window.confirm` на `modalService.show({ type: 'confirm' })`, хоткеи блокируются корректно.
+- **`AudioService.play()`** — отладочный `console.log` убран из продакшена (оставлен под `import.meta.env.DEV`).
+- **`AudioService.spec.ts`** — добавлен тест на HLS-загрузку (`.m3u8` → `hls.js`).
+
+### Added
+
+- **Пункт «Радио» в шторке меню** — `radio/extension.ts` отдаёт `menuItems`.
+- **`getPageTitle` для `radio`** — заголовок `FullPlayer` на радио: «Радио», а не fallback «Плеер».
+- **`PlaylistsView.createPlaylistFromImport`** — если `path` в M3U/JSON — это `http(s)://...`, распознаётся как радио-станция и создаётся трек с `pluginId: 'radio'`.
+
+### Removed
+
+- Дублирование `isAudioFile` — единая реализация на фронте (`src/shared/audioExtensions.ts`) и на бэке (`server/src/shared/audio.js`). Реэкспорты из `yandex/service.js` и `yandex-self/filter.js` сохранены для совместимости тестов.
+- Дублирование `resolveDiskPath`/`toClientPath` — `routes.js` импортирует из `service.js`.
+- Дублирование `mapWithConcurrency` — инлайн-версия в `refreshSubtree` заменена на общий хелпер с `shouldStop`.
+- Дублирование `getPluginName`/`getPluginManifest` — вынесено в `src/plugins/lookup.ts`.
+- Прямые `fetch` на `de1.api.radio-browser.info/json/*` — вынесены в `RadioBrowserClient.ts`.
+- `src/plugins/yandexDisk/createPlugin.ts` разбит на `scanFolder.ts` + `download.ts` + `sync.ts`.
+- `src/plugins/yandexDisk/scan.ts` разбит на `scan/helpers.ts` + `scan/root.ts` + `scan/background.ts` (+ `scan/index.ts` как реэкспорт).
+- `src/stores/player.ts` разбит на `player/playerHelpers.ts` + `player/playerPersistence.ts` + `player/playerRestore.ts`.
+- `src/views/FolderView.vue` разбит на `folder/FolderHeader.vue` + `folder/FolderFilters.vue` + `folder/FolderContent.vue` + `composables/useFolderSync.ts`.
+- `src/views/PlaylistRoute.vue` разбит на `playlist/PlaylistHeader.vue` + `playlist/PlaylistToolbar.vue` + `playlist/PlaylistContent.vue` + `composables/usePlaylistRematch.ts`.
+- `src/views/SettingsView.vue` разбит на `settings/SettingsGeneral.vue` + `settings/SettingsPlugins.vue` + `settings/SettingsData.vue` + `settings/SettingsAbout.vue`.
+- `src/plugins/radio/RadioView.vue` разбит на `RadioSavedList.vue` + `RadioCatalog.vue` + `RadioFilters.vue`.
+
 ## [0.8.1] — 2026-10-21
 
 ### Fixed
