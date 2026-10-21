@@ -8,7 +8,7 @@ import type { MenuItem } from '@/navigation/menu'
 import { getExtensionMenuItems } from '@/plugins/extensions'
 import { computed } from "vue"
 
-const props = defineProps<{ open: boolean }>()
+defineProps<{ open: boolean }>()
 
 const emit = defineEmits<{ (e: 'close'): void; (e: 'open-feedback'): void }>()
 
