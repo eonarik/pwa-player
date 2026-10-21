@@ -9,28 +9,17 @@ import type {
   DownloadedTrackInfo,
   LoadOptions,
 } from '../types'
-import type { LibraryTrack, Folder, CollectedLibrary } from '@/types/library'
-import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
-import { downloadUrlToFile } from '@/services/download/downloadUrlToFile'
-import { scanDirectory } from '@/services/download/scanDirectory'
-import { getFileFromPath } from '@/services/download/getFileFromPath'
-import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
-import { mapWithConcurrency } from './concurrency'
+import type { LibraryTrack, CollectedLibrary } from '@/types/library'
+import { folderIdFromPath } from '@/services/library/id'
 import { yandexPersistenceService } from './persistence'
-import {
-  backgroundScan,
-  currentLibraryFromWriter,
-  findNearestFolder,
-  loadRootContent,
-  mergeFolderContent,
-  refreshSubtree,
-} from './scan'
-import { enrichWithLocalFiles, fromPersisted, toPersisted } from './persist'
+import { backgroundScan, currentLibraryFromWriter, loadRootContent, refreshSubtree } from './scan'
+import { fromPersisted, toPersisted, enrichWithLocalFiles } from './persist'
 import { authService } from '@/services/auth/AuthService'
 import { useLibraryStore } from '@/stores/library'
 import type { IYandexService } from './types'
-
-const YANDEX_CONCURRENCY = 5
+import { scanFolderRecursive } from './scanFolder'
+import { downloadTrackToDir, removeDownloadedFromDir } from './download'
+import { scanDownloadDirForSource, createLocalTrackFromFile } from './sync'
 
 export interface YandexPluginOptions {
   id: string
@@ -155,73 +144,7 @@ export function createYandexPlugin({
       folderId: string,
       options: ScanFolderOptions,
     ): Promise<boolean> {
-      const folder = context.writer.getFolder(folderId)
-      if (!folder || !folder.remotePath) return false
-
-      if (folder.scanStatus === 'scanning') return folder.ready ?? false
-
-      const needScan = folder.scanStatus !== 'scanned' || options.removeMissing === true
-
-      if (needScan) {
-        context.writer.updateFolder(folderId, { scanStatus: 'scanning' })
-        try {
-          const response = await service.listResources(folder.remotePath)
-          mergeFolderContent(
-            context,
-            folder,
-            response._embedded?.items || response.items || [],
-            options.removeMissing === true,
-            id,
-            service,
-          )
-        } catch (err) {
-          console.warn(`[${id}] scan failed for "${folder.path}":`, err)
-        }
-        context.writer.updateFolder(folderId, { scanStatus: 'scanned' })
-      }
-
-      if (!options.recursive) {
-        const updated = context.writer.getFolder(folderId)
-        const isReady =
-          updated?.scanStatus === 'scanned' && (updated.childFolderIds.length ?? 0) === 0
-        context.writer.updateFolder(folderId, { ready: isReady })
-        return isReady
-      }
-
-      const updated = context.writer.getFolder(folderId)
-      if (!updated) return false
-
-      const childFolders = updated.childFolderIds
-        .map((fid) => context.writer.getFolder(fid))
-        .filter((f): f is Folder => Boolean(f))
-
-      const childReady = await mapWithConcurrency(childFolders, YANDEX_CONCURRENCY, (child) =>
-        this.scanFolder!(context, child.id, options),
-      )
-
-      const childTrackTotal = childFolders.reduce((sum, child) => {
-        const c = context.writer.getFolder(child.id)
-        return sum + (c?.totalTrackCount ?? 0)
-      }, 0)
-
-      const childTextTotal = childFolders.reduce((sum, child) => {
-        const c = context.writer.getFolder(child.id)
-        return sum + (c?.totalTextFileCount ?? 0)
-      }, 0)
-
-      const final = context.writer.getFolder(folderId)
-      if (!final) return false
-
-      const allChildrenReady = childReady.every((r) => r === true)
-      const isReady = final.scanStatus === 'scanned' && allChildrenReady
-
-      context.writer.updateFolder(folderId, {
-        totalTrackCount: final.trackIds.length + childTrackTotal,
-        totalTextFileCount: (final.textFiles?.length ?? 0) + childTextTotal,
-        ready: isReady,
-      })
-
-      return isReady
+      return scanFolderRecursive({ context, sourceId: id, service }, folderId, options)
     },
 
     async refreshFolder(context: PluginContext, folderId: string): Promise<void> {
@@ -241,77 +164,31 @@ export function createYandexPlugin({
     },
 
     async downloadTrack(
-      _context: PluginContext,
+      context: PluginContext,
       track: LibraryTrack,
       options: DownloadTrackOptions,
     ): Promise<DownloadedTrackInfo> {
-      const url = this.buildDownloadUrl!(track)
-      const relativePath = track.path ?? track.filename
-      const result = await downloadUrlToFile(url, {
-        targetDir: options.targetDir,
-        relativePath,
-        onProgress: options.onProgress,
-        signal: options.signal,
-      })
-      return { relativePath, size: result.size }
+      return downloadTrackToDir(
+        { buildDownloadUrl: (t) => this.buildDownloadUrl!(t) },
+        context,
+        track,
+        options,
+      )
     },
 
     async removeDownloaded(
-      _context: PluginContext,
+      context: PluginContext,
       track: LibraryTrack,
       targetDir: FileSystemDirectoryHandle,
     ): Promise<void> {
-      const relativePath = track.path ?? track.filename
-      const segments = relativePath.split('/').filter(Boolean)
-      const fileName = segments.pop()
-      if (!fileName) return
-
-      try {
-        let dir = targetDir
-        for (const seg of segments) dir = await dir.getDirectoryHandle(seg)
-        await dir.removeEntry(fileName)
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'NotFoundError') return
-        throw err
-      }
+      return removeDownloadedFromDir(context, track, targetDir)
     },
 
     async scanDownloadDir(
       context: PluginContext,
       targetDir: FileSystemDirectoryHandle,
     ): Promise<ScanResult> {
-      const files = await scanDirectory(targetDir)
-      const allTracks = context.writer.getTracksBySource(id)
-
-      const byPath = new Map<string, LibraryTrack>()
-      for (const track of allTracks) {
-        byPath.set(track.path ?? track.filename, track)
-      }
-
-      const downloaded = new Map<string, string>()
-      const matchedPaths = new Set<string>()
-
-      for (const filePath of files.keys()) {
-        const track = byPath.get(filePath)
-        if (track) {
-          downloaded.set(track.id, filePath)
-          matchedPaths.add(filePath)
-        }
-      }
-
-      const onlyLocal: Array<{ relativePath: string; filename: string }> = []
-      for (const [filePath, file] of files) {
-        if (matchedPaths.has(filePath)) continue
-        onlyLocal.push({ relativePath: filePath, filename: file.handle.name })
-      }
-
-      const missing: string[] = []
-      for (const track of allTracks) {
-        if (track.origin !== 'downloaded') continue
-        if (!files.has(track.path ?? track.filename)) missing.push(track.id)
-      }
-
-      return { downloaded, onlyLocal, missing }
+      return scanDownloadDirForSource({ sourceId: id }, context, targetDir)
     },
 
     async createLocalTrack(
@@ -319,36 +196,7 @@ export function createYandexPlugin({
       relativePath: string,
       filename: string,
     ): Promise<LibraryTrack | null> {
-      const trackId = trackIdFromPath(id, relativePath)
-      if (context.writer.getTrack(trackId)) return null
-
-      const targetDir = await context.getDownloadDir()
-      if (!targetDir) return null
-
-      const file = await getFileFromPath(targetDir, relativePath)
-      if (!file) return null
-
-      const folder = findNearestFolder(context.writer, id, relativePath)
-      if (!folder) return null
-
-      const metadata = await parseTrackMetadata(file, {
-        folderName: relativePath.split('/').slice(-2)[0],
-      })
-
-      return {
-        id: trackId,
-        pluginId: id,
-        folderId: folder.id,
-        filename,
-        path: relativePath,
-        source: file,
-        origin: 'only-local',
-        title: metadata.title,
-        artist: metadata.artist,
-        album: metadata.album,
-        duration: metadata.duration,
-        coverUrl: metadata.coverUrl,
-      }
+      return createLocalTrackFromFile({ sourceId: id }, context, relativePath, filename)
     },
 
     async saveCache(context: PluginContext): Promise<void> {
