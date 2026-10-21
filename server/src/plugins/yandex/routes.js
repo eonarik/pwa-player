@@ -9,24 +9,8 @@ import {
   yandexDownloadText,
   yandexUploadText,
 } from '../../shared/yandexApi.js'
-import { normalizeClientPath } from '../../shared/paths.js'
+import { resolveDiskPath, toClientPath } from './service.js'
 import { isAudioFile } from '../../shared/audio.js'
-
-const APP_ROOT = 'app:/'
-
-function resolveDiskPath(clientPath) {
-  const clean = normalizeClientPath(clientPath)
-  if (clean === '') return APP_ROOT
-  return `${APP_ROOT}${clean}`
-}
-
-function toClientPath(diskPath) {
-  if (diskPath === APP_ROOT) return '/'
-  if (diskPath.startsWith(APP_ROOT)) {
-    return diskPath.slice(APP_ROOT.length - 1)
-  }
-  return diskPath
-}
 
 export const yandexRoutes = Router()
 yandexRoutes.use(requireSession)
