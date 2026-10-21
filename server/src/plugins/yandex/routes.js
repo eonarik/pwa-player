@@ -10,6 +10,7 @@ import {
   yandexUploadText,
 } from '../../shared/yandexApi.js'
 import { normalizeClientPath } from '../../shared/paths.js'
+import { isAudioFile } from '../../shared/audio.js'
 
 const APP_ROOT = 'app:/'
 
@@ -42,7 +43,7 @@ yandexRoutes.get('/resources', async (req, res, next) => {
     let items = (data._embedded?.items || []).map((item) => ({
       ...item,
       path: toClientPath(item.path),
-      isAudio: item.type === 'file' && /\.(mp3|flac|wav|ogg|m4a|aac|opus|wma)$/i.test(item.name),
+      isAudio: item.type === 'file' && isAudioFile(item.name),
     }))
 
     data._embedded = { ...data._embedded, items }

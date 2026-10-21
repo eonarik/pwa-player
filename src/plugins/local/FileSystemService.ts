@@ -7,10 +7,9 @@ import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
 import { compareStrings } from '@/utils/sort'
 import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
+import { isAudioFile } from '@/shared/audioExtensions'
 
 const HANDLES_KEY = 'player:directoryHandles'
-
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus', '.wma'])
 
 export class FileSystemService {
   private static instance: FileSystemService | null = null
@@ -108,12 +107,6 @@ export class FileSystemService {
 
   // --- Обход папки: нормализованная библиотека -------------------------
 
-  /**
-   * Рекурсивно обходит папку и возвращает нормализованную библиотеку:
-   * плоские массивы folders и tracks со связями через id.
-   *
-   * rootId — уникальный идентификатор корня (например, 'local:Music').
-   */
   async collectLibrary(
     rootHandle: FileSystemDirectoryHandle,
     rootId: string,
@@ -134,7 +127,7 @@ export class FileSystemService {
 
       for await (const entry of handle.values()) {
         if (entry.kind === 'file') {
-          if (this.isAudioFile(entry.name)) {
+          if (isAudioFile(entry.name)) {
             fileEntries.push(entry)
           }
         } else {
@@ -216,13 +209,6 @@ export class FileSystemService {
   }
 
   // --- Хелперы ----------------------------------------------------------
-
-  private isAudioFile(name: string): boolean {
-    const dot = name.lastIndexOf('.')
-    if (dot === -1) return false
-    const ext = name.slice(dot).toLowerCase()
-    return AUDIO_EXTENSIONS.has(ext)
-  }
 
   private async entryToFileEntry(
     handle: FileSystemFileHandle,

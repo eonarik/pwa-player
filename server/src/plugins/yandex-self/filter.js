@@ -1,12 +1,8 @@
 // server/src/plugins/yandex-self/filter.js
 
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus', '.wma'])
+import { isAudioFile } from '../../shared/audio.js'
 
-export function isAudioFile(name) {
-  const dot = name.lastIndexOf('.')
-  if (dot === -1) return false
-  return AUDIO_EXTENSIONS.has(name.slice(dot).toLowerCase())
-}
+export { isAudioFile }
 
 export function mapAndFilterItems(items, path, allowedFolders) {
   // 1. Добавляем isAudio

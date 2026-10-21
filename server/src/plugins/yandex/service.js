@@ -7,6 +7,7 @@ import {
   yandexUploadText,
 } from '../../shared/yandexApi.js'
 import { normalizeClientPath } from '../../shared/paths.js'
+import { isAudioFile } from '../../shared/audio.js'
 
 const APP_ROOT = 'app:/'
 
@@ -32,13 +33,7 @@ export function toClientPath(diskPath) {
   return diskPath
 }
 
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus', '.wma'])
-
-export function isAudioFile(name) {
-  const dot = name.lastIndexOf('.')
-  if (dot === -1) return false
-  return AUDIO_EXTENSIONS.has(name.slice(dot).toLowerCase())
-}
+export { isAudioFile }
 
 export async function listResources(accessToken, clientPath) {
   const path = resolveDiskPath(clientPath)
