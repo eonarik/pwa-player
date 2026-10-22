@@ -24,16 +24,11 @@ defineExpose({ close })
   <slot name="trigger" :is-open="isOpen" :toggle="toggle" :set-trigger-ref="setTriggerRef" />
 
   <Teleport to="body">
-    <div
-      v-if="isOpen"
-      class="fixed z-[100] overflow-hidden bg-bg-elevated shadow-lg"
-      :style="{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        width: `${width}px`,
-      }"
-      @click.stop
-    >
+    <div v-if="isOpen" class="fixed z-[100] overflow-hidden bg-bg-elevated shadow-lg radio-shadow-elevated" :style="{
+      top: `${position.top}px`,
+      left: `${position.left}px`,
+      width: `${width}px`,
+    }" @click.stop>
       <slot :close="close" />
     </div>
   </Teleport>

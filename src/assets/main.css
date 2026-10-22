@@ -1,7 +1,10 @@
 @import 'tailwindcss';
+@import './theme-radio.css';
+@import './theme-neon.css';
 
 @theme {
   --color-active: #768bbe;
+  --color-playing: #768bbe;
 
   /* Фон */
   --color-bg: #091227;
@@ -72,7 +75,7 @@ html {
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(234, 240, 255, 0.4) transparent;
+  scrollbar-color: var(--color-scrollbar, rgba(234, 240, 255, 0.4)) transparent;
 }
 
 /* WebKit (Chrome, Edge, Safari) */
@@ -86,12 +89,12 @@ html {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(234, 240, 255, 0.4);
+  background-color: var(--color-scrollbar, rgba(234, 240, 255, 0.4));
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(234, 240, 255, 1);
+  background-color: var(--color-scrollbar-hover, rgba(234, 240, 255, 1));
 }
 
 *::-webkit-scrollbar-corner {

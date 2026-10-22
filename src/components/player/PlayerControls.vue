@@ -80,14 +80,15 @@ function onFooterClick(e: MouseEvent) {
 </script>
 
 <template>
-  <footer class="w-full bg-bg" @click="onFooterClick">
-    <!-- Прогресс (для live не рендерим) -->
+  <footer class="relative w-full bg-bg radio-grille-bg" @click="onFooterClick">
+    <!-- Прогресс -->
     <PlayerProgressBar v-if="!isLive" :current-time="currentTime" :duration="duration" size="sm"
       :interactive="!isCoarsePointer" :expand-on-hover="!isCoarsePointer" :show-time-on-hover="!isCoarsePointer"
       time-position="floating" @seek="onSeek" />
     <div v-else class="flex h-1 w-full items-center justify-center bg-active/20">
       <span class="text-[9px] font-bold uppercase tracking-widest text-active/80">Live</span>
     </div>
+    <div class="absolute -top-1 z-[1] radio-scale w-full max-w-full"></div>
 
     <!-- === Мобильная версия === -->
     <div class="grid grid-cols-[1fr_auto] items-stretch md:hidden">
@@ -103,7 +104,7 @@ function onFooterClick(e: MouseEvent) {
           <IconPrev class="h-6 w-6" />
         </button>
 
-        <button type="button" class="rounded-full p-2 text-fg transition hover:text-fg-muted"
+        <button type="button" class="player-play-pause-btn rounded-full p-2 text-fg transition hover:text-fg-muted"
           :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
           @click="player.toggle()">
           <IconPause v-if="isPlaying" class="h-7 w-7" />
@@ -141,7 +142,7 @@ function onFooterClick(e: MouseEvent) {
           <IconPrev class="h-6 w-6" />
         </button>
 
-        <button type="button" class="rounded-btn p-2 text-fg transition hover:text-fg-muted"
+        <button type="button" class="player-play-pause-btn rounded-btn p-2 text-fg transition hover:text-fg-muted"
           :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
           @click="player.toggle()">
           <IconPause v-if="isPlaying" class="h-7 w-7" />

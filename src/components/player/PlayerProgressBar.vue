@@ -96,11 +96,11 @@ function onMouseLeave() {
         <!-- displayTime: floating — над текущей позицией; fixed — слева -->
         <span class="absolute text-xs tabular-nums text-fg-muted" :class="timePosition === 'fixed' ? 'left-0' : ''"
           :style="timePosition === 'fixed'
-              ? undefined
-              : {
-                left: `clamp(24px, ${progressPercent}%, calc(100% - 60px))`,
-                transform: 'translateX(-50%)',
-              }
+            ? undefined
+            : {
+              left: `clamp(24px, ${progressPercent}%, calc(100% - 60px))`,
+              transform: 'translateX(-50%)',
+            }
             ">
           {{ formatDuration(displayTime) }}
         </span>
@@ -115,15 +115,16 @@ function onMouseLeave() {
     <!-- Дорожка -->
     <div class="w-full overflow-hidden rounded-full transition-[height] duration-150" :class="isLarge ? 'h-1.5' : 'h-1'"
       :style="{ backgroundColor: 'var(--color-hover-bg)' }">
-      <div class="h-full bg-fg transition-[width] duration-75" :style="{ width: `${progressPercent}%` }" />
+      <div class="h-full bg-fg transition-[width] duration-75 radio-progress-fill"
+        :style="{ width: `${progressPercent}%` }" />
     </div>
 
     <!-- Range поверх дорожки -->
     <input v-if="interactive" type="range" min="0" :max="duration || 0" step="0.1" :value="displayTime"
       :aria-valuenow="ariaValue" aria-label="Позиция воспроизведения"
       class="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent" :class="isLarge
-          ? '[&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-fg [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-fg'
-          : '[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-fg [&::-webkit-slider-thumb]:opacity-0 [&::-webkit-slider-thumb]:transition-opacity group-hover:[&::-webkit-slider-thumb]:opacity-100 group-focus-within:[&::-webkit-slider-thumb]:opacity-100 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-fg [&::-moz-range-thumb]:opacity-0 [&::-moz-range-thumb]:transition-opacity group-hover:[&::-moz-range-thumb]:opacity-100 group-focus-within:[&::-moz-range-thumb]:opacity-100'
+        ? '[&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-fg [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-fg'
+        : '[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-fg [&::-webkit-slider-thumb]:opacity-0 [&::-webkit-slider-thumb]:transition-opacity group-hover:[&::-webkit-slider-thumb]:opacity-100 group-focus-within:[&::-webkit-slider-thumb]:opacity-100 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-fg [&::-moz-range-thumb]:opacity-0 [&::-moz-range-thumb]:transition-opacity group-hover:[&::-moz-range-thumb]:opacity-100 group-focus-within:[&::-moz-range-thumb]:opacity-100'
         " @input="onInput" @pointerdown="onPointerDown" @pointerup="onPointerUp" @pointercancel="onPointerUp" />
   </div>
 </template>

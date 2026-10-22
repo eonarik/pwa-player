@@ -62,7 +62,7 @@ const isDownloaded = computed(() => {
     @click="emit('select')">
     <template #leading>
       <TrackCover :track="track">
-        <PlayingIndicator v-if="isCurrent && isPlaying" />
+        <PlayingIndicator v-if="isCurrent && isPlaying" variant="eye" />
       </TrackCover>
     </template>
 

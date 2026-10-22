@@ -55,7 +55,7 @@ const allMenuItems = computed<MenuItem[]>(() => {
       enter-to-class="translate-x-0" leave-active-class="transition duration-150 ease-in"
       leave-from-class="translate-x-0" leave-to-class="-translate-x-full">
       <div v-if="open"
-        class="fixed inset-y-0 left-0 z-[130] flex w-[80vw] max-w-sm flex-col bg-bg shadow-[0_0_10px_rgba(0,0,0,0.25)]">
+        class="app-drawer-panel fixed inset-y-0 left-0 z-[130] flex w-[80vw] max-w-sm flex-col bg-bg shadow-[0_0_10px_rgba(0,0,0,0.25)]">
         <div class="app-safe-top flex items-center gap-2 px-4 py-4">
           <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg" v-tooltip="'Закрыть меню'"
             aria-label="Закрыть меню" @click="emit('close')">

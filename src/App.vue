@@ -204,6 +204,31 @@ onMounted(async () => {
 
 <template>
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
+    <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <!-- Градиенты для ретро -->
+        <linearGradient id="brass-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fce68a" />
+          <stop offset="50%" stop-color="#d4af37" />
+          <stop offset="100%" stop-color="#8b6914" />
+        </linearGradient>
+        <linearGradient id="emerald-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6effb0" />
+          <stop offset="100%" stop-color="#1b8a4c" />
+        </linearGradient>
+
+        <!-- Градиенты для киберпанка -->
+        <linearGradient id="neon-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#00f0ff" />
+          <stop offset="100%" stop-color="#7df9ff" />
+        </linearGradient>
+        <linearGradient id="magenta-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#ff007f" />
+          <stop offset="100%" stop-color="#ff7fbf" />
+        </linearGradient>
+      </defs>
+    </svg>
+
     <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2">
       <button type="button"
@@ -224,7 +249,7 @@ onMounted(async () => {
       </span>
     </header>
 
-    <main class="overflow-hidden">
+    <main class="overflow-hidden radio-grille-bg">
       <RouterView v-if="!isBootstrapping" />
       <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
         Загрузка…

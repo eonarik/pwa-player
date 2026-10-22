@@ -36,8 +36,11 @@ import { useDislikesStore } from './stores/dislikes'
 import { useUiSettingsStore } from './stores/uiSettings'
 import { initTooltip, tooltip } from './directives/tooltip'
 import { getExtensionRoutes, loadExtensions } from './plugins/extensions.ts'
+import { themeService } from './services/ui/ThemeService.ts'
 
 async function bootstrap() {
+  themeService.load()
+
   try {
     const wasCleared = await schemaService.ensureCompatible()
     if (wasCleared) {

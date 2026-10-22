@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { toastService } from '@/services/ui/ToastService'
+import { themeService, type ThemeId } from '@/services/ui/ThemeService'
 import SectionTitle from '@/components/ui/SectionTitle.vue'
 
 const uiSettings = useUiSettingsStore()
@@ -49,6 +50,18 @@ function applyPlaylistThreshold(): void {
   localPlaylistThreshold.value = v
 }
 
+// --- Тема оформления -------------------------------------------------
+
+const currentTheme = computed(() => themeService.current.value)
+const availableThemes = themeService.available
+
+function onThemeChange(e: Event): void {
+  const value = (e.target as HTMLSelectElement).value as ThemeId
+  themeService.apply(value)
+}
+
+// --- Папка скачивания ------------------------------------------------
+
 const isPickingSpace = ref(false)
 
 async function pickSpace(): Promise<void> {
@@ -71,6 +84,22 @@ async function restoreAccess(): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-6">
+    <section>
+      <SectionTitle text="Тема оформления" />
+      <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
+        <div class="min-w-0">
+          <p class="text-sm text-fg">Цветовая схема</p>
+          <p class="text-xs text-fg-muted">Тёмная или ретро-радио</p>
+        </div>
+        <select :value="currentTheme" class="rounded-btn bg-bg-elevated px-2 py-1 text-sm text-fg focus:outline-none"
+          @change="onThemeChange">
+          <option v-for="theme in availableThemes" :key="theme.id" :value="theme.id">
+            {{ theme.label }}
+          </option>
+        </select>
+      </div>
+    </section>
+
     <section>
       <SectionTitle text="Поиск" />
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">

@@ -6,6 +6,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useDominantColor } from '@/composables/useDominantColor'
 import { rgbToString } from '@/utils/dominantColor'
 import { isLinearContent, isLiveStream } from '@/plugins/registry'
+import { themeService } from '@/services/ui/ThemeService'
 import PlayerProgressBar from './PlayerProgressBar.vue'
 import CoverImage from '@/components/ui/CoverImage.vue'
 import DislikeButton from '@/components/ui/DislikeButton.vue'
@@ -57,9 +58,14 @@ const coverSrc = computed(() => currentTrack.value?.coverUrl ?? null)
 const dominantColor = useDominantColor(coverSrc)
 
 const glowStyle = computed(() => {
+  if (themeService.current.value === 'radio') {
+    return {
+      background: 'radial-gradient(ellipse 50% 50% at 50% 65%, rgba(212, 175, 55, 0.4) 0%, rgba(212, 175, 55, 0) 70%)',
+    }
+  }
   const c = dominantColor.value
   return {
-    background: `radial-gradient(ellipse 50% 12% at 50% 80%, ${rgbToString(c, 0.7)} 0%, ${rgbToString(c, 0)} 70%)`,
+    background: `radial-gradient(ellipse 50% 50% at 50% 65%, ${rgbToString(c, 0.4)} 0%, ${rgbToString(c, 0)} 70%)`,
   }
 })
 
@@ -161,12 +167,12 @@ watch(
       <div class="flex min-h-0 flex-1 flex-col items-center px-6 pb-8">
         <!-- Обложка + свечение -->
         <div class="flex w-full max-w-sm flex-1 items-center justify-center py-4">
-          <div class="relative">
+          <div class="relative rounded-card">
             <div v-if="currentTrack?.coverUrl && !coverHasError"
               class="glow-pulse pointer-events-none absolute inset-0 -z-10" :style="glowStyle" aria-hidden="true" />
 
             <div
-              class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden rounded-card bg-bg-elevated shadow-2xl">
+              class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden rounded-card bg-bg-elevated shadow-2xl radio-inset">
               <CoverImage :src="currentTrack?.coverUrl" :alt="currentTrack?.album ?? ''"
                 fallback-icon-class="h-1/2 w-1/2" @error="coverHasError = true" @load="coverHasError = false" />
             </div>
@@ -206,13 +212,13 @@ watch(
 
           <div class="flex items-center gap-4">
             <button v-if="!isLive && !isLinear" type="button" class="rounded-btn p-2 transition"
-              :class="shuffle ? 'text-fg' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
+              :class="shuffle ? 'text-active' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
               aria-label="Перемешать" v-tooltip="'Перемешать'" @click="player.toggleShuffle()">
               <IconShuffle class="h-6 w-6" />
             </button>
 
             <button v-if="!isLive && !isLinear" type="button" class="relative rounded-btn p-2 transition"
-              :class="repeatMode !== 'off' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
+              :class="repeatMode !== 'off' ? 'text-active' : 'text-fg-muted hover:text-fg'"
               :aria-pressed="repeatMode !== 'off'" :aria-label="`Повтор: ${repeatMode}`"
               v-tooltip="`Повтор: ${repeatMode}`" @click="player.cycleRepeat()">
               <IconRepeat class="h-6 w-6" />
@@ -274,13 +280,13 @@ watch(
 
   0%,
   100% {
-    opacity: 0.6;
-    transform: scale(1.5) scale(1);
+    opacity: 0.5;
+    transform: scale(1.2) scale(1);
   }
 
   50% {
-    opacity: 1;
-    transform: scale(1.5) scale(1.1);
+    opacity: 0.9;
+    transform: scale(1.2) scale(1.1);
   }
 }
 </style>
