@@ -86,6 +86,10 @@ yandexRoutes.get('/download', async (req, res, next) => {
     }
     await pump()
   } catch (err) {
+    if (res.headersSent || res.writableEnded) {
+      res.destroy()
+      return
+    }
     next(err)
   }
 })

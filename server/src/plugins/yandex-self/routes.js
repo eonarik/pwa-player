@@ -147,6 +147,14 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
     await pump()
   } catch (err) {
     console.log(`[yandex-self] Download error:`, err.message)
+
+    // Заголовки уже ушли (частично отданный файл, обрыв клиентом) —
+    // отвечать нельзя, только рвём соединение.
+    if (res.headersSent || res.writableEnded) {
+      res.destroy()
+      return
+    }
+
     res.status(500).json({ error: 'Internal server error' })
   }
 })
