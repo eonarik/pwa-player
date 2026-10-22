@@ -3,7 +3,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
-import { isLiveStream } from '@/plugins/registry'
+import { isLinearContent, isLiveStream } from '@/plugins/registry'
 import PlayerProgressBar from './PlayerProgressBar.vue'
 import NowPlayingInfo from './NowPlayingInfo.vue'
 import IconPlay from '@/components/icons/IconPlay.vue'
@@ -24,6 +24,9 @@ const emit = defineEmits<{
 const player = usePlayerStore()
 const { currentTrack, isPlaying, currentTime, duration, volume, muted, repeatMode, shuffle } =
   storeToRefs(player)
+
+
+const isLinear = computed(() => currentTrack.value ? isLinearContent(currentTrack.value.pluginId) : false)
 
 const isLive = computed(() =>
   currentTrack.value ? isLiveStream(currentTrack.value.pluginId) : false,
@@ -123,11 +126,11 @@ function onFooterClick(e: MouseEvent) {
           <NowPlayingInfo :track="currentTrack" cover-class="h-16 w-16" fallback-icon-class="h-6 w-6" />
         </button>
 
-        <TrackReactionButtons v-if="!isLive" :track="currentTrack" size="md" dislike-mode="skip" />
+        <TrackReactionButtons v-if="!isLive && !isLinear" :track="currentTrack" size="md" dislike-mode="skip" />
       </div>
 
       <div class="flex items-center justify-center gap-1">
-        <button v-if="!isLive" type="button" class="rounded-btn p-2 transition"
+        <button v-if="!isLive && !isLinear" type="button" class="rounded-btn p-2 transition"
           :class="shuffle ? 'text-active' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
           aria-label="Перемешать" v-tooltip="'Перемешать'" @click="player.toggleShuffle()">
           <IconShuffle class="h-5 w-5" />
@@ -150,7 +153,7 @@ function onFooterClick(e: MouseEvent) {
           <IconNext class="h-6 w-6" />
         </button>
 
-        <button v-if="!isLive" type="button" class="relative rounded-btn p-2 transition"
+        <button v-if="!isLive && !isLinear" type="button" class="relative rounded-btn p-2 transition"
           :class="repeatMode !== 'off' ? 'text-active' : 'text-fg-muted hover:text-fg'"
           :aria-pressed="repeatMode !== 'off'" :aria-label="repeatLabel" v-tooltip="repeatLabel"
           @click="player.cycleRepeat()">

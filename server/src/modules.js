@@ -5,6 +5,7 @@ import { metadataRouter } from './metadata/routes.js'
 import * as yandex from './plugins/yandex/index.js'
 import * as feedback from './plugins/feedback/index.js'
 import * as yaSelf from './plugins/yandex-self/index.js'
+import * as podcasts from './plugins/podcasts/index.js'
 
 const MODULES = [
   { prefix: core.prefix, router: core.router }, // /api/auth
@@ -12,6 +13,7 @@ const MODULES = [
   { prefix: yandex.prefix, router: yandex.router }, // /api/disk
   { prefix: feedback.prefix, router: feedback.router }, // /api/feedback
   { prefix: yaSelf.prefix, router: yaSelf.router }, // /api/yandex-self
+  { prefix: podcasts.prefix, router: podcasts.router },
 ]
 
 export function mountModules(app) {

@@ -16,7 +16,7 @@ import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
-import { pluginCanDownload, isLiveStream } from '@/plugins/registry'
+import { pluginCanDownload, isLiveStream, isLinearContent } from '@/plugins/registry'
 import IconDownload from '../icons/IconDownload.vue'
 import IconCloudCheck from '../icons/IconCloudCheck.vue'
 import IconX from '../icons/IconX.vue'
@@ -46,6 +46,7 @@ const userPlaylists = computed(() =>
   playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
 )
 
+const isLinear = computed(() => isLinearContent(props.track.pluginId))
 const isLive = computed(() => isLiveStream(props.track.pluginId))
 
 const isManuallyEdited = computed(() => {
@@ -246,7 +247,7 @@ async function onDownload(close: () => void) {
 
 <template>
   <div class="flex items-center gap-0.5">
-    <TrackReactionButtons v-if="!isLive" :track="track" size="sm" dislike-mode="toggle" />
+    <TrackReactionButtons v-if="!isLive && !isLinear" :track="track" size="sm" dislike-mode="toggle" />
 
     <DropdownMenu :width="256">
       <template #trigger="{ toggle, setTriggerRef }">
@@ -299,8 +300,8 @@ async function onDownload(close: () => void) {
           </div>
         </template>
 
-        <!-- Метаданные (скрыты для live) -->
-        <template v-if="!isLive">
+        <!-- Метаданные -->
+        <template v-if="!isLive && !isLinear">
           <button v-if="isManuallyEdited" type="button"
             class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
             @click="closeMenu(close)">
@@ -346,8 +347,8 @@ async function onDownload(close: () => void) {
         <!-- Скачать (скрыто для live) -->
         <button v-if="canDownload" type="button"
           class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition" :class="downloadOrigin === 'remote' && !isDownloading
-              ? 'text-fg hover:bg-hover-bg'
-              : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
+            ? 'text-fg hover:bg-hover-bg'
+            : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
             " @click="onDownload(close)">
           <IconDownload v-if="downloadOrigin === 'remote' && !isDownloading" class="h-4 w-4 shrink-0" />
           <IconCloudCheck v-else-if="downloadOrigin === 'downloaded'" class="h-4 w-4 shrink-0" />

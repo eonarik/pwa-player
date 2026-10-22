@@ -102,6 +102,15 @@ export function isLiveStream(pluginId: string): boolean {
   return manifest?.isLiveStream ?? false
 }
 
+export function getContentKind(pluginId: string): 'music' | 'linear' {
+  const manifest = registry.get(pluginIdFromSource(pluginId))?.manifest
+  return manifest?.contentKind ?? 'music'
+}
+
+export function isLinearContent(pluginId: string): boolean {
+  return getContentKind(pluginId) === 'linear'
+}
+
 if (import.meta.env.DEV) {
   const ids = getPlugins().map((p) => `${p.icon} ${p.id}`)
   console.info(`[plugins] зарегистрировано: ${ids.length ? ids.join(', ') : 'нет'}`)

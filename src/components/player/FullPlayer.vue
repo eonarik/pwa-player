@@ -5,7 +5,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useDominantColor } from '@/composables/useDominantColor'
 import { rgbToString } from '@/utils/dominantColor'
-import { isLiveStream } from '@/plugins/registry'
+import { isLinearContent, isLiveStream } from '@/plugins/registry'
 import PlayerProgressBar from './PlayerProgressBar.vue'
 import CoverImage from '@/components/ui/CoverImage.vue'
 import DislikeButton from '@/components/ui/DislikeButton.vue'
@@ -39,6 +39,10 @@ const isLive = computed(() =>
 )
 
 const coverHasError = ref(false)
+
+const isLinear = computed(() =>
+  currentTrack.value ? isLinearContent(currentTrack.value.pluginId) : false,
+)
 
 watch(
   () => currentTrack.value?.coverUrl,
@@ -180,11 +184,11 @@ watch(
             </p>
           </div>
 
-          <div v-if="!isLive" class="absolute left-0 -top-1 flex items-start">
+          <div v-if="!isLive && !isLinear" class="absolute left-0 -top-1 flex items-start">
             <DislikeButton :track="currentTrack" size="lg" mode="skip" />
           </div>
 
-          <div v-if="!isLive" class="absolute right-0 -top-1 flex items-start">
+          <div v-if="!isLive && !isLinear" class="absolute right-0 -top-1 flex items-start">
             <FavoriteButton :track="currentTrack" size="lg" />
           </div>
         </div>
@@ -192,8 +196,8 @@ watch(
         <!-- Volume + shuffle + repeat + queue -->
         <div class="flex w-full max-w-sm items-center justify-between pb-8">
           <button type="button" class="rounded-btn p-2 transition" :class="muted || volume === 0
-              ? 'text-fg hover:bg-hover-bg'
-              : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
+            ? 'text-fg hover:bg-hover-bg'
+            : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
             " :aria-label="muted ? 'Включить звук' : 'Выключить звук'"
             v-tooltip="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()">
             <IconVolumeMute v-if="muted || volume === 0" class="h-6 w-6" />
@@ -201,13 +205,13 @@ watch(
           </button>
 
           <div class="flex items-center gap-4">
-            <button v-if="!isLive" type="button" class="rounded-btn p-2 transition"
+            <button v-if="!isLive && !isLinear" type="button" class="rounded-btn p-2 transition"
               :class="shuffle ? 'text-fg' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
               aria-label="Перемешать" v-tooltip="'Перемешать'" @click="player.toggleShuffle()">
               <IconShuffle class="h-6 w-6" />
             </button>
 
-            <button v-if="!isLive" type="button" class="relative rounded-btn p-2 transition"
+            <button v-if="!isLive && !isLinear" type="button" class="relative rounded-btn p-2 transition"
               :class="repeatMode !== 'off' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
               :aria-pressed="repeatMode !== 'off'" :aria-label="`Повтор: ${repeatMode}`"
               v-tooltip="`Повтор: ${repeatMode}`" @click="player.cycleRepeat()">

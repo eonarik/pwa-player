@@ -38,6 +38,7 @@ export interface PluginManifest {
    * метаданные и кнопки скачивания.
    */
   readonly isLiveStream?: boolean
+  readonly contentKind?: 'music' | 'linear' // default 'music'
 
   /**
    * Если true — плагин не требует подключения (нет папок, нет OAuth).

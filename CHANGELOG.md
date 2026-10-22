@@ -3,6 +3,60 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.9.0] — 2026-10-22
+
+### Added
+
+- **Плагин «Подкасты» (`podcasts`)** — каталог и подписки на подкасты через Apple Podcasts. Отдельный роут `/podcasts`, доступен с главного экрана. Stateless-плагин: нет папок, подписки и кеш живут в `localStorage`.
+- **Каталог подкастов** — топ из Apple Podcasts Charts (страна, жанр), поиск через iTunes Search API, пейджинация по 5/10/15/20/30. Кеш топа и поиска в `localStorage` с soft-TTL и fallback на stale при недоступности сервера.
+- **«Мои подкасты»** — список подписок, кнопка `▶`/`⏸` на обложке (играть все эпизоды без перехода), переход на страницу подкаста, удаление.
+- **Страница подкаста** — список эпизодов, «Играть всё», кнопка `▶`/`⏸` в шапке, обновление ленты (TTL 1 час), играть отдельный эпизод.
+- **Прокси для RSS и iTunes API** на бэкенде — `/api/podcasts/proxy?url=...`. Решает CORS для RSS-лент и Apple API. Лимит 30 МБ, таймаут 15 секунд, `Cache-Control: public, max-age=600`.
+- **`contentKind: 'linear'`** в `PluginManifest` — ядро скрывает shuffle, repeat, dislike, favorite для упорядоченного контента (подкасты). `isLinearContent(pluginId)` в `registry`. Ядро не знает про подкасты.
+- **`AddRemoveButton.vue`** — единая кнопка `+`/`X` для радио и подкастов.
+- **`CatalogLayout.vue`** — единый каркас каталога (шапка, поиск, лимит, пагинация, состояния loading/error/empty/stale). Радио и подкасты стали тонкими обёртками.
+- **`useSoftTtlCache`** — composable soft-TTL кеша с fallback на stale. Используется в `RadioService`, `PodcastStorage`.
+- **`CoverImage.vue`** — единый компонент обложки с fallback и сбросом ошибки при смене `src`. Используется в `TrackCover`, `NowPlayingInfo`, `FullPlayer`.
+- **`NowPlayingInfo.vue`** — обложка + название + артист для мини-плеера. Убирает дублирование между мобильной и десктопной версиями `PlayerControls`.
+- **`SectionTitle.vue`** — единый компонент заголовков секций (настройки, радио, подкасты, папки).
+- **`QueueView` — «В плейлист»** — сохранить все треки текущей очереди в плейлист или создать новый. Метод `addTracksToPlaylist` в `stores/playlists`.
+- **Индикация играющей станции в каталоге радио** — подсветка строки, эквалайзер вместо `▶`, клик по нему ставит на паузу.
+- **Сворачиваемые фильтры на мобилке** в каталоге радио — кнопка «Фильтры · активно», на десктопе всегда развёрнуто.
+
+### Changed
+
+- **`RadioService` / `PodcastStorage`** — кеш переведён на `useSoftTtlCache`. Soft-TTL: просроченные данные не удаляются, при ошибке сети отдаются как fallback.
+- **`RadioService.searchByName`** — принимает `order`, возвращает `{ stations, total }`. Запрашивает `limit * 3` для компенсации HTTPS-фильтрации.
+- **`RadioBrowserClient`** — soft-TTL кеш стран/тегов в `localStorage` с fallback на stale.
+- **`RadioCatalog`** — вынесен в `CatalogLayout` + `RadioFilters`, использует `AddRemoveButton`. Убран `isMobileFiltersOpen` в пользу общего каркаса.
+- **`PodcastCatalog`** — использует `CatalogLayout`, `AddRemoveButton`. Пагинация через увеличение `limit` (Apple Charts не поддерживает `offset`).
+- **`PlayerControls` / `FullPlayer`** — для `isLinearContent` скрыты shuffle, repeat, `TrackReactionButtons` (дизлайк/избранное). Для live — как раньше.
+- **`TrackActions`** — для `isLinearContent` скрыты «Метаданные», «Добавить в плейлист», «Скачать».
+- **`useMediaSession` / `useKeyboardShortcuts`** — для live no-op `nexttrack`/`previoustrack`/`seek*`/`N`/`P`/`←`/`→`. Для подкастов работают как обычно.
+- **`AudioService.seek`/`seekBy`** — no-op для live. Добавлен геттер `isLive`.
+- **`SettingsView`** — разбит на табы (`SettingsGeneral`, `SettingsPlugins`, `SettingsData`, `SettingsAbout`). Настройки плагинов через `getAllSettingsSchemas()` (объединяет `manifest.getSettings` и `extension.getSettings`).
+- **`homeView`** — кнопка «Очистить» для stateless-плагинов показывается только при `hasCustomData() === true`.
+- **`radio/manifest.ts`** — `clearData` чистит и кеш (`radio:cache:*`, `radio:searchQuery`). Добавлен `getSettings` с действием «Очистить кеш радио».
+
+### Fixed
+
+- **Live-треки в избранном/дизлайках/плейлистах** — скрыты для `isLiveStream` в `TrackActions`, `FullPlayer`, `PlayerControls`. Snapshot без URL не сохраняется.
+- **`PlayerControls` для live** — скрыты `Prev`/`Next`/`Shuffle`/`Repeat`/`TrackReactionButtons`, прогресс-бар заменён на плашку «Live».
+- **Кеш радио/подкастов** — пустой результат больше не кешируется (раньше при ошибке сети пустой массив сохранялся как «свежий»).
+- **Поиск в каталоге радио после `F5`** — `searchQuery` восстанавливается из `localStorage`.
+- **Пустой список при активных фильтрах** в радио — fallback на топ без тегов (потом без страны) с баннером.
+- **Кнопка «Играть» в каталоге радио** — играет без сохранения в «Мои станции».
+- **Битая обложка** в мини-плеере и `FullPlayer` — fallback-иконка через `CoverImage` вместо браузерной заглушки.
+- **`RadioBrowserClient.spec.ts`** — изоляция тестов (кеш больше не переживает между тестами).
+- **Прокси подкастов** — лимит увеличен с 5 до 30 МБ (Mave Digital и большие ленты не влезали).
+
+### Removed
+
+- Дублирование `readCache`/`writeCache` — вынесено в `useSoftTtlCache`.
+- Дублирование кнопок `+`/`X` — вынесено в `AddRemoveButton`.
+- Дублирование шапки/пагинации каталога — вынесено в `CatalogLayout`.
+- Дублирование «обложка + название» в `PlayerControls` — вынесено в `NowPlayingInfo`.
+
 ## [0.8.3] — 2026-10-22
 
 ### Added
