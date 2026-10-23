@@ -110,8 +110,9 @@ const emit = defineEmits<{
           <div v-if="isLoading" class="flex justify-center py-10">
             <IconSpinner class="h-6 w-6 animate-spin text-fg-muted" />
           </div>
-          <div v-else-if="error" class="text-center py-10 text-sm text-red-400">
+          <div v-else-if="error" class="flex flex-col items-center justify-center gap-3 py-10 text-sm text-red-400">
             {{ error }}
+            <slot name="error-action" />
           </div>
           <div v-else-if="isEmpty" class="text-center py-10 text-sm text-fg-muted">
             {{ emptyLabel }}

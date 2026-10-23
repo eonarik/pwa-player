@@ -3,6 +3,63 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.10.1] — 2026-10-23
+
+### Added
+
+- **Архитектура статусов:** `FileLocation` (`'nowhere' | 'remote-only' | 'local-only' | 'both'`) для треков, `ScanState` (`'pending' | 'scanning' | 'scanned' | 'error'`) для папок. Один вопрос — одно поле. Селекторы `getPlayability`, `isLocalTrack`, `isRemoteTrack`, `isSubtreeScanned` — единая точка для UI.
+- **`resolveTrackSource(track)`:** единая точка резолва источника для `<audio>`. Для локальных копий `handle.getFile()`, для remote-only — `source` (URL).
+- **`track.handle: FileSystemFileHandle`:** единственный источник правды для локального файла. `File` больше не хранится в `track.source`.
+- **`plugins/registry`:** кэш `isPluginDisconnected(pluginId)` (реактивный через `disconnectedVersion`). `setPluginDisconnected` для синхронизации после `connect`/`disconnect`.
+- **`assertTrackInvariants`:** проверка `fileLocation` / `handle` / `source` в dev-режиме.
+- **`subtreeCache`:** кэш `isSubtreeScanned` с инвалидацией на изменение папки и всех предков.
+- **`migrateFileLocation` / `migrateScanState`:** миграция старых кешей (`origin` → `fileLocation`, `scanStatus` → `scanState`) при чтении.
+- **`mergeLocalIntoLibrary`:** дополняет библиотеку локальными файлами (existing → `handle` + `'both'`, new → `handle` + `'local-only'`). Вызывается до и после облачного `setLibrary` — локальные копии мержатся поверх облачных.
+- **`updateTrackHandle` в `LibraryWriter`:** установка/сброс хэндла локального файла.
+
+### Changed
+
+- **`Track.source`:** тип сужен до `string`. Для локальных копий `source` пустой. `File` резолвится из `track.handle` через `resolveTrackSource`.
+- **`player.playAt`:** стал async, использует `resolveTrackSource`. `player.playAll` / `setQueue` / `next` / `prev` вызывают `playAt` через `void`.
+- **`LibraryWriter`:** `updateTrackOrigin` удалён (заменён `updateTrackFileLocation`), добавлен `updateTrackHandle`. `updateTrackSource` принимает только `string`.
+- **`plugins/yandexDisk`:** `buildDownloadUrl` строится из `remotePath`, не из `source`. `removeDownloaded` сбрасывает `handle` и переводит в `remote-only` с URL.
+- **`plugins/local`:** треки создаются с `handle`, `source: ''`, `fileLocation: 'local-only'`, папки — `scanState: 'scanned'`. `isDisconnected()` через флаг `local-connected` в localStorage. `connect`/`disconnect` синхронизируют флаг.
+- **`plugins/yandexDisk/scan`:** `buildTrack` пишет `fileLocation: 'remote-only'`, папки — `scanState: 'pending'`. `refreshSubtree` / `scanFolderRecursive` — `scanState: 'scanned'` / `'error'`.
+- **`plugins/yandexDisk/persist`:** `toPersisted` сохраняет `fileLocation` / `scanState` (legacy `origin` / `scanStatus` — только для чтения старых кешей, `@deprecated`). `enrichWithLocalFiles` использует `getFileHandleFromPath` → `handle`, не `File`.
+- **`stores/library`:** разбит на `store.ts` (состояние + computed + `isSubtreeScanned`), `subtreeCache.ts` (модульный кэш), `writer/{library,folders,tracks,counts,helpers,index}.ts` (LibraryWriter). `writer/tracks.ts` — `updateTrackHandle`, `buildTrackWithLocation`.
+- **`DownloadOrchestrator`:** `downloadTrackInternal` после успеха — `updateTrackHandle(handle)` + `updateTrackFileLocation('both')` + `updateTrackSource('')`. `removeDownloaded` — только вызов `plugin.removeDownloaded` (плагин сам управляет `handle` / `source` / `fileLocation`).
+- **`SyncService`:** `syncAll` для `downloaded` — `updateTrackHandle` + `'both'` + `source: ''`. Для `missing` — `'remote-only'` + `handle: undefined`.
+- **`getFileFromPath.ts`:** добавлен `getFileHandleFromPath`.
+- **`downloadUrlToFile`:** возвращает `{ size, handle }`. `DownloadedTrackInfo.handle` — опциональный.
+
+### Fixed
+
+- **«Открыть локально» (yandex / yandex-self):** `restoreLibraryFromFiles` падал молча из-за `Object.keys(files)` на `Map` (возвращал `[]`), треки не записывались в `library`. Заменено на `Array.from(files.keys())`.
+- **«Открыть локально» (local):** `openPlugin` не вызывал `connect` для плагинов без `restoreFromLocalFiles`. Теперь вызывает `connect` + `load` (для `local` — picker папки).
+- **«Синхронизация с устройства»:** `SyncIssuesModal` открывается автоматически при наличии `onlyLocal`/`missing` (watch на `syncService.issueCount`). Раньше собирался, но не показывался.
+- **`FolderContent`:** `TrackList` рендерил пустоту при `min-h-0` родителе (высота контейнера = 0 → `visibleItems = []`). Добавлен `min-h-[400px]`.
+- **Дубли `folder.trackIds`:** дедупликация в `setLibrary` / `addTracks` / `restoreLibraryFromFiles` / `mergeFolderContent`. Устраняет `Duplicate keys found during update` в `TrackList`.
+- **`TrackRow` полоска «скачано»:** показывается для `fileLocation: 'local-only'` и `'both'` (через `isLocalTrack`), а не только для `'downloaded'`.
+- **`buildDownloadUrl`:** был `track.source` (URL или `File`), стал `service.buildDownloadUrl(track.remotePath)`. Раньше повторное скачивание после удаления падало (`fetch(File)`).
+- **`DownloadOrchestrator.removeDownloaded`:** `handle` сбрасывается, `source` корректно заменяется на URL (раньше оставался `File`), `fileLocation` — `'remote-only'`.
+- **`local`-плагин:** «Отключить» не показывается при пустом плагине (`isDisconnected()` через `local-connected`).
+- **`local`-плагин:** `File` больше не хранится в `track.source`, только `handle` (защита от рассинхрона при F5).
+- **`local`-плагин:** `scanState: 'scanned'` вместо legacy `scanStatus` / `ready`.
+- **`yandex` / `yandex-self`:** `removeDownloaded` больше не оставляет `File` в `source` (после удаления).
+- **`getPlayability`:** для `local-only` / `both` проверяет `handle`, а не `source instanceof File` (после G.5).
+- **Метаданные:** `similarity.spec.js` обновлён под Jaro-Winkler (тесты были написаны под `fuzzball`, удалённый в 0.10.1).
+- **`uiSettings.spec.ts`:** дефолты приведены к `0.75`.
+- **`scanFolder.spec.ts` / `selectors.spec.ts` / `library.spec.ts`:** обновлены под `scanState` / `handle` / `updateTrackFileLocation` / `updateTrackHandle`.
+- **`local` без данных:** после сброса «Открыть» вызывает системный picker (через `connect` + `load` в `openPlugin`).
+
+### Removed
+
+- `TrackOrigin`, `ScanStatus`, `Folder.ready`, `LibraryTrack.origin` — legacy-статусы.
+- `LibraryWriter.updateTrackOrigin` — заменён `updateTrackFileLocation`.
+- `originFromFileLocation` / `fileLocationFromOrigin` — маппинг legacy.
+- `File` в `Track.source` — заменён на `handle` + `resolveTrackSource`.
+- `updateTrackOrigin` в `writer/tracks.ts`.
+
 ## [0.10.0] — 2026-10-23
 
 ### Added

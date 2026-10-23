@@ -2,43 +2,38 @@
 
 export interface DownloadUrlOptions {
   targetDir: FileSystemDirectoryHandle
-  /** Относительный путь внутри targetDir: 'Music/Album/01.mp3' */
   relativePath: string
   onProgress?: (written: number, total: number) => void
   signal?: AbortSignal
+  /** Кастомный fetcher (например, для авторизации с рефрешем) */
+  fetcher?: (url: string, options: RequestInit) => Promise<Response>
 }
 
 export interface DownloadUrlResult {
   size: number
+  /** Хэндл скачанного файла. */
+  handle: FileSystemFileHandle
 }
 
-/**
- * Скачивает URL и записывает в файл внутри targetDir.
- *
- * Создаёт промежуточные папки по пути. Перезаписывает существующий файл
- * (create: true). Прогресс — по Content-Length, если он есть, иначе
- * total = 0.
- *
- * При отмене (signal.aborted) — прерывает запись и удаляет недописанный файл.
- */
 export async function downloadUrlToFile(
   url: string,
   options: DownloadUrlOptions,
 ): Promise<DownloadUrlResult> {
-  const { targetDir, relativePath, onProgress, signal } = options
+  const { targetDir, relativePath, onProgress, signal, fetcher } = options
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError')
   }
 
-  const response = await fetch(url, { signal, credentials: 'include' })
+  const doFetch = fetcher || fetch
+  const response = await doFetch(url, { signal, credentials: 'include' })
+
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: HTTP ${response.status}`)
   }
 
   const totalFromHeader = Number(response.headers.get('Content-Length')) || 0
 
-  // Разбиваем путь на сегменты, создаём папки
   const segments = relativePath.split('/').filter(Boolean)
   const fileName = segments.pop()
   if (!fileName) {
@@ -64,10 +59,9 @@ export async function downloadUrlToFile(
       onProgress?.(written, totalFromHeader)
     }
     await writable.close()
-    return { size: written }
+    return { size: written, handle: fileHandle }
   } catch (err) {
     await writable.abort().catch(() => {})
-    // Пытаемся удалить недописанный файл
     try {
       await dir.removeEntry(fileName)
     } catch {

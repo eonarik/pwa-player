@@ -1,11 +1,10 @@
-// oxlint-disable vitest/require-mock-type-parameters
 // src/services/persistence/restore.spec.ts
+// oxlint-disable vitest/require-mock-type-parameters
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { restoreTrack, restoreTracks } from './restore'
 import type { PersistedTrack } from './types'
 
-// Мокаем findCoverInDirectory — не нужен для основных тестов
 vi.mock('@/services/covers/findCoverInDirectory', () => ({
   findCoverInDirectory: vi.fn(async () => null),
 }))
@@ -32,18 +31,8 @@ function makeFileHandle(name = 'song.mp3'): FileSystemFileHandle {
   } as unknown as FileSystemFileHandle
 }
 
-function makeBadHandle(): FileSystemFileHandle {
-  return {
-    kind: 'file',
-    name: 'bad.mp3',
-    getFile: vi.fn(async () => {
-      throw new DOMException('Not found', 'NotFoundError')
-    }),
-  } as unknown as FileSystemFileHandle
-}
-
 describe('restoreTrack', () => {
-  it('восстанавливает трек с File', async () => {
+  it('восстанавливает handle', async () => {
     const handle = makeFileHandle()
     const persisted = makePersisted({ handle })
 
@@ -51,8 +40,8 @@ describe('restoreTrack', () => {
 
     expect(track).not.toBeNull()
     expect(track!.id).toBe(persisted.id)
-    expect(track!.title).toBe('Song')
-    expect(track!.source).toBeInstanceOf(File)
+    expect(track!.handle).toBe(handle)
+    expect(track!.source).toBe('')
   })
 
   it('без handle → source = пустая строка', async () => {
@@ -62,16 +51,16 @@ describe('restoreTrack', () => {
 
     expect(track).not.toBeNull()
     expect(track!.source).toBe('')
+    expect(track!.handle).toBeUndefined()
   })
 
-  it('при ошибке getFile → source = пустая строка', async () => {
-    const handle = makeBadHandle()
-    const persisted = makePersisted({ handle })
+  it('source (URL) сохраняется', async () => {
+    const persisted = makePersisted({ source: 'https://example.com/song.mp3' })
 
     const track = await restoreTrack(persisted)
 
     expect(track).not.toBeNull()
-    expect(track!.source).toBe('')
+    expect(track!.source).toBe('https://example.com/song.mp3')
   })
 
   it('сохраняет метаданные', async () => {
@@ -113,33 +102,8 @@ describe('restoreTracks', () => {
     expect(tracks.map((t) => t.id).sort()).toEqual(['a', 'b', 'c'])
   })
 
-  it('пропускает треки без source', async () => {
-    const persisted = [
-      makePersisted({ id: 'a', handle: makeFileHandle('a.mp3') }),
-      makePersisted({ id: 'b', handle: undefined }),
-    ]
-
-    const tracks = await restoreTracks(persisted)
-
-    // Оба восстанавливаются (source = ''), но это валидные треки
-    expect(tracks).toHaveLength(2)
-  })
-
   it('пустой массив → пустой результат', async () => {
     const tracks = await restoreTracks([])
     expect(tracks).toEqual([])
-  })
-
-  it('не падает при ошибке чтения отдельного трека', async () => {
-    const persisted = [
-      makePersisted({ id: 'good', handle: makeFileHandle('good.mp3') }),
-      makePersisted({ id: 'bad', handle: makeBadHandle() }),
-    ]
-
-    const tracks = await restoreTracks(persisted)
-
-    expect(tracks).toHaveLength(2)
-    const bad = tracks.find((t) => t.id === 'bad')
-    expect(bad!.source).toBe('')
   })
 })

@@ -5,6 +5,7 @@ import { audioService } from '@/services/audio/AudioService'
 import { useHistoryStore } from '../history'
 import { isLiveStream } from '@/plugins/registry'
 import type { Track } from '@/types/track'
+import type { LibraryTrack } from '@/types/library'
 
 export interface AudioEventsRefs {
   queue: Ref<Track[]>
@@ -28,14 +29,20 @@ export interface AudioEvents {
   unsubscribeAll: () => void
 }
 
-/**
- * Подписка на события `audioService`. Возвращает `unsubscribeAll`
- * для `$dispose`.
- *
- * Все побочные эффекты (запись в историю, обновление длительности
- * в библиотеке, `handleTrackEnd`) — через колбэки, чтобы этот модуль
- * не зависел от Pinia.
- */
+async function handleStreamError(track: Track, error: { src: string; message: string }) {
+  try {
+    const { loadPlugin, pluginIdFromSource } = await import('@/plugins/registry')
+    const { createPluginContext } = await import('@/plugins/context')
+    const pluginId = pluginIdFromSource(track.pluginId)
+    const plugin = await loadPlugin(pluginId)
+    if (!plugin.handleStreamError) return
+    const context = createPluginContext(pluginId)
+    await plugin.handleStreamError(context, track as LibraryTrack, error)
+  } catch (err) {
+    console.warn('[player] handleStreamError failed', err)
+  }
+}
+
 export function bindAudioEvents(
   refs: AudioEventsRefs,
   callbacks: AudioEventsCallbacks,
@@ -78,10 +85,15 @@ export function bindAudioEvents(
       volume.value = v
       muted.value = m
     }),
-    audioService.on('error', ({ message }) => {
+    audioService.on('error', ({ message, src }) => {
       console.error('[player] audio error:', message)
       isPlaying.value = false
       callbacks.stopTimeLoop()
+
+      const track = currentTrack.value
+      if (track) {
+        void handleStreamError(track, { src, message })
+      }
     }),
   )
 

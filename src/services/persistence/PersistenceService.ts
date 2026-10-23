@@ -4,6 +4,7 @@ import { get, set, del } from 'idb-keyval'
 import { toRaw } from 'vue'
 import type { PersistedPlayback, PersistedState, PersistedTrack } from './types'
 import type { Track } from '@/types/track'
+import type { FileLocation } from '@/types/library'
 
 const STATE_KEY = 'player:state'
 const PLAYBACK_KEY = 'player:playback'
@@ -122,6 +123,10 @@ export class PersistenceService {
 
   toPersisted(track: Track): PersistedTrack {
     const raw = toRaw(track)
+    const handle = raw.handle ? toRaw(raw.handle) : undefined
+    const fileLocation = (raw as { fileLocation?: FileLocation }).fileLocation
+    const isLocal = fileLocation === 'local-only' || fileLocation === 'both'
+
     return {
       id: raw.id,
       pluginId: raw.pluginId,
@@ -135,9 +140,11 @@ export class PersistenceService {
       codec: raw.codec,
       filename: raw.filename,
       path: raw.path,
-      handle: raw.handle ? toRaw(raw.handle) : undefined,
+      handle,
       directoryHandle: raw.directoryHandle ? toRaw(raw.directoryHandle) : undefined,
-      source: typeof raw.source === 'string' ? raw.source : undefined,
+      // Для локальных source пустой; для remote-only — URL.
+      source: isLocal ? undefined : typeof raw.source === 'string' ? raw.source : undefined,
+      fileLocation,
       // Сохраняем только http(s) ссылки, так как blob URL невалиден после перезагрузки
       coverUrl: raw.coverUrl?.startsWith('http') ? raw.coverUrl : undefined,
     }

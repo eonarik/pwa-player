@@ -1,6 +1,7 @@
 // src/stores/player/playerRestore.ts
 
 import { audioService } from '@/services/audio/AudioService'
+import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { persistenceService } from '@/services/persistence/PersistenceService'
 import { restoreTracks } from '@/services/persistence/restore'
 import { useLibraryStore } from '@/stores/library'
@@ -15,13 +16,6 @@ export interface RestoredPlayerState {
   shuffle: boolean
 }
 
-/**
- * Восстанавливает сохранённую очередь и позицию воспроизведения.
- *
- * Возвращает объект с восстановленными значениями или null, если
- * восстанавливать нечего. Состояние применяет вызывающий (стор),
- * чтобы эта функция не зависела от Pinia.
- */
 export async function restorePlayerState(): Promise<RestoredPlayerState | null> {
   const state = await persistenceService.loadState()
   if (!state || state.tracks.length === 0) return null
@@ -36,6 +30,10 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
 
     if (!track.coverUrl && libTrack.coverUrl) {
       track.coverUrl = libTrack.coverUrl
+    }
+
+    if (!track.handle && libTrack.handle) {
+      track.handle = libTrack.handle
     }
 
     if (!track.source && typeof libTrack.source === 'string' && libTrack.source) {
@@ -53,12 +51,6 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
   }
 }
 
-/**
- * Применяет восстановленное состояние к аудиосервису: громкость,
- * загрузка трека, восстановление позиции.
- *
- * Вызывается из `player.restore()` после того, как стор обновлён.
- */
 export async function applyRestoredPlayback(
   tracks: Track[],
   currentIndex: number,
@@ -68,9 +60,16 @@ export async function applyRestoredPlayback(
   const track = tracks[currentIndex]
   const savedTime = playback && playback.trackId === track?.id ? playback.currentTime : 0
 
-  if (!track || !track.source) return
+  if (!track) return
 
-  audioService.load(track.source)
+  let source: string | File
+  try {
+    source = await resolveTrackSource(track)
+  } catch {
+    return
+  }
+
+  audioService.load(source)
 
   if (savedTime > 0) {
     const unsub = audioService.on('loadedmetadata', () => {

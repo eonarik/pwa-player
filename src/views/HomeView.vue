@@ -1,12 +1,19 @@
 <!-- src/views/HomeView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
-import { getPlugins, loadPlugin, pluginIdFromSource, isPluginActivated } from '@/plugins/registry'
+import {
+  getPlugins,
+  loadPlugin,
+  isPluginActivated,
+  setPluginDisconnected,
+} from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
+import { scanDirectory } from '@/services/download/scanDirectory'
 import { toastService } from '@/services/ui/ToastService'
-import type { PluginManifest } from '@/plugins/types'
+import type { PluginManifest, LibrarySource, Folder } from '@/plugins/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,50 +21,58 @@ const library = useLibraryStore()
 
 interface PluginMeta {
   manifest: PluginManifest
+  plugin: LibrarySource
   available: boolean
+  isDisconnected: boolean
 }
 
 const pluginMetas = ref<PluginMeta[]>([])
 const isLoading = ref<string | null>(null)
 const customDataMap = ref<Record<string, boolean>>({})
 
+// Computed, а не ref — обновляется автоматически, когда в настройках
+// выбирают папку (hasSpace → true) или меняется permission.
+const spaceAvailable = computed(
+  () => downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value,
+)
+
 interface DisplayPlugin extends PluginMeta {
-  hasData: boolean
-  isStateless: boolean
   hasCustomData: boolean
+  hasLocalFiles: boolean
+  isStateless: boolean
+  spaceAvailable: boolean
 }
 
 const plugins = computed<DisplayPlugin[]>(() => {
   return pluginMetas.value.map((meta) => {
-    if (meta.manifest.isStateless) {
-      const hasCustom = Boolean(customDataMap.value[meta.manifest.id])
-      return {
-        ...meta,
-        hasData: true,
-        isStateless: true,
-        hasCustomData: hasCustom,
-      }
-    }
-
-    if (meta.manifest.hasCustomData) {
-      return {
-        ...meta,
-        hasData: customDataMap.value[meta.manifest.id] ?? false,
-        isStateless: false,
-        hasCustomData: true,
-      }
-    }
+    const isStateless = Boolean(meta.manifest.isStateless)
+    const hasCustomData = isStateless
+      ? Boolean(customDataMap.value[meta.manifest.id])
+      : Boolean(meta.manifest.hasCustomData) && Boolean(customDataMap.value[meta.manifest.id])
+    const hasLocalFiles = Boolean(customDataMap.value[meta.manifest.id])
 
     return {
       ...meta,
-      hasData: Object.values(library.folders).some(
-        (f) => f.source !== undefined && pluginIdFromSource(f.source) === meta.manifest.id,
-      ),
-      isStateless: false,
-      hasCustomData: false,
+      isStateless,
+      hasCustomData,
+      hasLocalFiles,
+      spaceAvailable: spaceAvailable.value,
     }
   })
 })
+
+async function checkLocalFiles(pluginId: string): Promise<boolean> {
+  if (!downloadSpaceService.hasSpace.value) return false
+
+  try {
+    const dir = await downloadSpaceService.getPluginDirIfExists(pluginId)
+    if (!dir) return false
+    const files = await scanDirectory(dir)
+    return files.size > 0
+  } catch {
+    return false
+  }
+}
 
 async function loadPlugins() {
   const metas: PluginMeta[] = []
@@ -65,7 +80,12 @@ async function loadPlugins() {
     if (manifest.requiresActivation && !isPluginActivated(manifest.id)) continue
     try {
       const plugin = await loadPlugin(manifest.id)
-      metas.push({ manifest, available: plugin.isAvailable() })
+      metas.push({
+        manifest,
+        plugin,
+        available: plugin.isAvailable(),
+        isDisconnected: plugin.isDisconnected?.() ?? false,
+      })
     } catch (err) {
       console.warn(`[home] failed to load plugin ${manifest.id}`, err)
     }
@@ -81,7 +101,31 @@ async function loadPlugins() {
       }
     }
   }
+
+  for (const meta of metas) {
+    if (!meta.plugin.canDownload) continue
+    if (!spaceAvailable.value) continue
+    try {
+      const hasLocal = await checkLocalFiles(meta.manifest.id)
+      if (hasLocal) {
+        customDataMap.value[meta.manifest.id] = true
+      }
+    } catch (err) {
+      console.warn(`[home] failed to check local files for ${meta.manifest.id}`, err)
+    }
+  }
 }
+
+// Если HomeView не перемонтировался (например, переиспользован роутером),
+// а папку в настройках только что выбрали — догоняем проверку локальных файлов.
+watch(
+  () => spaceAvailable.value,
+  async (has, prev) => {
+    if (has && !prev) {
+      await loadPlugins()
+    }
+  },
+)
 
 onMounted(async () => {
   await loadPlugins()
@@ -95,26 +139,102 @@ onMounted(async () => {
   }
 })
 
-function openPlugin(row: { manifest: PluginManifest }) {
+function hasTracksInTree(folderId: string): boolean {
+  const folder = library.getFolder(folderId)
+  if (!folder) return false
+  if (folder.trackIds.length > 0) return true
+  for (const childId of folder.childFolderIds) {
+    if (hasTracksInTree(childId)) return true
+  }
+  return false
+}
+
+interface OpenPluginOptions {
+  /** true — не трогаем облачный кеш, строим только из папки скачивания */
+  localOnly: boolean
+}
+
+async function openPlugin(row: { manifest: PluginManifest }, options: OpenPluginOptions) {
   if (row.manifest.customRoute) {
     router.push({ name: row.manifest.customRoute })
     return
   }
 
-  const root = Object.values(library.folders).find(
-    (f) => f.source === row.manifest.id && f.parentId === null,
-  )
+  if (downloadSpaceService.hasSpace.value && downloadSpaceService.needsPermission.value) {
+    const state = await downloadSpaceService.requestAccess()
+    if (state !== 'granted') {
+      toastService.error('Нет доступа к папке скачивания. Подтвердите доступ и попробуйте снова.')
+      return
+    }
+  }
+
+  const plugin = await loadPlugin(row.manifest.id)
+  const context = createPluginContext(row.manifest.id)
+
+  const findRoot = (): Folder | undefined =>
+    Object.values(library.folders).find(
+      (f) => f.source === row.manifest.id && f.parentId === null,
+    )
+
+  let root = findRoot()
+
+  // 1. Пробуем облачный кеш (для yandex / yandex-self).
+  if (!options.localOnly && (!root || !hasTracksInTree(root.id))) {
+    try {
+      await plugin.restoreFromCache(context)
+      root = findRoot()
+    } catch (err) {
+      console.warn('[home] failed to restore from cache', err)
+    }
+  }
+
+  // 2. Локальные скачанные файлы (для yandex / yandex-self).
+  if (!root || !hasTracksInTree(root.id)) {
+    if (plugin.restoreFromLocalFiles) {
+      try {
+        const ok = await plugin.restoreFromLocalFiles(context)
+        console.info(`[home] restoreFromLocalFiles("${row.manifest.id}") → ${ok}`)
+        root = findRoot()
+      } catch (err) {
+        console.warn('[home] failed to restore from local files', err)
+        toastService.error(err instanceof Error ? err.message : 'Не удалось прочитать локальные файлы')
+        return
+      }
+    }
+  }
+
+  // 3. Для плагинов без локального восстановления (local) — вызываем connect + load.
+  //    Для local это откроет системный диалог выбора папки.
+  if ((!root || !hasTracksInTree(root.id)) && !plugin.restoreFromLocalFiles && !options.localOnly) {
+    try {
+      await plugin.connect(context)
+      await plugin.load(context, { forceRefresh: true })
+      root = findRoot()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'cancelled') return
+      if (err instanceof Error && err.message === 'redirect') return
+      console.warn(`[home] connect+load for "${row.manifest.id}" failed`, err)
+      toastService.error(err instanceof Error ? err.message : 'Не удалось подключить источник')
+      return
+    }
+  }
+
   if (!root) {
-    toastService.error(`Источник «${row.manifest.name}» не подключён`)
+    toastService.error(`Источник «${row.manifest.name}» не содержит данных`)
     return
   }
 
   library.setCurrentFolder(root.id)
   const segments = root.path.split('/').filter(Boolean)
-  router.push({
-    name: 'folder',
-    params: { pluginId: row.manifest.id, path: segments },
-  })
+  router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
+}
+
+async function onOpen(row: DisplayPlugin) {
+  await openPlugin(row, { localOnly: false })
+}
+
+async function onOpenLocal(row: DisplayPlugin) {
+  await openPlugin(row, { localOnly: true })
 }
 
 async function connectPlugin(row: { manifest: PluginManifest }) {
@@ -126,10 +246,15 @@ async function connectPlugin(row: { manifest: PluginManifest }) {
     const context = createPluginContext(row.manifest.id)
 
     await plugin.connect(context)
+    setPluginDisconnected(row.manifest.id, false)
+    // load() сам делает mergeLocalIntoLibrary до и после облачного скана
+    // и сохраняет кеш через yandexPersistenceService.save.
     await plugin.load(context, { forceRefresh: true })
 
     toastService.success(`Источник «${row.manifest.name}» подключён`)
-    openPlugin({ manifest: row.manifest })
+    await loadPlugins()
+
+    await openPlugin({ manifest: row.manifest }, { localOnly: false })
   } catch (err) {
     if (err instanceof Error && err.message === 'cancelled') return
     if (err instanceof Error && err.message === 'redirect') return
@@ -155,7 +280,9 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
     return
   }
 
-  const confirmed = window.confirm(`Отключить «${row.manifest.name}»? Данные будут удалены.`)
+  const confirmed = window.confirm(
+    `Отключить «${row.manifest.name}»? Скачанные треки останутся на устройстве.`,
+  )
   if (!confirmed) return
 
   isLoading.value = row.manifest.id
@@ -163,6 +290,7 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
     const plugin = await loadPlugin(row.manifest.id)
     const context = createPluginContext(row.manifest.id)
     await plugin.disconnect(context)
+    setPluginDisconnected(row.manifest.id, true)
     await loadPlugins()
     toastService.info(`Источник «${row.manifest.name}» отключён`)
   } catch (err) {
@@ -196,8 +324,9 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
             <p class="truncate text-xs text-fg-muted">
               <template v-if="!row.available">Недоступно в этом браузере</template>
               <template v-else-if="row.isStateless">Доступно</template>
-              <template v-else-if="row.hasData">Подключено</template>
-              <template v-else>Не подключено</template>
+              <template v-else-if="!row.isDisconnected">Подключено</template>
+              <template v-else-if="row.hasLocalFiles">Отключено (есть локальные файлы)</template>
+              <template v-else>Отключено</template>
             </p>
           </div>
 
@@ -205,7 +334,7 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
             <template v-if="row.isStateless">
               <button type="button"
                 class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-                @click="openPlugin(row)">
+                @click="onOpen(row)">
                 Открыть
               </button>
               <button v-if="row.hasCustomData" type="button"
@@ -215,16 +344,29 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
               </button>
             </template>
 
-            <template v-else-if="row.hasData">
+            <template v-else-if="!row.isDisconnected">
               <button type="button"
                 class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-                @click="openPlugin(row)">
+                @click="onOpen(row)">
                 Открыть
               </button>
               <button type="button"
                 class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-red-500/10 hover:text-red-400"
                 :disabled="isLoading === row.manifest.id" @click="disconnectPlugin(row)">
                 Отключить
+              </button>
+            </template>
+
+            <template v-else-if="row.spaceAvailable && row.hasLocalFiles">
+              <button type="button"
+                class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+                @click="onOpenLocal(row)">
+                Открыть локально
+              </button>
+              <button type="button"
+                class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
+                :disabled="isLoading === row.manifest.id" @click="connectPlugin(row)">
+                {{ isLoading === row.manifest.id ? 'Подключение…' : 'Подключить' }}
               </button>
             </template>
 

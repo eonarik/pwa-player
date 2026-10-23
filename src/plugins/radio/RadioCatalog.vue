@@ -33,6 +33,7 @@ const ORDER_LABELS: Record<RadioSortOrder, string> = {
 
 const SEARCH_STORAGE_KEY = 'radio:searchQuery'
 
+const isFiltersOpen = ref(false)
 const searchQuery = ref(localStorage.getItem(SEARCH_STORAGE_KEY) ?? '')
 const debouncedSearchQuery = ref(searchQuery.value)
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -169,9 +170,19 @@ function clearSearch(): void {
     @clear="clearSearch" @back="emit('back')" @update:current-limit="(v) => (topLimit = v)" @prev="currentPage--"
     @next="currentPage++">
     <template #filters>
-      <RadioFilters v-model:top-order="topOrder" v-model:top-country="topCountry" v-model:top-tags="topTags"
-        :countries="countries" :tags="tags" :countries-error="countriesError" :tags-error="tagsError"
-        @retry-countries="loadCountries" @retry-tags="loadTags" />
+      <!-- Кнопка для мобилки -->
+      <button type="button"
+        class="mb-2 w-full rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg md:hidden"
+        @click="isFiltersOpen = !isFiltersOpen">
+        {{ isFiltersOpen ? 'Скрыть фильтры' : 'Показать фильтры' }}
+      </button>
+
+      <!-- Сами фильтры: на мобилке скрыты, пока не нажата кнопка. На десктопе всегда открыты -->
+      <div :class="isFiltersOpen ? 'block' : 'hidden md:block'">
+        <RadioFilters v-model:top-order="topOrder" v-model:top-country="topCountry" v-model:top-tags="topTags"
+          :countries="countries" :tags="tags" :countries-error="countriesError" :tags-error="tagsError"
+          @retry-countries="loadCountries" @retry-tags="loadTags" />
+      </div>
     </template>
 
     <template #list>

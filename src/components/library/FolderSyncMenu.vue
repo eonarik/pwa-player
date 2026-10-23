@@ -9,6 +9,7 @@ const props = defineProps<{
   canRefreshFromDevice: boolean
   isRefreshing: boolean
   isRefreshingFromDevice: boolean
+  needsAttention?: boolean // <-- Добавлено
 }>()
 
 const emit = defineEmits<{
@@ -39,9 +40,13 @@ const label = computed(() => props.isRefreshing
   <DropdownMenu :width="256">
     <template #trigger="{ toggle, setTriggerRef }">
       <button :ref="setTriggerRef" type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="isRefreshing || isRefreshingFromDevice" v-tooltip="label" :aria-label="label" @click.stop="toggle">
+        class="relative flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
+        :class="needsAttention ? 'text-red-400' : ''" :disabled="isRefreshing || isRefreshingFromDevice"
+        v-tooltip="label" :aria-label="label" @click.stop="toggle">
         <IconRefresh class="h-4 w-4" :class="isRefreshing || isRefreshingFromDevice ? 'animate-spin' : ''" />
+
+        <!-- Красная точка при ошибке -->
+        <span v-if="needsAttention" class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
       </button>
     </template>
 

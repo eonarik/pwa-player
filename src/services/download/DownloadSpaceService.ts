@@ -78,6 +78,21 @@ class DownloadSpaceService {
     return this.spaceHandle.getDirectoryHandle(subdirName, { create: true })
   }
 
+  /**
+   * Возвращает папку плагина, только если она уже существует.
+   * Не создаёт пустую папку — используется для проверки «есть ли файлы».
+   */
+  async getPluginDirIfExists(pluginId: string): Promise<FileSystemDirectoryHandle | null> {
+    if (!this.spaceHandle) return null
+    const subdirName = `${PLUGIN_SUBDIR_PREFIX}${pluginId}`
+    try {
+      return await this.spaceHandle.getDirectoryHandle(subdirName)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'NotFoundError') return null
+      throw err
+    }
+  }
+
   // --- Права ---------------------------------------------------------
 
   /**

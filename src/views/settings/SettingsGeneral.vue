@@ -124,6 +124,15 @@ async function restoreAccess(): Promise<void> {
           class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
           @blur="applyMetadataThreshold" @keydown.enter="applyMetadataThreshold" />
       </div>
+
+
+      <label class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3">
+        <div class="min-w-0">
+          <p class="text-sm text-fg">Автопоиск при воспроизведении</p>
+          <p class="text-xs text-fg-muted">Искать обложку и теги в фоне при старте трека</p>
+        </div>
+        <input v-model="uiSettings.autoFetchMetadata" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
+      </label>
     </section>
 
     <section>

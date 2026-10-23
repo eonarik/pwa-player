@@ -1,21 +1,12 @@
 // server/src/metadata/similarity.js
 
-import { token_set_ratio, token_sort_ratio } from 'fuzzball'
+import { jaroWinkler } from './jaroWinkler.js'
 
-/** Порог для треков без artist (только по title — строже) */
 export const NO_ARTIST_THRESHOLD = 0.85
 
-/** Минимальное similarity artist, чтобы считать его «совпавшим» */
 const ARTIST_MATCH_THRESHOLD = 0.5
-
-/** Веса при комбинации: title важнее */
 const TITLE_WEIGHT = 0.8
 const ARTIST_WEIGHT = 0.2
-
-/**
- * Если artist явно разный — снижаем общий скор, обнуляя вклад artist
- * и оставляя только title. Иначе — взвешенная сумма.
- */
 const MISMATCHED_ARTIST_PENALTY = 0.5
 
 const TRANSLIT_TABLE = {
@@ -67,69 +58,21 @@ function normalize(s) {
   return (s || '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-/**
- * token_set_ratio с защитой от шума на пустом пересечении.
- *
- * fuzzball возвращает ~0.14 для строк без общих токенов (например
- * 'aaa bbb' vs 'xxx yyy'), потому что внутри использует ratio и ловит
- * совпадения по длине/разделителям. Здесь мы явно проверяем пересечение
- * множеств токенов и возвращаем 0, если его нет.
- */
-function hasTokenIntersection(a, b) {
-  const tokensA = new Set(a.split(/\s+/).filter(Boolean))
-  const tokensB = new Set(b.split(/\s+/).filter(Boolean))
-  if (tokensA.size === 0 || tokensB.size === 0) return false
-  for (const t of tokensA) {
-    if (tokensB.has(t)) return true
-  }
-  return false
-}
-
-function safeTokenSetRatio(a, b) {
-  if (!hasTokenIntersection(a, b)) return 0
-  return token_set_ratio(a, b)
-}
-
-function safeTokenSortRatio(a, b) {
-  if (!hasTokenIntersection(a, b)) return 0
-  return token_sort_ratio(a, b)
-}
-
-/**
- * Similarity artist или title:
- * max из прямого token_set/token_sort и token_set на транслите (RU→EN).
- * Возвращает [0, 1].
- */
 function fieldSimilarity(a, b) {
   if (!a && !b) return 0
   if (a === b) return 1
 
-  const direct = Math.max(safeTokenSetRatio(a, b), safeTokenSortRatio(a, b))
+  // Прямое сравнение
+  const direct = jaroWinkler(a, b)
 
+  // Сравнение через транслит (чтобы "слот" и "slot" совпали)
   const translitA = transliterate(a)
   const translitB = transliterate(b)
-  const viaTranslit = safeTokenSetRatio(translitA, translitB)
+  const viaTranslit = jaroWinkler(translitA, translitB)
 
-  return Math.max(direct, viaTranslit) / 100
+  return Math.max(direct, viaTranslit)
 }
 
-/**
- * Сравнивает исходные метаданные трека с найденными.
- * Возвращает similarity от 0 до 1.
- *
- * Логика:
- * - artist и title сравниваются раздельно.
- * - title — главный сигнал (0.8).
- * - artist — усилитель (0.2).
- * - Если оба artist непустые и их similarity < 0.5 — считаем artist
- *   «явно разным» и обнуляем его вклад, оставляя только title со штрафом.
- *
- * Примеры:
- * - «Radiohead Karma Police» vs «Radiohead Creep» → ~0.2 (artist совпал, title разный).
- * - «Radiohead Karma Police» vs «Karma Polise» → ~0.9 (опечатка в title).
- * - «AAA BBB» vs «XXX YYY» → 0 (нет общих токенов).
- * - «Ночные снайперы» vs «Nochnye Snaypery» → ~1.0 (транслит).
- */
 export function metadataSimilarity(original, incoming) {
   const origArtist = normalize(original.artist)
   const incArtist = normalize(incoming.artist)
@@ -140,14 +83,15 @@ export function metadataSimilarity(original, incoming) {
 
   const titleSim = fieldSimilarity(origTitle, incTitle)
 
-  // Если artist нет с одной стороны — не штрафуем, считаем только title
+  // Если artist нет с одной стороны — считаем только title
   if (!origArtist || !incArtist) {
     return titleSim
   }
 
+  // Если артист состоит только из символов (#####), Jaro-Winkler сам даст низкий скор.
+  // Мы не игнорируем его, а честно сравниваем.
   const artistSim = fieldSimilarity(origArtist, incArtist)
 
-  // artist явно разный — не даём ему усиливать результат
   if (artistSim < ARTIST_MATCH_THRESHOLD) {
     return titleSim * MISMATCHED_ARTIST_PENALTY
   }

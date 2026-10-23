@@ -5,23 +5,24 @@ import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { pluginCanDownload } from '@/plugins/registry'
 import { toastService } from '@/services/ui/ToastService'
-import type { LibraryTrack } from '@/types/library'
+import type { LibraryTrack, FileLocation } from '@/types/library'
+
+function getFileLocation(t: LibraryTrack): FileLocation {
+  return t.fileLocation ?? 'remote-only'
+}
 
 export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
   const isDownloading = computed(() => downloadOrchestrator.isBatchDownloading.value)
   const progress = computed(() => downloadOrchestrator.batchProgress.value)
 
-  /** Только треки из плагинов, которые умеют скачивать */
   const downloadableTracks = computed(() =>
     tracks.value.filter((t) => pluginCanDownload(t.pluginId)),
   )
 
-  /** Показывать ли кнопку вообще */
   const hasDownloadable = computed(() => downloadableTracks.value.length > 0)
 
-  /** Сколько из downloadable ещё не скачано */
   const pendingCount = computed(
-    () => downloadableTracks.value.filter((t) => !t.origin || t.origin === 'remote').length,
+    () => downloadableTracks.value.filter((t) => getFileLocation(t) === 'remote-only').length,
   )
 
   async function ensureSpace(): Promise<boolean> {

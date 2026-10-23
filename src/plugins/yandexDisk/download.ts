@@ -13,8 +13,9 @@ export interface DownloadDeps {
  * Скачивает трек в папку, указанную в `options.targetDir`.
  * Использует `buildDownloadUrl` для получения подписанной ссылки.
  *
- * Возвращает `{ relativePath, size }` — путь внутри `targetDir`
- * и размер скачанного файла.
+ * Возвращает `{ relativePath, size, handle }` — путь внутри `targetDir`,
+ * размер скачанного файла и его `FileSystemFileHandle` (для последующего
+ * `writer.updateTrackHandle`).
  */
 export async function downloadTrackToDir(
   deps: DownloadDeps,
@@ -30,7 +31,7 @@ export async function downloadTrackToDir(
     onProgress: options.onProgress,
     signal: options.signal,
   })
-  return { relativePath, size: result.size }
+  return { relativePath, size: result.size, handle: result.handle }
 }
 
 /**

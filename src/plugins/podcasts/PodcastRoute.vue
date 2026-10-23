@@ -74,11 +74,8 @@ function initSortOrder(): void {
     return
   }
 
-  if (subscription.value?.podcast.isSerial) {
-    sortOrder.value = 'serial'
-  } else {
-    sortOrder.value = 'episodic'
-  }
+  // По умолчанию — от старых к новым (serial), так как подкасты чаще всего сюжетные
+  sortOrder.value = 'serial'
 }
 
 function toggleSort(): void {

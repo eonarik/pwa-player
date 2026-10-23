@@ -5,7 +5,7 @@ import type { PersistedTrack } from './types'
 import type { Track } from '@/types/track'
 
 export async function restoreTrack(persisted: PersistedTrack): Promise<Track | null> {
-  const base: Omit<Track, 'source'> = {
+  const base: Omit<Track, 'source'> & { handle?: FileSystemFileHandle } = {
     id: persisted.id,
     pluginId: persisted.pluginId,
     title: persisted.title,
@@ -23,16 +23,9 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     coverUrl: persisted.coverUrl,
   }
 
-  if (!persisted.handle) {
-    return { ...base, source: persisted.source ?? '' }
-  }
-
-  try {
-    const file = await persisted.handle.getFile()
-    return { ...base, source: file }
-  } catch (err) {
-    console.warn(`[restore] can't read file for "${persisted.title}"`, err)
-    return { ...base, source: persisted.source ?? '' }
+  return {
+    ...base,
+    source: persisted.source ?? '',
   }
 }
 

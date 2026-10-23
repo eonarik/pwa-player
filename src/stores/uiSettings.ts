@@ -7,9 +7,9 @@ import { get, set } from 'idb-keyval'
 const UI_SETTINGS_KEY = 'player:uiSettings'
 const SAVE_DEBOUNCE_MS = 300
 
-const DEFAULT_METADATA_THRESHOLD = 0.5
-const DEFAULT_SEARCH_THRESHOLD = 0.5
-const DEFAULT_PLAYLIST_MATCH_THRESHOLD = 0.8
+const DEFAULT_METADATA_THRESHOLD = 0.75
+const DEFAULT_SEARCH_THRESHOLD = 0.75
+const DEFAULT_PLAYLIST_MATCH_THRESHOLD = 0.75
 
 interface PersistedUiSettings {
   showSource: boolean
@@ -17,6 +17,7 @@ interface PersistedUiSettings {
   metadataThreshold: number
   searchThreshold: number
   playlistMatchThreshold: number
+  autoFetchMetadata: boolean
 }
 
 export const useUiSettingsStore = defineStore('uiSettings', () => {
@@ -25,6 +26,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   const metadataThreshold = ref(DEFAULT_METADATA_THRESHOLD)
   const searchThreshold = ref(DEFAULT_SEARCH_THRESHOLD)
   const playlistMatchThreshold = ref(DEFAULT_PLAYLIST_MATCH_THRESHOLD)
+  const autoFetchMetadata = ref(true)
 
   let isLoaded = false
   let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -57,6 +59,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
         ) {
           playlistMatchThreshold.value = data.playlistMatchThreshold
         }
+        autoFetchMetadata.value = data.autoFetchMetadata ?? true
       }
       isLoaded = true
     } catch (err) {
@@ -73,6 +76,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
         metadataThreshold: metadataThreshold.value,
         searchThreshold: searchThreshold.value,
         playlistMatchThreshold: playlistMatchThreshold.value,
+        autoFetchMetadata: autoFetchMetadata.value,
       })
     } catch (err) {
       console.error('[uiSettings] failed to save', err)
@@ -117,6 +121,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   }
 
   return {
+    autoFetchMetadata,
     showSource,
     showFiles,
     metadataThreshold,

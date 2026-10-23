@@ -1,6 +1,6 @@
 // src/composables/useMenu.ts
 
-import { onMounted, onUnmounted, ref, type ComponentPublicInstance, type Ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch, type ComponentPublicInstance, type Ref } from 'vue'
 
 interface MenuPosition {
   top: number
@@ -28,8 +28,14 @@ interface UseMenuReturn {
 
 const EDGE_MARGIN = 8
 
+// Глобальное состояние: id текущего открытого меню
+const activeMenuId = ref<string | null>(null)
+
 export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
   const { width = 256, offset = 4, align = 'right' } = options
+
+  // Уникальный id для этого экземпляра меню
+  const menuId = `menu-${Math.random().toString(36).slice(2, 9)}`
 
   const isOpen = ref(false)
   const triggerRef = ref<HTMLElement | null>(null)
@@ -57,12 +63,16 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
   }
 
   function open(): void {
+    activeMenuId.value = menuId
     computePosition()
     isOpen.value = true
   }
 
   function close(): void {
     isOpen.value = false
+    if (activeMenuId.value === menuId) {
+      activeMenuId.value = null
+    }
   }
 
   function toggle(): void {
@@ -70,14 +80,18 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     else open()
   }
 
+  // Следим за глобальным состоянием: если открыли другое меню — закрываем это
+  watch(activeMenuId, (id) => {
+    if (id !== menuId && isOpen.value) {
+      isOpen.value = false
+    }
+  })
+
   function onDocClick(e: MouseEvent): void {
     if (!isOpen.value) return
 
     const target = e.target as Node
-    // Клик по триггеру — не закрываем (там свой toggle)
     if (triggerRef.value && triggerRef.value.contains(target)) return
-    // Клик внутри dropdown — стопается @click.stop на самом dropdown,
-    // сюда не долетает. На всякий случай — не мешает.
     close()
   }
 
@@ -103,6 +117,9 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     document.removeEventListener('keydown', onKeydown)
     window.removeEventListener('resize', onWindowChange)
     window.removeEventListener('scroll', onWindowChange, true)
+    if (activeMenuId.value === menuId) {
+      activeMenuId.value = null
+    }
   })
 
   return { isOpen, triggerRef, setTriggerRef, position, toggle, open, close }

@@ -48,6 +48,11 @@ export function initTooltip() {
 
 export const tooltip: Directive<HTMLElement, string | null | undefined> = {
   mounted(el, binding) {
+    // Отключаем тултипы на тач-устройствах
+    if (window.matchMedia('(hover: none)').matches) {
+      return
+    }
+
     ;(el as any)._tooltipText = binding.value
 
     const position = () => {

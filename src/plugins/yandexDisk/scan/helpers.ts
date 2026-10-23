@@ -62,6 +62,7 @@ export function buildTrack(
     artist: '',
     album: folder.name ?? '',
     coverUrl: cachedCover,
+    fileLocation: 'remote-only',
   }
 }
 
@@ -100,8 +101,7 @@ export function ensureSubFolders(
         totalTrackCount: 0,
         totalTextFileCount: 0,
         source: sourceId,
-        scanStatus: undefined,
-        ready: false,
+        scanState: 'pending',
       }
       newFolders.push(childFolder)
     }

@@ -2,9 +2,11 @@
 
 import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
+import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { useDislikesStore } from '../dislikes'
 import { isLiveStream } from '@/plugins/registry'
 import { shuffleArray, findNonDislikedIndexFrom, findNonDislikedIndex } from './playerHelpers'
+import { toastService } from '@/services/ui/ToastService'
 import type { Track } from '@/types/track'
 
 export interface PlayerActionsRefs {
@@ -26,7 +28,7 @@ export interface PlayerActionsCallbacks {
 export interface PlayerActions {
   setQueue: (tracks: Track[], startIndex?: number) => void
   playAll: (tracks: Track[]) => void
-  playAt: (index: number) => void
+  playAt: (index: number) => Promise<void>
   play: () => void
   pause: () => void
   stop: () => void
@@ -45,16 +47,6 @@ export interface PlayerActions {
   handleTrackEnd: () => void
 }
 
-/**
- * Все действия плеера: очередь, навигация, перемотка, громкость.
- *
- * `handleTrackEnd` используется из `events.ts` (событие `ended`) —
- * поэтому он входит в публичный интерфейс.
- *
- * `volume`/`muted` живут в сторе, но обновляются через `events.ts`
- * (событие `volumechange`). Действия с громкостью работают напрямую
- * с `audioService` и не читают эти refs — поэтому их нет в `PlayerActionsRefs`.
- */
 export function createPlayerActions(
   refs: PlayerActionsRefs,
   callbacks: PlayerActionsCallbacks,
@@ -72,7 +64,7 @@ export function createPlayerActions(
 
   const { syncCurrentTime, stopTimeLoop } = callbacks
 
-  function playAt(index: number): void {
+  async function playAt(index: number): Promise<void> {
     const track = queue.value[index]
     if (!track) return
 
@@ -81,8 +73,19 @@ export function createPlayerActions(
     duration.value = 0
     currentTime.value = 0
 
-    audioService.load(track.source)
-    audioService.play().catch(() => {})
+    let source: string | File
+    try {
+      source = await resolveTrackSource(track)
+    } catch (err) {
+      console.error('[player] resolveTrackSource failed', err)
+      toastService.error('Не удалось загрузить трек')
+      return
+    }
+
+    audioService.load(source)
+    audioService.play().catch((err) => {
+      console.error('[player] play rejected', err)
+    })
   }
 
   function setQueue(tracks: Track[], startIndex = 0): void {
@@ -99,7 +102,7 @@ export function createPlayerActions(
     const safeIndex = firstPlayable !== -1 ? firstPlayable : fromIndex
 
     queue.value = tracks
-    playAt(safeIndex)
+    void playAt(safeIndex)
   }
 
   function playAll(tracks: Track[]): void {
@@ -113,19 +116,19 @@ export function createPlayerActions(
       const safeIndex = firstPlayable !== -1 ? firstPlayable : 0
 
       queue.value = shuffled
-      playAt(safeIndex)
+      void playAt(safeIndex)
     } else {
       const firstPlayable = findNonDislikedIndexFrom(tracks, 0, dislikes.dislikedIds)
       const safeIndex = firstPlayable !== -1 ? firstPlayable : 0
 
       queue.value = tracks
-      playAt(safeIndex)
+      void playAt(safeIndex)
     }
   }
 
   function play(): void {
     if (currentTrack.value === null && queue.value.length > 0) {
-      playAt(0)
+      void playAt(0)
       return
     }
     audioService.play().catch((err) => {
@@ -171,7 +174,7 @@ export function createPlayerActions(
 
     if (wasCurrent) {
       const nextIndex = Math.min(index, queue.value.length - 1)
-      playAt(nextIndex)
+      void playAt(nextIndex)
     } else if (wasBeforeCurrent) {
       currentIndex.value = currentIndex.value - 1
       currentTrack.value = queue.value[currentIndex.value] ?? null
@@ -195,14 +198,14 @@ export function createPlayerActions(
       dislikes.dislikedIds,
     )
     if (nextIndex !== -1) {
-      playAt(nextIndex)
+      void playAt(nextIndex)
       return
     }
 
     if (repeatMode.value === 'all') {
       const wrapIndex = findNonDislikedIndex(queue.value, 0, 1, dislikes.dislikedIds)
       if (wrapIndex !== -1) {
-        playAt(wrapIndex)
+        void playAt(wrapIndex)
         return
       }
     }
@@ -215,7 +218,7 @@ export function createPlayerActions(
         queue.value = reshuffled
         const firstPlayable = reshuffled.findIndex((t) => !dislikes.isDisliked(t.id))
         if (firstPlayable !== -1) {
-          playAt(firstPlayable)
+          void playAt(firstPlayable)
           return
         }
       }
@@ -243,7 +246,7 @@ export function createPlayerActions(
       dislikes.dislikedIds,
     )
     if (prevIndex !== -1) {
-      playAt(prevIndex)
+      void playAt(prevIndex)
       return
     }
 
@@ -255,7 +258,7 @@ export function createPlayerActions(
         dislikes.dislikedIds,
       )
       if (wrapIndex !== -1) {
-        playAt(wrapIndex)
+        void playAt(wrapIndex)
         return
       }
     }

@@ -11,12 +11,41 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tektur:wght@400..900&display=swap"
       rel="stylesheet"
     />
     <title>CUEI Media Player</title>
   </head>
   <body>
+    <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <!-- Градиенты для ретро -->
+        <linearGradient id="brass-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fce68a" />
+          <stop offset="50%" stop-color="#d4af37" />
+          <stop offset="100%" stop-color="#8b6914" />
+        </linearGradient>
+        <linearGradient id="emerald-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6effb0" />
+          <stop offset="100%" stop-color="#1b8a4c" />
+        </linearGradient>
+
+        <!-- Градиенты для киберпанка -->
+        <linearGradient id="neon-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#00f0ff" />
+          <stop offset="100%" stop-color="#7df9ff" />
+        </linearGradient>
+        <linearGradient id="magenta-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#ff007f" />
+          <stop offset="100%" stop-color="#ff7fbf" />
+        </linearGradient>
+      </defs>
+    </svg>
+
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

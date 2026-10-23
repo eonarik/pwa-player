@@ -80,7 +80,7 @@ function onFooterClick(e: MouseEvent) {
 </script>
 
 <template>
-  <footer class="relative w-full bg-bg radio-grille-bg" @click="onFooterClick">
+  <footer class="relative w-full bg-bg radio-grille-bg pb-[env(safe-area-inset-bottom)]" @click="onFooterClick">
     <!-- Прогресс -->
     <PlayerProgressBar v-if="!isLive" :current-time="currentTime" :duration="duration" size="sm"
       :interactive="!isCoarsePointer" :expand-on-hover="!isCoarsePointer" :show-time-on-hover="!isCoarsePointer"

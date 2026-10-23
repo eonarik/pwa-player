@@ -1,6 +1,6 @@
 // server/src/plugins/yandex-self/routes.js
 import { Router } from 'express'
-import { login, validateToken } from './auth.js'
+import { login, validateToken, refresh } from './auth.js'
 import {
   yandexListResources,
   yandexDownloadHref,
@@ -12,6 +12,8 @@ import { mapAndFilterItems, normalizePath } from './filter.js'
 
 export const selfRoutes = Router()
 
+// --- Публичные роуты (без проверки JWT) -----------------------------
+
 selfRoutes.post('/auth', async (req, res) => {
   const { ctx, password } = req.body
   try {
@@ -22,7 +24,20 @@ selfRoutes.post('/auth', async (req, res) => {
   }
 })
 
-// Middleware для проверки JWT
+selfRoutes.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body
+  if (!refreshToken) return res.status(400).json({ error: 'refreshToken is required' })
+
+  try {
+    const result = await refresh(refreshToken)
+    res.json(result)
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid refresh token' })
+  }
+})
+
+// --- Middleware для проверки JWT ------------------------------------
+
 function requireAuth(options = { allowQuery: false }) {
   return (req, res, next) => {
     const authHeader = req.headers.authorization
@@ -43,11 +58,13 @@ function requireAuth(options = { allowQuery: false }) {
   }
 }
 
-// Применяем строгую проверку ко всем роутам, кроме /download
+// Применяем строгую проверку ко всем роутам, кроме /download и /refresh
 selfRoutes.use((req, res, next) => {
-  if (req.path === '/download') return next()
+  if (req.path === '/download' || req.path === '/refresh') return next()
   return requireAuth({ allowQuery: false })(req, res, next)
 })
+
+// --- Защищенные роуты ------------------------------------------------
 
 selfRoutes.get('/resources', async (req, res) => {
   const { path: rawPath = '/' } = req.query
@@ -56,7 +73,6 @@ selfRoutes.get('/resources', async (req, res) => {
   const { path, cleanRoot } = normalizePath(rawPath, root)
   const allowedFolders = req.selfAuth.allowedFolders
 
-  // Проверка прав на запрашиваемую папку
   if (Array.isArray(allowedFolders) && allowedFolders.length === 0) {
     res.status(403).json({ error: 'Доступ запрещён' })
     return

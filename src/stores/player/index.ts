@@ -5,7 +5,7 @@ import { ref, computed, shallowRef, watch } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { persistenceService } from '@/services/persistence/PersistenceService'
 import type { Track } from '@/types/track'
-import { createLibraryWriter } from '../library'
+import { createLibraryWriter, useLibraryStore } from '../library'
 import { createPlayerPersistence } from './playerPersistence'
 import { restorePlayerState, applyRestoredPlayback } from './playerRestore'
 import { createTimeLoop } from './timeLoop'
@@ -127,6 +127,23 @@ export const usePlayerStore = defineStore('player', () => {
     return true
   }
 
+  function updateTrackInQueue(trackId: string): void {
+    const idx = queue.value.findIndex((t) => t.id === trackId)
+    if (idx === -1) return
+
+    const libTrack = useLibraryStore().getTrack(trackId)
+    if (!libTrack) return
+
+    queue.value[idx] = {
+      ...queue.value[idx]!,
+      ...libTrack,
+    }
+
+    if (currentIndex.value === idx) {
+      currentTrack.value = queue.value[idx]!
+    }
+  }
+
   // --- Очистка --------------------------------------------------------
   function $dispose(): void {
     timeLoop.stop()
@@ -152,7 +169,7 @@ export const usePlayerStore = defineStore('player', () => {
 
     ...actions,
     restore,
-
+    updateTrackInQueue,
     $dispose,
   }
 })

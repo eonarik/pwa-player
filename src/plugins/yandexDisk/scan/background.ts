@@ -7,6 +7,12 @@ import type { IYandexService } from '../types'
 import { partitionItems, buildTrack, buildTextFile, ensureSubFolders } from './helpers'
 import { mapWithConcurrency } from '../concurrency'
 
+function isLocallyAvailable(track: LibraryTrack | null): boolean {
+  if (!track) return false
+  const loc = track.fileLocation ?? 'remote-only'
+  return loc === 'local-only' || loc === 'both'
+}
+
 export function mergeFolderContent(
   context: PluginContext,
   folder: Folder,
@@ -15,12 +21,11 @@ export function mergeFolderContent(
   sourceId: string,
   service: IYandexService,
 ): void {
-  // Если нас отменили — прерываемся
   if (service.isCancelled && service.isCancelled()) return
 
   const { subDirs, audioItems, textItems } = partitionItems(items)
 
-  const remoteTrackIds: string[] = []
+  const remoteTrackIdsSet = new Set<string>()
   const newTracks: LibraryTrack[] = []
 
   for (const item of audioItems) {
@@ -28,8 +33,10 @@ export function mergeFolderContent(
     if (!context.writer.getTrack(track.id)) {
       newTracks.push(track)
     }
-    remoteTrackIds.push(track.id)
+    remoteTrackIdsSet.add(track.id)
   }
+
+  const remoteTrackIds = Array.from(remoteTrackIdsSet)
 
   const textFiles: TextFileRef[] = textItems.map((item) => buildTextFile(folder, item))
   const { childFolderIds, newFolders } = ensureSubFolders(context, folder, subDirs, sourceId)
@@ -37,22 +44,22 @@ export function mergeFolderContent(
   if (newTracks.length > 0) context.writer.addTracks(newTracks, sourceId)
   if (newFolders.length > 0) context.writer.addFolders(newFolders, sourceId)
 
-  const onlyLocalIds = folder.trackIds.filter((id) => {
+  const localTrackIds = folder.trackIds.filter((id) => {
     const t = context.writer.getTrack(id)
-    return t?.origin === 'only-local'
+    return isLocallyAvailable(t)
   })
 
   let finalTrackIds: string[]
   if (removeMissing) {
     const currentRemoteIds = folder.trackIds.filter((id) => {
       const t = context.writer.getTrack(id)
-      return t && t.origin !== 'only-local'
+      return t && !isLocallyAvailable(t)
     })
     const removed = currentRemoteIds.filter((id) => !remoteTrackIds.includes(id))
     if (removed.length > 0) {
       context.writer.removeTracks(removed)
     }
-    finalTrackIds = [...remoteTrackIds, ...onlyLocalIds]
+    finalTrackIds = Array.from(new Set([...remoteTrackIds, ...localTrackIds]))
   } else {
     const existing = new Set(folder.trackIds)
     const added = remoteTrackIds.filter((id) => !existing.has(id))
@@ -68,7 +75,7 @@ export function mergeFolderContent(
 
   context.writer.updateFolder(folder.id, {
     childFolderIds: removeMissing
-      ? childFolderIds
+      ? Array.from(new Set(childFolderIds))
       : Array.from(new Set([...folder.childFolderIds, ...childFolderIds])),
     trackIds: finalTrackIds,
     textFiles,
@@ -173,8 +180,7 @@ export async function refreshSubtree(
     context.writer.updateFolder(folder.id, {
       totalTrackCount: totalTracks,
       totalTextFileCount: totalFiles,
-      scanStatus: 'scanned',
-      ready: true,
+      scanState: 'scanned',
     })
 
     return { tracks: totalTracks, files: totalFiles }
@@ -191,9 +197,9 @@ export async function backgroundScan(
   if (service.isCancelled && service.isCancelled()) return
 
   const allFolders = context.writer.getFoldersBySource(sourceId)
-  const unready = allFolders.filter((f) => f.ready !== true)
+  const pending = allFolders.filter((f) => (f.scanState ?? 'pending') === 'pending')
 
-  if (unready.length === 0) return
+  if (pending.length === 0) return
 
   const rootFolder = allFolders.find((f) => f.parentId === null)
   if (!rootFolder) return

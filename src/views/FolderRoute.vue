@@ -25,13 +25,6 @@ const pathSegments = computed<string[]>(() => {
 
 const folderPath = computed(() => pathSegments.value.join('/'))
 
-/**
- * Ищем папку по source + path.
- * source — это pluginId в URL, который может быть:
- * - 'local' (контейнер локальных папок)
- * - 'local:Music' (конкретная локальная папка)
- * - 'yandex' (Яндекс.Диск)
- */
 const currentFolder = computed<Folder | null>(() => {
   const pid = pluginId.value
   if (!pid) return null
@@ -45,8 +38,8 @@ const currentFolder = computed<Folder | null>(() => {
 const folderExists = computed(() => Boolean(currentFolder.value))
 
 async function ensureFolderScanned(folder: Folder): Promise<void> {
-  if (folder.scanStatus === 'scanned') return
-  if (folder.scanStatus === 'scanning') return
+  const state = folder.scanState ?? 'pending'
+  if (state === 'scanned' || state === 'scanning') return
   if (!folder.source) return
 
   try {

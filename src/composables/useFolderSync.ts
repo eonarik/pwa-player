@@ -12,27 +12,22 @@ export interface UseFolderSyncReturn {
   canRefreshFromDevice: Ref<boolean>
   isRefreshing: Ref<boolean>
   isRefreshingFromDevice: Ref<boolean>
+  needsAttention: Ref<boolean>
   refreshFromCloud: () => Promise<void>
   refreshFromDevice: () => Promise<void>
 }
 
-/**
- * Синхронизация текущей папки: с облака (пересканировать поддерево)
- * и с устройства (найти новые/отсутствующие файлы).
- *
- * `canRefresh` / `canRefreshFromDevice` пересчитываются при смене
- * `currentFolder.source`: смотрят на возможности плагина
- * (`scanFolder`, `scanDownloadDir`).
- */
 export function useFolderSync(currentFolder: Ref<Folder | null>): UseFolderSyncReturn {
   const canRefresh = ref(false)
   const canRefreshFromDevice = ref(false)
   const isRefreshing = ref(false)
   const isRefreshingFromDevice = ref(false)
+  const needsAttention = ref(false)
 
   watch(
     () => currentFolder.value?.source,
     async (sourceId) => {
+      needsAttention.value = false
       if (!sourceId) {
         canRefresh.value = false
         canRefreshFromDevice.value = false
@@ -57,15 +52,54 @@ export function useFolderSync(currentFolder: Ref<Folder | null>): UseFolderSyncR
 
     try {
       const plugin = await loadPlugin(pluginIdFromSource(folder.source))
+
+      if (plugin.isDisconnected?.()) {
+        toastService.info('Подключение к источнику...')
+        const context = createPluginContext(pluginIdFromSource(folder.source))
+        await plugin.connect(context)
+      }
+
       if (!plugin.scanFolder) return
 
       isRefreshing.value = true
+      needsAttention.value = false
       const context = createPluginContext(pluginIdFromSource(folder.source))
+
+      // 1. Локальные origin/source — до облачного скана.
+      if (plugin.mergeLocalIntoLibrary) {
+        try {
+          await plugin.mergeLocalIntoLibrary(context)
+        } catch (err) {
+          console.warn('[folder-sync] mergeLocalIntoLibrary (pre) failed', err)
+        }
+      }
+
+      // 2. Облачный скан.
       await plugin.scanFolder(context, folder.id, { recursive: true, removeMissing: true })
+
+      // 3. Ещё раз — для новых облачных треков с локальной копией.
+      if (plugin.mergeLocalIntoLibrary) {
+        try {
+          await plugin.mergeLocalIntoLibrary(context)
+        } catch (err) {
+          console.warn('[folder-sync] mergeLocalIntoLibrary (post) failed', err)
+        }
+      }
+
+      // 4. Сохраняем кеш.
+      if (plugin.saveCache) {
+        try {
+          await plugin.saveCache(context)
+        } catch (err) {
+          console.warn('[folder-sync] saveCache failed', err)
+        }
+      }
+
       toastService.success('Обновлено с облака')
     } catch (err) {
       console.error('[folder-sync] cloud refresh failed', err)
-      toastService.error('Не удалось обновить с облака')
+      needsAttention.value = true
+      toastService.error('Не удалось обновить с облака. Требуется ручная синхронизация.')
     } finally {
       isRefreshing.value = false
     }
@@ -75,12 +109,20 @@ export function useFolderSync(currentFolder: Ref<Folder | null>): UseFolderSyncR
     if (isRefreshingFromDevice.value) return
 
     isRefreshingFromDevice.value = true
+    needsAttention.value = false
     try {
       await syncService.syncAll()
-      toastService.info('Сканирование устройства завершено')
+      if (syncService.issueCount.value > 0) {
+        toastService.info(
+          'Найдены расхождения. Проверьте, что добавить или пометить как «в облаке».',
+        )
+      } else {
+        toastService.info('Сканирование устройства завершено')
+      }
     } catch (err) {
       console.error('[folder-sync] device refresh failed', err)
-      toastService.error('Не удалось обновить с устройства')
+      needsAttention.value = true
+      toastService.error('Не удалось обновить с устройства.')
     } finally {
       isRefreshingFromDevice.value = false
     }
@@ -91,6 +133,7 @@ export function useFolderSync(currentFolder: Ref<Folder | null>): UseFolderSyncR
     canRefreshFromDevice,
     isRefreshing,
     isRefreshingFromDevice,
+    needsAttention,
     refreshFromCloud,
     refreshFromDevice,
   }

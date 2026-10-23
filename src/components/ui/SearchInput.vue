@@ -43,7 +43,10 @@ function onSearchClose() {
 onMounted(async () => {
   if (props.alwaysOpen) {
     await nextTick()
-    inputRef.value?.focus()
+    // Не фокусируем на тач-устройствах, чтобы не вылезала клавиатура
+    if (!window.matchMedia('(hover: none)').matches) {
+      inputRef.value?.focus()
+    }
   }
 })
 </script>

@@ -19,8 +19,9 @@ describe('useUiSettingsStore', () => {
     const store = useUiSettingsStore()
     expect(store.showSource).toBe(false)
     expect(store.showFiles).toBe(false)
-    expect(store.metadataThreshold).toBe(0.5)
-    expect(store.searchThreshold).toBe(0.5)
+    expect(store.metadataThreshold).toBe(0.75)
+    expect(store.searchThreshold).toBe(0.75)
+    expect(store.playlistMatchThreshold).toBe(0.75)
   })
 
   it('showFiles по умолчанию false', () => {

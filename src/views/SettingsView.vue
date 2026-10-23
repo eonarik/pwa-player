@@ -1,6 +1,7 @@
 <!-- src/views/SettingsView.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import SettingsGeneral from './settings/SettingsGeneral.vue'
 import SettingsPlugins from './settings/SettingsPlugins.vue'
 import SettingsData from './settings/SettingsData.vue'
@@ -8,7 +9,8 @@ import SettingsAbout from './settings/SettingsAbout.vue'
 
 type Tab = 'general' | 'plugins' | 'data' | 'about'
 
-const activeTab = ref<Tab>('general')
+const route = useRoute()
+const router = useRouter()
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'general', label: 'Общие' },
@@ -16,6 +18,31 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'data', label: 'Данные' },
   { id: 'about', label: 'О приложении' },
 ]
+
+// Читаем таб из хэша при загрузке
+const getInitialTab = (): Tab => {
+  const hash = route.hash.replace('#', '')
+  if (TABS.some((t) => t.id === hash)) return hash as Tab
+  return 'general'
+}
+
+const activeTab = ref<Tab>(getInitialTab())
+
+// При смене таба обновляем хэш в URL
+watch(activeTab, (tab) => {
+  router.replace({ hash: `#${tab}` })
+})
+
+// Если пользователь нажал "назад" и хэш изменился — переключаем таб
+watch(
+  () => route.hash,
+  (hash) => {
+    const tab = hash.replace('#', '')
+    if (TABS.some((t) => t.id === tab) && tab !== activeTab.value) {
+      activeTab.value = tab as Tab
+    }
+  }
+)
 </script>
 
 <template>

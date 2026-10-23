@@ -1,9 +1,9 @@
 // oxlint-disable vitest/require-mock-type-parameters
-// src/stores/library.spec.ts
+// src/stores/library/library.spec.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useLibraryStore, createLibraryWriter } from './library'
+import { useLibraryStore, createLibraryWriter } from './index'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 
 vi.mock('@/services/library/LibrarySaveService', () => ({
@@ -38,7 +38,7 @@ function makeTrack(overrides: Partial<LibraryTrack> = {}): LibraryTrack {
     album: 'Album',
     filename: 'song.mp3',
     path: 'song.mp3',
-    source: 'file://',
+    source: '',
     ...overrides,
   } as LibraryTrack
 }
@@ -62,7 +62,6 @@ describe('createLibraryWriter', () => {
       const library = useLibraryStore()
       const writer = createLibraryWriter()
 
-      // Сначала положим local + local:Music + yandex
       writer.setLibrary(
         makeCollected(
           [
@@ -83,7 +82,6 @@ describe('createLibraryWriter', () => {
         'yandex',
       )
 
-      // Теперь меняем local:Music — должны удалиться ТОЛЬКО folder:local:Music, но не folder:local и не folder:yandex
       writer.setLibrary(
         makeCollected(
           [
@@ -145,15 +143,54 @@ describe('createLibraryWriter', () => {
     })
   })
 
-  describe('updateTrackOrigin', () => {
-    it('обновляет origin', () => {
+  describe('updateTrackFileLocation', () => {
+    it('обновляет fileLocation', () => {
       const writer = createLibraryWriter()
       const library = useLibraryStore()
 
       writer.setLibrary(makeCollected([makeFolder()], [makeTrack()]), 'local:Music')
-      writer.updateTrackOrigin('track:local:Music/song.mp3', 'downloaded')
+      writer.updateTrackFileLocation('track:local:Music/song.mp3', 'both')
 
-      expect(library.tracks['track:local:Music/song.mp3']!.origin).toBe('downloaded')
+      expect(library.tracks['track:local:Music/song.mp3']!.fileLocation).toBe('both')
+    })
+
+    it('local-only без handle → не падает (assert в dev — console.error)', () => {
+      const writer = createLibraryWriter()
+      const library = useLibraryStore()
+
+      writer.setLibrary(makeCollected([makeFolder()], [makeTrack()]), 'local:Music')
+
+      // assertTrackInvariants логирует, но не бросает
+      writer.updateTrackFileLocation('track:local:Music/song.mp3', 'local-only')
+      expect(library.tracks['track:local:Music/song.mp3']!.fileLocation).toBe('local-only')
+    })
+  })
+
+  describe('updateTrackHandle', () => {
+    it('устанавливает handle', () => {
+      const writer = createLibraryWriter()
+      const library = useLibraryStore()
+      const handle = {} as FileSystemFileHandle
+
+      writer.setLibrary(makeCollected([makeFolder()], [makeTrack()]), 'local:Music')
+      writer.updateTrackFileLocation('track:local:Music/song.mp3', 'both')
+      writer.updateTrackHandle('track:local:Music/song.mp3', handle)
+
+      expect(library.tracks['track:local:Music/song.mp3']!.handle).toStrictEqual(handle)
+    })
+
+    it('сбрасывает handle при undefined', () => {
+      const writer = createLibraryWriter()
+      const library = useLibraryStore()
+      const handle = {} as FileSystemFileHandle
+
+      writer.setLibrary(
+        makeCollected([makeFolder()], [makeTrack({ fileLocation: 'both', handle })]),
+        'local:Music',
+      )
+      writer.updateTrackHandle('track:local:Music/song.mp3', undefined)
+
+      expect(library.tracks['track:local:Music/song.mp3']!.handle).toBeUndefined()
     })
   })
 
@@ -173,7 +210,6 @@ describe('createLibraryWriter', () => {
         'local',
       )
 
-      // getFoldersBySource возвращает всё с source === 'local' или 'local:*'
       const localFolders = writer.getFoldersBySource('local')
       expect(localFolders.map((f) => f.id)).toEqual(expect.arrayContaining(['a', 'b']))
       expect(localFolders.map((f) => f.id)).not.toContain('c')
@@ -223,7 +259,6 @@ describe('createLibraryWriter', () => {
       'local',
     )
 
-    // вручную синхронизируем счётчики
     writer.updateFolder('P', { childFolderIds: ['A', 'B'] })
     writer.updateFolder('A', { trackIds: ['t1', 't2'] })
     writer.updateFolder('B', { trackIds: ['t3'] })
@@ -234,5 +269,32 @@ describe('createLibraryWriter', () => {
     expect(library.folders['A']!.totalTrackCount).toBe(1)
     expect(library.folders['B']!.totalTrackCount).toBe(0)
     expect(library.folders['P']!.totalTrackCount).toBe(1)
+  })
+})
+
+describe('isSubtreeScanned', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('кэшируется и инвалидируется при updateFolder', () => {
+    const writer = createLibraryWriter()
+    const library = useLibraryStore()
+
+    writer.setLibrary(
+      makeCollected(
+        [
+          makeFolder({ id: 'P', parentId: null, scanState: 'scanned' }),
+          makeFolder({ id: 'C', parentId: 'P', scanState: 'pending' }),
+        ],
+        [],
+      ),
+      'local',
+    )
+    writer.updateFolder('P', { childFolderIds: ['C'] })
+    expect(library.isSubtreeScanned('P')).toBe(false)
+
+    writer.updateFolder('C', { scanState: 'scanned' })
+    expect(library.isSubtreeScanned('P')).toBe(true)
   })
 })

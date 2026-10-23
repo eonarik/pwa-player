@@ -5,6 +5,7 @@ import { syncService } from '@/services/download/SyncService'
 import { useLibraryStore } from '@/stores/library'
 import IconX from '@/components/icons/IconX.vue'
 import type { SelectedIssues } from '@/services/download/types'
+import { getPluginName } from "@/plugins/lookup"
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -55,9 +56,7 @@ function isMissingSelected(pluginId: string, trackId: string): boolean {
 }
 
 function pluginName(pluginId: string): string {
-  if (pluginId === 'yandex') return 'Яндекс.Диск'
-  if (pluginId === 'local') return 'Локальная папка'
-  return pluginId
+  return getPluginName(pluginId, pluginId)
 }
 
 function missingTrackTitle(trackId: string): string {
@@ -103,22 +102,13 @@ function ignore() {
 
 <template>
   <Teleport to="body">
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4"
-      @click.self="ignore"
-    >
-      <div
-        class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-bg-elevated shadow-xl"
-      >
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4" @click.self="ignore">
+      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-bg-elevated shadow-xl">
         <!-- Шапка -->
         <div class="flex shrink-0 items-center justify-between px-5 py-4">
           <h2 class="text-lg font-medium text-fg">Обновление с устройства</h2>
-          <button
-            type="button"
-            class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            aria-label="Закрыть"
-            @click="ignore"
-          >
+          <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+            aria-label="Закрыть" @click="ignore">
             <IconX class="h-5 w-5" />
           </button>
         </div>
@@ -133,17 +123,11 @@ function ignore() {
             <div v-if="issue.onlyLocal.length > 0" class="mb-4">
               <p class="mb-2 text-sm text-fg">Найдены новые треки, добавить в источник?</p>
               <div class="flex flex-col gap-1">
-                <label
-                  v-for="item in issue.onlyLocal"
-                  :key="item.relativePath"
-                  class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="isOnlyLocalSelected(issue.pluginId, item.relativePath)"
+                <label v-for="item in issue.onlyLocal" :key="item.relativePath"
+                  class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg">
+                  <input type="checkbox" :checked="isOnlyLocalSelected(issue.pluginId, item.relativePath)"
                     class="h-4 w-4 shrink-0 cursor-pointer accent-active"
-                    @change="toggleOnlyLocal(issue.pluginId, item.relativePath)"
-                  />
+                    @change="toggleOnlyLocal(issue.pluginId, item.relativePath)" />
                   <span class="min-w-0 flex-1 truncate">{{ item.filename }}</span>
                   <span class="shrink-0 text-xs text-fg-muted">{{ item.relativePath }}</span>
                 </label>
@@ -155,17 +139,11 @@ function ignore() {
                 Следующие треки не найдены на устройстве. Пометить как «в облаке»?
               </p>
               <div class="flex flex-col gap-1">
-                <label
-                  v-for="trackId in issue.missing"
-                  :key="trackId"
-                  class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="isMissingSelected(issue.pluginId, trackId)"
+                <label v-for="trackId in issue.missing" :key="trackId"
+                  class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg">
+                  <input type="checkbox" :checked="isMissingSelected(issue.pluginId, trackId)"
                     class="h-4 w-4 shrink-0 cursor-pointer accent-active"
-                    @change="toggleMissing(issue.pluginId, trackId)"
-                  />
+                    @change="toggleMissing(issue.pluginId, trackId)" />
                   <span class="min-w-0 flex-1 truncate">{{ missingTrackTitle(trackId) }}</span>
                 </label>
               </div>
@@ -179,18 +157,13 @@ function ignore() {
 
         <!-- Кнопки -->
         <div class="flex shrink-0 items-center justify-end gap-2 px-5 py-4">
-          <button
-            type="button"
-            class="rounded-btn px-4 py-2 text-sm text-fg-muted transition hover:text-fg"
-            @click="ignore"
-          >
+          <button type="button" class="rounded-btn px-4 py-2 text-sm text-fg-muted transition hover:text-fg"
+            @click="ignore">
             Проигнорировать
           </button>
-          <button
-            type="button"
+          <button type="button"
             class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-            @click="apply"
-          >
+            @click="apply">
             Применить
           </button>
         </div>

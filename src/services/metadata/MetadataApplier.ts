@@ -5,6 +5,7 @@ import {
   type OriginalMetadata,
 } from '@/services/persistence/MetadataPersistenceService'
 import { useLibraryStore } from '@/stores/library'
+import { usePlayerStore } from '@/stores/player'
 import type { LibraryTrack } from '@/types/library'
 import type { MetadataCandidate, RemoteTrackMetadata } from './TrackMetadataService'
 import { UNKNOWN_ARTIST_PLACEHOLDER } from './constants'
@@ -14,14 +15,6 @@ export type ApplyResult =
   | { status: 'issue'; candidates: MetadataCandidate[] }
   | { status: 'skipped' }
 
-/**
- * Единый сервис применения найденных метаданных.
- *
- * Используется из:
- * - TrackActions (одиночный поиск)
- * - useMetadataSearch (массовый поиск)
- * - MetadataIssuesModal (ручное применение выбранного кандидата)
- */
 class MetadataApplier {
   private static instance: MetadataApplier | null = null
 
@@ -32,14 +25,6 @@ class MetadataApplier {
     return MetadataApplier.instance
   }
 
-  /**
-   * Применяет результат поиска метаданных.
-   *
-   * - Сохраняет запись в кэш (с original snapshot).
-   * - Если confident → применяет патч к library.
-   * - Если !confident → возвращает candidates для issues.
-   * - Если incoming пустой → skipped.
-   */
   apply(track: LibraryTrack, incoming: RemoteTrackMetadata): ApplyResult {
     this.saveToCache(track, incoming)
 
@@ -65,11 +50,6 @@ class MetadataApplier {
     return { status: 'issue', candidates }
   }
 
-  /**
-   * Применяет конкретного кандидата (из MetadataIssuesModal).
-   * Не проверяет порог — пользователь сам выбрал.
-   * Сохраняет в кэш как confident-результат.
-   */
   applyCandidate(track: LibraryTrack, candidate: MetadataCandidate): void {
     metadataPersistenceService.setInMemory(track.id, {
       artist: candidate.artist,
@@ -84,8 +64,6 @@ class MetadataApplier {
     void metadataPersistenceService.flush()
   }
 
-  // --- Внутренние -------------------------------------------------------
-
   private saveToCache(track: LibraryTrack, incoming: RemoteTrackMetadata): void {
     metadataPersistenceService.setInMemory(track.id, {
       artist: incoming.artist,
@@ -97,13 +75,6 @@ class MetadataApplier {
     })
   }
 
-  /**
-   * Правило X:
-   * - artist — только если был пуст / плейсхолдер.
-   * - title — всегда, если incoming.title непустое.
-   * - album — всегда, если incoming.album непустое.
-   * - coverUrl — только если был пуст.
-   */
   private applyPatch(
     track: LibraryTrack,
     incoming: { artist: string; title: string; album: string; coverUrl: string | null },
@@ -129,11 +100,16 @@ class MetadataApplier {
 
     const library = useLibraryStore()
     library.updateTrackMetadata(track.id, patch)
+
+    // Синхронизируем очередь, если этот трек в ней есть
+    try {
+      const player = usePlayerStore()
+      player.updateTrackInQueue(track.id)
+    } catch {
+      // Pinia может быть не инициализирована (например, в тестах)
+    }
   }
 
-  /**
-   * Снимок метаданных до применения — для отката через «Очистить».
-   */
   buildOriginal(track: LibraryTrack): OriginalMetadata {
     const coverUrl = track.coverUrl
     const isBlob = coverUrl?.startsWith('blob:') ?? false

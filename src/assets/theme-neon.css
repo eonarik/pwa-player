@@ -2,15 +2,15 @@
 
 [data-theme='neon'] {
   /* --- Палитра --- */
-  --color-bg: #050508; /* Глубокий космос */
-  --color-bg-elevated: #0d0f1a; /* Тёмный металл */
-  --color-fg: #e0f7fa; /* Светло-голубой неон */
+  --color-bg: #050508;
+  --color-bg-elevated: #0d0f1a;
+  --color-fg: #e0f7fa;
   --color-fg-muted: rgba(224, 247, 250, 0.6);
   --color-fg-subtle: rgba(224, 247, 250, 0.35);
   --color-fg-disabled: rgba(224, 247, 250, 0.2);
 
-  --color-active: #ff007f; /* Маджента (киберпанк) */
-  --color-accent: #00f0ff; /* Циан */
+  --color-active: #ff007f;
+  --color-accent: #00f0ff;
   --color-accent-hover: #7df9ff;
 
   --color-hover-bg: rgba(0, 240, 255, 0.08);
@@ -26,7 +26,21 @@
   --radius-card: 0.5rem;
   --radius-modal: 0.75rem;
 
-  --font-radio: 'Inter', system-ui, sans-serif; /* Оставляем стандартный шрифт */
+  --font-neon: "Tektur", sans-serif;
+}
+
+
+/* --- Шрифты --- */
+[data-theme='neon'] body,
+[data-theme='neon'] button,
+[data-theme='neon'] input,
+[data-theme='neon'] .neon-font {
+  font-family: var(--font-neon) !important;
+}
+
+[data-theme='neon'] .tabular-nums {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
 }
 
 /* --- Фон: сетка киберпанка --- */
@@ -42,30 +56,7 @@
   border-right: 1px solid rgba(255, 0, 127, 0.1);
 }
 
-/* Неоновое свечение для панелей */
-[data-theme='neon'] header {
-  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.15) !important;
-  border-bottom: 1px solid rgba(0, 240, 255, 0.4) !important;
-}
-
-[data-theme='neon'] footer {
-  box-shadow: 0 -4px 20px rgba(0, 240, 255, 0.15) !important;
-  border-top: 1px solid rgba(0, 240, 255, 0.4) !important;
-}
-
-[data-theme='neon'] main {
-  box-shadow: inset 0 0 40px rgba(0, 240, 255, 0.03) !important;
-  border-left: 1px solid rgba(255, 0, 127, 0.1);
-  border-right: 1px solid rgba(255, 0, 127, 0.1);
-}
-
 /* --- Глянцевые карточки (Glassmorphism) --- */
-[data-theme='neon'] main {
-  background-color: rgba(5, 5, 8, 0.6);
-  backdrop-filter: blur(10px);
-  box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05);
-}
-
 [data-theme='neon'] .radio-inset {
   box-shadow:
     inset 0 0 0 1px rgba(0, 240, 255, 0.2),
@@ -123,9 +114,6 @@
 }
 
 /* --- Неоновый "глаз" --- */
-.radio-eye {
-  /* Общий стиль для глаза (он у нас уже есть) */
-}
 [data-theme='neon'] .radio-eye {
   background-color: var(--color-playing);
   box-shadow: 0 0 15px var(--color-playing), 0 0 30px var(--color-playing);
@@ -139,8 +127,13 @@
   filter: drop-shadow(0 0 5px rgba(0, 240, 255, 0.4));
 }
 
+[data-theme='neon'] .text-red-400 > svg,
 [data-theme='neon'] .text-active > svg {
   fill: url(#magenta-gradient) !important;
   stroke: url(#magenta-gradient) !important;
   filter: drop-shadow(0 0 8px rgba(255, 0, 127, 0.8)) !important;
+}
+
+[data-theme='neon'] button:disabled {
+  opacity: 0.25;
 }

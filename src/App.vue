@@ -18,6 +18,7 @@ import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPageTitle } from '@/navigation/title'
+import { audioService } from '@/services/audio/AudioService'
 import PlayerControls from '@/components/player/PlayerControls.vue'
 import FullPlayer from '@/components/player/FullPlayer.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
@@ -27,6 +28,8 @@ import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue
 import AppDrawer from '@/components/layout/AppDrawer.vue'
 import IconMenu from '@/components/icons/IconMenu.vue'
 import FeedbackModal from '@/components/ui/FeedbackModal.vue'
+import { trackMetadataService } from './services/metadata/TrackMetadataService'
+import { metadataApplier } from './services/metadata/MetadataApplier'
 
 const route = useRoute()
 const player = usePlayerStore()
@@ -55,14 +58,6 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', onGlobalKeydown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onGlobalKeydown)
-})
-
 // --- Заголовок FullPlayer --------------------------------------------
 
 const pageTitle = computed(() =>
@@ -86,42 +81,19 @@ watch(
   },
 )
 
-// --- Свайп вверх из мини-плеера -------------------------------------
-
-const SWIPE_UP_THRESHOLD = 100
-
-const playerFooterRef = ref<HTMLElement | null>(null)
-let swipeStartY = 0
-let swipeTracking = false
-
-function onFooterPointerDown(e: PointerEvent) {
-  if (e.pointerType !== 'touch') return
-
-  const target = e.target as HTMLElement
-  const isOpenTrigger = target.closest('[data-player-open]') !== null
-  if (!isOpenTrigger && target.closest('button, input, a, [role="button"]')) return
-
-  swipeStartY = e.clientY
-  swipeTracking = true
-}
-
-function onFooterPointerMove(e: PointerEvent) {
-  if (!swipeTracking) return
-  const dy = swipeStartY - e.clientY
-  if (dy >= SWIPE_UP_THRESHOLD) {
-    swipeTracking = false
-    openFullPlayer()
-  }
-}
-
-function onFooterPointerUp() {
-  swipeTracking = false
-}
-
 // --- Шторка ----------------------------------------------------------
 
 const isDrawerOpen = ref(false)
 const showSyncIssues = ref(false)
+
+// Показываем модалку с проблемами синхронизации, если после syncAll
+// остались необработанные расхождения (onlyLocal / missing).
+watch(
+  () => syncService.issueCount.value,
+  (count) => {
+    if (count > 0) showSyncIssues.value = true
+  },
+)
 
 const queueBadge = computed(() => (queue.value.length > 0 ? String(queue.value.length) : ''))
 
@@ -170,11 +142,26 @@ watchEffect(() => {
   document.title = t ? `${t.title} — ${t.artist}` : 'CUEI Media Player'
 })
 
+// --- Фикс для Safari (PWA) при возврате из фона -----------------------
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible' && player.isPlaying) {
+    const audio = audioService.element
+    // Если трек фактически закончился, но ended не сработал (Safari)
+    if (audio.ended || (audio.duration > 0 && audio.currentTime >= audio.duration - 0.5)) {
+      player.handleTrackEnd()
+    }
+  }
+}
+
 // --- Восстановление при старте ----------------------------------------
 
 const isBootstrapping = ref(true)
 
 onMounted(async () => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
   try {
     await uiSettings.load()
     await sortService.load()
@@ -200,35 +187,38 @@ onMounted(async () => {
     isBootstrapping.value = false
   }
 })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
+
+
+watch(currentTrack, async (track) => {
+  if (!track || !uiSettings.autoFetchMetadata) return
+
+  const libTrack = library.getTrack(track.id)
+  if (!libTrack) return
+
+  // Если для трека уже есть метаданные в кэше — не ищем
+  if (metadataPersistenceService.has(track.id)) return
+
+  // Ищем в фоне
+  void (async () => {
+    const result = await trackMetadataService.fetch(
+      libTrack.artist ?? '',
+      libTrack.title,
+      uiSettings.metadataThreshold,
+    )
+    if (result.status === 'found') {
+      metadataApplier.apply(libTrack, result.data)
+    }
+  })()
+})
 </script>
 
 <template>
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
-    <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
-      <defs>
-        <!-- Градиенты для ретро -->
-        <linearGradient id="brass-gradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#fce68a" />
-          <stop offset="50%" stop-color="#d4af37" />
-          <stop offset="100%" stop-color="#8b6914" />
-        </linearGradient>
-        <linearGradient id="emerald-gradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#6effb0" />
-          <stop offset="100%" stop-color="#1b8a4c" />
-        </linearGradient>
-
-        <!-- Градиенты для киберпанка -->
-        <linearGradient id="neon-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#00f0ff" />
-          <stop offset="100%" stop-color="#7df9ff" />
-        </linearGradient>
-        <linearGradient id="magenta-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#ff007f" />
-          <stop offset="100%" stop-color="#ff7fbf" />
-        </linearGradient>
-      </defs>
-    </svg>
-
     <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2">
       <button type="button"
@@ -249,16 +239,15 @@ onMounted(async () => {
       </span>
     </header>
 
-    <main class="overflow-hidden radio-grille-bg">
+    <main class="overflow-hidden">
       <RouterView v-if="!isBootstrapping" />
       <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
         Загрузка…
       </div>
     </main>
 
-    <!-- Мини-плеер + свайп вверх -->
-    <div ref="playerFooterRef" @pointerdown="onFooterPointerDown" @pointermove="onFooterPointerMove"
-      @pointerup="onFooterPointerUp" @pointercancel="onFooterPointerUp">
+    <!-- Мини-плеер -->
+    <div>
       <PlayerControls @open="openFullPlayer" />
     </div>
 

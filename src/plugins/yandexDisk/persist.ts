@@ -1,13 +1,18 @@
 // src/plugins/yandexDisk/persist.ts
 
-import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
+import type {
+  CollectedLibrary,
+  FileLocation,
+  Folder,
+  LibraryTrack,
+  ScanState,
+} from '@/types/library'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
-import { getFileFromPath } from '@/services/download/getFileFromPath'
+import { getFileHandleFromPath } from '@/services/download/getFileFromPath'
+import { migrateFileLocation, migrateScanState } from '@/services/library/migrations'
 import type { PersistedYandexLibrary, IYandexService } from './types'
 
 const ROOT_REMOTE_PATH = 'disk:/'
-
-// --- Сериализация -----------------------------------------------------
 
 export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary {
   const folders = collected.folders.map((f) => ({
@@ -20,15 +25,15 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
     trackIds: [...f.trackIds],
     totalTrackCount: f.totalTrackCount,
     totalTextFileCount: f.totalTextFileCount,
-    scanStatus: f.scanStatus,
-    ready: f.ready,
+    scanState: f.scanState ?? 'pending',
     textFiles: f.textFiles?.map((t) => ({ name: t.name, remotePath: t.remotePath, path: t.path })),
   }))
 
   const tracks = []
   for (const t of collected.tracks) {
-    const isOnlyLocal = t.origin === 'only-local'
-    if (!t.remotePath && !isOnlyLocal) continue
+    const fileLocation: FileLocation = t.fileLocation ?? 'remote-only'
+    const isLocal = fileLocation === 'local-only' || fileLocation === 'both'
+    if (!t.remotePath && !isLocal) continue
 
     tracks.push({
       id: t.id,
@@ -40,7 +45,7 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
       title: t.title,
       artist: t.artist,
       album: t.album,
-      origin: t.origin,
+      fileLocation,
       duration: t.duration,
     })
   }
@@ -55,31 +60,32 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
   }
 }
 
-// --- Десериализация ---------------------------------------------------
-
 export function fromPersisted(
   cached: PersistedYandexLibrary,
   service: IYandexService,
 ): CollectedLibrary {
-  const folders: Folder[] = cached.folders.map((f) => ({
-    id: f.id,
-    name: f.name,
-    parentId: f.parentId,
-    path: f.path,
-    remotePath: f.remotePath,
-    childFolderIds: [...f.childFolderIds],
-    trackIds: [...f.trackIds],
-    totalTrackCount: f.totalTrackCount,
-    totalTextFileCount: f.totalTextFileCount,
-    source: cached.folders[0]?.id.split(':')[1] || 'yandex', // fallback
-    scanStatus: f.scanStatus === 'scanning' ? undefined : f.scanStatus,
-    ready: f.ready,
-    textFiles: f.textFiles,
-  }))
+  const folders: Folder[] = cached.folders.map((f) => {
+    const scanState: ScanState = f.scanState ?? migrateScanState(f.scanStatus)
+    return {
+      id: f.id,
+      name: f.name,
+      parentId: f.parentId,
+      path: f.path,
+      remotePath: f.remotePath,
+      childFolderIds: [...f.childFolderIds],
+      trackIds: [...f.trackIds],
+      totalTrackCount: f.totalTrackCount,
+      totalTextFileCount: f.totalTextFileCount,
+      source: cached.folders[0]?.id.split(':')[1] || 'yandex',
+      scanState,
+      textFiles: f.textFiles,
+    }
+  })
 
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
     const cachedCover = metadataPersistenceService.get(t.id)?.coverUrl ?? undefined
     const source = t.remotePath ? service.buildDownloadUrl(t.remotePath) : ''
+    const fileLocation: FileLocation = t.fileLocation ?? migrateFileLocation(t.origin)
 
     return {
       id: t.id,
@@ -93,7 +99,7 @@ export function fromPersisted(
       artist: t.artist,
       album: t.album,
       coverUrl: cachedCover,
-      origin: t.origin,
+      fileLocation,
       duration: t.duration,
     }
   })
@@ -106,22 +112,29 @@ export function fromPersisted(
   }
 }
 
-// --- Локальные файлы --------------------------------------------------
-
 export async function enrichWithLocalFiles(
   tracks: LibraryTrack[],
   targetDir: FileSystemDirectoryHandle,
+  service?: IYandexService,
 ): Promise<void> {
   for (const track of tracks) {
-    if (track.origin !== 'downloaded' && track.origin !== 'only-local') continue
+    const location = track.fileLocation ?? 'remote-only'
+    if (location !== 'local-only' && location !== 'both') continue
 
     const relativePath = track.path ?? track.filename
-    const file = await getFileFromPath(targetDir, relativePath)
+    const handle = await getFileHandleFromPath(targetDir, relativePath)
 
-    if (file) {
-      track.source = file
+    if (handle) {
+      track.handle = handle
+      track.source = ''
     } else {
-      track.origin = 'remote'
+      track.handle = undefined
+      track.fileLocation = 'remote-only'
+      if (track.remotePath && service) {
+        track.source = service.buildDownloadUrl(track.remotePath)
+      } else {
+        track.source = ''
+      }
     }
   }
 }

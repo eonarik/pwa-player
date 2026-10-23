@@ -2,6 +2,7 @@
 
 import { Router } from 'express'
 import { metadataSimilarity, NO_ARTIST_THRESHOLD } from './similarity.js'
+import { parseArtistAndTitle } from './parseTitle.js'
 
 export const metadataRouter = Router()
 
@@ -37,8 +38,18 @@ function getFromCache(key) {
  * - { ...best, confident, candidates? } — лучший + (если !confident) все кандидаты.
  */
 metadataRouter.get('/track-metadata', async (req, res) => {
-  const artist = typeof req.query.artist === 'string' ? req.query.artist.trim() : ''
-  const title = typeof req.query.title === 'string' ? req.query.title.trim() : ''
+  let artist = typeof req.query.artist === 'string' ? req.query.artist.trim() : ''
+  let title = typeof req.query.title === 'string' ? req.query.title.trim() : ''
+
+  // Если artist не передан явно, но title содержит разделитель — разбиваем его
+  if (!artist && title) {
+    const parsed = parseArtistAndTitle(title)
+    if (parsed.artist) {
+      artist = parsed.artist
+      title = parsed.title
+    }
+  }
+
   const thresholdRaw = req.query.threshold
   const threshold = typeof thresholdRaw === 'string' ? Number(thresholdRaw) : NaN
 

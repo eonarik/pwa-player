@@ -15,11 +15,15 @@ import { yandexPersistenceService } from './persistence'
 import { backgroundScan, currentLibraryFromWriter, loadRootContent, refreshSubtree } from './scan'
 import { fromPersisted, toPersisted, enrichWithLocalFiles } from './persist'
 import { authService } from '@/services/auth/AuthService'
-import { useLibraryStore } from '@/stores/library'
 import type { IYandexService } from './types'
 import { scanFolderRecursive } from './scanFolder'
 import { downloadTrackToDir, removeDownloadedFromDir } from './download'
-import { scanDownloadDirForSource, createLocalTrackFromFile } from './sync'
+import {
+  scanDownloadDirForSource,
+  createLocalTrackFromFile,
+  restoreLibraryFromFiles,
+  mergeLocalIntoLibrary,
+} from './sync'
 
 export interface YandexPluginOptions {
   id: string
@@ -36,7 +40,6 @@ export function createYandexPlugin({
   service,
   isSelf = false,
 }: YandexPluginOptions): LibrarySource {
-  // Локальный флаг отмены для предотвращения гонки данных
   let cancelled = false
   service.isCancelled = () => cancelled
   service.setCancelled = (val: boolean) => {
@@ -49,14 +52,11 @@ export function createYandexPlugin({
     icon,
     canDownload: true,
     isAvailable: () => typeof window !== 'undefined',
+    isDisconnected: () => service.isDisconnected?.() ?? false,
 
     async connect(context: PluginContext): Promise<void> {
-      if (service.setDisconnected) {
-        service.setDisconnected(false)
-      }
-      if (service.setCancelled) {
-        service.setCancelled(false)
-      }
+      if (service.setDisconnected) service.setDisconnected(false)
+      if (service.setCancelled) service.setCancelled(false)
 
       if (isSelf) {
         if (!service.login) throw new Error('Service does not support login')
@@ -68,7 +68,6 @@ export function createYandexPlugin({
           inputType: 'password',
         })
 
-        // ВАЖНО: null означает отмену, а '' (пустая строка) — валидный пустой пароль
         if (code === null) throw new Error('cancelled')
 
         let ctx = 'common'
@@ -100,8 +99,19 @@ export function createYandexPlugin({
       if (!forceRefresh) {
         const restored = await this.restoreFromCache!(context)
         if (restored) {
-          void backgroundScan(context, id, service)
+          if (!service.isDisconnected || !service.isDisconnected()) {
+            void backgroundScan(context, id, service)
+          }
           return
+        }
+      }
+
+      const targetDir = await context.getDownloadDir()
+      if (targetDir) {
+        try {
+          await mergeLocalIntoLibrary({ sourceId: id }, context, targetDir)
+        } catch (err) {
+          console.warn(`[${id}] load: mergeLocalIntoLibrary failed`, err)
         }
       }
 
@@ -116,27 +126,46 @@ export function createYandexPlugin({
       }
 
       context.writer.setLibrary(rootCollected, id)
-      await yandexPersistenceService.save(id, toPersisted(rootCollected))
+
+      if (targetDir) {
+        try {
+          await mergeLocalIntoLibrary({ sourceId: id }, context, targetDir)
+        } catch (err) {
+          console.warn(`[${id}] load: mergeLocalIntoLibrary (post) failed`, err)
+        }
+      }
+
+      await yandexPersistenceService.save(id, toPersisted(currentLibraryFromWriter(context, id)))
       void backgroundScan(context, id, service)
     },
 
     async restoreFromCache(context: PluginContext): Promise<boolean> {
-      if (service.isDisconnected && service.isDisconnected()) {
-        return false
-      }
-
       const cached = await yandexPersistenceService.load(id)
       if (!cached || !yandexPersistenceService.isFresh(cached)) return false
 
       const collected = fromPersisted(cached, service)
       const targetDir = await context.getDownloadDir()
       if (targetDir) {
-        await enrichWithLocalFiles(collected.tracks, targetDir)
+        await enrichWithLocalFiles(collected.tracks, targetDir, service)
       }
       context.writer.setLibrary(collected, id)
 
-      void backgroundScan(context, id, service)
+      if (!service.isDisconnected || !service.isDisconnected()) {
+        void backgroundScan(context, id, service)
+      }
       return true
+    },
+
+    async restoreFromLocalFiles(context: PluginContext): Promise<boolean> {
+      const targetDir = await context.getDownloadDir()
+      if (!targetDir) return false
+      return restoreLibraryFromFiles({ sourceId: id }, context, targetDir)
+    },
+
+    async mergeLocalIntoLibrary(context: PluginContext): Promise<void> {
+      const targetDir = await context.getDownloadDir()
+      if (!targetDir) return
+      await mergeLocalIntoLibrary({ sourceId: id }, context, targetDir)
     },
 
     async scanFolder(
@@ -159,8 +188,14 @@ export function createYandexPlugin({
       throw new Error(`[${id}] track.source must be string`)
     },
 
+    /**
+     * URL для скачивания трека. Строится из `remotePath`, не из `source`.
+     */
     buildDownloadUrl(track: LibraryTrack): string {
-      return this.buildStreamUrl(track)
+      if (!track.remotePath) {
+        throw new Error(`[${id}] track "${track.id}" has no remotePath`)
+      }
+      return service.buildDownloadUrl(track.remotePath)
     },
 
     async downloadTrack(
@@ -181,7 +216,13 @@ export function createYandexPlugin({
       track: LibraryTrack,
       targetDir: FileSystemDirectoryHandle,
     ): Promise<void> {
-      return removeDownloadedFromDir(context, track, targetDir)
+      await removeDownloadedFromDir(context, track, targetDir)
+
+      // Файла больше нет — сбрасываем handle и переводим в remote-only.
+      context.writer.updateTrackHandle(track.id, undefined)
+      context.writer.updateTrackFileLocation(track.id, 'remote-only')
+      const nextSource = track.remotePath ? service.buildDownloadUrl(track.remotePath) : ''
+      context.writer.updateTrackSource(track.id, nextSource)
     },
 
     async scanDownloadDir(
@@ -205,33 +246,10 @@ export function createYandexPlugin({
     },
 
     async disconnect(context: PluginContext): Promise<void> {
-      if (service.setCancelled) {
-        service.setCancelled(true)
-      }
-
-      context.writer.removeBySource(id)
-
-      const library = useLibraryStore()
-
-      library.folders = Object.fromEntries(
-        Object.entries(library.folders).filter(([, f]) => {
-          if (!f.source) return true
-          return f.source !== id && !f.source.startsWith(id + ':')
-        }),
-      )
-
-      library.tracks = Object.fromEntries(
-        Object.entries(library.tracks).filter(([, t]) => {
-          if (!t.pluginId) return true
-          return t.pluginId !== id && !t.pluginId.startsWith(id + ':')
-        }),
-      )
-
-      if (service.setDisconnected) {
-        service.setDisconnected(true)
-      }
-
+      if (service.setCancelled) service.setCancelled(true)
+      if (service.setDisconnected) service.setDisconnected(true)
       await yandexPersistenceService.clear(id)
+      context.writer.removeBySource(id)
       if (service.logout) service.logout()
     },
   }

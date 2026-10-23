@@ -122,7 +122,7 @@ export class AudioService {
     } catch (err) {
       console.error('[audio] play() rejected', err)
       const message = err instanceof Error ? err.message : 'Unknown play() error'
-      this.emit('error', { message })
+      this.emit('error', { message, src: this.audio.src })
       throw err
     }
   }
@@ -136,15 +136,15 @@ export class AudioService {
     this.pause()
   }
 
-  /**
-   * Перемотка. Для live-потоков (`duration === Infinity` или `NaN`)
-   * перемотка невозможна — no-op.
-   */
   seek(time: number): void {
     if (!Number.isFinite(time)) return
     const duration = this.audio.duration
-    if (!Number.isFinite(duration) || duration <= 0) return
-    this.audio.currentTime = Math.min(Math.max(time, 0), duration)
+
+    if (Number.isFinite(duration) && duration > 0) {
+      this.audio.currentTime = Math.min(Math.max(time, 0), duration)
+    } else {
+      this.audio.currentTime = Math.max(time, 0)
+    }
   }
 
   seekBy(delta: number): void {
@@ -191,10 +191,6 @@ export class AudioService {
     return this.audio.src
   }
 
-  /**
-   * Live-поток: `duration` не финализирован (`Infinity`/`NaN`).
-   * Прогресс-бар и перемотка для такого потока бессмысленны.
-   */
   get isLive(): boolean {
     return !Number.isFinite(this.audio.duration)
   }
@@ -239,6 +235,7 @@ export class AudioService {
       this.emit('error', {
         message: mediaError?.message || 'Media error',
         code: mediaError?.code,
+        src: this.audio.src,
       })
     }
     this.audio.addEventListener('error', errorHandler)

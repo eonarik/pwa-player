@@ -6,7 +6,8 @@ import { createPluginContext } from '@/plugins/context'
 import { createLibraryWriter } from '@/stores/library'
 import { downloadOrchestrator } from './DownloadOrchestrator'
 import { downloadSpaceService } from './DownloadSpaceService'
-import { getFileFromPath } from './getFileFromPath'
+import { getFileHandleFromPath } from './getFileFromPath'
+import { toastService } from '@/services/ui/ToastService'
 import type { SyncReport, SyncIssues, SelectedIssues } from './types'
 import type { LibraryTrack } from '@/types/library'
 
@@ -26,7 +27,11 @@ class SyncService {
 
   async syncAll(): Promise<SyncReport[]> {
     if (this.isSyncing.value) return []
-    if (!downloadSpaceService.hasSpace.value) return []
+
+    if (!downloadSpaceService.hasSpace.value) {
+      toastService.info('Папка скачивания не выбрана — синхронизировать нечего')
+      return []
+    }
 
     this.isSyncing.value = true
     const reports: SyncReport[] = []
@@ -34,12 +39,15 @@ class SyncService {
 
     try {
       const writer = createLibraryWriter()
+      let skippedWithoutFolders = 0
 
       for (const manifest of getPlugins()) {
         try {
-          // Пропускаем отключённые плагины — нет папок в библиотеке
           const pluginFolders = writer.getFoldersBySource(manifest.id)
-          if (pluginFolders.length === 0) continue
+          if (pluginFolders.length === 0) {
+            skippedWithoutFolders++
+            continue
+          }
 
           const plugin = await loadPlugin(pluginIdFromSource(manifest.id))
           if (!plugin.canDownload || !plugin.scanDownloadDir) continue
@@ -49,15 +57,17 @@ class SyncService {
           if (!scanResult) continue
 
           for (const [trackId, relativePath] of scanResult.downloaded) {
-            writer.updateTrackOrigin(trackId, 'downloaded')
-            const file = await getFileFromPath(targetDir, relativePath)
-            if (file) {
-              writer.updateTrackSource(trackId, file)
+            const handle = await getFileHandleFromPath(targetDir, relativePath)
+            if (handle) {
+              writer.updateTrackHandle(trackId, handle)
+              writer.updateTrackFileLocation(trackId, 'both')
+              writer.updateTrackSource(trackId, '')
             }
           }
 
           for (const trackId of scanResult.missing) {
-            writer.updateTrackOrigin(trackId, 'remote')
+            writer.updateTrackFileLocation(trackId, 'remote-only')
+            writer.updateTrackHandle(trackId, undefined)
           }
 
           const issues: SyncIssues = {
@@ -87,6 +97,14 @@ class SyncService {
         }
       }
 
+      if (reports.length === 0) {
+        if (skippedWithoutFolders > 0) {
+          toastService.info('Нет подключённых источников с папками. Откройте источник и повторите.')
+        } else {
+          toastService.info('Нечего синхронизировать')
+        }
+      }
+
       this.issues.value = allIssues
       this.issueCount.value = allIssues.reduce(
         (sum, i) => sum + i.onlyLocal.length + i.missing.length,
@@ -102,7 +120,6 @@ class SyncService {
   async resolveIssues(selected: SelectedIssues): Promise<void> {
     const writer = createLibraryWriter()
 
-    // 1. Группируем onlyLocal по плагинам
     const byPlugin = new Map<string, SelectedIssues['onlyLocal']>()
     for (const item of selected.onlyLocal) {
       const list = byPlugin.get(item.pluginId) ?? []
@@ -110,7 +127,6 @@ class SyncService {
       byPlugin.set(item.pluginId, list)
     }
 
-    // 2. Создаём only-local треки
     for (const [pluginId, items] of byPlugin) {
       try {
         const plugin = await loadPlugin(pluginId)
@@ -135,7 +151,6 @@ class SyncService {
       }
     }
 
-    // 3. Помечаем missing как remote
     const missingByPlugin = new Map<string, string[]>()
     for (const item of selected.missing) {
       const list = missingByPlugin.get(item.pluginId) ?? []
@@ -146,7 +161,8 @@ class SyncService {
     for (const [pluginId, trackIds] of missingByPlugin) {
       try {
         for (const trackId of trackIds) {
-          writer.updateTrackOrigin(trackId, 'remote')
+          writer.updateTrackFileLocation(trackId, 'remote-only')
+          writer.updateTrackHandle(trackId, undefined)
         }
         const plugin = await loadPlugin(pluginId)
         if (plugin.saveCache) {
@@ -157,7 +173,6 @@ class SyncService {
       }
     }
 
-    // 4. Сбрасываем issues
     this.dismissIssues()
   }
 
@@ -166,9 +181,6 @@ class SyncService {
     this.issueCount.value = 0
   }
 
-  /**
-   * Убрать issues конкретного плагина (при отключении источника).
-   */
   clearIssuesForPlugin(pluginId: string): void {
     const remaining = this.issues.value.filter((i) => i.pluginId !== pluginId)
     this.issues.value = remaining

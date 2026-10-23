@@ -18,8 +18,7 @@ function makeFolder(overrides: Partial<Folder> = {}): Folder {
     trackIds: [],
     totalTrackCount: 0,
     source: 'yandex',
-    scanStatus: undefined,
-    ready: false,
+    scanState: 'pending',
     ...overrides,
   }
 }
@@ -38,7 +37,8 @@ function makeContext(folders: Record<string, Folder>): PluginContext {
       removeTracks: vi.fn(),
       removeFolders: vi.fn(),
       removeBySource: vi.fn(),
-      updateTrackOrigin: vi.fn(),
+      updateTrackFileLocation: vi.fn(),
+      updateTrackHandle: vi.fn(),
       updateTrackSource: vi.fn(),
       updateTrackDuration: vi.fn(),
       updateTrackMetadata: vi.fn(),
@@ -81,7 +81,7 @@ describe('scanFolderRecursive', () => {
   })
 
   it('не пересканирует уже scanned папку без removeMissing', async () => {
-    const folder = makeFolder({ scanStatus: 'scanned', ready: true })
+    const folder = makeFolder({ scanState: 'scanned' })
     const context = makeContext({ [folder.id]: folder })
     const service = makeService()
 
@@ -93,8 +93,8 @@ describe('scanFolderRecursive', () => {
     expect(service.listResources).not.toHaveBeenCalled()
   })
 
-  it('сканирует папку и помечает ready для листа', async () => {
-    const folder = makeFolder({ scanStatus: undefined })
+  it('сканирует папку и помечает scanState="scanned"', async () => {
+    const folder = makeFolder({ scanState: 'pending' })
     const context = makeContext({ [folder.id]: folder })
     const service = makeService()
 
@@ -104,7 +104,6 @@ describe('scanFolderRecursive', () => {
 
     expect(result).toBe(true)
     expect(service.listResources).toHaveBeenCalledWith('disk:/Music')
-    expect(folder.scanStatus).toBe('scanned')
-    expect(folder.ready).toBe(true)
+    expect(folder.scanState).toBe('scanned')
   })
 })

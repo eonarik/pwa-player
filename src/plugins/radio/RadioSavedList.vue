@@ -74,7 +74,7 @@ function onRemove(station: SavedStation, e: Event): void {
           </div>
 
           <button v-else type="button"
-            class="rounded-btn p-1.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-red-400 group-hover:opacity-100"
+            class="rounded-btn p-1.5 text-fg-subtle opacity-100 transition hover:bg-hover-bg hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
             aria-label="Удалить станцию" @click="onRemove(station, $event)">
             <IconX class="h-4 w-4" />
           </button>

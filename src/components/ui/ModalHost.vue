@@ -40,6 +40,7 @@ function onCancel() {
 
 function onBackdropClick(e: MouseEvent) {
   if (e.target === e.currentTarget) {
+    if (options.value?.disableBackdropClose) return
     onCancel()
   }
 }

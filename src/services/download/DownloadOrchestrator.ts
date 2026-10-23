@@ -40,8 +40,6 @@ class DownloadOrchestrator {
     return DownloadOrchestrator.instance
   }
 
-  // --- Состояние одного трека ----------------------------------------
-
   isDownloading(trackId: string): boolean {
     void this.version.value
     return this.states.value.has(trackId)
@@ -54,11 +52,8 @@ class DownloadOrchestrator {
     return { written: state.written, total: state.total }
   }
 
-  // --- Скачивание одного трека ---------------------------------------
-
   async downloadTrack(track: LibraryTrack): Promise<boolean> {
     if (this.isDownloading(track.id)) return false
-
     try {
       await this.downloadTrackInternal(track, null)
       return true
@@ -72,10 +67,6 @@ class DownloadOrchestrator {
     }
   }
 
-  /**
-   * Внутренний метод: скачивает один трек.
-   * Использует либо свой AbortController, либо внешний (для batch).
-   */
   private async downloadTrackInternal(
     track: LibraryTrack,
     externalSignal: AbortSignal | null,
@@ -90,7 +81,6 @@ class DownloadOrchestrator {
     const pluginContext = createPluginContext(pluginId)
 
     const abort = new AbortController()
-    // Если есть внешний signal — связываем
     if (externalSignal) {
       if (externalSignal.aborted) throw new DOMException('Aborted', 'AbortError')
       externalSignal.addEventListener('abort', () => abort.abort(), { once: true })
@@ -106,7 +96,7 @@ class DownloadOrchestrator {
     this.version.value++
 
     try {
-      await plugin.downloadTrack(pluginContext, track, {
+      const result = await plugin.downloadTrack(pluginContext, track, {
         targetDir,
         signal: abort.signal,
         onProgress: (written, total) => {
@@ -119,11 +109,13 @@ class DownloadOrchestrator {
         },
       })
 
-      // Обновляем origin
       const writer = createLibraryWriter()
-      writer.updateTrackOrigin(track.id, 'downloaded')
+      if (result.handle) {
+        writer.updateTrackHandle(track.id, result.handle)
+      }
+      writer.updateTrackFileLocation(track.id, 'both')
+      writer.updateTrackSource(track.id, '')
 
-      // Сохраняем в IDB плагина
       if (plugin.saveCache) {
         await plugin.saveCache(pluginContext)
       }
@@ -135,19 +127,18 @@ class DownloadOrchestrator {
 
   cancel(trackId: string): void {
     const state = this.states.value.get(trackId)
-    if (state) {
-      state.abort.abort()
-    }
+    if (state) state.abort.abort()
   }
-
-  // --- Пакетное скачивание -------------------------------------------
 
   async downloadMany(tracks: LibraryTrack[]): Promise<BatchResult> {
     if (this.isBatchDownloading.value) {
       return { succeeded: 0, failed: 0, skipped: 0, errors: [], aborted: false }
     }
 
-    const toDownload = tracks.filter((t) => !t.origin || t.origin === 'remote')
+    const toDownload = tracks.filter((t) => {
+      const loc = t.fileLocation ?? 'remote-only'
+      return loc === 'remote-only'
+    })
     const skipped = tracks.length - toDownload.length
 
     if (toDownload.length === 0) {
@@ -208,8 +199,6 @@ class DownloadOrchestrator {
     this.batchAbort?.abort()
   }
 
-  // --- Удаление ------------------------------------------------------
-
   async removeDownloaded(track: LibraryTrack): Promise<boolean> {
     const pluginId = pluginIdFromSource(track.pluginId)
     const plugin = await loadPlugin(pluginId)
@@ -224,13 +213,6 @@ class DownloadOrchestrator {
     try {
       await plugin.removeDownloaded(pluginContext, track, targetDir)
 
-      const writer = createLibraryWriter()
-      if (track.origin === 'downloaded') {
-        writer.updateTrackOrigin(track.id, 'remote')
-      } else if (track.origin === 'only-local') {
-        writer.removeTracks([track.id])
-      }
-
       if (plugin.saveCache) {
         await plugin.saveCache(pluginContext)
       }
@@ -241,8 +223,6 @@ class DownloadOrchestrator {
       return false
     }
   }
-
-  // --- Сканирование --------------------------------------------------
 
   async scan(pluginId: string): Promise<ScanResult | null> {
     const plugin = await loadPlugin(pluginIdFromSource(pluginId))

@@ -10,6 +10,7 @@ import { useLibraryStore } from '@/stores/library'
 import type { LibraryTrack } from '@/types/library'
 import type { MetadataCandidate } from '@/services/metadata/TrackMetadataService'
 import { UNKNOWN_ARTIST_PLACEHOLDER } from '@/services/metadata/constants'
+import { guessMetadataFromFilename } from '@/utils/parseFilename'
 
 const CONCURRENCY = 3
 const FLUSH_INTERVAL = 10
@@ -36,11 +37,20 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
 
   const tracksNeedingMetadata = computed(() =>
     tracks.value.filter((t) => {
+      // 1. Проверяем, есть ли паттерн "Артист - Название" в имени файла
+      const guessed = guessMetadataFromFilename(t.filename || '')
+      const hasArtistPattern = Boolean(guessed.artist && guessed.title)
+
+      // Если паттерна нет — не ищем метаданные для этого файла
+      if (!hasArtistPattern) return false
+
+      // 2. Проверяем, нужны ли вообще метаданные
       const artist = t.artist?.trim() ?? ''
       const album = t.album?.trim() ?? ''
       const hasArtist = artist && artist !== UNKNOWN_ARTIST_PLACEHOLDER
       const hasAlbum = album && album !== UNKNOWN_ARTIST_PLACEHOLDER
       const hasCover = Boolean(t.coverUrl)
+
       return !hasArtist || !hasAlbum || !hasCover
     }),
   )

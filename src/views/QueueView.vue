@@ -9,6 +9,7 @@ import { toastService } from '@/services/ui/ToastService'
 import { pluralize } from '@/utils/pluralize'
 import QueueTrackRow from '@/components/queue/QueueTrackRow.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
+import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue' // <-- Добавлено
 
 const player = usePlayerStore()
 const playlists = usePlaylistsStore()
@@ -78,6 +79,8 @@ function saveAllToPlaylist(playlistId: string | null, close: () => void): void {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
+        <FolderSettingsMenu /> <!-- <-- Добавлено -->
+
         <DropdownMenu v-if="hasQueue" :width="256" align="right">
           <template #trigger="{ toggle, setTriggerRef }">
             <button :ref="setTriggerRef" type="button"

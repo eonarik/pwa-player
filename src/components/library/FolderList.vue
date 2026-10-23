@@ -26,7 +26,7 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 type FolderPlayState = 'idle' | 'playing' | 'paused'
 
 function formatCount(folder: Folder): string {
-  if (folder.ready !== true) return '…'
+  if (!library.isSubtreeScanned(folder.id)) return '…'
 
   const subfolders = folder.childFolderIds.length
   const tracks = folder.totalTrackCount
@@ -50,27 +50,19 @@ function formatCount(folder: Folder): string {
 }
 
 function isScanning(folder: Folder): boolean {
-  return folder.scanStatus === 'scanning'
+  return folder.scanState === 'scanning'
 }
 
 function isEmpty(folder: Folder): boolean {
   return (
-    folder.ready === true && folder.totalTrackCount === 0 && (folder.totalTextFileCount ?? 0) === 0
+    library.isSubtreeScanned(folder.id) &&
+    folder.totalTrackCount === 0 &&
+    (folder.totalTextFileCount ?? 0) === 0
   )
 }
 
-function folderStatus(folder: Folder): 'scanning' | 'pending' | 'ready' {
-  if (folder.scanStatus === 'scanning') return 'scanning'
-  if (folder.ready === true) return 'ready'
-  return 'pending'
-}
-
-function hasNoTracks(folder: Folder): boolean {
-  return folder.ready === true && folder.totalTrackCount === 0
-}
-
 function needsScan(folder: Folder): boolean {
-  return folder.scanStatus === undefined
+  return (folder.scanState ?? 'pending') === 'pending'
 }
 
 async function openFolder(folder: Folder) {
@@ -103,8 +95,8 @@ async function playFolder(folder: Folder) {
     return
   }
   if (isEmpty(folder)) return
-  if (hasNoTracks(folder)) return
-  if (folder.ready !== true) {
+  if (folder.totalTrackCount === 0) return
+  if (!library.isSubtreeScanned(folder.id)) {
     toastService.info('Поддерево ещё не готово')
     return
   }
@@ -145,7 +137,7 @@ function onRowClick(folder: Folder) {
 function toggleFolderPlayback(folder: Folder, e: Event) {
   e.stopPropagation()
   if (isEmpty(folder)) return
-  if (hasNoTracks(folder)) return
+  if (folder.totalTrackCount === 0) return
   if (isScanning(folder)) {
     toastService.info('Папка сканируется, подождите')
     return
@@ -163,13 +155,20 @@ function onArrowClick(folder: Folder, e: Event) {
   void openFolder(folder)
 }
 
-const getPlayLabel = (folder: Folder) => isScanning(folder)
-  ? `Сканирование ${folder.name}`
-  : folderPlayState(folder) === 'playing'
-    ? 'Пауза'
-    : folderPlayState(folder) === 'paused'
-      ? 'Продолжить'
-      : `Играть папку ${folder.name}`
+const getPlayLabel = (folder: Folder) => {
+  if (isScanning(folder)) return `Сканирование ${folder.name}`
+  if (folderPlayState(folder) === 'playing') return 'Пауза'
+  if (folderPlayState(folder) === 'paused') return 'Продолжить'
+  return `Играть папку ${folder.name}`
+}
+
+const getFolderButtonClass = (folder: Folder) => {
+  if (isScanning(folder)) return 'bg-card-bg text-fg-muted cursor-default'
+  if (isEmpty(folder) || folder.totalTrackCount === 0) return 'bg-card-bg text-fg-disabled cursor-default'
+  if (folderPlayState(folder) === 'playing') return 'bg-active/20 text-active hover:bg-active/30'
+  if (folderPlayState(folder) === 'paused') return 'bg-active/15 text-active hover:bg-active/25'
+  return 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active'
+}
 </script>
 
 <template>
@@ -177,21 +176,11 @@ const getPlayLabel = (folder: Folder) => isScanning(folder)
     <ListRow v-for="folder in currentSubfolders" :key="folder.id"
       :active="folderPlayState(folder) !== 'idle' && !isEmpty(folder)" :class="isEmpty(folder) ? 'opacity-40' : ''"
       @click="onRowClick(folder)">
-      <!-- Leading: play/pause + иконка папки -->
       <template #leading>
         <div class="flex shrink-0 items-center gap-2">
           <button type="button" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
-            :class="[
-              isScanning(folder)
-                ? 'bg-card-bg text-fg-muted cursor-default'
-                : isEmpty(folder) || hasNoTracks(folder)
-                  ? 'bg-card-bg text-fg-disabled cursor-default'
-                  : folderPlayState(folder) === 'playing'
-                    ? 'bg-active/20 text-active hover:bg-active/30'
-                    : folderPlayState(folder) === 'paused'
-                      ? 'bg-active/15 text-active hover:bg-active/25'
-                      : 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active',
-            ]" :disabled="isScanning(folder) || isEmpty(folder) || hasNoTracks(folder)"
+            :class="getFolderButtonClass(folder)"
+            :disabled="isScanning(folder) || isEmpty(folder) || folder.totalTrackCount === 0"
             :aria-label="getPlayLabel(folder)" v-tooltip="getPlayLabel(folder)"
             @click="toggleFolderPlayback(folder, $event)">
             <IconSpinner v-if="isScanning(folder)" class="h-5 w-5 animate-spin" />
@@ -210,24 +199,21 @@ const getPlayLabel = (folder: Folder) => isScanning(folder)
         </div>
       </template>
 
-      <!-- Title -->
       <template #title>
         <p class="truncate text-sm font-medium">{{ folder.name }}</p>
       </template>
 
-      <!-- Subtitle -->
       <template #subtitle>
         <p class="truncate text-xs" :class="folderPlayState(folder) !== 'idle' && !isScanning(folder)
           ? 'text-active/60'
           : 'text-fg-muted'
           ">
-          <template v-if="folderStatus(folder) === 'scanning'">Сканирование…</template>
-          <template v-else-if="folderStatus(folder) === 'pending'">Ожидает сканирования</template>
+          <template v-if="isScanning(folder)">Сканирование…</template>
+          <template v-else-if="needsScan(folder)">Ожидает сканирования</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
       </template>
 
-      <!-- Trailing: стрелка -->
       <template #trailing>
         <button type="button" class="shrink-0 rounded-md p-1 transition" :class="[
           isScanning(folder) || isEmpty(folder)

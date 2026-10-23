@@ -5,13 +5,6 @@ import { folderIdFromPath } from '@/services/library/id'
 import type { IYandexService } from '../types'
 import { ROOT_REMOTE_PATH, partitionItems, buildTrack, buildTextFile } from './helpers'
 
-/**
- * Загружает содержимое корневой папки Яндекс.Диска (`disk:/`).
- *
- * Возвращает массив папок (корень + прямые подпапки) и массив треков
- * (только файлы в корне). Подпапки помечаются `scanStatus: undefined`,
- * `ready: false` — их содержимое подгрузится фоновым сканированием.
- */
 export async function loadRootContent(
   sourceId: string,
   rootFolderId: string,
@@ -42,8 +35,7 @@ export async function loadRootContent(
     totalTrackCount: 0,
     totalTextFileCount: 0,
     source: sourceId,
-    scanStatus: 'scanned',
-    ready: false,
+    scanState: 'scanned',
   }
 
   for (const item of subDirs) {
@@ -60,8 +52,7 @@ export async function loadRootContent(
       totalTrackCount: 0,
       totalTextFileCount: 0,
       source: sourceId,
-      scanStatus: undefined,
-      ready: false,
+      scanState: 'pending',
     })
     childFolderIds.push(childId)
   }

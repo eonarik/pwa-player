@@ -39,6 +39,7 @@ const onOpenIssues = (close: () => void) => {
     </template>
 
     <template #default="{ close }">
+      <!-- Состояние загрузки -->
       <template v-if="isLoading">
         <div class="flex items-center gap-2 px-4 py-2.5 text-xs text-fg-muted">
           <IconSpinner class="h-3.5 w-3.5 animate-spin" />
@@ -51,31 +52,30 @@ const onOpenIssues = (close: () => void) => {
         </button>
       </template>
 
-      <template v-else-if="stats.found === 0">
+      <!-- Основное меню -->
+      <template v-else>
+        <!-- Кнопка "Найти" -->
         <button type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
           :disabled="!hasUnchecked" @click="emit('search')">
-          Найти метаданные
+          {{ stats.found > 0 ? 'Найти ещё' : 'Найти метаданные' }}
           <span class="block text-[10px] text-fg-muted">Через iTunes и Deezer</span>
         </button>
-      </template>
 
-      <template v-else>
-        <div class="px-4 py-2.5 text-xs text-fg-muted">
+        <!-- Промежуточная статистика (если что-то нашли) -->
+        <div v-if="stats.found > 0" class="px-4 py-2.5 text-xs text-fg-muted border-t border-hover-bg">
           Найдено данных: {{ stats.found }}/{{ stats.total }}
         </div>
-        <button v-if="hasUnchecked" type="button"
-          class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-          @click="emit('search')">
-          Найти ещё
-        </button>
-        <button type="button"
-          class="block w-full px-4 py-1.5 text-left text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+
+        <!-- Кнопка "Очистить" (показываем, если есть хоть какие-то проверенные треки) -->
+        <button v-if="stats.checked > 0" type="button"
+          class="block w-full px-4 py-1.5 text-left text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg border-t border-hover-bg"
           @click="emit('reset')">
-          Очистить
+          Очистить кэш
         </button>
       </template>
 
+      <!-- Кнопка "Проблемные" -->
       <button v-if="issuesCount > 0" type="button"
         class="flex w-full items-center gap-2 border-t border-hover-bg px-4 py-2.5 text-left text-sm text-amber-400 transition hover:bg-hover-bg"
         @click="onOpenIssues(close)">

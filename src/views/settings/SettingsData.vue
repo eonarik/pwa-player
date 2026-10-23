@@ -29,10 +29,51 @@ function clearMetadataCache(): void {
   toastService.success('Кэш метаданных очищен')
 }
 
+const LOCAL_STORAGE_PREFIXES = ['radio:', 'podcasts:'] as const
+
+/** Ключи, которые после сброса должны быть удалены. */
+const LOCAL_STORAGE_KEYS_TO_DELETE = [
+  'yandex-self-access',
+  'yandex-self-refresh',
+  'plugin-activated:yandex-self',
+  'ui:theme',
+] as const
+
+/** Ключи, которые после сброса должны быть выставлены в 'true'. */
+const LOCAL_STORAGE_KEYS_TO_DISCONNECT = [
+  'yandex-disconnected',
+  'yandex-self-disconnected',
+] as const
+
+function clearLocalStorageData(): void {
+  try {
+    for (const key of LOCAL_STORAGE_KEYS_TO_DELETE) {
+      localStorage.removeItem(key)
+    }
+    for (const key of Object.keys(localStorage)) {
+      for (const prefix of LOCAL_STORAGE_PREFIXES) {
+        if (key.startsWith(prefix)) {
+          localStorage.removeItem(key)
+          break
+        }
+      }
+    }
+    // «Сброс данных» = источник больше не подключён: после reload
+    // isDisconnected() должен вернуть true, чтобы HomeView показал
+    // «Открыть локально» + «Подключить» (если папка скачивания доступна).
+    for (const key of LOCAL_STORAGE_KEYS_TO_DISCONNECT) {
+      localStorage.setItem(key, 'true')
+    }
+  } catch (err) {
+    console.warn('[settings] failed to clear localStorage', err)
+  }
+}
+
 async function resetAll(): Promise<void> {
   if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return
   yandexSelfService.logout()
   await schemaService.clearAll()
+  clearLocalStorageData()
   location.reload()
 }
 </script>

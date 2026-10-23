@@ -182,10 +182,10 @@ watch(
         <!-- Title + artist + eye-off + heart -->
         <div class="relative w-full max-w-sm pb-6">
           <div class="min-w-0 px-12 text-center">
-            <p class="truncate text-xl font-medium text-fg">
+            <p class="text-xl font-medium text-fg break-words whitespace-pre-wrap">
               {{ currentTrack?.title ?? 'Ничего не играет' }}
             </p>
-            <p class="mt-1 truncate text-sm text-fg-muted">
+            <p class="mt-1 text-sm text-fg-muted break-words whitespace-pre-wrap">
               {{ currentTrack?.artist ?? '—' }}
             </p>
           </div>

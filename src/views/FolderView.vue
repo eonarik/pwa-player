@@ -30,15 +30,13 @@ const tracks = computed(() => currentTracks.value)
 const hasTracks = computed(() => tracks.value.length > 0)
 const hasFolders = computed(() => currentSubfolders.value.length > 0)
 
-const isScanning = computed(() => currentFolder.value?.scanStatus === 'scanning')
+const isScanning = computed(() => currentFolder.value?.scanState === 'scanning')
 
 const subtreeTracks = computed<LibraryTrack[]>(() => {
   const folder = currentFolder.value
   if (!folder) return []
   return library.getAllTracksInFolderRecursive(folder.id)
 })
-
-// --- Текстовые файлы -------------------------------------------------
 
 const textFiles = computed<TextFileRef[]>(() => {
   if (!showFiles.value) return []
@@ -58,8 +56,6 @@ function closeFile(): void {
   openedFile.value = null
 }
 
-// --- Поиск -----------------------------------------------------------
-
 const { query, hasQuery, hasResults, result } = useLibrarySearch(
   subtreeTracks,
   uiSettings.searchThreshold,
@@ -77,8 +73,6 @@ function playSearchAll(): void {
   if (searchFlatTracks.value.length === 0) return
   player.playAll(searchFlatTracks.value)
 }
-
-// --- Поиск метаданных -----------------------------------------------
 
 const {
   isLoading: isMetadataLoading,
@@ -103,18 +97,15 @@ function closeMetadataIssues(): void {
   metadataDismissIssues()
 }
 
-// --- Синхронизация --------------------------------------------------
-
 const {
   canRefresh,
   canRefreshFromDevice,
   isRefreshing,
   isRefreshingFromDevice,
+  needsAttention,
   refreshFromCloud,
   refreshFromDevice,
 } = useFolderSync(currentFolder)
-
-// --- Действия -------------------------------------------------------
 
 function onSelectTrack(index: number): void {
   if (isScanning.value) return
@@ -135,10 +126,10 @@ const emptyStateMessage = computed(() => {
       :tracks-count="tracks.length" :files-count="textFiles.length" :subtree-tracks="subtreeTracks"
       :is-scanning="isScanning" />
 
-    <FolderFilters v-model:query="query" :metadata-loading="isMetadataLoading" :metadata-progress="metadataProgress"
-      :metadata-stats="metadataStats" :metadata-has-unchecked="metadataHasUnchecked"
-      :metadata-issues-count="metadataIssues.length" :can-refresh="canRefresh"
-      :can-refresh-from-device="canRefreshFromDevice" :is-refreshing="isRefreshing"
+    <FolderFilters v-model:query="query" :needs-attention="needsAttention" :metadata-loading="isMetadataLoading"
+      :metadata-progress="metadataProgress" :metadata-stats="metadataStats"
+      :metadata-has-unchecked="metadataHasUnchecked" :metadata-issues-count="metadataIssues.length"
+      :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice" :is-refreshing="isRefreshing"
       :is-refreshing-from-device="isRefreshingFromDevice" @metadata-search="metadataSearch"
       @metadata-cancel="metadataCancel" @metadata-reset="metadataReset" @open-issues="openMetadataIssues"
       @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />

@@ -88,10 +88,12 @@ async function getOrLoadEpisodes(podcast: Podcast): Promise<Episode[] | null> {
 
 async function togglePlayPodcast(podcast: Podcast): Promise<void> {
   if (isCurrentPodcastPlaying(podcast)) { player.toggle(); return }
+
   const episodes = await getOrLoadEpisodes(podcast)
   if (!episodes || episodes.length === 0) return
+
   const tracks: Track[] = episodes.map((ep) => ({
-    id: `podcast:${ep.id}`,
+    id: `podcast:${podcast.id}:${ep.id}`, // <-- Унифицировали ID
     pluginId: PLUGIN_ID,
     title: ep.title,
     artist: podcast.title,
@@ -125,13 +127,13 @@ function onRemoveClick(podcast: Podcast): void {
 }
 
 function onOpenClick(podcast: Podcast): void {
+  // Если подкаст не в подписках, добавляем его перед переходом
+  if (!isSubscribedPodcast(podcast)) {
+    void onAddClick(podcast)
+  }
   router.push({ name: 'podcast-detail', params: { feedUrl: encodeURIComponent(podcast.feedUrl) } })
 }
 
-/**
- * Apple Charts не поддерживает offset: пагинация эмулируется
- * через limit = currentPage * topLimit, затем slice.
- */
 async function loadTop(page = 1): Promise<void> {
   isLoading.value = true
   isStale.value = false
@@ -214,6 +216,11 @@ function clearSearch(): void {
   void loadTop(currentPage.value)
 }
 
+function retryLoad(): void {
+  if (isSearchMode.value) void loadSearch(debouncedQuery.value.trim())
+  else void loadTop(currentPage.value)
+}
+
 onMounted(() => { void load() })
 </script>
 
@@ -236,11 +243,13 @@ onMounted(() => { void load() })
             </button>
           </template>
           <template #default="{ close }">
-            <button v-for="c in COUNTRIES" :key="c.code" type="button"
-              class="block w-full px-4 py-2 text-left text-xs transition hover:bg-hover-bg"
-              :class="country === c.code ? 'text-active font-medium' : 'text-fg'" @click="country = c.code; close()">
-              {{ c.label }}
-            </button>
+            <div class="max-h-[50vh] overflow-y-auto">
+              <button v-for="g in GENRES" :key="g.id" type="button"
+                class="block w-full px-4 py-2 text-left text-xs transition hover:bg-hover-bg"
+                :class="genre === g.id ? 'text-active font-medium' : 'text-fg'" @click="genre = g.id; close()">
+                {{ g.label }}
+              </button>
+            </div>
           </template>
         </DropdownMenu>
 
@@ -262,6 +271,13 @@ onMounted(() => { void load() })
           </template>
         </DropdownMenu>
       </div>
+    </template>
+
+    <template #error-action>
+      <button type="button" class="rounded-btn bg-card-bg px-4 py-2 text-xs text-fg transition hover:bg-hover-bg"
+        @click="retryLoad">
+        Попробовать еще раз
+      </button>
     </template>
 
     <template #list>

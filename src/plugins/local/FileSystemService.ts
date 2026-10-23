@@ -67,7 +67,7 @@ export class FileSystemService {
     const handles = await this.getHandles()
     const existing = handles.findIndex((h) => h.name === handle.name)
     if (existing !== -1) {
-      return false // уже есть
+      return false
     }
     handles.push(handle)
     await this.saveHandles(handles)
@@ -160,7 +160,8 @@ export class FileSystemService {
             path: trackPath,
             handle: fileHandle,
             directoryHandle: handle,
-            source: file,
+            source: '',
+            fileLocation: 'local-only',
             ...metadata,
           }
         }),
@@ -188,8 +189,7 @@ export class FileSystemService {
         trackIds,
         totalTrackCount: trackIds.length + childTotal,
         source: rootId,
-        scanStatus: 'scanned',
-        ready: true,
+        scanState: 'scanned',
       }
       folders.push(folder)
 

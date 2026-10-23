@@ -1,6 +1,6 @@
 // src/plugins/yandexDisk/types.ts
 
-import type { ScanStatus, TextFileRef, TrackOrigin } from '@/types/library'
+import type { FileLocation, ScanState, TextFileRef } from '@/types/library'
 
 export interface YandexResourceItem {
   path: string
@@ -45,9 +45,7 @@ export interface IYandexService {
   logout?(): void
   isDisconnected?(): boolean
   setDisconnected?(val: boolean): void
-  /** Проверка: отменили ли мы текущие фоновые процессы */
   isCancelled?(): boolean
-  /** Установить флаг отмены */
   setCancelled?(val: boolean): void
   listResources(path: string): Promise<YandexResourcesResponse>
   buildDownloadUrl(path: string): string
@@ -65,9 +63,14 @@ export interface PersistedYandexFolder {
   trackIds: string[]
   totalTrackCount: number
   totalTextFileCount?: number
-  scanStatus?: ScanStatus
-  ready?: boolean
+  scanState?: ScanState
   textFiles?: TextFileRef[]
+
+  /**
+   * @deprecated Только для чтения старых кешей. Не пишется с 0.11.0.
+   * Мигрируется в `scanState` в `fromPersisted`.
+   */
+  scanStatus?: 'scanned' | 'scanning'
 }
 
 export interface PersistedYandexTrack {
@@ -80,8 +83,14 @@ export interface PersistedYandexTrack {
   title: string
   artist: string
   album: string
-  origin?: TrackOrigin
+  fileLocation?: FileLocation
   duration?: number
+
+  /**
+   * @deprecated Только для чтения старых кешей. Не пишется с 0.11.0.
+   * Мигрируется в `fileLocation` в `fromPersisted`.
+   */
+  origin?: 'remote' | 'downloaded' | 'only-local'
 }
 
 export interface PersistedYandexLibrary {

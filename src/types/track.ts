@@ -8,12 +8,20 @@ export interface Track extends TrackMetadata {
   /** id плагина-источника: 'local', 'yandex', ... */
   pluginId: string
 
-  /** URL стриминга или File для <audio> */
-  source: string | File
+  /**
+   * URL для стриминга. Для локальных копий (`fileLocation: 'local-only' | 'both'`)
+   * — пустая строка. File резолвится из `handle` через `resolveTrackSource`.
+   */
+  source: string
+
+  /**
+   * Хэндл файла для локальных копий (`fileLocation: 'local-only' | 'both'`).
+   * Единственный источник правды для локального файла.
+   */
+  handle?: FileSystemFileHandle
 
   filename: string
   path?: string
-  handle?: FileSystemFileHandle
-  /** Хэндл директории — для восстановления обложек */
+  /** Хэндл директории — для восстановления обложек. */
   directoryHandle?: FileSystemDirectoryHandle
 }

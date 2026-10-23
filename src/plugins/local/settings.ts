@@ -149,8 +149,7 @@ async function rebuildAndSave(): Promise<void> {
     trackIds: [],
     totalTrackCount: 0,
     source: PLUGIN_ID,
-    scanStatus: 'scanned',
-    ready: true,
+    scanState: 'scanned',
   }
 
   const allFolders: Folder[] = [container]
@@ -189,7 +188,6 @@ async function rebuildAndSave(): Promise<void> {
 
   writer.setLibrary(full, PLUGIN_ID)
 
-  // Сохраняем всё, включая контейнер (без handle)
   await localPersistenceService.save({
     folders: full.folders.map((f) => ({
       id: f.id,

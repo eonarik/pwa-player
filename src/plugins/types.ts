@@ -3,7 +3,7 @@
 import type { Component } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
 import type { PluginSettingsSchema } from './settingsTypes'
-import type { CollectedLibrary, Folder, LibraryTrack, TrackOrigin } from '@/types/library'
+import type { CollectedLibrary, FileLocation, Folder, LibraryTrack } from '@/types/library'
 import type { Track } from '@/types/track'
 
 export interface PluginMenuItem {
@@ -32,45 +32,16 @@ export interface PluginManifest {
   readonly canDownload: boolean
   readonly entry: () => Promise<{ default: LibrarySource }>
 
-  /**
-   * Если true — это потоковое радио.
-   * Ядро будет скрывать длительность, прогресс-бар,
-   * метаданные и кнопки скачивания.
-   */
   readonly isLiveStream?: boolean
-  readonly contentKind?: 'music' | 'linear' // default 'music'
-
-  /**
-   * Если true — плагин не требует подключения (нет папок, нет OAuth).
-   * В HomeView всегда отображается как "Доступно", а вместо "Отключить"
-   * предлагается "Очистить".
-   */
+  readonly contentKind?: 'music' | 'linear'
   readonly isStateless?: boolean
-
-  /**
-   * Очистка данных для stateless-плагинов (вызывается из HomeView при "Очистить").
-   */
   readonly clearData?: () => void | Promise<void>
-
-  /**
-   * Если задано, то при клике на "Открыть" в HomeView
-   * мы переходим на этот роут, а не в FolderView.
-   */
   readonly customRoute?: string
-
-  /**
-   * Кастомная проверка наличия данных для HomeView (если плагин не использует папки).
-   */
   readonly hasCustomData?: () => boolean | Promise<boolean>
-
   readonly extension?: () => Promise<{ default: PluginExtension }>
   readonly getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>
   readonly runSettingsAction?: (actionId: string, payload?: unknown) => void | Promise<void>
   readonly options?: PluginManifestOptions
-
-  /**
-   * Если true — плагин скрыт из HomeView, пока не будет активирован по коду.
-   */
   readonly requiresActivation?: boolean
 }
 
@@ -84,9 +55,26 @@ export interface LibrarySource {
   readonly name: string
   readonly icon: string
   isAvailable(): boolean
+  isDisconnected?(): boolean
   connect(context: PluginContext): Promise<void>
   load(context: PluginContext, options?: LoadOptions): Promise<void>
   restoreFromCache(context: PluginContext): Promise<boolean>
+
+  /**
+   * Восстанавливает библиотеку из локальных скачанных файлов (без облака).
+   * Заменяет всё содержимое source — не мержит с текущей библиотекой.
+   */
+  restoreFromLocalFiles?(context: PluginContext): Promise<boolean>
+
+  /**
+   * Дополняет текущую библиотеку локальными скачанными файлами:
+   * - для уже известных треков обновляет `handle` и `fileLocation: 'both'`;
+   * - для новых файлов создаёт `LibraryTrack` с `fileLocation: 'local-only'`;
+   * - для новых папок добавляет `Folder` и связывает с родителем.
+   * Не удаляет ничего из текущей библиотеки.
+   */
+  mergeLocalIntoLibrary?(context: PluginContext): Promise<void>
+
   refreshFolder?(context: PluginContext, folderId: string): Promise<void>
   scanFolder?(
     context: PluginContext,
@@ -117,6 +105,12 @@ export interface LibrarySource {
   ): Promise<LibraryTrack | null>
   saveCache?(context: PluginContext): Promise<void>
   disconnect(context: PluginContext): Promise<void>
+
+  handleStreamError?(
+    context: PluginContext,
+    track: LibraryTrack,
+    error: { src: string; message: string },
+  ): Promise<boolean>
 }
 
 export interface LoadOptions {
@@ -132,6 +126,12 @@ export interface DownloadTrackOptions {
 export interface DownloadedTrackInfo {
   relativePath: string
   size: number
+  /**
+   * Хэндл скачанного файла. Позволяет вызвать `orchestrator` → `updateTrackHandle`
+   * без повторного `getFileHandle` через `getFileHandleFromPath`.
+   * Опционально: старые реализации плагинов могут не возвращать.
+   */
+  handle?: FileSystemFileHandle
 }
 
 export interface ScanResult {
@@ -157,8 +157,14 @@ export interface LibraryWriter {
   removeTracks(trackIds: string[]): void
   removeFolders(folderIds: string[]): void
   removeBySource(sourceId: string): void
-  updateTrackOrigin(trackId: string, origin: TrackOrigin): void
-  updateTrackSource(trackId: string, source: string | File): void
+  updateTrackFileLocation(trackId: string, location: FileLocation): void
+  /**
+   * Устанавливает (или сбрасывает) хэндл локального файла.
+   * Для `fileLocation: 'local-only' | 'both'` — обязателен.
+   * Для `'remote-only'` — должен быть `undefined`.
+   */
+  updateTrackHandle(trackId: string, handle: FileSystemFileHandle | undefined): void
+  updateTrackSource(trackId: string, source: string): void
   updateTrackDuration(trackId: string, duration: number): void
   updateTrackMetadata(
     trackId: string,
@@ -189,6 +195,7 @@ export interface ModalOptions {
   cancelLabel?: string
   component?: Component
   props?: Record<string, unknown>
+  disableBackdropClose?: boolean
 }
 
 export type { Track, LibraryTrack, Folder, CollectedLibrary }

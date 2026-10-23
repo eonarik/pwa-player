@@ -10,20 +10,13 @@ import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 import { folderIdFromPath } from '@/services/library/id'
 
 const PLUGIN_ID = 'local'
+const CONNECTED_KEY = 'local-connected'
 
 /** Собирает идентификатор root для конкретного handle */
 function rootIdFromHandle(handle: FileSystemDirectoryHandle): string {
   return `${PLUGIN_ID}:${handle.name}`
 }
 
-/**
- * Плагин локальных папок.
- *
- * Работает через File System Access API. handles сохраняются в IDB.
- * Папок может быть несколько — каждая становится отдельным root-источником
- * (`local:Music`, `local:Podcasts`), объединённых искусственным контейнером
- * `local` с parentId = null.
- */
 const localPlugin: LibrarySource = {
   id: PLUGIN_ID,
   name: 'Локальная папка',
@@ -33,13 +26,12 @@ const localPlugin: LibrarySource = {
     return typeof window !== 'undefined' && 'showDirectoryPicker' in window
   },
 
+  isDisconnected(): boolean {
+    return localStorage.getItem(CONNECTED_KEY) !== 'true'
+  },
+
   // --- Подключение ----------------------------------------------------
 
-  /**
-   * Открывает системный диалог выбора папки.
-   * Добавляет выбранную папку в список handles.
-   * Если пользователь отменил — бросает 'cancelled'.
-   */
   async connect(_context: PluginContext): Promise<void> {
     if (!fileSystemService.supported) {
       throw new Error(
@@ -52,8 +44,8 @@ const localPlugin: LibrarySource = {
       throw new Error('cancelled')
     }
 
-    // Если папка уже добавлена — не ошибка, load подтянет всё
     await fileSystemService.addHandle(handle)
+    localStorage.setItem(CONNECTED_KEY, 'true')
   },
 
   // --- Загрузка -------------------------------------------------------
@@ -61,8 +53,6 @@ const localPlugin: LibrarySource = {
   async load(context: PluginContext, _options?: LoadOptions): Promise<void> {
     const handles = await fileSystemService.getHandles()
     if (handles.length === 0) {
-      // Нет папок — пустая библиотека, не ошибка.
-      // Пользователь добавит папки через настройки.
       return
     }
 
@@ -91,8 +81,7 @@ const localPlugin: LibrarySource = {
         trackIds: [...f.trackIds],
         totalTrackCount: f.totalTrackCount,
         source: f.source ?? PLUGIN_ID,
-        scanStatus: 'scanned',
-        ready: true,
+        scanState: 'scanned',
       }
     }
 
@@ -103,7 +92,6 @@ const localPlugin: LibrarySource = {
       persisted.tracks.map(async (t) => {
         try {
           if (!t.handle) throw new Error('no handle')
-          const file = await t.handle.getFile()
           const folder = newFolders[t.folderId]
           const cachedEntry = metadataPersistenceService.get(t.id)
           const cachedCover = cachedEntry?.coverUrl ?? undefined
@@ -124,7 +112,8 @@ const localPlugin: LibrarySource = {
             path: t.path,
             handle: t.handle,
             directoryHandle: folder?.handle,
-            source: file,
+            source: '',
+            fileLocation: 'local-only',
             coverUrl: cachedCover,
           }
         } catch (err) {
@@ -161,9 +150,6 @@ const localPlugin: LibrarySource = {
 
   // --- scanFolder -----------------------------------------------------
 
-  /**
-   * У локального плагина нет ленивого сканирования — всё сканируется сразу.
-   */
   async scanFolder(
     _context: PluginContext,
     _folderId: string,
@@ -186,14 +172,13 @@ const localPlugin: LibrarySource = {
   // --- Отключение -----------------------------------------------------
 
   async disconnect(context: PluginContext): Promise<void> {
+    localStorage.removeItem(CONNECTED_KEY)
     context.writer.removeBySource(PLUGIN_ID)
     await localPersistenceService.clear()
     await fileSystemService.clearHandles()
     await context.storage.clear()
   },
 }
-
-// --- Сборка полной библиотеки из всех handles ------------------------
 
 async function collectAll(handles: FileSystemDirectoryHandle[]): Promise<CollectedLibrary | null> {
   const containerId = folderIdFromPath(PLUGIN_ID, '')
@@ -206,8 +191,7 @@ async function collectAll(handles: FileSystemDirectoryHandle[]): Promise<Collect
     trackIds: [],
     totalTrackCount: 0,
     source: PLUGIN_ID,
-    scanStatus: 'scanned',
-    ready: true,
+    scanState: 'scanned',
   }
 
   const allFolders: Folder[] = [container]
@@ -253,8 +237,6 @@ async function collectAll(handles: FileSystemDirectoryHandle[]): Promise<Collect
     rootFolderName: 'Локальная папка',
   }
 }
-
-// --- Вспомогательные ---------------------------------------------------
 
 function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
   const folders: PersistedLocalFolder[] = []

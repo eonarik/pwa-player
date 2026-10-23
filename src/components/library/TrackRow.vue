@@ -7,10 +7,11 @@ import TrackCover from '@/components/ui/TrackCover.vue'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useTrackDisplay } from '@/composables/useTrackDisplay'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
+import { isLocalTrack } from '@/services/library/selectors'
 import { formatDuration } from '@/utils/formatDuration'
 import { isLiveStream } from '@/plugins/registry'
 import type { Track } from '@/types/track'
-import type { LibraryTrack, TrackOrigin } from '@/types/library'
+import type { LibraryTrack } from '@/types/library'
 
 const props = withDefaults(
   defineProps<{
@@ -18,7 +19,6 @@ const props = withDefaults(
     index: number
     isCurrent: boolean
     isPlaying: boolean
-    /** Показывать ли полоску прогресса скачивания */
     showDownload?: boolean
   }>(),
   { showDownload: false },
@@ -47,18 +47,14 @@ const downloadProgress = computed<number | null>(() => {
   return Math.min(1, p.written / p.total)
 })
 
-function trackOrigin(t: Track | LibraryTrack): TrackOrigin | undefined {
-  return 'origin' in t ? (t as LibraryTrack).origin : undefined
-}
-
-const isDownloaded = computed(() => {
+const isLocal = computed(() => {
   if (!props.showDownload || isLive.value) return false
-  return trackOrigin(props.track) === 'downloaded'
+  return isLocalTrack(props.track as LibraryTrack)
 })
 </script>
 
 <template>
-  <ListRow :active="isCurrent" :disliked="isDisliked" :download-progress="downloadProgress" :downloaded="isDownloaded"
+  <ListRow :active="isCurrent" :disliked="isDisliked" :download-progress="downloadProgress" :downloaded="isLocal"
     @click="emit('select')">
     <template #leading>
       <TrackCover :track="track">

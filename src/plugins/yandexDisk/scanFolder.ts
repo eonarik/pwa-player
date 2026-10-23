@@ -14,22 +14,6 @@ export interface ScanFolderDeps {
   service: IYandexService
 }
 
-/**
- * Рекурсивно сканирует папку и её подпапки.
- *
- * Возвращает `true`, если папка и всё её поддерево просканированы (`ready`),
- * иначе `false`. Используется как `LibrarySource.scanFolder`.
- *
- * Логика:
- * 1. Если папка уже `scanning` — не трогаем, возвращаем текущий `ready`.
- * 2. Если `scanStatus !== 'scanned'` (или `removeMissing === true`) —
- *    запрашиваем содержимое, мержим, помечаем `scanned`.
- * 3. Если `recursive: false` — обновляем `ready` по факту (папка без
- *    подпапок считается готовой).
- * 4. Если `recursive: true` — рекурсивно обходим детей параллельно
- *    (до 5 одновременно), агрегируем счётчики, помечаем `ready`,
- *    если все дети готовы.
- */
 export async function scanFolderRecursive(
   deps: ScanFolderDeps,
   folderId: string,
@@ -40,12 +24,14 @@ export async function scanFolderRecursive(
   const folder = context.writer.getFolder(folderId)
   if (!folder || !folder.remotePath) return false
 
-  if (folder.scanStatus === 'scanning') return folder.ready ?? false
+  const currentState = folder.scanState ?? 'pending'
 
-  const needScan = folder.scanStatus !== 'scanned' || options.removeMissing === true
+  if (currentState === 'scanning') return false
+
+  const needScan = currentState !== 'scanned' || options.removeMissing === true
 
   if (needScan) {
-    context.writer.updateFolder(folderId, { scanStatus: 'scanning' })
+    context.writer.updateFolder(folderId, { scanState: 'scanning' })
     try {
       const response = await service.listResources(folder.remotePath)
       mergeFolderContent(
@@ -58,15 +44,15 @@ export async function scanFolderRecursive(
       )
     } catch (err) {
       console.warn(`[${sourceId}] scan failed for "${folder.path}":`, err)
+      context.writer.updateFolder(folderId, { scanState: 'error' })
+      return false
     }
-    context.writer.updateFolder(folderId, { scanStatus: 'scanned' })
+    context.writer.updateFolder(folderId, { scanState: 'scanned' })
   }
 
   if (!options.recursive) {
     const updated = context.writer.getFolder(folderId)
-    const isReady = updated?.scanStatus === 'scanned' && (updated.childFolderIds.length ?? 0) === 0
-    context.writer.updateFolder(folderId, { ready: isReady })
-    return isReady
+    return updated?.scanState === 'scanned' && (updated.childFolderIds.length ?? 0) === 0
   }
 
   const updated = context.writer.getFolder(folderId)
@@ -99,12 +85,11 @@ export async function scanFolderRecursive(
   if (!final) return false
 
   const allChildrenReady = childReady.every((r) => r === true)
-  const isReady = final.scanStatus === 'scanned' && allChildrenReady
+  const isReady = final.scanState === 'scanned' && allChildrenReady
 
   context.writer.updateFolder(folderId, {
     totalTrackCount: final.trackIds.length + childTrackTotal,
     totalTextFileCount: (final.textFiles?.length ?? 0) + childTextTotal,
-    ready: isReady,
   })
 
   return isReady
