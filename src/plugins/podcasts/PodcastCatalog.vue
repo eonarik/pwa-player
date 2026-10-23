@@ -7,7 +7,6 @@ import { podcastService } from './PodcastService'
 import {
   addSubscription,
   removeSubscription,
-  isSubscribed,
   getSubscriptions,
 } from './PodcastStorage'
 import type { Podcast, Episode } from './types'
@@ -42,6 +41,7 @@ const isStale = ref(false)
 const error = ref('')
 const podcasts = ref<Podcast[]>([])
 const isLoadingSubscription = ref<string | null>(null)
+const subscribedUrls = ref<Set<string>>(new Set())
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -54,18 +54,27 @@ const listTitle = computed(() => {
   return g && g !== 'Все жанры' ? `Топ: ${g} (${c})` : `Топ подкастов (${c})`
 })
 
-function isSubscribedPodcast(podcast: Podcast): boolean { return isSubscribed(podcast.feedUrl) }
+async function refreshSubscriptions() {
+  const subs = await getSubscriptions()
+  subscribedUrls.value = new Set(subs.map(s => s.podcast.feedUrl))
+}
+
+function isSubscribedPodcast(podcast: Podcast): boolean {
+  return subscribedUrls.value.has(podcast.feedUrl)
+}
+
 function isCurrentPodcastPlaying(podcast: Podcast): boolean {
   if (!player.isPlaying || !player.currentTrack) return false
   return player.currentTrack.artist === podcast.title
 }
+
 function isCurrentPodcast(podcast: Podcast): boolean {
   if (!player.currentTrack) return false
   return player.currentTrack.artist === podcast.title
 }
 
 async function getOrLoadEpisodes(podcast: Podcast): Promise<Episode[] | null> {
-  const subs = getSubscriptions()
+  const subs = await getSubscriptions()
   const existing = subs.find((s) => s.podcast.feedUrl === podcast.feedUrl)
   if (existing && existing.episodes.length > 0) return existing.episodes
 
@@ -73,8 +82,9 @@ async function getOrLoadEpisodes(podcast: Podcast): Promise<Episode[] | null> {
   try {
     const { podcast: loaded, episodes } = await podcastService.fetchFeed(podcast.feedUrl)
     if (!existing) {
-      addSubscription({ podcast: loaded, episodes, updatedAt: Date.now() })
+      await addSubscription({ podcast: loaded, episodes, updatedAt: Date.now() })
       podcasts.value = [...podcasts.value]
+      await refreshSubscriptions()
     }
     return episodes
   } catch (err) {
@@ -93,7 +103,7 @@ async function togglePlayPodcast(podcast: Podcast): Promise<void> {
   if (!episodes || episodes.length === 0) return
 
   const tracks: Track[] = episodes.map((ep) => ({
-    id: `podcast:${podcast.id}:${ep.id}`, // <-- Унифицировали ID
+    id: `podcast:${podcast.id}:${ep.id}`,
     pluginId: PLUGIN_ID,
     title: ep.title,
     artist: podcast.title,
@@ -111,7 +121,8 @@ async function onAddClick(podcast: Podcast): Promise<void> {
   isLoadingSubscription.value = podcast.id
   try {
     const { podcast: loaded, episodes } = await podcastService.fetchFeed(podcast.feedUrl)
-    addSubscription({ podcast: loaded, episodes, updatedAt: Date.now() })
+    await addSubscription({ podcast: loaded, episodes, updatedAt: Date.now() })
+    await refreshSubscriptions()
     podcasts.value = [...podcasts.value]
   } catch (err) {
     console.error('[podcasts] add failed', err)
@@ -121,13 +132,13 @@ async function onAddClick(podcast: Podcast): Promise<void> {
   }
 }
 
-function onRemoveClick(podcast: Podcast): void {
-  removeSubscription(podcast.feedUrl)
+async function onRemoveClick(podcast: Podcast): Promise<void> {
+  await removeSubscription(podcast.feedUrl)
+  await refreshSubscriptions()
   podcasts.value = [...podcasts.value]
 }
 
 function onOpenClick(podcast: Podcast): void {
-  // Если подкаст не в подписках, добавляем его перед переходом
   if (!isSubscribedPodcast(podcast)) {
     void onAddClick(podcast)
   }
@@ -221,7 +232,10 @@ function retryLoad(): void {
   else void loadTop(currentPage.value)
 }
 
-onMounted(() => { void load() })
+onMounted(async () => {
+  await refreshSubscriptions()
+  void load()
+})
 </script>
 
 <template>
@@ -244,10 +258,10 @@ onMounted(() => { void load() })
           </template>
           <template #default="{ close }">
             <div class="max-h-[50vh] overflow-y-auto">
-              <button v-for="g in GENRES" :key="g.id" type="button"
+              <button v-for="c in COUNTRIES" :key="c.code" type="button"
                 class="block w-full px-4 py-2 text-left text-xs transition hover:bg-hover-bg"
-                :class="genre === g.id ? 'text-active font-medium' : 'text-fg'" @click="genre = g.id; close()">
-                {{ g.label }}
+                :class="country === c.code ? 'text-active font-medium' : 'text-fg'" @click="country = c.code; close()">
+                {{ c.label }}
               </button>
             </div>
           </template>

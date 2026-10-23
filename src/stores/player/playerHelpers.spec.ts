@@ -1,7 +1,7 @@
 // src/stores/player/playerHelpers.spec.ts
 
 import { describe, it, expect } from 'vitest'
-import { shuffleArray, findNonDislikedIndexFrom, findNonDislikedIndex } from './playerHelpers'
+import { shuffleArray, findFirstPlayableIndex, findPlayableIndex } from './playerHelpers'
 import type { Track } from '@/types/track'
 
 function makeTrack(id: string): Track {
@@ -36,50 +36,60 @@ describe('shuffleArray', () => {
   })
 })
 
-describe('findNonDislikedIndexFrom', () => {
+describe('findFirstPlayableIndex', () => {
   const tracks = [makeTrack('a'), makeTrack('b'), makeTrack('c')]
 
-  it('возвращает from, если он не дизлайкнут', () => {
-    expect(findNonDislikedIndexFrom(tracks, 0, new Set())).toBe(0)
+  const skipIds = (ids: string[]) => {
+    const set = new Set(ids)
+    return (t: Track) => set.has(t.id)
+  }
+
+  it('возвращает from, если он не должен быть пропущен', () => {
+    expect(findFirstPlayableIndex(tracks, 0, skipIds([]))).toBe(0)
   })
 
-  it('пропускает дизлайкнутые', () => {
-    expect(findNonDislikedIndexFrom(tracks, 0, new Set(['a']))).toBe(1)
+  it('пропускает треки, попавшие в shouldSkip', () => {
+    expect(findFirstPlayableIndex(tracks, 0, skipIds(['a']))).toBe(1)
   })
 
-  it('возвращает -1, если все дизлайкнуты', () => {
-    expect(findNonDislikedIndexFrom(tracks, 0, new Set(['a', 'b', 'c']))).toBe(-1)
+  it('возвращает -1, если все пропущены', () => {
+    expect(findFirstPlayableIndex(tracks, 0, skipIds(['a', 'b', 'c']))).toBe(-1)
   })
 
   it('возвращает -1, если from за пределами', () => {
-    expect(findNonDislikedIndexFrom(tracks, 5, new Set())).toBe(-1)
+    expect(findFirstPlayableIndex(tracks, 5, skipIds([]))).toBe(-1)
   })
 })
 
-describe('findNonDislikedIndex', () => {
+describe('findPlayableIndex', () => {
   const queue = [makeTrack('a'), makeTrack('b'), makeTrack('c')]
 
-  it('вперёд: возвращает from, если не дизлайкнут', () => {
-    expect(findNonDislikedIndex(queue, 1, 1, new Set())).toBe(1)
+  const skipIds = (ids: string[]) => {
+    const set = new Set(ids)
+    return (t: Track) => set.has(t.id)
+  }
+
+  it('вперёд: возвращает from, если не пропущен', () => {
+    expect(findPlayableIndex(queue, 1, 1, skipIds([]))).toBe(1)
   })
 
-  it('вперёд: пропускает дизлайкнутые', () => {
-    expect(findNonDislikedIndex(queue, 0, 1, new Set(['a', 'b']))).toBe(2)
+  it('вперёд: пропускает', () => {
+    expect(findPlayableIndex(queue, 0, 1, skipIds(['a', 'b']))).toBe(2)
   })
 
-  it('вперёд: -1, если всё дизлайкнуто', () => {
-    expect(findNonDislikedIndex(queue, 0, 1, new Set(['a', 'b', 'c']))).toBe(-1)
+  it('вперёд: -1, если всё пропущено', () => {
+    expect(findPlayableIndex(queue, 0, 1, skipIds(['a', 'b', 'c']))).toBe(-1)
   })
 
-  it('назад: пропускает дизлайкнутые', () => {
-    expect(findNonDislikedIndex(queue, 2, -1, new Set(['c']))).toBe(1)
+  it('назад: пропускает', () => {
+    expect(findPlayableIndex(queue, 2, -1, skipIds(['c']))).toBe(1)
   })
 
-  it('назад: -1, если всё дизлайкнуто', () => {
-    expect(findNonDislikedIndex(queue, 2, -1, new Set(['a', 'b', 'c']))).toBe(-1)
+  it('назад: -1, если всё пропущено', () => {
+    expect(findPlayableIndex(queue, 2, -1, skipIds(['a', 'b', 'c']))).toBe(-1)
   })
 
   it('назад: -1, если from < 0', () => {
-    expect(findNonDislikedIndex(queue, -1, -1, new Set())).toBe(-1)
+    expect(findPlayableIndex(queue, -1, -1, skipIds([]))).toBe(-1)
   })
 })

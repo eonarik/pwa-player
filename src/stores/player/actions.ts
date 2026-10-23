@@ -3,9 +3,10 @@
 import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
+import { isTrackUnavailable } from '@/services/library/selectors'
 import { useDislikesStore } from '../dislikes'
 import { isLiveStream } from '@/plugins/registry'
-import { shuffleArray, findNonDislikedIndexFrom, findNonDislikedIndex } from './playerHelpers'
+import { shuffleArray, findFirstPlayableIndex, findPlayableIndex } from './playerHelpers'
 import { toastService } from '@/services/ui/ToastService'
 import type { Track } from '@/types/track'
 
@@ -64,9 +65,30 @@ export function createPlayerActions(
 
   const { syncCurrentTime, stopTimeLoop } = callbacks
 
+  /**
+   * Единый предикат пропуска:
+   * - дизлайкнутые пользователем;
+   * - недоступные (нет handle и нет source).
+   *
+   * Плеер не различает причины: для навигации это «не играть».
+   */
+  function shouldSkip(track: Track): boolean {
+    const dislikes = useDislikesStore()
+    if (dislikes.isDisliked(track.id)) return true
+    if (isTrackUnavailable(track)) return true
+    return false
+  }
+
   async function playAt(index: number): Promise<void> {
     const track = queue.value[index]
     if (!track) return
+
+    // Явный выбор недоступного трека — тост, ничего не делаем.
+    // (При навигации next/prev недоступные пропускаются через shouldSkip.)
+    if (isTrackUnavailable(track)) {
+      toastService.error('Источник недоступен. Подключите плагин или скачайте трек.')
+      return
+    }
 
     currentIndex.value = index
     currentTrack.value = track
@@ -96,33 +118,56 @@ export function createPlayerActions(
       return
     }
 
-    const dislikes = useDislikesStore()
     const fromIndex = Math.min(Math.max(startIndex, 0), tracks.length - 1)
-    const firstPlayable = findNonDislikedIndexFrom(tracks, fromIndex, dislikes.dislikedIds)
+    const firstPlayable = findFirstPlayableIndex(tracks, fromIndex, shouldSkip)
     const safeIndex = firstPlayable !== -1 ? firstPlayable : fromIndex
 
     queue.value = tracks
+
+    if (firstPlayable === -1) {
+      // Все недоступны/дизлайкнуты — не запускаем, объясняем.
+      const allUnavailable = tracks.every(isTrackUnavailable)
+      if (allUnavailable) {
+        toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
+      }
+      return
+    }
+
     void playAt(safeIndex)
   }
 
   function playAll(tracks: Track[]): void {
     if (tracks.length === 0) return
 
-    const dislikes = useDislikesStore()
-
     if (shuffle.value) {
       const shuffled = shuffleArray(tracks)
-      const firstPlayable = shuffled.findIndex((t) => !dislikes.isDisliked(t.id))
-      const safeIndex = firstPlayable !== -1 ? firstPlayable : 0
+      const firstPlayable = findFirstPlayableIndex(shuffled, 0, shouldSkip)
 
       queue.value = shuffled
-      void playAt(safeIndex)
+
+      if (firstPlayable === -1) {
+        const allUnavailable = shuffled.every(isTrackUnavailable)
+        if (allUnavailable) {
+          toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
+        }
+        return
+      }
+
+      void playAt(firstPlayable)
     } else {
-      const firstPlayable = findNonDislikedIndexFrom(tracks, 0, dislikes.dislikedIds)
-      const safeIndex = firstPlayable !== -1 ? firstPlayable : 0
+      const firstPlayable = findFirstPlayableIndex(tracks, 0, shouldSkip)
 
       queue.value = tracks
-      void playAt(safeIndex)
+
+      if (firstPlayable === -1) {
+        const allUnavailable = tracks.every(isTrackUnavailable)
+        if (allUnavailable) {
+          toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
+        }
+        return
+      }
+
+      void playAt(firstPlayable)
     }
   }
 
@@ -131,6 +176,13 @@ export function createPlayerActions(
       void playAt(0)
       return
     }
+
+    const track = currentTrack.value
+    if (track && isTrackUnavailable(track)) {
+      toastService.error('Источник недоступен. Подключите плагин или скачайте трек.')
+      return
+    }
+
     audioService.play().catch((err) => {
       console.error('[player] play rejected', err)
     })
@@ -189,21 +241,14 @@ export function createPlayerActions(
     if (queue.value.length === 0) return
     if (currentTrack.value && isLiveStream(currentTrack.value.pluginId)) return
 
-    const dislikes = useDislikesStore()
-
-    const nextIndex = findNonDislikedIndex(
-      queue.value,
-      currentIndex.value + 1,
-      1,
-      dislikes.dislikedIds,
-    )
+    const nextIndex = findPlayableIndex(queue.value, currentIndex.value + 1, 1, shouldSkip)
     if (nextIndex !== -1) {
       void playAt(nextIndex)
       return
     }
 
     if (repeatMode.value === 'all') {
-      const wrapIndex = findNonDislikedIndex(queue.value, 0, 1, dislikes.dislikedIds)
+      const wrapIndex = findPlayableIndex(queue.value, 0, 1, shouldSkip)
       if (wrapIndex !== -1) {
         void playAt(wrapIndex)
         return
@@ -216,7 +261,7 @@ export function createPlayerActions(
       const reshuffled = shuffleArray(rest)
       if (reshuffled.length > 0) {
         queue.value = reshuffled
-        const firstPlayable = reshuffled.findIndex((t) => !dislikes.isDisliked(t.id))
+        const firstPlayable = findFirstPlayableIndex(reshuffled, 0, shouldSkip)
         if (firstPlayable !== -1) {
           void playAt(firstPlayable)
           return
@@ -237,26 +282,14 @@ export function createPlayerActions(
       return
     }
 
-    const dislikes = useDislikesStore()
-
-    const prevIndex = findNonDislikedIndex(
-      queue.value,
-      currentIndex.value - 1,
-      -1,
-      dislikes.dislikedIds,
-    )
+    const prevIndex = findPlayableIndex(queue.value, currentIndex.value - 1, -1, shouldSkip)
     if (prevIndex !== -1) {
       void playAt(prevIndex)
       return
     }
 
     if (repeatMode.value === 'all') {
-      const wrapIndex = findNonDislikedIndex(
-        queue.value,
-        queue.value.length - 1,
-        -1,
-        dislikes.dislikedIds,
-      )
+      const wrapIndex = findPlayableIndex(queue.value, queue.value.length - 1, -1, shouldSkip)
       if (wrapIndex !== -1) {
         void playAt(wrapIndex)
         return

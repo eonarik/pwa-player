@@ -16,34 +16,38 @@ export function shuffleArray<T>(arr: T[]): T[] {
 }
 
 /**
- * Ищет первый не-дизлайкнутый трек в `tracks`, начиная с индекса `from`
- * (включительно), двигаясь вперёд. Возвращает индекс или -1.
+ * Ищет первый трек в `tracks`, начиная с индекса `from`, который
+ * НЕ должен быть пропущен.
+ *
+ * `shouldSkip` — единый предикат: дизлайки, недоступность и любые
+ * будущие причины скипа композируются в одном месте.
  */
-export function findNonDislikedIndexFrom(
+export function findFirstPlayableIndex(
   tracks: Track[],
   from: number,
-  disliked: Set<string>,
+  shouldSkip: (track: Track) => boolean,
 ): number {
   for (let i = from; i < tracks.length; i++) {
     const t = tracks[i]
-    if (t && !disliked.has(t.id)) return i
+    if (t && !shouldSkip(t)) return i
   }
   return -1
 }
 
 /**
- * Ищет первый не-дизлайкнутый трек в очереди, начиная с индекса `from`,
- * двигаясь в направлении `dir` (+1 вперёд, -1 назад). Возвращает индекс или -1.
+ * Ищет первый трек в очереди, начиная с индекса `from`, двигаясь
+ * в направлении `dir` (+1 вперёд, -1 назад), который НЕ должен быть
+ * пропущен.
  */
-export function findNonDislikedIndex(
+export function findPlayableIndex(
   queue: Track[],
   from: number,
   dir: 1 | -1,
-  disliked: Set<string>,
+  shouldSkip: (track: Track) => boolean,
 ): number {
   for (let i = from; i >= 0 && i < queue.length; i += dir) {
     const track = queue[i]
-    if (track && !disliked.has(track.id)) return i
+    if (track && !shouldSkip(track)) return i
   }
   return -1
 }

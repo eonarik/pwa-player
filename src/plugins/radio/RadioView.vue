@@ -12,13 +12,16 @@ import {
 } from './index'
 import RadioSavedList from './RadioSavedList.vue'
 import RadioCatalog from './RadioCatalog.vue'
+import AddStationModal from './AddStationModal.vue'
 import IconPlus from '@/components/icons/IconPlus.vue'
 import type { Track } from '@/types/track'
+import { toPlayableUrl } from "@/services/audio/toPlayableUrl.ts"
 
 const player = usePlayerStore()
 
 type ViewMode = 'saved' | 'catalog'
 const viewMode = ref<ViewMode>('saved')
+const isAddModalOpen = ref(false)
 
 const savedStations = ref<SavedStation[]>(getSavedStations())
 
@@ -39,7 +42,10 @@ function closeCatalog(): void {
 }
 
 function onAdd(station: SavedStation): void {
-  if (savedStationIds.value.has(station.id)) return
+  if (savedStationIds.value.has(station.id)) {
+    toastService.error(`Станция «${station.name}» уже добавлена`)
+    return
+  }
 
   const ok = addSavedStation(station)
   if (!ok) {
@@ -49,6 +55,10 @@ function onAdd(station: SavedStation): void {
 
   refreshSaved()
   toastService.success(`Станция «${station.name}» добавлена`)
+}
+
+function onAddByUrl(station: SavedStation): void {
+  onAdd(station)
 }
 
 function onPlay(station: SavedStation): void {
@@ -85,7 +95,7 @@ function playStation(station: SavedStation): void {
     album: '',
     duration: 0,
     filename: '',
-    source: station.url,
+    source: toPlayableUrl(station.url),
     coverUrl: station.favicon || undefined,
   }
 
@@ -113,11 +123,13 @@ onMounted(() => {
       </div>
 
       <RadioSavedList :stations="savedStations" :current-track-id="currentTrackId" :is-playing="player.isPlaying"
-        @play="playStation" @remove="onRemoveFromSavedList" />
+        @play="playStation" @remove="onRemoveFromSavedList" @add-by-url="isAddModalOpen = true" />
     </template>
 
     <RadioCatalog v-else-if="viewMode === 'catalog'" :saved-station-ids="savedStationIds"
       :current-track-id="currentTrackId" :is-playing="player.isPlaying" @add="onAdd" @play="onPlay" @remove="onRemove"
       @back="closeCatalog" />
+
+    <AddStationModal v-if="isAddModalOpen" @close="isAddModalOpen = false" @add="onAddByUrl" />
   </div>
 </template>

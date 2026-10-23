@@ -4,13 +4,6 @@ import type { LibrarySource, PluginContext } from '../types'
 import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants'
 import { getSubscriptions } from './PodcastStorage'
 
-/**
- * Плагин подкастов. Stateless: нет папок, нет connect/load.
- * Эпизоды живут в отдельном сторе (`PodcastStorage`), а не в `library`.
- *
- * `buildStreamUrl` используется, если `DownloadOrchestrator` захочет
- * скачать эпизод (см. `Track.source`).
- */
 const podcastsPlugin: LibrarySource = {
   id: PLUGIN_ID,
   name: PLUGIN_NAME,
@@ -23,11 +16,12 @@ const podcastsPlugin: LibrarySource = {
   },
 
   async load(_context: PluginContext): Promise<void> {
-    // no-op: эпизоды в PodcastStorage, а не в library
+    // no-op
   },
 
   async restoreFromCache(_context: PluginContext): Promise<boolean> {
-    return getSubscriptions().length > 0
+    const subs = await getSubscriptions()
+    return subs.length > 0
   },
 
   buildStreamUrl(track): string {

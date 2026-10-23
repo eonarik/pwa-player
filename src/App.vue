@@ -147,7 +147,6 @@ watchEffect(() => {
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible' && player.isPlaying) {
     const audio = audioService.element
-    // Если трек фактически закончился, но ended не сработал (Safari)
     if (audio.ended || (audio.duration > 0 && audio.currentTime >= audio.duration - 0.5)) {
       player.handleTrackEnd()
     }
@@ -193,14 +192,13 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
-
 watch(currentTrack, async (track) => {
   if (!track || !uiSettings.autoFetchMetadata) return
 
   const libTrack = library.getTrack(track.id)
   if (!libTrack) return
 
-  // Если для трека уже есть метаданные в кэше — не ищем
+  // Если для трека уже есть метаданные в кэше (найдено или "не найдено") — не ищем.
   if (metadataPersistenceService.has(track.id)) return
 
   // Ищем в фоне
@@ -210,9 +208,26 @@ watch(currentTrack, async (track) => {
       libTrack.title,
       uiSettings.metadataThreshold,
     )
+
     if (result.status === 'found') {
       metadataApplier.apply(libTrack, result.data)
+      return
     }
+
+    // Кэшируем "не найдено" с TTL 7 дней, чтобы не дёргать сеть
+    // при каждом старте этого трека.
+    if (result.status === 'not-found') {
+      metadataPersistenceService.setInMemory(track.id, {
+        artist: null,
+        title: null,
+        album: null,
+        coverUrl: null,
+        similarity: null,
+        original: null,
+      })
+      await metadataPersistenceService.flush()
+    }
+    // error / aborted — не кэшируем, попробуем в следующий раз
   })()
 })
 </script>

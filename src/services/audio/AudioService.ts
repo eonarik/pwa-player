@@ -8,6 +8,7 @@ export class AudioService {
 
   private audio: HTMLAudioElement
   private hls: Hls | null = null
+  private hlsFailed = false
   private listeners: {
     [K in AudioEventName]?: Set<AudioListener<K>>
   } = {}
@@ -63,6 +64,7 @@ export class AudioService {
 
   load(source: string | File | Blob): void {
     this.destroyHls()
+    this.hlsFailed = false
 
     if (this.currentObjectUrl) {
       URL.revokeObjectURL(this.currentObjectUrl)
@@ -76,6 +78,26 @@ export class AudioService {
         this.hls = new Hls()
         this.hls.loadSource(source)
         this.hls.attachMedia(this.audio)
+
+        this.hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal) return
+
+          console.warn('[audio] HLS fatal error', data.type, data.details)
+
+          this.hlsFailed = true
+          this.pause()
+
+          let message = 'Ошибка потока'
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            message = 'Не удалось загрузить поток (сеть или CORS)'
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            message = 'Ошибка воспроизведения медиа'
+          } else {
+            message = `Ошибка потока: ${data.details}`
+          }
+
+          this.emit('error', { message, src: source })
+        })
       } else {
         this.audio.src = source
         this.audio.load()
@@ -90,6 +112,7 @@ export class AudioService {
 
   unload(): void {
     this.destroyHls()
+    this.hlsFailed = false
     this.audio.pause()
     this.audio.removeAttribute('src')
     this.audio.load()
@@ -111,24 +134,34 @@ export class AudioService {
   // --- Управление воспроизведением -------------------------------------
 
   async play(): Promise<void> {
-    if (import.meta.env.DEV) {
-      console.log('[audio] play() called, src:', this.audio.src, 'paused:', this.audio.paused)
+    if (this.hlsFailed && this.currentSrc) {
+      this.load(this.currentSrc)
     }
+
     try {
       await this.audio.play()
-      if (import.meta.env.DEV) {
-        console.log('[audio] play() resolved')
+      if (this.audio.paused) {
+        this.emit('pause', undefined as void)
       }
     } catch (err) {
-      console.error('[audio] play() rejected', err)
+      // Если play() был прерван нашим же pause() (HLS fatal error, race) —
+      // это ожидаемое поведение, не считаем ошибкой.
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return
+      }
+
       const message = err instanceof Error ? err.message : 'Unknown play() error'
+      console.error('[audio] play() rejected', err)
       this.emit('error', { message, src: this.audio.src })
+      this.emit('pause', undefined as void)
       throw err
     }
   }
 
   pause(): void {
     this.audio.pause()
+    // Вручную эмитим pause на случай, если нативный event не сработал (например, при race condition с HLS).
+    this.emit('pause', undefined as void)
   }
 
   toggle(): Promise<void> | void {

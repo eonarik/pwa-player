@@ -31,7 +31,7 @@ selfRoutes.post('/refresh', async (req, res) => {
   try {
     const result = await refresh(refreshToken)
     res.json(result)
-  } catch (err) {
+  } catch {
     res.status(401).json({ error: 'Invalid refresh token' })
   }
 })

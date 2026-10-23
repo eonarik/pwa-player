@@ -3,6 +3,7 @@
 import IconPlay from '@/components/icons/IconPlay.vue'
 import IconRadio from '@/components/icons/IconRadio.vue'
 import IconX from '@/components/icons/IconX.vue'
+import IconPlus from '@/components/icons/IconPlus.vue'
 import type { SavedStation } from './index'
 import SectionTitle from "@/components/ui/SectionTitle.vue";
 
@@ -15,6 +16,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'play', station: SavedStation): void
   (e: 'remove', station: SavedStation): void
+  (e: 'add-by-url'): void
 }>()
 
 function isCurrent(station: SavedStation, currentTrackId: string | null): boolean {
@@ -38,7 +40,15 @@ function onRemove(station: SavedStation, e: Event): void {
 <template>
   <div class="flex-1 overflow-y-auto">
     <div class="mx-auto w-full max-w-3xl py-2 pt-4">
-      <SectionTitle text="Мои станции" />
+      <div class="flex items-center justify-between px-4 pb-2">
+        <SectionTitle text="Мои станции" padding-x="none" padding-bottom="none" />
+        <button type="button"
+          class="flex items-center gap-1.5 rounded-btn bg-card-bg px-2 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
+          @click="emit('add-by-url')">
+          <IconPlus class="h-3.5 w-3.5" />
+          По URL
+        </button>
+      </div>
 
       <div v-if="stations.length === 0" class="flex flex-col items-center justify-center py-20 text-sm text-fg-muted">
         <IconRadio class="mb-3 h-10 w-10 text-fg-subtle" />

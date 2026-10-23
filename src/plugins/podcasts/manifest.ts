@@ -16,8 +16,8 @@ export const manifest: PluginManifest = {
   customRoute: 'podcasts',
   entry: () => import('./index'),
   extension: () => import('./extension'),
-  hasCustomData: () => getSubscriptions().length > 0,
-  clearData: () => {
-    clearAll()
+  hasCustomData: async () => (await getSubscriptions()).length > 0,
+  clearData: async () => {
+    await clearAll()
   },
 }

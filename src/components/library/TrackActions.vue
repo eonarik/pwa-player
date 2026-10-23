@@ -58,11 +58,6 @@ const hasMetadataEntry = computed(() => {
   return entry !== undefined && entry.artist !== null
 })
 
-const canSearchAny = computed(() => {
-  if (isLive.value) return false
-  return Boolean(props.track.title?.trim())
-})
-
 function closeMenu(close: () => void): void {
   isSubmenuOpen.value = false
   isCreatingNew.value = false

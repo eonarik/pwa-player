@@ -1,6 +1,6 @@
 <!-- src/views/SearchView.vue -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
@@ -18,10 +18,36 @@ const uiSettings = useUiSettingsStore()
 
 const { currentTrack, isPlaying } = storeToRefs(player)
 
+// --- Фильтр по источнику -------------------------------------------
+
+type SourceFilter = 'all' | 'local' | 'cloud'
+const sourceFilter = ref<SourceFilter>('all')
+
+const FILTERS: Array<{ id: SourceFilter; label: string }> = [
+  { id: 'all', label: 'Все' },
+  { id: 'local', label: 'Локальные' },
+  { id: 'cloud', label: 'Облако' },
+]
+
 const allTracks = computed<LibraryTrack[]>(() => Object.values(library.tracks))
 
+const filteredTracks = computed<LibraryTrack[]>(() => {
+  if (sourceFilter.value === 'all') return allTracks.value
+
+  return allTracks.value.filter((t) => {
+    const loc = t.fileLocation ?? 'remote-only'
+    if (sourceFilter.value === 'local') {
+      return loc === 'local-only' || loc === 'both'
+    }
+    // cloud
+    return loc === 'remote-only' || loc === 'both'
+  })
+})
+
+// --- Поиск ---------------------------------------------------------
+
 const { query, hasQuery, hasResults, result } = useLibrarySearch(
-  allTracks,
+  filteredTracks,
   uiSettings.searchThreshold,
 )
 
@@ -56,10 +82,19 @@ function isCurrent(trackId: string): boolean {
       </div>
     </div>
 
-    <!-- Поиск -->
+    <!-- Поиск и фильтры -->
     <div class="shrink-0 px-4 py-2">
-      <div class="mx-auto w-full max-w-3xl">
+      <div class="mx-auto flex w-full max-w-3xl flex-col gap-3">
         <SearchInput v-model="query" always-open />
+
+        <!-- Быстрые фильтры по источнику -->
+        <div class="flex items-center gap-2">
+          <button v-for="f in FILTERS" :key="f.id" type="button" class="rounded-btn px-3 py-1 text-xs transition"
+            :class="sourceFilter === f.id ? 'bg-card-bg text-fg font-medium' : 'text-fg-muted hover:text-fg hover:bg-hover-bg'"
+            @click="sourceFilter = f.id">
+            {{ f.label }}
+          </button>
+        </div>
       </div>
     </div>
 

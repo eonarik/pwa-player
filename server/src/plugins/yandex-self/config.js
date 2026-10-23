@@ -3,7 +3,7 @@ import { yandexFetch } from '../../shared/yandexApi.js'
 
 let cachedConfig = null
 let cacheTime = 0
-const CACHE_TTL = 60 * 60 * 1000
+const CACHE_TTL = 1 * 60 * 1000
 
 export async function getSelfConfig() {
   const now = Date.now()

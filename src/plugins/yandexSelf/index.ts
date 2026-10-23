@@ -30,7 +30,7 @@ basePlugin.downloadTrack = async (
     signal: options.signal,
     fetcher: (u, opts) => yandexSelfService.fetchWithAuth(u, opts),
   })
-  return { relativePath, size: result.size }
+  return { relativePath, size: result.size, handle: result.handle }
 }
 
 basePlugin.handleStreamError = async (
@@ -40,23 +40,30 @@ basePlugin.handleStreamError = async (
 ): Promise<boolean> => {
   if (!error.src.includes('/api/yandex-self/download')) return false
 
-  // Пытаемся обновить токен в фоне
+  const { toastService } = await import('@/services/ui/ToastService')
+  const { usePlayerStore } = await import('@/stores/player')
+
   const ok = await yandexSelfService.refresh()
 
   if (ok) {
-    // Токен обновился. Перезапускаем текущий трек, чтобы AudioService подхватил новый URL.
-    const { usePlayerStore } = await import('@/stores/player')
     const player = usePlayerStore()
     if (player.currentTrack?.id === track.id) {
       const newUrl = yandexSelfService.buildDownloadUrl(track.remotePath || '')
       player.queue[player.currentIndex] = { ...track, source: newUrl }
-      player.playAt(player.currentIndex)
+      void player.playAt(player.currentIndex)
     }
     return true
   }
 
-  const { toastService } = await import('@/services/ui/ToastService')
-  toastService.showPersistent('Сессия Логии истекла. Требуется повторный вход.', 'info', {
+  // refresh не удался. Различаем: сеть vs истёкшая сессия.
+  if (yandexSelfService.hasRefreshToken()) {
+    // Refresh-токен есть, но /refresh упал — скорее всего сеть.
+    toastService.error('Не удалось обновить сессию. Проверьте соединение.')
+    return true
+  }
+
+  // Refresh-токена нет (или сервер отклонил) — нужен повторный вход.
+  toastService.showPersistent('Сессия истекла. Требуется повторный вход.', 'info', {
     label: 'Войти',
     onAction: () => {
       yandexSelfService.logout()

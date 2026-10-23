@@ -1,6 +1,6 @@
 <!-- src/components/library/TrackList.vue -->
 <script setup lang="ts">
-import { computed, ref, toRef, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useVirtualList } from '@/composables/useVirtualList'

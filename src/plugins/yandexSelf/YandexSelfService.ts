@@ -83,8 +83,14 @@ export class YandexSelfService implements IYandexService {
     localStorage.removeItem(REFRESH_KEY)
   }
 
+  hasRefreshToken(): boolean {
+    return Boolean(this.refreshToken)
+  }
+
   /**
    * Универсальная обертка: делает запрос, если 401 — рефрешит и повторяет.
+   * Защита от race-condition: если токен уже обновился другим запросом,
+   * не дёргает /refresh повторно.
    */
   async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
     const doFetch = (token: string) =>
@@ -96,13 +102,21 @@ export class YandexSelfService implements IYandexService {
         },
       })
 
-    let res = await doFetch(this.accessToken || '')
+    const tokenAtStart = this.accessToken ?? ''
+    const res = await doFetch(tokenAtStart)
 
-    if (res.status === 401 && this.refreshToken) {
-      const ok = await this.refresh()
-      if (ok) {
-        res = await doFetch(this.accessToken || '')
-      }
+    if (res.status !== 401) return res
+
+    // Токен уже обновился (другой запрос успел) — просто retry.
+    if (this.accessToken && this.accessToken !== tokenAtStart) {
+      return doFetch(this.accessToken)
+    }
+
+    if (!this.refreshToken) return res
+
+    const ok = await this.refresh()
+    if (ok && this.accessToken) {
+      return doFetch(this.accessToken)
     }
 
     return res

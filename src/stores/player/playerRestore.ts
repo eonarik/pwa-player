@@ -1,5 +1,6 @@
 // src/stores/player/playerRestore.ts
 
+import { getPlugins } from '@/plugins/registry'
 import { audioService } from '@/services/audio/AudioService'
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { persistenceService } from '@/services/persistence/PersistenceService'
@@ -24,9 +25,30 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
   if (tracks.length === 0) return null
 
   const library = useLibraryStore()
+
+  // Плагины без библиотеки (radio, podcasts) — source не сбрасываем,
+  // даже если трека нет в library.
+  const statelessPluginIds = new Set(
+    getPlugins()
+      .filter((p) => p.isStateless)
+      .map((p) => p.id),
+  )
+
   for (const track of tracks) {
     const libTrack = library.getTrack(track.id)
-    if (!libTrack) continue
+
+    if (!libTrack) {
+      const pluginId = track.pluginId.split(':')[0] ?? track.pluginId
+      const isStateless = statelessPluginIds.has(pluginId)
+
+      if (!isStateless && !track.handle) {
+        // Трек из плагина с библиотекой, но его там нет (отключён / удалён).
+        // Локальный handle сохраняем — если файл есть, играть можно.
+        // Облачный source сбрасываем, чтобы не было запросов с протухшим токеном.
+        track.source = ''
+      }
+      continue
+    }
 
     if (!track.coverUrl && libTrack.coverUrl) {
       track.coverUrl = libTrack.coverUrl
@@ -61,6 +83,9 @@ export async function applyRestoredPlayback(
   const savedTime = playback && playback.trackId === track?.id ? playback.currentTime : 0
 
   if (!track) return
+
+  // Не грузим, если источник недоступен (нет handle и нет source).
+  if (!track.handle && !track.source) return
 
   let source: string | File
   try {

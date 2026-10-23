@@ -51,22 +51,30 @@ const isLocal = computed(() => {
   if (!props.showDownload || isLive.value) return false
   return isLocalTrack(props.track as LibraryTrack)
 })
+
+const isUnavailable = computed(() => {
+  if (isLive.value) return false
+  const t = props.track
+  if (t.handle) return false
+  if (typeof t.source === 'string' && t.source.length > 0) return false
+  return true
+})
 </script>
 
 <template>
   <ListRow :active="isCurrent" :disliked="isDisliked" :download-progress="downloadProgress" :downloaded="isLocal"
     @click="emit('select')">
     <template #leading>
-      <TrackCover :track="track">
+      <TrackCover :track="track" :class="isUnavailable ? 'opacity-50' : ''">
         <PlayingIndicator v-if="isCurrent && isPlaying" variant="eye" />
       </TrackCover>
     </template>
 
     <template #title>
-      <p class="truncate text-sm font-medium">
+      <p class="truncate text-sm font-medium" :class="isUnavailable ? 'line-through text-fg-muted' : ''">
         <template v-if="showSource && hasArtist">
           <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
-            class="transition hover:text-active" @click.stop>
+            class="transition hover:text-active" :class="isUnavailable ? 'pointer-events-none' : ''" @click.stop>
             {{ track.artist }}
           </RouterLink>
           <span> — </span>
@@ -77,7 +85,10 @@ const isLocal = computed(() => {
     </template>
 
     <template #subtitle>
-      <p v-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
+      <p v-if="isUnavailable" class="truncate text-[10px] text-fg-subtle">
+        Источник недоступен
+      </p>
+      <p v-else-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
         <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }" class="transition hover:text-active"
           @click.stop>
           {{ track.artist }}

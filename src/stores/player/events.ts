@@ -4,6 +4,7 @@ import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { useHistoryStore } from '../history'
 import { isLiveStream } from '@/plugins/registry'
+import { toastService } from '@/services/ui/ToastService'
 import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
 
@@ -29,17 +30,23 @@ export interface AudioEvents {
   unsubscribeAll: () => void
 }
 
-async function handleStreamError(track: Track, error: { src: string; message: string }) {
+async function handleStreamError(
+  track: Track,
+  error: { src: string; message: string },
+): Promise<boolean> {
   try {
     const { loadPlugin, pluginIdFromSource } = await import('@/plugins/registry')
     const { createPluginContext } = await import('@/plugins/context')
     const pluginId = pluginIdFromSource(track.pluginId)
     const plugin = await loadPlugin(pluginId)
-    if (!plugin.handleStreamError) return
+
+    if (!plugin.handleStreamError) return false
+
     const context = createPluginContext(pluginId)
-    await plugin.handleStreamError(context, track as LibraryTrack, error)
+    return await plugin.handleStreamError(context, track as LibraryTrack, error)
   } catch (err) {
     console.warn('[player] handleStreamError failed', err)
+    return false
   }
 }
 
@@ -64,6 +71,13 @@ export function bindAudioEvents(
       }
     }),
     audioService.on('play', () => {
+      // Защита от race condition: если play event пришел, но audio уже на паузе,
+      // не переводим UI в состояние воспроизведения.
+      if (audioService.paused) {
+        isPlaying.value = false
+        return
+      }
+
       isPlaying.value = true
       callbacks.startTimeLoop()
       const track = currentTrack.value
@@ -92,7 +106,13 @@ export function bindAudioEvents(
 
       const track = currentTrack.value
       if (track) {
-        void handleStreamError(track, { src, message })
+        void handleStreamError(track, { src, message }).then((handled) => {
+          if (!handled) {
+            toastService.error(message || 'Не удалось воспроизвести трек')
+          }
+        })
+      } else {
+        toastService.error(message || 'Не удалось воспроизвести трек')
       }
     }),
   )

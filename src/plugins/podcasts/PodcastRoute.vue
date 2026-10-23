@@ -63,18 +63,12 @@ function episodeToTrack(ep: Episode): Track {
   }
 }
 
-function findSubscription(): Subscription | null {
-  return getSubscriptions().find((s) => s.podcast.feedUrl === feedUrl.value) ?? null
-}
-
 function initSortOrder(): void {
   const stored = localStorage.getItem(sortStorageKey.value) as SortOrder | null
   if (stored === 'serial' || stored === 'episodic') {
     sortOrder.value = stored
     return
   }
-
-  // По умолчанию — от старых к новым (serial), так как подкасты чаще всего сюжетные
   sortOrder.value = 'serial'
 }
 
@@ -90,7 +84,7 @@ async function refresh(): Promise<void> {
 
   try {
     const { podcast, episodes } = await podcastService.fetchFeed(feedUrl.value)
-    updateSubscription(feedUrl.value, { episodes, updatedAt: Date.now() })
+    await updateSubscription(feedUrl.value, { episodes, updatedAt: Date.now() })
     subscription.value = {
       podcast,
       episodes,
@@ -127,7 +121,8 @@ function isCurrentEpisode(ep: Episode): boolean {
 }
 
 onMounted(async () => {
-  subscription.value = findSubscription()
+  const subs = await getSubscriptions()
+  subscription.value = subs.find((s) => s.podcast.feedUrl === feedUrl.value) ?? null
 
   if (!subscription.value) {
     router.replace({ name: 'podcasts' })
@@ -141,8 +136,6 @@ onMounted(async () => {
   }
 })
 
-// При обновлении подписки (если пришли новые `isSerial`) — не сбрасываем
-// выбор пользователя, только перечитываем сохранённый ключ, если его нет.
 watch(feedUrl, () => {
   initSortOrder()
 })
@@ -150,7 +143,6 @@ watch(feedUrl, () => {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка -->
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-10">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <div class="flex min-w-0 items-center gap-3">
@@ -182,7 +174,6 @@ watch(feedUrl, () => {
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <div class="flex items-center gap-1">
-          <!-- Режим alwaysOpen: поле в потоке, не схлопывается --><!-- Режим overlay: иконка на месте, поле absolute -->
           <div class="relative">
             <button type="button" class="rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
               :aria-label="sortOrder === 'serial' ? 'Сначала старые' : 'Сначала новые'"
