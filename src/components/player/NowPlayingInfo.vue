@@ -6,13 +6,9 @@ import type { Track } from '@/types/track'
 withDefaults(
   defineProps<{
     track: Track | null
-    /** Tailwind-классы размера обложки (h-16 w-16 и т.п.). */
     coverClass?: string
-    /** Размер fallback-иконки внутри обложки. */
     fallbackIconClass?: string
-    /** Показывать артиста (в мобильной версии — опционально). */
     showArtist?: boolean
-    /** Выравнивание текста. */
     align?: 'left' | 'center'
   }>(),
   {

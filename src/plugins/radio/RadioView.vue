@@ -13,9 +13,9 @@ import {
 import RadioSavedList from './RadioSavedList.vue'
 import RadioCatalog from './RadioCatalog.vue'
 import AddStationModal from './AddStationModal.vue'
-import IconPlus from '@/components/icons/IconPlus.vue'
+import Button from '@/components/ui/Button.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { Track } from '@/types/track'
-import { toPlayableUrl } from "@/services/audio/toPlayableUrl.ts"
 
 const player = usePlayerStore()
 
@@ -95,7 +95,7 @@ function playStation(station: SavedStation): void {
     album: '',
     duration: 0,
     filename: '',
-    source: toPlayableUrl(station.url),
+    source: station.url,
     coverUrl: station.favicon || undefined,
   }
 
@@ -113,12 +113,10 @@ onMounted(() => {
       <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-10">
         <div class="mx-auto flex w-full max-w-3xl items-center justify-between">
           <h1 class="text-lg font-medium text-fg">Радиостанции</h1>
-          <button type="button"
-            class="flex items-center gap-2 rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="openCatalog">
-            <IconPlus class="h-4 w-4" />
+          <Button variant="primary" size="sm" @click="openCatalog">
+            <Icon name="plus" w="w-4" h="h-4" />
             Добавить станции
-          </button>
+          </Button>
         </div>
       </div>
 

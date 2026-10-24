@@ -3,6 +3,43 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.10.3] — 2026-10-24
+
+### Added
+
+- **Storybook:** установлен и настроен. Все примитивы (`Button`, `IconButton`, `Input`, `Checkbox`, `Toggle`, `Select`, `Badge`, `Spinner`, `EmptyState`, `ModalLayout`, `FormField` и т.д.) и сложные компоненты (`TrackRow`, `FolderList`, `PlayerControls`, `PlayerProgressBar`, `RadioSavedList`) имеют stories. Переключение тем (`default` / `radio` / `neon`) через тулбар.
+- **UI-система:** созданы базовые примитивы для унификации интерфейса.
+- **Реестр иконок (`ICONS`):** единая точка импорта всех иконок по строковому имени (`icon="play"`). Добавлен прокси-компонент `Icon.vue` с пропсами `w` / `h`.
+- **`useButtonAs`:** composable, который превращает кнопку в `RouterLink`, `<a>` или `<button>` в зависимости от пропсов (`to`, `href`).
+- **`SettingsActionRow`:** единая кнопка-карточка для настроек (с `title`, `description`, `variant="danger"`).
+- **`PageHeader`:** единый заголовок страницы (заголовок, подзаголовок, слот для действий).
+- **`ListContainer`:** единый контейнер для списков (`max-w-3xl`, отступы, `gap-0.5`).
+- **Темизация иконок:** все иконки используют класс `.icon`. В темах `radio` и `neon` иконки автоматически окрашиваются через градиенты, но кнопки с `bg-accent` и `.player-play-pause-btn` сохраняют тёмный цвет.
+- **`EmptyState`:** иконка передаётся через слот `#icon` (раньше был пропс `icon`, требующий импорта компонента в каждом файле).
+
+### Changed
+
+- **`AppDrawer`:** иконки меню теперь рендерятся через `<Icon name="..." />` (передаются строками из `MENU_ITEMS`).
+- **`menu.ts`:** `MenuItem.icon` теперь `IconName` (строка), а не `Component`.
+- **`PluginMenuItem.icon`:** тип `Component | string` → `IconName` (строка).
+- **`TextEditorModal`:** переведён на `ModalLayout`, кнопки `[фулскрин] [синк] [X]` в шапке. Настоящий фулскрин.
+- **`ToastHost`:** иконки статусов (`check`, `x`, `info`) через `Icon`.
+- **`ModalHost`:** формы подтверждения/ввода через `Input` и `Button`.
+- **`CatalogLayout`:** иконки (`spinner`, `chevron-down`, `chevron-left`, `chevron-right`, `arrow-left`) через `Icon`.
+- **`PlaylistHeader`:** кнопка переименования через `Icon` (`pencil`).
+- **`PlaylistToolbar`:** кнопка удаления через `IconButton` (`trash`).
+- **`PlaylistShareMenu`:** триггер через `IconButton` (`share`).
+- **`FolderList`, `FolderSettingsMenu`, `FolderSyncMenu`, `FolderSortMenu`, `MetadataMenu`, `TrackActions`:** переведены на `Icon` / `IconButton`.
+- **`PlayerControls`, `FullPlayer`:** иконки через `<Icon>`, кнопки через `<IconButton>`.
+- **`SettingsGeneral`, `SettingsData`, `PluginSettingsSection`:** формы на `Input`, `Checkbox`, `Button`, `SettingsActionRow`, `SectionTitle`.
+- **`FileListItem`, `TrackResolvedItem`, `CoverImage`, `CoverPicker`, `FolderBreadcrumbs`:** иконки через `<Icon>`.
+
+### Fixed
+
+- **Иконки в ретро/неоне:** глобальное правило `svg { fill: ... }` больше не ломает кнопки с акцентным фоном. Иконки внутри `.bg-accent` и `.player-play-pause-btn` остаются тёмными.
+- **Модалка TextEditor:** кнопки в правильном порядке (`[фулскрин] [синк] [X]`), настоящий полный экран без отступов.
+- **`EmptyState`:** больше не требует импорта компонента иконки в каждом файле.
+
 ## [0.10.2] — 2026-10-24
 
 ### Added

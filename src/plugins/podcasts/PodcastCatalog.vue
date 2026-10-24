@@ -14,10 +14,7 @@ import { PLUGIN_ID, PODCAST_COUNTRIES as COUNTRIES, PODCAST_GENRES as GENRES } f
 import CatalogLayout from '@/components/catalog/CatalogLayout.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import AddRemoveButton from '@/components/ui/AddRemoveButton.vue'
-import IconRadio from '@/components/icons/IconRadio.vue'
-import IconPlay from '@/components/icons/IconPlay.vue'
-import IconPause from '@/components/icons/IconPause.vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { Track } from '@/types/track'
 
 const router = useRouter()
@@ -253,7 +250,7 @@ onMounted(async () => {
               class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
               @click.stop="toggle">
               {{COUNTRIES.find((c) => c.code === country)?.label}}
-              <IconChevronDown class="h-3 w-3" />
+              <Icon name="chevron-down" w="w-3" h="h-3" />
             </button>
           </template>
           <template #default="{ close }">
@@ -273,7 +270,7 @@ onMounted(async () => {
               class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
               @click.stop="toggle">
               {{GENRES.find((g) => g.id === genre)?.label}}
-              <IconChevronDown class="h-3 w-3" />
+              <Icon name="chevron-down" w="w-3" h="h-3" />
             </button>
           </template>
           <template #default="{ close }">
@@ -301,7 +298,7 @@ onMounted(async () => {
           <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg">
             <img v-if="pod.image" :src="pod.image" class="h-full w-full object-cover"
               @error="($event.target as HTMLImageElement).style.display = 'none'" />
-            <IconRadio v-else class="h-5 w-5 text-fg-muted" />
+            <Icon v-else name="radio" w="w-5" h="h-5" class="text-fg-muted" />
           </div>
           <div class="min-w-0">
             <p class="truncate text-sm font-medium" :class="isCurrentPodcast(pod) ? 'text-active' : 'text-fg'">
@@ -320,8 +317,7 @@ onMounted(async () => {
               :class="isCurrentPodcastPlaying(pod) ? 'text-active hover:bg-hover-bg' : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'"
               :aria-label="isCurrentPodcastPlaying(pod) ? 'Пауза' : 'Играть все эпизоды'"
               v-tooltip="isCurrentPodcastPlaying(pod) ? 'Пауза' : 'Играть все эпизоды'" @click="togglePlayPodcast(pod)">
-              <IconPause v-if="isCurrentPodcastPlaying(pod)" class="h-4 w-4" />
-              <IconPlay v-else class="h-4 w-4" />
+              <Icon :name="isCurrentPodcastPlaying(pod) ? 'pause' : 'play'" w="w-4" h="h-4" />
             </button>
             <AddRemoveButton :added="isSubscribedPodcast(pod)" @add="onAddClick(pod)" @remove="onRemoveClick(pod)" />
           </template>

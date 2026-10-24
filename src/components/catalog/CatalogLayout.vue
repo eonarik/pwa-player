@@ -3,11 +3,7 @@
 import SearchInput from '@/components/ui/SearchInput.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
 import SectionTitle from '@/components/ui/SectionTitle.vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
-import IconChevronLeft from '@/components/icons/IconChevronLeft.vue'
-import IconChevronRight from '@/components/icons/IconChevronRight.vue'
-import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 withDefaults(
   defineProps<{
@@ -53,7 +49,7 @@ const emit = defineEmits<{
           <button type="button"
             class="flex items-center gap-1 rounded-btn text-xs font-medium text-fg-muted transition hover:text-fg"
             @click="emit('back')">
-            <IconArrowLeft class="h-4 w-4" />
+            <Icon name="arrow-left" w="w-4" h="h-4" />
             {{ backLabel }}
           </button>
         </div>
@@ -91,7 +87,7 @@ const emit = defineEmits<{
                   class="flex items-center gap-1 rounded-btn bg-card-bg px-2 py-1.5 text-[10px] text-fg transition hover:bg-hover-bg"
                   @click.stop="toggle">
                   {{ currentLimit }}
-                  <IconChevronDown class="h-3 w-3" />
+                  <Icon name="chevron-down" w="w-3" h="h-3" />
                 </button>
               </template>
               <template #default="{ close }">
@@ -108,7 +104,7 @@ const emit = defineEmits<{
 
         <div class="flex-1 overflow-y-auto min-h-0 pr-1">
           <div v-if="isLoading" class="flex justify-center py-10">
-            <IconSpinner class="h-6 w-6 animate-spin text-fg-muted" />
+            <Icon name="spinner" w="w-6" h="h-6" class="animate-spin text-fg-muted" />
           </div>
           <div v-else-if="error" class="flex flex-col items-center justify-center gap-3 py-10 text-sm text-red-400">
             {{ error }}
@@ -127,14 +123,14 @@ const emit = defineEmits<{
           <button type="button"
             class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="currentPage === 1" @click="emit('prev')">
-            <IconChevronLeft class="h-4 w-4" /> Назад
+            <Icon name="chevron-left" w="w-4" h="h-4" /> Назад
           </button>
           <span class="text-xs text-fg-muted">Страница {{ currentPage }}</span>
           <button type="button"
             class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="!hasMore" @click="emit('next')">
             Вперед
-            <IconChevronRight class="h-4 w-4" />
+            <Icon name="chevron-right" w="w-4" h="h-4" />
           </button>
         </div>
       </div>

@@ -93,7 +93,6 @@ function onMouseLeave() {
       enter-to-class="opacity-100" leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100"
       leave-to-class="opacity-0">
       <div v-if="showTimeMarks" class="pointer-events-none absolute inset-x-0 -top-6 h-5">
-        <!-- displayTime: floating — над текущей позицией; fixed — слева -->
         <span class="absolute text-xs tabular-nums text-fg-muted" :class="timePosition === 'fixed' ? 'left-0' : ''"
           :style="timePosition === 'fixed'
             ? undefined
@@ -104,8 +103,6 @@ function onMouseLeave() {
             ">
           {{ formatDuration(displayTime) }}
         </span>
-
-        <!-- duration: всегда справа -->
         <span class="absolute right-0 text-xs tabular-nums text-fg-muted">
           {{ formatDuration(duration) }}
         </span>

@@ -5,7 +5,12 @@ import { toastService } from '@/services/ui/ToastService'
 import { podcastService } from './PodcastService'
 import { addSubscription, isSubscribed } from './PodcastStorage'
 import { parseOpml } from './parseOpml'
-import IconX from '@/components/icons/IconX.vue'
+import ModalLayout from '@/components/ui/ModalLayout.vue'
+import FormField from '@/components/ui/FormField.vue'
+import Input from '@/components/ui/Input.vue'
+import Button from '@/components/ui/Button.vue'
+import Spinner from '@/components/ui/Spinner.vue'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -124,8 +129,7 @@ async function onFileSelected(e: Event) {
     )
     if (importedCount.value > 0) {
       toastService.success(
-        `Импортировано подкастов: ${importedCount.value}${skippedCount.value > 0 ? `, ошибок: ${skippedCount.value}` : ''
-        }`,
+        `Импортировано подкастов: ${importedCount.value}${skippedCount.value > 0 ? `, ошибок: ${skippedCount.value}` : ''}`,
       )
       emit('added')
       emit('close')
@@ -136,84 +140,64 @@ async function onFileSelected(e: Event) {
     isImporting.value = false
   }
 }
-
-function onBackdrop(e: MouseEvent) {
-  if (e.target === e.currentTarget && !isAddingUrl.value && !isImporting.value) {
-    emit('close')
-  }
-}
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="fixed inset-0 z-[150] flex items-center justify-center bg-bg/70 px-4" @click="onBackdrop">
-      <div class="flex w-full max-w-md flex-col bg-bg-elevated p-5 shadow-xl">
-        <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-medium text-fg">Добавить подкаст</h2>
-          <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            aria-label="Закрыть" v-tooltip="'Закрыть'" :disabled="isAddingUrl || isImporting" @click="emit('close')">
-            <IconX class="h-5 w-5" />
-          </button>
-        </div>
-
-        <div class="mb-4 flex gap-2">
-          <button type="button" class="rounded-btn px-3 py-1.5 text-xs transition"
-            :class="activeTab === 'url' ? 'bg-card-bg text-fg font-medium' : 'text-fg-muted hover:text-fg'"
-            @click="activeTab = 'url'">
-            По ссылке RSS
-          </button>
-          <button type="button" class="rounded-btn px-3 py-1.5 text-xs transition"
-            :class="activeTab === 'opml' ? 'bg-card-bg text-fg font-medium' : 'text-fg-muted hover:text-fg'"
-            @click="activeTab = 'opml'">
-            Импорт OPML
-          </button>
-        </div>
-
-        <form v-if="activeTab === 'url'" class="flex flex-col gap-3" @submit.prevent="submitUrl">
-          <p class="text-xs text-fg-muted">
-            Введите прямую ссылку на RSS-ленту подкаста (обычно заканчивается на .xml или /feed).
-          </p>
-          <input v-model="feedUrl" type="url" placeholder="https://example.com/podcast/feed.xml" required
-            class="w-full rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none" />
-          <div class="mt-2 flex justify-end">
-            <button type="submit"
-              class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-              :disabled="!feedUrl.trim() || isAddingUrl">
-              {{ isAddingUrl ? 'Загрузка…' : 'Добавить' }}
-            </button>
-          </div>
-        </form>
-
-        <div v-if="activeTab === 'opml'" class="flex flex-col gap-3">
-          <p class="text-xs text-fg-muted">
-            Импортируйте подписки из другого приложения (Apple Podcasts, Overcast, Pocket Casts). Выгрузите OPML-файл
-            там и загрузите сюда.
-          </p>
-
-          <template v-if="!isImporting">
-            <button type="button" class="rounded-btn bg-card-bg px-4 py-3 text-sm text-fg transition hover:bg-hover-bg"
-              @click="triggerFilePicker">
-              Выбрать OPML-файл
-            </button>
-          </template>
-
-          <template v-else>
-            <div class="flex flex-col gap-1">
-              <div class="flex items-center justify-between text-xs text-fg-muted">
-                <span>Импорт…</span>
-                <span class="tabular-nums">{{ importProgress.done }} / {{ importProgress.total }}</span>
-              </div>
-              <div class="h-1.5 w-full overflow-hidden rounded-full bg-hover-bg">
-                <div class="h-full bg-accent transition-[width]"
-                  :style="{ width: `${importProgress.total > 0 ? (importProgress.done / importProgress.total) * 100 : 0}%` }" />
-              </div>
-            </div>
-          </template>
-
-          <input ref="fileInputRef" type="file" accept=".opml,.xml,application/xml,text/xml" class="hidden"
-            @change="onFileSelected" />
-        </div>
-      </div>
+  <ModalLayout title="Добавить подкаст" max-width="md" :disable-backdrop-close="isAddingUrl || isImporting"
+    @close="emit('close')">
+    <!-- Табы -->
+    <div class="mb-4 flex gap-2">
+      <button type="button" class="rounded-btn px-3 py-1.5 text-xs transition"
+        :class="activeTab === 'url' ? 'bg-card-bg text-fg font-medium' : 'text-fg-muted hover:text-fg'"
+        @click="activeTab = 'url'">
+        По ссылке RSS
+      </button>
+      <button type="button" class="rounded-btn px-3 py-1.5 text-xs transition"
+        :class="activeTab === 'opml' ? 'bg-card-bg text-fg font-medium' : 'text-fg-muted hover:text-fg'"
+        @click="activeTab = 'opml'">
+        Импорт OPML
+      </button>
     </div>
-  </Teleport>
+
+    <!-- Вкладка URL -->
+    <form v-if="activeTab === 'url'" class="flex flex-col gap-4" @submit.prevent="submitUrl">
+      <p class="text-xs text-fg-muted">
+        Введите прямую ссылку на RSS-ленту подкаста (обычно заканчивается на .xml или /feed).
+      </p>
+      <FormField label="URL RSS-ленты">
+        <Input v-model="feedUrl" type="url" placeholder="https://example.com/podcast/feed.xml" required />
+      </FormField>
+      <div class="mt-2 flex justify-end">
+        <Button type="submit" variant="primary" :disabled="!feedUrl.trim() || isAddingUrl">
+          {{ isAddingUrl ? 'Загрузка…' : 'Добавить' }}
+        </Button>
+      </div>
+    </form>
+
+    <!-- Вкладка OPML -->
+    <div v-if="activeTab === 'opml'" class="flex flex-col gap-4">
+      <p class="text-xs text-fg-muted">
+        Импортируйте подписки из другого приложения (Apple Podcasts, Overcast, Pocket Casts).
+      </p>
+
+      <template v-if="!isImporting">
+        <Button variant="secondary" class="w-full py-3" @click="triggerFilePicker">
+          Выбрать OPML-файл
+        </Button>
+      </template>
+
+      <template v-else>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs text-fg-muted">
+            <Spinner size="sm" text="Импорт…" />
+            <span class="tabular-nums">{{ importProgress.done }} / {{ importProgress.total }}</span>
+          </div>
+          <ProgressBar :value="importProgress.done" :max="importProgress.total" />
+        </div>
+      </template>
+
+      <input ref="fileInputRef" type="file" accept=".opml,.xml,application/xml,text/xml" class="hidden"
+        @change="onFileSelected" />
+    </div>
+  </ModalLayout>
 </template>

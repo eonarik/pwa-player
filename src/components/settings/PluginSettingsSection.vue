@@ -6,6 +6,7 @@ import TextField from './fields/TextField.vue'
 import NumberField from './fields/NumberField.vue'
 import ToggleField from './fields/ToggleField.vue'
 import FolderListField from './fields/FolderListField.vue'
+import SectionTitle from '@/components/ui/SectionTitle.vue'
 
 defineProps<{
   section: PluginSettingsSection
@@ -31,26 +32,29 @@ function fieldKey(field: PluginSettingsField): string {
 </script>
 
 <template>
-  <div class="px-4 flex flex-col gap-2">
-    <div v-if="section.title">
-      <p class="text-xs font-medium uppercase tracking-wider text-fg-subtle">
-        {{ section.title }}
-      </p>
-      <p v-if="section.description" class="mt-1 text-xs text-fg-muted">
-        {{ section.description }}
-      </p>
+  <div class="flex flex-col gap-2">
+    <!-- Заголовок секции через SectionTitle -->
+    <SectionTitle v-if="section.title" :text="section.title" />
+
+    <!-- Описание секции -->
+    <p v-if="section.description" class="mb-1 text-xs text-fg-muted">
+      {{ section.description }}
+    </p>
+
+    <!-- Поля -->
+    <div class="flex flex-col gap-2">
+      <template v-for="field in section.fields" :key="fieldKey(field)">
+        <ActionField v-if="field.type === 'action'" :field="field" :disabled="disabled" @action="onAction" />
+
+        <TextField v-else-if="field.type === 'text'" :field="field" @change="onChange" />
+
+        <NumberField v-else-if="field.type === 'number'" :field="field" @change="onChange" />
+
+        <ToggleField v-else-if="field.type === 'toggle'" :field="field" @change="onChange" />
+
+        <FolderListField v-else-if="field.type === 'folderList'" :field="field" :disabled="disabled"
+          @action="onAction" />
+      </template>
     </div>
-
-    <template v-for="field in section.fields" :key="fieldKey(field)">
-      <ActionField v-if="field.type === 'action'" :field="field" :disabled="disabled" @action="onAction" />
-
-      <TextField v-else-if="field.type === 'text'" :field="field" @change="onChange" />
-
-      <NumberField v-else-if="field.type === 'number'" :field="field" @change="onChange" />
-
-      <ToggleField v-else-if="field.type === 'toggle'" :field="field" @change="onChange" />
-
-      <FolderListField v-else-if="field.type === 'folderList'" :field="field" :disabled="disabled" @action="onAction" />
-    </template>
   </div>
 </template>

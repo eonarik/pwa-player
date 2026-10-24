@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import { useLibraryStore } from '@/stores/library'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconShare from '@/components/icons/IconShare.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 import { toastService } from '@/services/ui/ToastService'
 import { exportToM3U, exportToJSON } from '@/utils/playlistParser'
 import { downloadTextFile } from '@/utils/downloadFile'
@@ -16,12 +16,9 @@ const props = defineProps<{
 
 const library = useLibraryStore()
 
-// Превращаем снимки из плейлиста в формат для экспорта
 const exportTracks = computed<PlaylistExportTrack[]>(() => {
   return props.playlist.tracks.map((snapshot) => {
-    // Пытаемся найти актуальный трек в библиотеке, чтобы взять path/duration
     const track = library.getTrack(snapshot.trackId)
-
     return {
       artist: snapshot.artist || '',
       title: snapshot.title || 'Unknown Title',
@@ -64,11 +61,9 @@ function onExportJSON(close: () => void) {
 <template>
   <DropdownMenu :width="256">
     <template #trigger="{ toggle, setTriggerRef }">
-      <button :ref="setTriggerRef" type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg"
-        v-tooltip="'Поделиться'" aria-label="Поделиться" @click.stop="toggle">
-        <IconShare class="h-4 w-4" />
-      </button>
+      <div :ref="setTriggerRef" @click.stop="toggle">
+        <IconButton icon="share" label="Поделиться" />
+      </div>
     </template>
 
     <template #default="{ close }">

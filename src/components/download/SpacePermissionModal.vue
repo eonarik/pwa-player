@@ -3,6 +3,8 @@
 import { ref } from 'vue'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { toastService } from '@/services/ui/ToastService'
+import ModalLayout from '@/components/ui/ModalLayout.vue'
+import Button from '@/components/ui/Button.vue'
 
 const isRequesting = ref(false)
 const isPicking = ref(false)
@@ -43,38 +45,22 @@ async function pickSpace() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="fixed inset-0 z-[150] flex items-center justify-center bg-bg/70 px-4">
-      <div class="w-full max-w-md bg-bg-elevated p-6 shadow-xl">
-        <h2 class="mb-2 text-lg font-medium text-fg">Нужен доступ к папке</h2>
+  <ModalLayout title="Нужен доступ к папке" max-width="sm" :disable-backdrop-close="true" @close="() => { }">
+    <p class="mb-5 text-sm text-fg-muted">
+      Для скачивания треков нужен доступ к папке
+      <span v-if="downloadSpaceService.spaceName.value" class="text-fg">
+        «{{ downloadSpaceService.spaceName.value }}» </span>. Браузер требует подтвердить доступ после перезагрузки
+      страницы.
+    </p>
 
-        <p class="mb-5 text-sm text-fg-muted">
-          Для скачивания треков нужен доступ к папке
-          <span v-if="downloadSpaceService.spaceName.value" class="text-fg">
-            «{{ downloadSpaceService.spaceName.value }}» </span
-          >. Браузер требует подтвердить доступ после перезагрузки страницы.
-        </p>
+    <div class="flex flex-col gap-2">
+      <Button variant="primary" :disabled="isRequesting || isPicking" @click="requestAccess">
+        {{ isRequesting ? 'Запрос…' : 'Восстановить доступ' }}
+      </Button>
 
-        <div class="flex flex-col gap-2">
-          <button
-            type="button"
-            class="rounded-btn bg-accent px-4 py-2.5 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-            :disabled="isRequesting || isPicking"
-            @click="requestAccess"
-          >
-            {{ isRequesting ? 'Запрос…' : 'Восстановить доступ' }}
-          </button>
-
-          <button
-            type="button"
-            class="rounded-btn bg-card-bg px-4 py-2.5 text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
-            :disabled="isRequesting || isPicking"
-            @click="pickSpace"
-          >
-            {{ isPicking ? 'Выбор…' : 'Выбрать другую папку' }}
-          </button>
-        </div>
-      </div>
+      <Button variant="secondary" :disabled="isRequesting || isPicking" @click="pickSpace">
+        {{ isPicking ? 'Выбор…' : 'Выбрать другую папку' }}
+      </Button>
     </div>
-  </Teleport>
+  </ModalLayout>
 </template>

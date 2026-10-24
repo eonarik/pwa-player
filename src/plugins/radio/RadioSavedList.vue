@@ -1,13 +1,13 @@
 <!-- src/plugins/radio/RadioSavedList.vue -->
 <script setup lang="ts">
-import IconPlay from '@/components/icons/IconPlay.vue'
-import IconRadio from '@/components/icons/IconRadio.vue'
-import IconX from '@/components/icons/IconX.vue'
-import IconPlus from '@/components/icons/IconPlus.vue'
+import Button from '@/components/ui/Button.vue'
+import SectionTitle from '@/components/ui/SectionTitle.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import ListContainer from '@/components/ui/ListContainer.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { SavedStation } from './index'
-import SectionTitle from "@/components/ui/SectionTitle.vue";
 
-defineProps<{
+const props = defineProps<{
   stations: SavedStation[]
   currentTrackId: string | null
   isPlaying: boolean
@@ -19,16 +19,12 @@ const emit = defineEmits<{
   (e: 'add-by-url'): void
 }>()
 
-function isCurrent(station: SavedStation, currentTrackId: string | null): boolean {
-  return currentTrackId === `radio:${station.id}`
+function isCurrent(station: SavedStation): boolean {
+  return props.currentTrackId === `radio:${station.id}`
 }
 
-function isStationPlaying(
-  station: SavedStation,
-  currentTrackId: string | null,
-  isPlaying: boolean,
-): boolean {
-  return isCurrent(station, currentTrackId) && isPlaying
+function isStationPlaying(station: SavedStation): boolean {
+  return isCurrent(station) && props.isPlaying
 }
 
 function onRemove(station: SavedStation, e: Event): void {
@@ -42,42 +38,42 @@ function onRemove(station: SavedStation, e: Event): void {
     <div class="mx-auto w-full max-w-3xl py-2 pt-4">
       <div class="flex items-center justify-between px-4 pb-2">
         <SectionTitle text="Мои станции" padding-x="none" padding-bottom="none" />
-        <button type="button"
-          class="flex items-center gap-1.5 rounded-btn bg-card-bg px-2 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-          @click="emit('add-by-url')">
-          <IconPlus class="h-3.5 w-3.5" />
+        <Button variant="secondary" size="sm" @click="emit('add-by-url')">
+          <Icon name="link" w="w-3.5" h="h-3.5" />
           По URL
-        </button>
+        </Button>
       </div>
 
-      <div v-if="stations.length === 0" class="flex flex-col items-center justify-center py-20 text-sm text-fg-muted">
-        <IconRadio class="mb-3 h-10 w-10 text-fg-subtle" />
-        <p>Вы пока не добавили ни одной станции.</p>
-      </div>
+      <EmptyState v-if="stations.length === 0" title="Вы пока не добавили ни одной станции">
+        <template #icon>
+          <Icon name="radio" w="w-10" h="h-10" />
+        </template>
+      </EmptyState>
 
-      <div v-else class="flex flex-col gap-0.5">
+      <ListContainer v-else max-width="lg">
         <div v-for="station in stations" :key="station.id"
           class="group flex items-center gap-3 rounded-btn px-3 py-2 transition hover:bg-hover-bg cursor-pointer"
-          :class="isCurrent(station, currentTrackId) ? 'bg-active/10' : ''" @click="emit('play', station)">
+          :class="isCurrent(station) ? 'bg-active/10' : ''" @click="emit('play', station)">
+
           <div
             class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg">
             <img v-if="station.favicon" :src="station.favicon" class="h-full w-full object-cover"
               @error="($event.target as HTMLImageElement).style.display = 'none'" />
-            <IconRadio v-else class="h-5 w-5 text-fg-muted" />
+            <Icon v-else name="radio" w="w-5" h="h-5" class="text-fg-muted" />
+
             <div
               class="absolute inset-0 flex items-center justify-center bg-bg/50 opacity-0 transition group-hover:opacity-100">
-              <IconPlay class="h-5 w-5 text-fg translate-x-[1px]" />
+              <Icon name="play" w="w-5" h="h-5" class="text-fg translate-x-[1px]" />
             </div>
           </div>
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium"
-              :class="isCurrent(station, currentTrackId) ? 'text-active' : 'text-fg'">
+            <p class="truncate text-sm font-medium" :class="isCurrent(station) ? 'text-active' : 'text-fg'">
               {{ station.name }}
             </p>
           </div>
 
-          <div v-if="isStationPlaying(station, currentTrackId, isPlaying)" class="flex shrink-0 items-center gap-1">
+          <div v-if="isStationPlaying(station)" class="flex shrink-0 items-center gap-1">
             <span class="h-3 w-0.5 animate-pulse bg-active" />
             <span class="h-4 w-0.5 animate-pulse bg-active [animation-delay:150ms]" />
             <span class="h-2 w-0.5 animate-pulse bg-active [animation-delay:300ms]" />
@@ -86,10 +82,10 @@ function onRemove(station: SavedStation, e: Event): void {
           <button v-else type="button"
             class="rounded-btn p-1.5 text-fg-subtle opacity-100 transition hover:bg-hover-bg hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
             aria-label="Удалить станцию" @click="onRemove(station, $event)">
-            <IconX class="h-4 w-4" />
+            <Icon name="x" w="w-4" h="h-4" />
           </button>
         </div>
-      </div>
+      </ListContainer>
     </div>
   </div>
 </template>

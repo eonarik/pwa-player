@@ -1,7 +1,7 @@
 <!-- src/components/library/CoverPicker.vue -->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import IconPlaylist from '@/components/icons/IconPlaylist.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 const props = defineProps<{
   modelValue: string | undefined
@@ -33,12 +33,9 @@ function onFileChange(e: Event) {
   }
 
   error.value = ''
-  // Создаем Blob URL для предпросмотра и сохранения (в рамках текущей сессии)
   const url = URL.createObjectURL(file)
   previewUrl.value = url
   emit('update:modelValue', url)
-
-  // Очищаем input, чтобы можно было выбрать тот же файл
   input.value = ''
 }
 
@@ -56,10 +53,9 @@ function clearCover() {
     <div class="group relative aspect-square w-32 overflow-hidden rounded-card bg-card-bg">
       <img v-if="previewUrl" :src="previewUrl" alt="Обложка" class="h-full w-full object-cover" />
       <div v-else class="flex h-full w-full items-center justify-center text-fg-subtle">
-        <IconPlaylist class="h-8 w-8" />
+        <Icon name="playlist" w="w-8" h="h-8" />
       </div>
 
-      <!-- Оверлей с кнопками -->
       <div
         class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-bg/80 opacity-0 transition group-hover:opacity-100">
         <button type="button" class="rounded-btn bg-accent px-3 py-1 text-xs font-medium text-bg hover:bg-accent-hover"

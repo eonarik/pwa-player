@@ -1,6 +1,7 @@
 <!-- src/components/library/TrackMetadataModal.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { trackMetadataService, type MetadataCandidate } from '@/services/metadata/TrackMetadataService'
@@ -8,12 +9,14 @@ import { toastService } from '@/services/ui/ToastService'
 import { modalService } from '@/services/ui/ModalService'
 import AutocompleteInput from '@/components/ui/AutocompleteInput.vue'
 import CoverPicker from '@/components/library/CoverPicker.vue'
-import IconX from '@/components/icons/IconX.vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
-import CoverImage from '@/components/ui/CoverImage.vue' // <-- Добавлен импорт
+import CoverImage from '@/components/ui/CoverImage.vue'
+import ModalLayout from '@/components/ui/ModalLayout.vue'
+import FormField from '@/components/ui/FormField.vue'
+import Input from '@/components/ui/Input.vue'
+import Button from '@/components/ui/Button.vue'
+import Icon from '@/components/ui/Icon.vue'
+import Spinner from '@/components/ui/Spinner.vue'
 import type { LibraryTrack } from '@/types/library'
-import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
   track: LibraryTrack
@@ -179,10 +182,6 @@ function cancel() {
   modalService.cancel()
 }
 
-function onBackdropClick(e: MouseEvent) {
-  e.stopPropagation()
-}
-
 function handleBeforeUnload(e: BeforeUnloadEvent) {
   if (isDirty.value) {
     e.preventDefault()
@@ -210,26 +209,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-full max-w-md bg-bg-elevated p-5 shadow-xl radio-inset" @click="onBackdropClick">
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-lg font-medium text-fg">Редактировать метаданные</h2>
-      <button type="button" class="rounded-btn p-1 text-fg-muted hover:bg-hover-bg hover:text-fg" aria-label="Закрыть"
-        v-tooltip="'Закрыть'" @click="cancel">
-        <IconX class="h-5 w-5" />
-      </button>
-    </div>
-
+  <ModalLayout title="Редактировать метаданные" max-width="md" :disable-backdrop-close="true" @close="cancel">
     <form class="flex flex-col gap-4" @submit.prevent="save">
-
       <!-- Обложка -->
       <div class="flex justify-center pb-2">
         <CoverPicker v-model="coverUrl" />
       </div>
 
       <!-- Кандидаты из интернета -->
-      <div v-if="isLoadingCandidates" class="flex items-center gap-2 text-xs text-fg-muted">
-        <IconSpinner class="h-3.5 w-3.5 animate-spin" />
-        Поиск вариантов в интернете…
+      <div v-if="isLoadingCandidates">
+        <Spinner size="sm" text="Поиск вариантов в интернете…" />
       </div>
 
       <div v-else-if="candidates.length > 0" class="flex flex-col gap-1 relative" ref="dropdownRef">
@@ -240,7 +229,8 @@ onUnmounted(() => {
           class="flex w-full items-center justify-between rounded-btn bg-card-bg px-3 py-2 text-sm text-fg transition hover:bg-hover-bg"
           @click="toggleDropdown">
           <span class="truncate">{{ selectedCandidateLabel }}</span>
-          <IconChevronDown class="h-4 w-4 shrink-0 text-fg-muted ml-2" :class="isDropdownOpen ? 'rotate-180' : ''" />
+          <Icon name="chevron-down" w="w-4" h="h-4" class="shrink-0 text-fg-muted ml-2 transition"
+            :class="isDropdownOpen ? 'rotate-180' : ''" />
         </button>
 
         <!-- Список -->
@@ -266,34 +256,25 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div>
-        <label class="mb-1 block text-xs text-fg-muted">Артист</label>
+      <FormField label="Артист">
         <AutocompleteInput v-model="artist" :suggestions="allArtists" placeholder="Введите артиста..."
           id="track-artist" />
-      </div>
+      </FormField>
 
-      <div>
-        <label class="mb-1 block text-xs text-fg-muted">Название</label>
-        <input v-model="title" type="text"
-          class="w-full rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
-          placeholder="Введите название..." />
-      </div>
+      <FormField label="Название">
+        <Input v-model="title" type="text" placeholder="Введите название..." />
+      </FormField>
 
-      <div>
-        <label class="mb-1 block text-xs text-fg-muted">Альбом</label>
+      <FormField label="Альбом">
         <AutocompleteInput v-model="album" :suggestions="allAlbums" placeholder="Введите альбом..." id="track-album" />
-      </div>
-
-      <div class="mt-2 flex items-center justify-end gap-2">
-        <button type="button" class="rounded-btn px-4 py-2 text-sm text-fg-muted hover:text-fg" @click="cancel">
-          Отмена
-        </button>
-        <button type="submit"
-          class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg hover:bg-accent-hover disabled:opacity-50"
-          :disabled="!title.trim()">
-          Сохранить
-        </button>
-      </div>
+      </FormField>
     </form>
-  </div>
+
+    <template #footer>
+      <div class="flex items-center justify-end gap-2">
+        <Button variant="ghost" @click="cancel">Отмена</Button>
+        <Button variant="primary" :disabled="!title.trim()" @click="save">Сохранить</Button>
+      </div>
+    </template>
+  </ModalLayout>
 </template>

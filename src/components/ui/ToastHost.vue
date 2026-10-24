@@ -1,7 +1,8 @@
 <!-- src/components/ui/ToastHost.vue -->
 <script setup lang="ts">
 import { toastService } from '@/services/ui/ToastService'
-import IconX from '@/components/icons/IconX.vue'
+import Icon from '@/components/ui/Icon.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 import type { Toast, ToastType } from '@/services/ui/ToastService'
 
 const toasts = toastService.toasts
@@ -16,9 +17,9 @@ function runAction(toast: Toast) {
 }
 
 function iconFor(type: ToastType): string {
-  if (type === 'success') return '✓'
-  if (type === 'error') return '✕'
-  return 'ℹ'
+  if (type === 'success') return 'check'
+  if (type === 'error') return 'x'
+  return 'info'
 }
 
 function classesFor(type: ToastType): string {
@@ -39,7 +40,8 @@ function classesFor(type: ToastType): string {
         <div v-for="toast in toasts" :key="toast.id"
           class="pointer-events-auto flex items-center gap-3 rounded-card px-4 py-3 shadow-lg"
           :class="classesFor(toast.type)" role="status">
-          <span class="shrink-0 text-base leading-none">{{ iconFor(toast.type) }}</span>
+
+          <Icon :name="iconFor(toast.type)" w="w-5" h="h-5" class="shrink-0" />
 
           <p class="min-w-0 flex-1 text-sm">{{ toast.message }}</p>
 
@@ -49,10 +51,7 @@ function classesFor(type: ToastType): string {
             {{ toast.action.label }}
           </button>
 
-          <button v-else type="button" class="shrink-0 rounded-btn p-1 opacity-60 transition hover:opacity-100"
-            v-tooltip="'Закрыть'" aria-label="Закрыть" @click="dismiss(toast.id)">
-            <IconX class="h-3.5 w-3.5" />
-          </button>
+          <IconButton v-else icon="x" variant="ghost" size="sm" label="Закрыть" @click="dismiss(toast.id)" />
         </div>
       </TransitionGroup>
     </div>

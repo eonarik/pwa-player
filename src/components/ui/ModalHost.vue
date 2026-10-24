@@ -2,6 +2,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { modalService } from '@/services/ui/ModalService'
+import Input from '@/components/ui/Input.vue'
+import Button from '@/components/ui/Button.vue'
 
 const active = modalService.active
 
@@ -56,13 +58,10 @@ function onKeydown(e: KeyboardEvent) {
   <Teleport to="body">
     <div v-if="isOpen && options" class="fixed inset-0 z-[150] flex items-center justify-center bg-bg/70 px-4"
       @click="onBackdropClick" @keydown="onKeydown">
-      <!--
-        Для type="custom" компонент сам рендерит свою обертку (белый фон, паддинги).
-        Для остальных — рендерим стандартную форму.
-      -->
+
       <component :is="options.component" v-if="options.type === 'custom' && options.component" v-bind="options.props" />
 
-      <form v-else class="w-full max-w-sm bg-bg-elevated p-5 shadow-xl" @submit.prevent="onConfirm">
+      <form v-else class="w-full max-w-sm bg-bg-elevated p-5 shadow-xl rounded-card" @submit.prevent="onConfirm">
         <div class="mb-1 flex items-start justify-between gap-4">
           <h2 class="text-lg font-medium text-fg">
             {{ options.title }}
@@ -73,21 +72,19 @@ function onKeydown(e: KeyboardEvent) {
           {{ options.message }}
         </p>
 
-        <input v-if="options.type === 'input'" ref="inputRef" v-model="inputValue"
-          :type="options.inputType === 'password' ? 'password' : 'text'" :placeholder="options.inputPlaceholder ?? ''"
-          class="w-full rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none" />
+        <Input v-if="options.type === 'input'" ref="inputRef" v-model="inputValue"
+          :type="options.inputType === 'password' ? 'password' : 'text'"
+          :placeholder="options.inputPlaceholder ?? ''" />
 
         <div class="mt-4 flex items-center justify-end gap-2">
-          <button v-if="options.cancelLabel !== undefined || options.type !== 'confirm'" type="button"
-            class="rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+          <Button v-if="options.cancelLabel !== undefined || options.type !== 'confirm'" variant="ghost"
             @click="onCancel">
             {{ options.cancelLabel ?? 'Отмена' }}
-          </button>
+          </Button>
 
-          <button type="submit"
-            class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50">
+          <Button type="submit" variant="primary">
             {{ options.confirmLabel ?? 'OK' }}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

@@ -1,8 +1,7 @@
 <!-- src/components/ui/AutocompleteInput.vue -->
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
-import IconX from '@/components/icons/IconX.vue'
+import Icon from './Icon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -23,17 +22,13 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const wrapperRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
-
-// Стейт для поиска внутри выпадашки
 const searchQuery = ref('')
 
-// Все уникальные варианты (без фильтрации)
 const uniqueSuggestions = computed(() => {
   const items = Array.from(new Set(props.suggestions.filter(Boolean)))
   return items.sort((a, b) => a.localeCompare(b, 'ru'))
 })
 
-// Фильтрация происходит ТОЛЬКО по searchQuery, а не по modelValue
 const filteredSuggestions = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   if (!query) return uniqueSuggestions.value
@@ -44,7 +39,6 @@ const showDropdown = computed(() => isOpen.value && filteredSuggestions.value.le
 
 function toggleDropdown() {
   if (!isOpen.value) {
-    // При открытии показываем всё, сбрасываем поиск
     searchQuery.value = ''
     isOpen.value = true
     activeIndex.value = -1
@@ -56,7 +50,6 @@ function toggleDropdown() {
 function onInput(e: Event) {
   const target = e.target as HTMLInputElement
   emit('update:modelValue', target.value)
-  // Когда пользователь печатает — фильтруем по введенному тексту
   searchQuery.value = target.value
   isOpen.value = true
   activeIndex.value = -1
@@ -109,7 +102,6 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-// Прокрутка к активному элементу
 function scrollToActive() {
   nextTick(() => {
     const activeEl = listRef.value?.children[activeIndex.value] as HTMLElement
@@ -119,7 +111,6 @@ function scrollToActive() {
   })
 }
 
-// Закрытие при клике вне
 function onDocumentClick(e: MouseEvent) {
   if (wrapperRef.value && !wrapperRef.value.contains(e.target as Node)) {
     isOpen.value = false
@@ -136,7 +127,6 @@ onUnmounted(() => {
 
 <template>
   <div ref="wrapperRef" class="relative w-full">
-    <!-- Поле ввода -->
     <div class="relative flex items-center">
       <input ref="inputRef" :id="id" :value="modelValue" type="text" :placeholder="placeholder"
         class="w-full rounded-btn bg-card-bg py-2 pl-3 pr-16 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
@@ -144,17 +134,16 @@ onUnmounted(() => {
 
       <div class="absolute right-2 flex items-center gap-1">
         <button v-if="modelValue" type="button" class="rounded-btn p-0.5 text-fg-subtle transition hover:text-fg"
-          tabindex="-1" v-tooltip="'Очистить'" @click="clear">
-          <IconX class="h-3.5 w-3.5" />
+          tabindex="-1" aria-label="Очистить" @click="clear">
+          <Icon name="x" w="w-3.5" h="h-3.5" />
         </button>
         <button type="button" class="rounded-btn p-0.5 text-fg-muted transition hover:text-fg" tabindex="-1"
-          v-tooltip="'Показать список'" @click="toggleDropdown">
-          <IconChevronDown class="h-4 w-4 transition-transform" :class="isOpen ? 'rotate-180' : ''" />
+          aria-label="Показать список" @click="toggleDropdown">
+          <Icon name="chevron-down" w="w-4" h="h-4" class="transition" :class="isOpen ? 'rotate-180' : ''" />
         </button>
       </div>
     </div>
 
-    <!-- Выпадающий список -->
     <Transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 translate-y-1"
       enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-100 ease-in"
       leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-1">

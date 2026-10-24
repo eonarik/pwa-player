@@ -1,64 +1,68 @@
 <!-- src/views/settings/SettingsGeneral.vue -->
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { toastService } from '@/services/ui/ToastService'
 import { themeService, type ThemeId } from '@/services/ui/ThemeService'
 import SectionTitle from '@/components/ui/SectionTitle.vue'
+import Select from '@/components/ui/Select.vue'
+import Input from '@/components/ui/Input.vue'
+import Checkbox from '@/components/ui/Checkbox.vue'
+import Button from '@/components/ui/Button.vue'
 
 const uiSettings = useUiSettingsStore()
-const { showSource, metadataThreshold, searchThreshold, playlistMatchThreshold } =
-  storeToRefs(uiSettings)
+const { showSource, metadataThreshold, searchThreshold, playlistMatchThreshold, autoFetchMetadata } = storeToRefs(uiSettings)
 
 const spaceName = computed(() => downloadSpaceService.spaceName.value)
 const needsPermission = computed(() => downloadSpaceService.needsPermission.value)
 const hasSpace = computed(() => downloadSpaceService.hasSpace.value)
 
-const localSearchThreshold = ref(searchThreshold.value)
-const localMetadataThreshold = ref(metadataThreshold.value)
-const localPlaylistThreshold = ref(playlistMatchThreshold.value)
+const localSearchThreshold = ref(String(searchThreshold.value))
+const localMetadataThreshold = ref(String(metadataThreshold.value))
+const localPlaylistThreshold = ref(String(playlistMatchThreshold.value))
 
-function applySearchThreshold(): void {
+watch(searchThreshold, (val) => { localSearchThreshold.value = String(val) })
+watch(metadataThreshold, (val) => { localMetadataThreshold.value = String(val) })
+watch(playlistMatchThreshold, (val) => { localPlaylistThreshold.value = String(val) })
+
+function commitSearch() {
   const v = Number(localSearchThreshold.value)
   if (!Number.isFinite(v) || v < 0 || v > 1) {
-    localSearchThreshold.value = searchThreshold.value
+    localSearchThreshold.value = String(searchThreshold.value)
     return
   }
   uiSettings.setSearchThreshold(v)
-  localSearchThreshold.value = v
 }
 
-function applyMetadataThreshold(): void {
+function commitMetadata() {
   const v = Number(localMetadataThreshold.value)
   if (!Number.isFinite(v) || v < 0 || v > 1) {
-    localMetadataThreshold.value = metadataThreshold.value
+    localMetadataThreshold.value = String(metadataThreshold.value)
     return
   }
   uiSettings.setMetadataThreshold(v)
-  localMetadataThreshold.value = v
 }
 
-function applyPlaylistThreshold(): void {
+function commitPlaylist() {
   const v = Number(localPlaylistThreshold.value)
   if (!Number.isFinite(v) || v < 0 || v > 1) {
-    localPlaylistThreshold.value = playlistMatchThreshold.value
+    localPlaylistThreshold.value = String(playlistMatchThreshold.value)
     return
   }
   uiSettings.setPlaylistMatchThreshold(v)
-  localPlaylistThreshold.value = v
 }
 
 // --- Тема оформления -------------------------------------------------
 
-const currentTheme = computed(() => themeService.current.value)
-const availableThemes = themeService.available
-
-function onThemeChange(e: Event): void {
-  const value = (e.target as HTMLSelectElement).value as ThemeId
-  themeService.apply(value)
-}
+const themeOptions = computed(() =>
+  themeService.available.map((t) => ({ value: t.id, label: t.label }))
+)
+const currentTheme = computed({
+  get: () => themeService.current.value,
+  set: (val: string) => themeService.apply(val as ThemeId),
+})
 
 // --- Папка скачивания ------------------------------------------------
 
@@ -89,14 +93,9 @@ async function restoreAccess(): Promise<void> {
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Цветовая схема</p>
-          <p class="text-xs text-fg-muted">Тёмная или ретро-радио</p>
+          <p class="text-xs text-fg-muted">Тёмная, ретро-радио или киберпанк</p>
         </div>
-        <select :value="currentTheme" class="rounded-btn bg-bg-elevated px-2 py-1 text-sm text-fg focus:outline-none"
-          @change="onThemeChange">
-          <option v-for="theme in availableThemes" :key="theme.id" :value="theme.id">
-            {{ theme.label }}
-          </option>
-        </select>
+        <Select v-model="currentTheme" :options="themeOptions" />
       </div>
     </section>
 
@@ -107,9 +106,10 @@ async function restoreAccess(): Promise<void> {
           <p class="text-sm text-fg">Порог совпадения</p>
           <p class="text-xs text-fg-muted">Чем выше, тем строже поиск</p>
         </div>
-        <input v-model.number="localSearchThreshold" type="number" min="0" max="1" step="0.05"
-          class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
-          @blur="applySearchThreshold" @keydown.enter="applySearchThreshold" />
+        <div class="shrink-0 w-20">
+          <Input v-model="localSearchThreshold" type="number" class="text-right" @blur="commitSearch"
+            @keydown.enter="commitSearch" />
+        </div>
       </div>
     </section>
 
@@ -120,19 +120,16 @@ async function restoreAccess(): Promise<void> {
           <p class="text-sm text-fg">Порог совпадения</p>
           <p class="text-xs text-fg-muted">Ниже порога — трек в «Проблемные»</p>
         </div>
-        <input v-model.number="localMetadataThreshold" type="number" min="0" max="1" step="0.05"
-          class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
-          @blur="applyMetadataThreshold" @keydown.enter="applyMetadataThreshold" />
+        <div class="shrink-0 w-20">
+          <Input v-model="localMetadataThreshold" type="number" class="text-right" @blur="commitMetadata"
+            @keydown.enter="commitMetadata" />
+        </div>
       </div>
 
-
-      <label class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3">
-        <div class="min-w-0">
-          <p class="text-sm text-fg">Автопоиск при воспроизведении</p>
-          <p class="text-xs text-fg-muted">Искать обложку и теги в фоне при старте трека</p>
-        </div>
-        <input v-model="uiSettings.autoFetchMetadata" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
-      </label>
+      <div class="bg-card-bg px-4 py-3">
+        <Checkbox v-model="autoFetchMetadata" label="Автопоиск при воспроизведении"
+          description="Искать обложку и теги в фоне при старте трека" />
+      </div>
     </section>
 
     <section>
@@ -142,21 +139,18 @@ async function restoreAccess(): Promise<void> {
           <p class="text-sm text-fg">Порог совпадения</p>
           <p class="text-xs text-fg-muted">Насколько строго искать треки при импорте</p>
         </div>
-        <input v-model.number="localPlaylistThreshold" type="number" min="0" max="1" step="0.05"
-          class="w-20 rounded-btn bg-bg-elevated px-2 py-1 text-right text-sm text-fg focus:outline-none"
-          @blur="applyPlaylistThreshold" @keydown.enter="applyPlaylistThreshold" />
+        <div class="shrink-0 w-20">
+          <Input v-model="localPlaylistThreshold" type="number" class="text-right" @blur="commitPlaylist"
+            @keydown.enter="commitPlaylist" />
+        </div>
       </div>
     </section>
 
     <section>
       <SectionTitle text="Отображение" />
-      <label class="flex cursor-pointer items-center justify-between gap-4 bg-card-bg px-4 py-3">
-        <div class="min-w-0">
-          <p class="text-sm text-fg">Показывать источник</p>
-          <p class="text-xs text-fg-muted">Путь к папке в списках треков</p>
-        </div>
-        <input v-model="showSource" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
-      </label>
+      <div class="bg-card-bg px-4 py-3">
+        <Checkbox v-model="showSource" label="Показывать источник" description="Путь к папке в списках треков" />
+      </div>
     </section>
 
     <section>
@@ -174,16 +168,12 @@ async function restoreAccess(): Promise<void> {
             <p v-else-if="hasSpace" class="text-xs text-fg-muted">Доступ есть</p>
             <p v-else class="text-xs text-fg-muted">Для скачивания треков</p>
           </div>
-          <button v-if="needsPermission" type="button"
-            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="restoreAccess">
+          <Button v-if="needsPermission" variant="primary" size="sm" class="shrink-0" @click="restoreAccess">
             Восстановить
-          </button>
-          <button v-else type="button"
-            class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg disabled:opacity-50"
-            :disabled="isPickingSpace" @click="pickSpace">
+          </Button>
+          <Button v-else variant="secondary" size="sm" class="shrink-0" :disabled="isPickingSpace" @click="pickSpace">
             {{ isPickingSpace ? '…' : hasSpace ? 'Сменить' : 'Выбрать' }}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

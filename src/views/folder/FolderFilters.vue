@@ -5,6 +5,7 @@ import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
 import FolderSyncMenu from '@/components/library/FolderSyncMenu.vue'
 import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue'
 import MetadataMenu from '@/components/library/MetadataMenu.vue'
+import Divider from '@/components/ui/Divider.vue'
 
 defineProps<{
   query: string
@@ -48,7 +49,7 @@ function onQueryUpdate(value: string): void {
           @cancel="emit('metadata-cancel')" @reset="emit('metadata-reset')" @open-issues="emit('open-issues')" />
 
         <template v-if="canRefresh || canRefreshFromDevice">
-          <div class="mx-1 h-4 border-l border-active/40" aria-hidden="true" />
+          <Divider class="mx-0.5" />
 
           <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
             :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"

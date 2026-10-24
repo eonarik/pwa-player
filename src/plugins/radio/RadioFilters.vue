@@ -2,9 +2,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
+import Icon from '@/components/ui/Icon.vue'
+import Input from '@/components/ui/Input.vue'
+import SectionTitle from '@/components/ui/SectionTitle.vue'
 import type { RadioSortOrder, RadioTag } from './RadioService'
-import SectionTitle from "@/components/ui/SectionTitle.vue"
 
 export type RadioCountryEntry = {
   name: string
@@ -88,7 +89,7 @@ function isTagSelected(name: string): boolean {
             class="flex w-full items-center justify-between rounded-btn bg-card-bg px-2 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
             @click.stop="toggle">
             {{ ORDER_LABELS[topOrder] }}
-            <IconChevronDown class="h-3 w-3" />
+            <Icon name="chevron-down" w="w-3" h="h-3" />
           </button>
         </template>
         <template #default="{ close }">
@@ -114,20 +115,17 @@ function isTagSelected(name: string): boolean {
           </button>
         </div>
         <template v-else>
-          <input v-model="countryFilter" type="text" placeholder="Поиск страны..."
-            class="mb-2 w-full rounded bg-card-bg px-2 py-1 text-xs text-fg placeholder:text-fg-subtle focus:outline-none" />
+          <Input v-model="countryFilter" placeholder="Поиск страны..." class="mb-2" />
           <div class="flex max-h-32 flex-col gap-1 overflow-y-auto pr-1">
-            <button type="button" class="text-left text-xs px-2 py-1 rounded transition" :class="topCountry === ''
-              ? 'bg-active/20 text-active font-medium'
-              : 'text-fg hover:bg-hover-bg'
-              " @click="setCountry('')">
+            <button type="button" class="text-left text-xs px-2 py-1 rounded transition"
+              :class="topCountry === '' ? 'bg-active/20 text-active font-medium' : 'text-fg hover:bg-hover-bg'"
+              @click="setCountry('')">
               Все страны
             </button>
             <button v-for="c in filteredCountries" :key="c.code" type="button"
-              class="flex items-center justify-between gap-2 text-left text-xs px-2 py-1 rounded transition" :class="topCountry === c.code
-                ? 'bg-active/20 text-active font-medium'
-                : 'text-fg hover:bg-hover-bg'
-                " @click="setCountry(c.code)">
+              class="flex items-center justify-between gap-2 text-left text-xs px-2 py-1 rounded transition"
+              :class="topCountry === c.code ? 'bg-active/20 text-active font-medium' : 'text-fg hover:bg-hover-bg'"
+              @click="setCountry(c.code)">
               <span class="truncate">{{ c.name }}</span>
               <span v-if="showCounts" class="shrink-0 text-[10px] tabular-nums text-fg-subtle">
                 {{ c.stationCount }}
@@ -147,21 +145,17 @@ function isTagSelected(name: string): boolean {
           </button>
         </div>
         <template v-else>
-          <input v-model="tagFilter" type="text" placeholder="Поиск тега..."
-            class="mb-2 w-full rounded bg-card-bg px-2 py-1 text-xs text-fg placeholder:text-fg-subtle focus:outline-none" />
+          <Input v-model="tagFilter" placeholder="Поиск тега..." class="mb-2" />
           <div class="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
             <button type="button" class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition"
-              :class="topTags.length === 0
-                ? 'bg-active/20 border-active/20 text-active font-medium'
-                : 'text-fg-muted hover:bg-hover-bg'
-                " @click="emit('update:topTags', [])">
+              :class="topTags.length === 0 ? 'bg-active/20 border-active/20 text-active font-medium' : 'text-fg-muted hover:bg-hover-bg'"
+              @click="emit('update:topTags', [])">
               Все
             </button>
             <button v-for="t in filteredTags" :key="t.name" type="button"
-              class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition" :class="isTagSelected(t.name)
-                ? 'bg-active/20 border-active/20 text-active font-medium'
-                : 'text-fg-muted hover:bg-hover-bg'
-                " @click="toggleTag(t.name)">
+              class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition"
+              :class="isTagSelected(t.name) ? 'bg-active/20 border-active/20 text-active font-medium' : 'text-fg-muted hover:bg-hover-bg'"
+              @click="toggleTag(t.name)">
               {{ t.name }}
               <span v-if="showCounts" class="ml-0.5 tabular-nums opacity-60">
                 {{ t.stationCount }}

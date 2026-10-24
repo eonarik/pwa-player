@@ -23,9 +23,7 @@ const hasAlbum = computed(() => Boolean(props.track.album?.trim()))
       class="line-clamp-3 break-words px-0.5 text-center text-[9px] leading-tight text-fg-subtle">
       {{ track.album }}
     </span>
-
     <CoverImage v-else :src="track.coverUrl" :alt="track.album" fallback-icon-class="h-5 w-5" />
-
     <slot />
   </div>
 </template>

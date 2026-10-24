@@ -3,6 +3,7 @@
 import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
+import ListContainer from '@/components/ui/ListContainer.vue'
 import type { ArtistGroup } from '@/composables/useLibrarySearch'
 import type { LibraryTrack } from '@/types/library'
 import type { Playlist } from '@/types/playlist'
@@ -56,7 +57,7 @@ function selectTrackBySnapshot(trackId: string): void {
                 {{ group.artist }}
               </p>
 
-              <div class="flex flex-col gap-0.5">
+              <ListContainer max-width="lg">
                 <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
                   :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isCurrent(track.id)"
                   :is-playing="isPlaying" @select="() => emit('select-search-track', track.id)">
@@ -64,19 +65,19 @@ function selectTrackBySnapshot(trackId: string): void {
                     <TrackActions :track="track" />
                   </template>
                 </TrackListItem>
-              </div>
+              </ListContainer>
             </div>
           </div>
         </div>
       </template>
 
       <!-- Обычный режим -->
-      <div v-else class="flex flex-col gap-0.5 -mx-2.5 p-2">
+      <ListContainer v-else max-width="lg" class="-mx-2.5 p-2">
         <TrackResolvedItem v-for="snapshot in playlist.tracks" :key="snapshot.trackId" :track-id="snapshot.trackId"
           :index="resolvedTracks.findIndex((t) => t.id === snapshot.trackId)" :is-current="isCurrent(snapshot.trackId)"
           :is-playing="isPlaying" :playlist-id="playlist.id" :snapshot="snapshot"
           @select="selectTrackBySnapshot(snapshot.trackId)" @removed="emit('removed')" />
-      </div>
+      </ListContainer>
     </div>
   </div>
 </template>

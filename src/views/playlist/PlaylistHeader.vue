@@ -3,7 +3,8 @@
 import { ref } from 'vue'
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
 import PlaylistShareMenu from '@/components/playlists/PlaylistShareMenu.vue'
-import IconPencil from '@/components/icons/IconPencil.vue'
+import Button from '@/components/ui/Button.vue'
+import Icon from '@/components/ui/Icon.vue'
 import { pluralize } from '@/utils/pluralize'
 import type { Playlist } from '@/types/playlist'
 import type { LibraryTrack } from '@/types/library'
@@ -49,15 +50,8 @@ function cancelRename(): void {
             <input v-model="renameValue" type="text" autofocus
               class="flex-1 rounded-btn bg-card-bg px-3 py-1.5 text-sm text-fg focus:bg-hover-bg focus:outline-none"
               @keydown.esc="cancelRename" />
-            <button type="submit"
-              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover">
-              ОК
-            </button>
-            <button type="button"
-              class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-              @click="cancelRename">
-              Отмена
-            </button>
+            <Button type="submit" variant="primary" size="sm">ОК</Button>
+            <Button variant="secondary" size="sm" @click="cancelRename">Отмена</Button>
           </form>
         </template>
 
@@ -67,7 +61,7 @@ function cancelRename(): void {
           <button v-if="!isFavorites" type="button"
             class="rounded-btn p-1 text-fg-subtle transition hover:bg-hover-bg hover:text-fg" aria-label="Переименовать"
             @click="startRename">
-            <IconPencil class="h-3.5 w-3.5" />
+            <Icon name="pencil" w="w-3.5" h="h-3.5" />
           </button>
         </template>
       </div>

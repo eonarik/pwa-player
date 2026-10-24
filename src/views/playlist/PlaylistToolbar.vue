@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import SearchInput from '@/components/ui/SearchInput.vue'
 import MetadataMenu from '@/components/library/MetadataMenu.vue'
-import IconTrash from '@/components/icons/IconTrash.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 
 defineProps<{
   query: string
@@ -36,11 +36,8 @@ const emit = defineEmits<{
           :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssuesCount" @search="emit('metadata-search')"
           @cancel="emit('metadata-cancel')" @reset="emit('metadata-reset')" @open-issues="emit('open-issues')" />
 
-        <button v-if="!isFavorites" type="button"
-          class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-red-400"
-          aria-label="Удалить плейлист" @click="emit('delete')">
-          <IconTrash class="h-4 w-4" />
-        </button>
+        <IconButton v-if="!isFavorites" icon="trash" variant="danger" label="Удалить плейлист"
+          @click="emit('delete')" />
       </div>
     </div>
   </div>

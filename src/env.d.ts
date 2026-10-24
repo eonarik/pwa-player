@@ -7,6 +7,15 @@
 import type { Buffer as BufferType } from 'buffer'
 import type processType from 'process'
 
+declare module '*.css' {
+  const content: string
+  export default content
+}
+declare module '*.scss' {
+  const content: string
+  export default content
+}
+
 declare module 'virtual:__federation__' {
   export function __federation_method_setRemote(name: string, config: any): void
   export function __federation_method_getRemote(name: string, module: string): Promise<any>

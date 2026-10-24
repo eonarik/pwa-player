@@ -1,10 +1,10 @@
-<!-- src/components/library/FolderFolderBreadcrumbs.vue -->
+<!-- src/components/library/FolderBreadcrumbs.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
-import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 import type { Folder } from '@/types/library'
 
 const router = useRouter()
@@ -34,12 +34,7 @@ function goUp() {
   }
 
   const parent = library.getFolder(parentId)
-  if (!parent) {
-    router.push({ name: 'home' })
-    return
-  }
-
-  if (!parent.source) {
+  if (!parent || !parent.source) {
     router.push({ name: 'home' })
     return
   }
@@ -63,24 +58,13 @@ function goToFolder(crumb: Folder) {
 
 <template>
   <nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Навигация по папкам">
-    <button
-      v-if="currentFolder"
-      type="button"
-      class="mr-1 shrink-0 rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-      :aria-label="isPluginRoot ? 'К источникам' : 'Назад'"
-      @click="goUp"
-    >
-      <IconArrowLeft class="h-4 w-4" />
-    </button>
+    <IconButton v-if="currentFolder" icon="arrow-left" variant="ghost" size="sm"
+      :label="isPluginRoot ? 'К источникам' : 'Назад'" @click="goUp" class="mr-1" />
 
     <template v-for="(crumb, i) in breadcrumbs" :key="crumb.id">
-      <button
-        type="button"
-        class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
+      <button type="button" class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
         :class="i === breadcrumbs.length - 1 ? 'font-medium text-fg' : 'text-fg-muted'"
-        :title="crumb.path || crumb.name"
-        @click="goToFolder(crumb)"
-      >
+        :title="crumb.path || crumb.name" @click="goToFolder(crumb)">
         {{ crumb.name }}
       </button>
 

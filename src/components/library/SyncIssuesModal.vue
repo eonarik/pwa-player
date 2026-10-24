@@ -3,9 +3,10 @@
 import { computed, reactive } from 'vue'
 import { syncService } from '@/services/download/SyncService'
 import { useLibraryStore } from '@/stores/library'
-import IconX from '@/components/icons/IconX.vue'
+import ModalLayout from '@/components/ui/ModalLayout.vue'
+import Checkbox from '@/components/ui/Checkbox.vue'
+import Button from '@/components/ui/Button.vue'
 import type { SelectedIssues } from '@/services/download/types'
-import { getPluginName } from "@/plugins/lookup"
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -56,7 +57,9 @@ function isMissingSelected(pluginId: string, trackId: string): boolean {
 }
 
 function pluginName(pluginId: string): string {
-  return getPluginName(pluginId, pluginId)
+  if (pluginId === 'yandex') return 'Яндекс.Диск'
+  if (pluginId === 'local') return 'Локальная папка'
+  return pluginId
 }
 
 function missingTrackTitle(trackId: string): string {
@@ -101,73 +104,53 @@ function ignore() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 px-4" @click.self="ignore">
-      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-bg-elevated shadow-xl">
-        <!-- Шапка -->
-        <div class="flex shrink-0 items-center justify-between px-5 py-4">
-          <h2 class="text-lg font-medium text-fg">Обновление с устройства</h2>
-          <button type="button" class="rounded-btn p-1 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            aria-label="Закрыть" @click="ignore">
-            <IconX class="h-5 w-5" />
-          </button>
-        </div>
+  <ModalLayout title="Обновление с устройства" max-width="lg" @close="ignore">
+    <div class="flex flex-col gap-6">
+      <div v-for="issue in issues" :key="issue.pluginId">
+        <p class="mb-3 text-xs uppercase tracking-wider text-fg-subtle">
+          {{ pluginName(issue.pluginId) }}
+        </p>
 
-        <!-- Контент -->
-        <div class="flex-1 overflow-y-auto px-5 py-4">
-          <div v-for="issue in issues" :key="issue.pluginId" class="mb-6 last:mb-0">
-            <p class="mb-3 text-xs uppercase tracking-wider text-fg-subtle">
-              {{ pluginName(issue.pluginId) }}
-            </p>
-
-            <div v-if="issue.onlyLocal.length > 0" class="mb-4">
-              <p class="mb-2 text-sm text-fg">Найдены новые треки, добавить в источник?</p>
-              <div class="flex flex-col gap-1">
-                <label v-for="item in issue.onlyLocal" :key="item.relativePath"
-                  class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg">
-                  <input type="checkbox" :checked="isOnlyLocalSelected(issue.pluginId, item.relativePath)"
-                    class="h-4 w-4 shrink-0 cursor-pointer accent-active"
-                    @change="toggleOnlyLocal(issue.pluginId, item.relativePath)" />
+        <div v-if="issue.onlyLocal.length > 0" class="mb-4">
+          <p class="mb-2 text-sm text-fg">Найдены новые треки, добавить в источник?</p>
+          <div class="flex flex-col gap-1">
+            <div v-for="item in issue.onlyLocal" :key="item.relativePath" class="py-1">
+              <Checkbox :model-value="isOnlyLocalSelected(issue.pluginId, item.relativePath)"
+                @update:model-value="toggleOnlyLocal(issue.pluginId, item.relativePath)">
+                <div class="flex min-w-0 flex-1 items-center justify-between gap-2">
                   <span class="min-w-0 flex-1 truncate">{{ item.filename }}</span>
                   <span class="shrink-0 text-xs text-fg-muted">{{ item.relativePath }}</span>
-                </label>
-              </div>
+                </div>
+              </Checkbox>
             </div>
-
-            <div v-if="issue.missing.length > 0">
-              <p class="mb-2 text-sm text-fg">
-                Следующие треки не найдены на устройстве. Пометить как «в облаке»?
-              </p>
-              <div class="flex flex-col gap-1">
-                <label v-for="trackId in issue.missing" :key="trackId"
-                  class="flex cursor-pointer items-center gap-3 rounded-btn px-3 py-2 text-sm text-fg transition hover:bg-hover-bg">
-                  <input type="checkbox" :checked="isMissingSelected(issue.pluginId, trackId)"
-                    class="h-4 w-4 shrink-0 cursor-pointer accent-active"
-                    @change="toggleMissing(issue.pluginId, trackId)" />
-                  <span class="min-w-0 flex-1 truncate">{{ missingTrackTitle(trackId) }}</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="issues.length === 0" class="py-8 text-center text-sm text-fg-muted">
-            Проблем не найдено
           </div>
         </div>
 
-        <!-- Кнопки -->
-        <div class="flex shrink-0 items-center justify-end gap-2 px-5 py-4">
-          <button type="button" class="rounded-btn px-4 py-2 text-sm text-fg-muted transition hover:text-fg"
-            @click="ignore">
-            Проигнорировать
-          </button>
-          <button type="button"
-            class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover"
-            @click="apply">
-            Применить
-          </button>
+        <div v-if="issue.missing.length > 0">
+          <p class="mb-2 text-sm text-fg">
+            Следующие треки не найдены на устройстве. Пометить как «в облаке»?
+          </p>
+          <div class="flex flex-col gap-1">
+            <div v-for="trackId in issue.missing" :key="trackId" class="py-1">
+              <Checkbox :model-value="isMissingSelected(issue.pluginId, trackId)"
+                @update:model-value="toggleMissing(issue.pluginId, trackId)">
+                <span class="min-w-0 flex-1 truncate">{{ missingTrackTitle(trackId) }}</span>
+              </Checkbox>
+            </div>
+          </div>
         </div>
       </div>
+
+      <div v-if="issues.length === 0" class="py-8 text-center text-sm text-fg-muted">
+        Проблем не найдено
+      </div>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <div class="flex items-center justify-end gap-2">
+        <Button variant="ghost" @click="ignore">Проигнорировать</Button>
+        <Button variant="primary" @click="apply">Применить</Button>
+      </div>
+    </template>
+  </ModalLayout>
 </template>

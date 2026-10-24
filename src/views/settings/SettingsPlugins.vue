@@ -67,7 +67,7 @@ function handleActivation(): void {
     <section v-if="pluginSchemas.length > 0">
       <div class="flex flex-col gap-6">
         <div v-for="p in pluginSchemas" :key="p.manifest.id" class="flex flex-col gap-2">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center px-4 gap-2">
             <span class="text-base">{{ p.manifest.icon }}</span>
             <span class="text-sm font-medium text-fg">{{ p.manifest.name }}</span>
           </div>

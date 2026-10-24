@@ -10,12 +10,11 @@ import {
   isCacheFresh,
 } from './PodcastStorage'
 import type { Episode, Subscription } from './types'
-import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
-import IconPlay from '@/components/icons/IconPlay.vue'
-import IconPause from '@/components/icons/IconPause.vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
-import IconArrowDown from '@/components/icons/IconArrowDown.vue'
-import IconArrowUp from '@/components/icons/IconArrowUp.vue'
+import Spinner from '@/components/ui/Spinner.vue'
+import IconButton from '@/components/ui/IconButton.vue'
+import Icon from '@/components/ui/Icon.vue'
+import Button from '@/components/ui/Button.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import { PLUGIN_ID } from './constants'
 import type { Track } from '@/types/track'
 
@@ -143,13 +142,11 @@ watch(feedUrl, () => {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
+    <!-- Шапка -->
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-10">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <div class="flex min-w-0 items-center gap-3">
-          <button type="button" class="rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            aria-label="Назад" @click="router.push({ name: 'podcasts' })">
-            <IconArrowLeft class="h-5 w-5" />
-          </button>
+          <IconButton icon="arrow-left" label="Назад" @click="router.push({ name: 'podcasts' })" />
           <div class="min-w-0">
             <h1 class="truncate text-lg font-medium text-fg">
               {{ subscription?.podcast.title ?? 'Подкаст' }}
@@ -162,11 +159,9 @@ watch(feedUrl, () => {
         </div>
 
         <div class="flex shrink-0 items-center gap-2">
-          <button type="button"
-            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-            :disabled="sortedEpisodes.length === 0" @click="playAll">
+          <Button variant="primary" size="sm" :disabled="sortedEpisodes.length === 0" @click="playAll">
             Играть всё
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -174,14 +169,8 @@ watch(feedUrl, () => {
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <div class="flex items-center gap-1">
-          <div class="relative">
-            <button type="button" class="rounded-btn p-1.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-              :aria-label="sortOrder === 'serial' ? 'Сначала старые' : 'Сначала новые'"
-              v-tooltip="sortOrder === 'serial' ? 'Сначала старые' : 'Сначала новые'" @click="toggleSort">
-              <IconArrowDown v-if="sortOrder === 'serial'" class="h-4 w-4" />
-              <IconArrowUp v-else class="h-4 w-4" />
-            </button>
-          </div>
+          <IconButton :icon="sortOrder === 'serial' ? 'arrow-down' : 'arrow-up'"
+            :label="sortOrder === 'serial' ? 'Сначала старые' : 'Сначала новые'" @click="toggleSort" />
         </div>
       </div>
     </div>
@@ -189,16 +178,14 @@ watch(feedUrl, () => {
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl py-2">
         <div v-if="isRefreshing && sortedEpisodes.length === 0" class="flex justify-center py-10">
-          <IconSpinner class="h-6 w-6 animate-spin text-fg-muted" />
+          <Spinner size="lg" text="Загрузка эпизодов…" />
         </div>
 
         <div v-if="error" class="text-center py-4 text-sm text-red-400">
           {{ error }}
         </div>
 
-        <div v-if="sortedEpisodes.length === 0 && !isRefreshing" class="text-center py-10 text-sm text-fg-muted">
-          Эпизоды не найдены
-        </div>
+        <EmptyState v-if="sortedEpisodes.length === 0 && !isRefreshing" title="Эпизоды не найдены" />
 
         <div v-else class="flex flex-col gap-0.5">
           <div v-for="ep in sortedEpisodes" :key="ep.id"
@@ -209,8 +196,8 @@ watch(feedUrl, () => {
               <img v-if="ep.image" :src="ep.image" class="h-full w-full object-cover"
                 @error="($event.target as HTMLImageElement).style.display = 'none'" />
               <div class="absolute inset-0 flex items-center justify-center bg-bg/50">
-                <IconPause v-if="isPlayingEpisode(ep)" class="h-4 w-4 text-active" />
-                <IconPlay v-else class="h-4 w-4 text-fg" />
+                <Icon :name="isPlayingEpisode(ep) ? 'pause' : 'play'" w="w-4" h="h-4"
+                  :class="isPlayingEpisode(ep) ? 'text-active' : 'text-fg'" />
               </div>
             </div>
 

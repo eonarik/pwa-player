@@ -26,8 +26,8 @@ import ToastHost from '@/components/ui/ToastHost.vue'
 import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue'
 import AppDrawer from '@/components/layout/AppDrawer.vue'
-import IconMenu from '@/components/icons/IconMenu.vue'
 import FeedbackModal from '@/components/ui/FeedbackModal.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 import { trackMetadataService } from './services/metadata/TrackMetadataService'
 import { metadataApplier } from './services/metadata/MetadataApplier'
 
@@ -40,25 +40,23 @@ const dislikes = useDislikesStore()
 const uiSettings = useUiSettingsStore()
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
-// --- FullPlayer ------------------------------------------------------
-
 const isFullPlayerOpen = ref(false)
+const isDrawerOpen = ref(false)
+const showSyncIssues = ref(false)
+const isFeedbackOpen = ref(false)
 
-function openFullPlayer() {
-  isFullPlayerOpen.value = true
-}
-
-function closeFullPlayer() {
-  isFullPlayerOpen.value = false
-}
+function openFullPlayer() { isFullPlayerOpen.value = true }
+function closeFullPlayer() { isFullPlayerOpen.value = false }
+function openDrawer() { isDrawerOpen.value = true }
+function closeDrawer() { isDrawerOpen.value = false }
+function openFeedback() { isFeedbackOpen.value = true }
+function closeFeedback() { isFeedbackOpen.value = false }
 
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && isFullPlayerOpen.value) {
     closeFullPlayer()
   }
 }
-
-// --- Заголовок FullPlayer --------------------------------------------
 
 const pageTitle = computed(() =>
   getPageTitle(route, {
@@ -71,51 +69,15 @@ const pageTitle = computed(() =>
   }),
 )
 
-// Закрываем FullPlayer при любом переходе
-watch(
-  () => route.fullPath,
-  () => {
-    if (isFullPlayerOpen.value) {
-      isFullPlayerOpen.value = false
-    }
-  },
-)
+watch(() => route.fullPath, () => {
+  if (isFullPlayerOpen.value) isFullPlayerOpen.value = false
+})
 
-// --- Шторка ----------------------------------------------------------
-
-const isDrawerOpen = ref(false)
-const showSyncIssues = ref(false)
-
-// Показываем модалку с проблемами синхронизации, если после syncAll
-// остались необработанные расхождения (onlyLocal / missing).
-watch(
-  () => syncService.issueCount.value,
-  (count) => {
-    if (count > 0) showSyncIssues.value = true
-  },
-)
+watch(() => syncService.issueCount.value, (count) => {
+  if (count > 0) showSyncIssues.value = true
+})
 
 const queueBadge = computed(() => (queue.value.length > 0 ? String(queue.value.length) : ''))
-
-function openDrawer() {
-  isDrawerOpen.value = true
-}
-
-function closeDrawer() {
-  isDrawerOpen.value = false
-}
-
-const isFeedbackOpen = ref(false)
-
-function openFeedback() {
-  isFeedbackOpen.value = true
-}
-
-function closeFeedback() {
-  isFeedbackOpen.value = false
-}
-
-// --- Горячие клавиши, медиа-сессия, заголовок -------------------------
 
 useKeyboardShortcuts({
   onToggle: () => player.toggle(),
@@ -142,8 +104,6 @@ watchEffect(() => {
   document.title = t ? `${t.title} — ${t.artist}` : 'CUEI Media Player'
 })
 
-// --- Фикс для Safari (PWA) при возврате из фона -----------------------
-
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible' && player.isPlaying) {
     const audio = audioService.element
@@ -152,8 +112,6 @@ function handleVisibilityChange() {
     }
   }
 }
-
-// --- Восстановление при старте ----------------------------------------
 
 const isBootstrapping = ref(true)
 
@@ -194,14 +152,10 @@ onUnmounted(() => {
 
 watch(currentTrack, async (track) => {
   if (!track || !uiSettings.autoFetchMetadata) return
-
   const libTrack = library.getTrack(track.id)
   if (!libTrack) return
-
-  // Если для трека уже есть метаданные в кэше (найдено или "не найдено") — не ищем.
   if (metadataPersistenceService.has(track.id)) return
 
-  // Ищем в фоне
   void (async () => {
     const result = await trackMetadataService.fetch(
       libTrack.artist ?? '',
@@ -214,20 +168,12 @@ watch(currentTrack, async (track) => {
       return
     }
 
-    // Кэшируем "не найдено" с TTL 7 дней, чтобы не дёргать сеть
-    // при каждом старте этого трека.
     if (result.status === 'not-found') {
       metadataPersistenceService.setInMemory(track.id, {
-        artist: null,
-        title: null,
-        album: null,
-        coverUrl: null,
-        similarity: null,
-        original: null,
+        artist: null, title: null, album: null, coverUrl: null, similarity: null, original: null,
       })
       await metadataPersistenceService.flush()
     }
-    // error / aborted — не кэшируем, попробуем в следующий раз
   })()
 })
 </script>
@@ -236,19 +182,15 @@ watch(currentTrack, async (track) => {
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
     <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2">
-      <button type="button"
-        class="flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-        aria-label="Меню" @click="openDrawer">
-        <IconMenu class="h-4 w-4" />
-        <span class="hidden md:inline">Меню</span>
+      <IconButton icon="menu" variant="ghost" size="md" label="Меню" @click="openDrawer" class="!px-3 !w-auto">
+        <span class="hidden md:inline text-sm">Меню</span>
         <span v-if="queueBadge"
           class="ml-0.5 rounded-full bg-active/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-active">
           {{ queueBadge }}
         </span>
-      </button>
+      </IconButton>
 
       <span v-if="syncService.isSyncing.value" class="text-xs text-fg-muted">Синхронизация…</span>
-
       <span v-else-if="library.currentFolder" class="ml-2 truncate text-sm text-fg-muted">
         {{ library.currentFolder.name }}
       </span>
@@ -256,12 +198,9 @@ watch(currentTrack, async (track) => {
 
     <main class="overflow-hidden">
       <RouterView v-if="!isBootstrapping" />
-      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">
-        Загрузка…
-      </div>
+      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">Загрузка…</div>
     </main>
 
-    <!-- Мини-плеер -->
     <div>
       <PlayerControls @open="openFullPlayer" />
     </div>
@@ -272,14 +211,12 @@ watch(currentTrack, async (track) => {
     <SpacePermissionModal v-if="downloadSpaceService.needsPermission.value" />
     <FeedbackModal v-if="isFeedbackOpen" @close="closeFeedback" />
 
-    <!-- FullPlayer -->
     <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 translate-y-4"
       enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-200 ease-in"
       leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-4">
       <FullPlayer v-if="isFullPlayerOpen" :title="pageTitle" @close="closeFullPlayer" />
     </Transition>
 
-    <!-- Шторка -->
     <AppDrawer :open="isDrawerOpen" @close="closeDrawer" @open-feedback="openFeedback" />
   </div>
 </template>

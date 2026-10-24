@@ -1,13 +1,12 @@
 // src/plugins/demo/extension.ts
 import type { PluginExtension } from '../types'
-import IconSettings from '@/components/icons/IconSettings.vue'
 
 export default {
   menuItems: [
     {
       id: 'demo-page',
       label: 'Демо-страница',
-      icon: IconSettings, // Используем любую существующую иконку
+      icon: 'settings', // или любая другая из реестра ICONS
       routeName: 'demo',
     },
   ],

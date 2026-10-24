@@ -9,11 +9,7 @@ import { createPluginContext } from '@/plugins/context'
 import { toastService } from '@/services/ui/ToastService'
 import { pluralize } from '@/utils/pluralize'
 import ListRow from '@/components/ui/ListRow.vue'
-import IconFolder from '@/components/icons/IconFolder.vue'
-import IconPlay from '@/components/icons/IconPlay.vue'
-import IconPause from '@/components/icons/IconPause.vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
-import IconChevronRight from '@/components/icons/IconChevronRight.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { Folder, LibraryTrack } from '@/types/library'
 import type { Track } from '@/types/track'
 
@@ -178,23 +174,23 @@ const getFolderButtonClass = (folder: Folder) => {
       @click="onRowClick(folder)">
       <template #leading>
         <div class="flex shrink-0 items-center gap-2">
-          <button type="button" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
-            :class="getFolderButtonClass(folder)"
-            :disabled="isScanning(folder) || isEmpty(folder) || folder.totalTrackCount === 0"
-            :aria-label="getPlayLabel(folder)" v-tooltip="getPlayLabel(folder)"
-            @click="toggleFolderPlayback(folder, $event)">
-            <IconSpinner v-if="isScanning(folder)" class="h-5 w-5 animate-spin" />
-            <IconPause v-else-if="folderPlayState(folder) === 'playing'" class="h-5 w-5" />
-            <IconPlay v-else class="h-5 w-5 translate-x-[1px]" />
-          </button>
+          <!-- Кнопка Play/Pause -->
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
+            :class="getFolderButtonClass(folder)" :aria-label="getPlayLabel(folder)" v-tooltip="getPlayLabel(folder)"
+            @click.stop="toggleFolderPlayback(folder, $event)">
+            <Icon v-if="isScanning(folder)" name="spinner" w="w-5" h="h-5" class="animate-spin" />
+            <Icon v-else-if="folderPlayState(folder) === 'playing'" name="pause" w="w-5" h="h-5" />
+            <Icon v-else name="play" w="w-5" h="h-5" class="translate-x-[1px]" />
+          </div>
 
+          <!-- Иконка папки -->
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
             ? 'bg-card-bg text-fg-muted'
             : folderPlayState(folder) !== 'idle'
               ? 'bg-active/15 text-active'
               : 'bg-card-bg text-fg-muted'
             ">
-            <IconFolder class="h-5 w-5" />
+            <Icon name="folder" w="w-5" h="h-5" />
           </div>
         </div>
       </template>
@@ -215,16 +211,16 @@ const getFolderButtonClass = (folder: Folder) => {
       </template>
 
       <template #trailing>
-        <button type="button" class="shrink-0 rounded-md p-1 transition" :class="[
+        <div class="shrink-0" :class="[
           isScanning(folder) || isEmpty(folder)
             ? 'text-fg-disabled cursor-default'
             : folderPlayState(folder) !== 'idle'
               ? 'text-active/60 hover:bg-active/20 hover:text-active'
               : 'text-fg-subtle hover:bg-hover-bg hover:text-fg-muted',
-        ]" :disabled="isScanning(folder) || isEmpty(folder)" :aria-label="`Открыть папку ${folder.name}`"
-          v-tooltip="`Открыть папку ${folder.name}`" @click="onArrowClick(folder, $event)">
-          <IconChevronRight class="h-4 w-4" />
-        </button>
+        ]" :aria-label="`Открыть папку ${folder.name}`" v-tooltip="`Открыть папку ${folder.name}`"
+          @click.stop="onArrowClick(folder, $event)">
+          <Icon name="chevron-right" w="w-4" h="h-4" />
+        </div>
       </template>
     </ListRow>
   </div>

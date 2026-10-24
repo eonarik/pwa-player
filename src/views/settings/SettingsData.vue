@@ -1,6 +1,6 @@
 <!-- src/views/settings/SettingsData.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useHistoryStore } from '@/stores/history'
 import { useDislikesStore } from '@/stores/dislikes'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
@@ -10,6 +10,9 @@ import { toastService } from '@/services/ui/ToastService'
 import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService'
 import { downloadTextFile } from '@/utils/downloadFile'
 import SectionTitle from '@/components/ui/SectionTitle.vue'
+import Checkbox from '@/components/ui/Checkbox.vue'
+import Button from '@/components/ui/Button.vue'
+import SettingsActionRow from '@/components/ui/SettingsActionRow.vue'
 
 const history = useHistoryStore()
 const dislikes = useDislikesStore()
@@ -18,8 +21,18 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const isExporting = ref(false)
 const isImporting = ref(false)
 
-// Общий выбор доменов для экспорта и импорта
-const selectedDomains = ref<BackupDomain[]>(['media', 'sources', 'settings'])
+// Чекбоксы для доменов
+const checkMedia = ref(true)
+const checkSources = ref(true)
+const checkSettings = ref(true)
+
+const selectedDomains = computed<BackupDomain[]>(() => {
+  const list: BackupDomain[] = []
+  if (checkMedia.value) list.push('media')
+  if (checkSources.value) list.push('sources')
+  if (checkSettings.value) list.push('settings')
+  return list
+})
 
 // --- Очистка --------------------------------------------------------
 
@@ -111,38 +124,25 @@ async function onFileSelected(e: Event): Promise<void> {
         <div class="flex flex-col gap-3 bg-card-bg px-4 py-3">
           <div class="min-w-0">
             <p class="text-sm text-fg">Разделы</p>
-            <p class="text-xs text-fg-muted">
-              Будут включены в бэкап или перезаписаны при импорте
-            </p>
+            <p class="text-xs text-fg-muted">Будут включены в бэкап или перезаписаны при импорте</p>
           </div>
 
-          <div class="flex flex-col gap-2">
-            <label class="flex cursor-pointer items-center gap-2 text-sm text-fg">
-              <input v-model="selectedDomains" type="checkbox" value="media" class="h-4 w-4 accent-active" />
-              Медиа (плейлисты, история, дизлайки)
-            </label>
-            <label class="flex cursor-pointer items-center gap-2 text-sm text-fg">
-              <input v-model="selectedDomains" type="checkbox" value="sources" class="h-4 w-4 accent-active" />
-              Источники (радио, подкасты)
-            </label>
-            <label class="flex cursor-pointer items-center gap-2 text-sm text-fg">
-              <input v-model="selectedDomains" type="checkbox" value="settings" class="h-4 w-4 accent-active" />
-              Настройки и плагины
-            </label>
+          <div class="flex flex-col gap-1">
+            <Checkbox v-model="checkMedia" label="Медиа (плейлисты, история, дизлайки)" />
+            <Checkbox v-model="checkSources" label="Источники (радио, подкасты)" />
+            <Checkbox v-model="checkSettings" label="Настройки и плагины" />
           </div>
 
           <div class="mt-2 flex flex-col gap-2 sm:flex-row">
-            <button type="button"
-              class="flex-1 rounded-btn bg-card-bg px-4 py-2 text-sm text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="isExporting || selectedDomains.length === 0" @click="exportBackup">
+            <Button variant="secondary" class="flex-1" :disabled="isExporting || selectedDomains.length === 0"
+              @click="exportBackup">
               {{ isExporting ? 'Скачивание…' : 'Скачать бэкап' }}
-            </button>
+            </Button>
 
-            <button type="button"
-              class="flex-1 rounded-btn bg-card-bg px-4 py-2 text-sm text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="isImporting || selectedDomains.length === 0" @click="triggerImport">
+            <Button variant="primary" class="flex-1" :disabled="isImporting || selectedDomains.length === 0"
+              @click="triggerImport">
               {{ isImporting ? 'Импорт…' : 'Импортировать бэкап' }}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -153,45 +153,18 @@ async function onFileSelected(e: Event): Promise<void> {
     <section>
       <SectionTitle text="Очистка" />
       <div class="flex flex-col gap-2">
-        <button type="button"
-          class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
-          @click="clearHistory">
-          <div class="min-w-0">
-            <p class="text-sm text-fg">Очистить историю</p>
-            <p class="text-xs text-fg-muted">Удалить все записи о воспроизведении</p>
-          </div>
-        </button>
-        <button type="button"
-          class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
-          @click="clearDislikes">
-          <div class="min-w-0">
-            <p class="text-sm text-fg">Очистить дизлайки</p>
-            <p class="text-xs text-fg-muted">Удалить все скрытые треки</p>
-          </div>
-        </button>
-        <button type="button"
-          class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 text-left transition hover:bg-hover-bg"
-          @click="clearMetadataCache">
-          <div class="min-w-0">
-            <p class="text-sm text-fg">Очистить кэш метаданных</p>
-            <p class="text-xs text-fg-muted">Найденные обложки и метаданные будут забыты</p>
-          </div>
-        </button>
+        <SettingsActionRow title="Очистить историю" description="Удалить все записи о воспроизведении"
+          @click="clearHistory" />
+        <SettingsActionRow title="Очистить дизлайки" description="Удалить все скрытые треки" @click="clearDislikes" />
+        <SettingsActionRow title="Очистить кэш метаданных" description="Найденные обложки и метаданные будут забыты"
+          @click="clearMetadataCache" />
       </div>
     </section>
 
     <section>
       <SectionTitle text="Опасная зона" />
-      <button type="button"
-        class="flex w-full items-center justify-between gap-4 bg-red-500/10 px-4 py-3 text-left transition hover:bg-red-500/15"
-        @click="resetAll">
-        <div class="min-w-0">
-          <p class="text-sm text-red-400">Сбросить все данные</p>
-          <p class="text-xs text-red-400/70">
-            Библиотека, плейлисты, история, настройки. Необратимо.
-          </p>
-        </div>
-      </button>
+      <SettingsActionRow variant="danger" title="Сбросить все данные"
+        description="Библиотека, плейлисты, история, настройки. Необратимо." @click="resetAll" />
     </section>
   </div>
 </template>

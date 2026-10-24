@@ -1,15 +1,15 @@
 <!-- src/components/library/FolderSyncMenu.vue -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed } from 'vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconRefresh from '@/components/icons/IconRefresh.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 
 const props = defineProps<{
   canRefresh: boolean
   canRefreshFromDevice: boolean
   isRefreshing: boolean
   isRefreshingFromDevice: boolean
-  needsAttention?: boolean // <-- Добавлено
+  needsAttention?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -34,20 +34,20 @@ const label = computed(() => props.isRefreshing
     : 'Синхронизация'
 )
 
+const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDevice)
 </script>
 
 <template>
   <DropdownMenu :width="256">
     <template #trigger="{ toggle, setTriggerRef }">
-      <button :ref="setTriggerRef" type="button"
-        class="relative flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
-        :class="needsAttention ? 'text-red-400' : ''" :disabled="isRefreshing || isRefreshingFromDevice"
-        v-tooltip="label" :aria-label="label" @click.stop="toggle">
-        <IconRefresh class="h-4 w-4" :class="isRefreshing || isRefreshingFromDevice ? 'animate-spin' : ''" />
+      <div class="relative" :ref="setTriggerRef">
+        <IconButton icon="refresh" :label="label" :disabled="isSpinning"
+          :variant="needsAttention ? 'danger' : 'default'" :icon-class="isSpinning ? 'animate-spin' : ''"
+          @click="toggle" />
 
-        <!-- Красная точка при ошибке -->
-        <span v-if="needsAttention" class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-      </button>
+        <span v-if="needsAttention"
+          class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+      </div>
     </template>
 
     <template #default="{ close }">

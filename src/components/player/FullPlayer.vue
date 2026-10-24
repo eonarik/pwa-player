@@ -11,16 +11,8 @@ import PlayerProgressBar from './PlayerProgressBar.vue'
 import CoverImage from '@/components/ui/CoverImage.vue'
 import DislikeButton from '@/components/ui/DislikeButton.vue'
 import FavoriteButton from '@/components/ui/FavoriteButton.vue'
-import IconPlay from '@/components/icons/IconPlay.vue'
-import IconPause from '@/components/icons/IconPause.vue'
-import IconNext from '@/components/icons/IconNext.vue'
-import IconPrev from '@/components/icons/IconPrev.vue'
-import IconShuffle from '@/components/icons/IconShuffle.vue'
-import IconRepeat from '@/components/icons/IconRepeat.vue'
-import IconVolume from '@/components/icons/IconVolume.vue'
-import IconVolumeMute from '@/components/icons/IconVolumeMute.vue'
-import IconList from '@/components/icons/IconList.vue'
-import IconArrowLeft from '@/components/icons/IconArrowLeft.vue'
+import IconButton from '@/components/ui/IconButton.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 defineProps<{
   title: string
@@ -151,10 +143,7 @@ watch(
       @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
       <!-- Хедер -->
       <header class="app-safe-top flex shrink-0 items-center gap-2 px-3 py-2">
-        <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg" aria-label="Назад"
-          v-tooltip="'Назад'" @click="emit('close')">
-          <IconArrowLeft class="h-6 w-6" />
-        </button>
+        <IconButton icon="arrow-left" variant="ghost" size="lg" label="Назад" @click="emit('close')" />
 
         <h2 class="flex-1 truncate text-center text-base font-medium text-fg">
           {{ title }}
@@ -201,37 +190,18 @@ watch(
 
         <!-- Volume + shuffle + repeat + queue -->
         <div class="flex w-full max-w-sm items-center justify-between pb-8">
-          <button type="button" class="rounded-btn p-2 transition" :class="muted || volume === 0
-            ? 'text-fg hover:bg-hover-bg'
-            : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
-            " :aria-label="muted ? 'Включить звук' : 'Выключить звук'"
-            v-tooltip="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()">
-            <IconVolumeMute v-if="muted || volume === 0" class="h-6 w-6" />
-            <IconVolume v-else class="h-6 w-6" />
-          </button>
+          <IconButton :icon="muted || volume === 0 ? 'volume-mute' : 'volume'" variant="ghost"
+            :label="muted ? 'Включить звук' : 'Выключить звук'" @click="player.toggleMute()" />
 
           <div class="flex items-center gap-4">
-            <button v-if="!isLive && !isLinear" type="button" class="rounded-btn p-2 transition"
-              :class="shuffle ? 'text-active' : 'text-fg-muted hover:text-fg'" :aria-pressed="shuffle"
-              aria-label="Перемешать" v-tooltip="'Перемешать'" @click="player.toggleShuffle()">
-              <IconShuffle class="h-6 w-6" />
-            </button>
+            <IconButton v-if="!isLive && !isLinear" icon="shuffle" variant="ghost"
+              :label="shuffle ? 'Не перемешивать' : 'Перемешать'" :class="shuffle ? 'text-active' : ''"
+              @click="player.toggleShuffle()" />
 
-            <button v-if="!isLive && !isLinear" type="button" class="relative rounded-btn p-2 transition"
-              :class="repeatMode !== 'off' ? 'text-active' : 'text-fg-muted hover:text-fg'"
-              :aria-pressed="repeatMode !== 'off'" :aria-label="`Повтор: ${repeatMode}`"
-              v-tooltip="`Повтор: ${repeatMode}`" @click="player.cycleRepeat()">
-              <IconRepeat class="h-6 w-6" />
-              <span v-if="repeatMode === 'one'"
-                class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] font-bold">
-                1
-              </span>
-            </button>
+            <IconButton v-if="!isLive && !isLinear" icon="repeat" variant="ghost" :label="`Повтор: ${repeatMode}`"
+              :class="repeatMode !== 'off' ? 'text-active' : ''" @click="player.cycleRepeat()" />
 
-            <RouterLink :to="{ name: 'queue' }" class="rounded-btn p-2 text-fg-muted transition hover:text-fg"
-              aria-label="Очередь" v-tooltip="'Очередь'" @click="emit('close')">
-              <IconList class="h-6 w-6" />
-            </RouterLink>
+            <IconButton icon="list" variant="ghost" :to="{ name: 'queue' }" label="Очередь" @click="emit('close')" />
           </div>
         </div>
 
@@ -249,22 +219,17 @@ watch(
 
         <!-- Транспорт -->
         <div class="flex w-full max-w-sm items-center justify-center gap-6">
-          <button v-if="!isLive" type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
-            aria-label="Предыдущий трек" v-tooltip="'Предыдущий трек'" @click="player.prev()">
-            <IconPrev class="h-8 w-8" />
-          </button>
+          <IconButton v-if="!isLive" icon="prev" variant="ghost" size="lg" label="Предыдущий трек"
+            @click="player.prev()" />
 
           <button type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
             :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
             @click="player.toggle()">
-            <IconPause v-if="isPlaying" class="h-8 w-8" />
-            <IconPlay v-else class="h-8 w-8 translate-x-[1px]" />
+            <Icon :name="isPlaying ? 'pause' : 'play'" w="w-8" h="h-8" :class="isPlaying ? '' : 'translate-x-[1px]'" />
           </button>
 
-          <button v-if="!isLive" type="button" class="rounded-btn p-2 text-fg transition hover:bg-hover-bg"
-            aria-label="Следующий трек" v-tooltip="'Следующий трек'" @click="player.next()">
-            <IconNext class="h-8 w-8" />
-          </button>
+          <IconButton v-if="!isLive" icon="next" variant="ghost" size="lg" label="Следующий трек"
+            @click="player.next()" />
         </div>
       </div>
     </div>

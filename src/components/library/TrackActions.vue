@@ -10,20 +10,17 @@ import { metadataApplier } from '@/services/metadata/MetadataApplier'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { toastService } from '@/services/ui/ToastService'
 import { modalService } from '@/services/ui/ModalService'
-import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
-import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconDots from '@/components/icons/IconDots.vue'
-import type { Track } from '@/types/track'
-import type { LibraryTrack } from '@/types/library'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { pluginCanDownload, isLiveStream, isLinearContent } from '@/plugins/registry'
 import { isLocalTrack } from '@/services/library/selectors'
-import IconDownload from '../icons/IconDownload.vue'
-import IconCloudCheck from '../icons/IconCloudCheck.vue'
-import IconX from '../icons/IconX.vue'
+import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
+import DropdownMenu from '@/components/ui/DropdownMenu.vue'
+import IconButton from '@/components/ui/IconButton.vue'
+import Icon from '@/components/ui/Icon.vue'
 import TrackMetadataModal from './TrackMetadataModal.vue'
-import { usePlayerStore } from '@/stores/player'
+import type { Track } from '@/types/track'
+import type { LibraryTrack } from '@/types/library'
 
 const props = defineProps<{
   track: Track
@@ -57,6 +54,8 @@ const hasMetadataEntry = computed(() => {
   const entry = metadataPersistenceService.get(props.track.id)
   return entry !== undefined && entry.artist !== null
 })
+
+// --- Плейлисты --------------------------------------------------------
 
 function closeMenu(close: () => void): void {
   isSubmenuOpen.value = false
@@ -137,13 +136,6 @@ async function removeMetadata(close: () => void): Promise<void> {
   }
 
   await metadataPersistenceService.resetForTracks([props.track.id])
-
-  try {
-    const player = usePlayerStore()
-    player.updateTrackInQueue(props.track.id)
-  } catch {
-    // player может быть не инициализирован
-  }
 
   toastService.success('Метаданные удалены')
   closeMenu(close)
@@ -289,11 +281,9 @@ async function onDownload(close: () => void) {
 
     <DropdownMenu :width="256">
       <template #trigger="{ toggle, setTriggerRef }">
-        <button :ref="setTriggerRef" type="button"
-          class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg" aria-label="Действия"
-          v-tooltip="'Действия'" @click.stop="toggle">
-          <IconDots class="h-4 w-4" />
-        </button>
+        <div :ref="setTriggerRef">
+          <IconButton icon="dots" label="Действия" @click="toggle" />
+        </div>
       </template>
 
       <template #default="{ close }">
@@ -302,7 +292,7 @@ async function onDownload(close: () => void) {
             class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
             @click="toggleSubmenu">
             <span>Добавить в плейлист</span>
-            <span class="text-fg-muted">{{ isSubmenuOpen ? '▾' : '▸' }}</span>
+            <Icon :name="isSubmenuOpen ? 'chevron-down' : 'chevron-right'" w="w-3.5" h="h-3.5" class="text-fg-muted" />
           </button>
 
           <div v-if="isSubmenuOpen">
@@ -382,9 +372,9 @@ async function onDownload(close: () => void) {
             ? 'text-fg hover:bg-hover-bg'
             : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
             " @click="onDownload(close)">
-          <IconDownload v-if="libraryTrack && !isLocalTrack(libraryTrack) && !isDownloading" class="h-4 w-4 shrink-0" />
-          <IconCloudCheck v-else-if="libraryTrack && isLocalTrack(libraryTrack)" class="h-4 w-4 shrink-0" />
-          <IconX v-else-if="isDownloading" class="h-4 w-4 shrink-0" />
+          <Icon v-if="libraryTrack && !isLocalTrack(libraryTrack) && !isDownloading" name="download" w="w-4" h="h-4" />
+          <Icon v-else-if="libraryTrack && isLocalTrack(libraryTrack)" name="cloud-check" w="w-4" h="h-4" />
+          <Icon v-else-if="isDownloading" name="x" w="w-4" h="h-4" />
           <span class="truncate">{{ downloadLabel }}</span>
         </button>
       </template>

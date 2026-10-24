@@ -5,11 +5,12 @@ import type { RouteRecordRaw } from 'vue-router'
 import type { PluginSettingsSchema } from './settingsTypes'
 import type { CollectedLibrary, FileLocation, Folder, LibraryTrack } from '@/types/library'
 import type { Track } from '@/types/track'
+import type { IconName } from '@/components/icons'
 
 export interface PluginMenuItem {
   id: string
   label: string
-  icon: Component | string
+  icon: IconName
   routeName: string
 }
 

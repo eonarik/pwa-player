@@ -9,7 +9,12 @@ import { toastService } from '@/services/ui/ToastService'
 import { pluralize } from '@/utils/pluralize'
 import QueueTrackRow from '@/components/queue/QueueTrackRow.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue' // <-- Добавлено
+import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import Button from '@/components/ui/Button.vue'
+import ListContainer from '@/components/ui/ListContainer.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 const player = usePlayerStore()
 const playlists = usePlaylistsStore()
@@ -65,64 +70,51 @@ function saveAllToPlaylist(playlistId: string | null, close: () => void): void {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка -->
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
-      <div class="min-w-0">
-        <h1 class="text-lg font-medium text-fg">Очередь</h1>
-        <p class="text-xs text-fg-muted">
-          <template v-if="hasQueue">
-            {{ pluralize(queue.length, ['трек', 'трека', 'треков']) }}
-            <template v-if="currentTrack"> · играет {{ currentIndex + 1 }}-й</template>
-          </template>
-          <template v-else>пусто</template>
-        </p>
-      </div>
+    <PageHeader title="Очередь" :subtitle="hasQueue
+      ? `${pluralize(queue.length, ['трек', 'трека', 'треков'])}${currentTrack ? ` · играет ${currentIndex + 1}-й` : ''}`
+      : 'пусто'
+      ">
+      <FolderSettingsMenu />
 
-      <div class="flex shrink-0 items-center gap-2">
-        <FolderSettingsMenu /> <!-- <-- Добавлено -->
+      <DropdownMenu v-if="hasQueue" :width="256" align="right">
+        <template #trigger="{ toggle, setTriggerRef }">
+          <div :ref="setTriggerRef" @click.stop="toggle">
+            <Button variant="secondary" size="sm">В плейлист</Button>
+          </div>
+        </template>
+        <template #default="{ close }">
+          <button v-for="p in userPlaylists" :key="p.id" type="button"
+            class="block w-full truncate px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+            @click="saveAllToPlaylist(p.id, close)">
+            {{ p.name }}
+          </button>
+          <button type="button"
+            class="block w-full px-4 py-2.5 text-left text-sm text-active transition hover:bg-hover-bg"
+            @click="saveAllToPlaylist(null, close)">
+            + Создать новый
+          </button>
+        </template>
+      </DropdownMenu>
 
-        <DropdownMenu v-if="hasQueue" :width="256" align="right">
-          <template #trigger="{ toggle, setTriggerRef }">
-            <button :ref="setTriggerRef" type="button"
-              class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-              @click.stop="toggle">
-              В плейлист
-            </button>
-          </template>
-          <template #default="{ close }">
-            <button v-for="p in userPlaylists" :key="p.id" type="button"
-              class="block w-full truncate px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-              @click="saveAllToPlaylist(p.id, close)">
-              {{ p.name }}
-            </button>
-            <button type="button"
-              class="block w-full px-4 py-2.5 text-left text-sm text-active transition hover:bg-hover-bg"
-              @click="saveAllToPlaylist(null, close)">
-              + Создать новый
-            </button>
-          </template>
-        </DropdownMenu>
+      <Button v-if="hasQueue" variant="danger" size="sm" @click="clearQueue">
+        Очистить
+      </Button>
+    </PageHeader>
 
-        <button v-if="hasQueue" type="button"
-          class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-red-500/10 hover:text-red-400"
-          @click="clearQueue">
-          Очистить
-        </button>
-      </div>
+    <div v-if="!hasQueue" class="flex flex-1">
+      <EmptyState title="Очередь пуста" description="Запустите трек или папку — они появятся здесь">
+        <template #icon>
+          <Icon name="list" w="w-10" h="h-10" />
+        </template>
+      </EmptyState>
     </div>
 
-    <!-- Пусто -->
-    <div v-if="!hasQueue" class="flex flex-1 items-center justify-center text-sm text-fg-muted">
-      Очередь пуста. Запустите трек или папку — они появятся здесь.
-    </div>
-
-    <!-- Список -->
     <div v-else class="flex-1 overflow-y-auto">
-      <div class="mx-auto flex w-full max-w-3xl flex-col gap-0.5 p-2">
+      <ListContainer>
         <QueueTrackRow v-for="(track, index) in queue" :key="`${track.id}-${index}`" :track="track" :index="index"
           :is-current="index === currentIndex" :is-playing="isPlaying" @select="playAt(index)"
           @remove="removeAt(index)" />
-      </div>
+      </ListContainer>
     </div>
   </div>
 </template>

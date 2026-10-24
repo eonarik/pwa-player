@@ -114,16 +114,11 @@
 }
 
 /* --- 8. Объемные иконки (гравюра) --- */
-[data-theme='radio'] svg {
-  /* Заливаем латунным градиентом */
-  fill: url(#brass-gradient);
+[data-theme='radio'] .icon {
   stroke: url(#brass-gradient);
-
-  /* Двойная тень: светлая сверху (блик), темная снизу (тень) */
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2))
           drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.8))
           drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-
   opacity: 1;
 }
 

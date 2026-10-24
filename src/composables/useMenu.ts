@@ -1,5 +1,4 @@
 // src/composables/useMenu.ts
-
 import { onMounted, onUnmounted, ref, watch, type ComponentPublicInstance, type Ref } from 'vue'
 
 interface MenuPosition {
@@ -8,11 +7,8 @@ interface MenuPosition {
 }
 
 interface UseMenuOptions {
-  /** Ширина dropdown в px — для выравнивания по правому краю */
   width?: number
-  /** Отступ от кнопки вниз, px */
   offset?: number
-  /** Выравнивание: right — по правому краю кнопки, left — по левому */
   align?: 'right' | 'left'
 }
 
@@ -27,14 +23,10 @@ interface UseMenuReturn {
 }
 
 const EDGE_MARGIN = 8
-
-// Глобальное состояние: id текущего открытого меню
 const activeMenuId = ref<string | null>(null)
 
 export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
   const { width = 256, offset = 4, align = 'right' } = options
-
-  // Уникальный id для этого экземпляра меню
   const menuId = `menu-${Math.random().toString(36).slice(2, 9)}`
 
   const isOpen = ref(false)
@@ -42,7 +34,19 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
   const position = ref<MenuPosition>({ top: 0, left: 0 })
 
   function setTriggerRef(el: Element | ComponentPublicInstance | null): void {
-    triggerRef.value = el as HTMLElement | null
+    if (!el) {
+      triggerRef.value = null
+      return
+    }
+
+    // Если это Vue-компонент, достаём его корневой DOM-элемент
+    if (el instanceof HTMLElement) {
+      triggerRef.value = el
+    } else if ('$el' in el && el.$el instanceof HTMLElement) {
+      triggerRef.value = el.$el
+    } else {
+      triggerRef.value = null
+    }
   }
 
   function computePosition(): void {
@@ -50,9 +54,7 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     if (!el) return
 
     const rect = el.getBoundingClientRect()
-
     let left = align === 'right' ? rect.right - width : rect.left
-
     const maxLeft = window.innerWidth - width - EDGE_MARGIN
     left = Math.max(EDGE_MARGIN, Math.min(left, maxLeft))
 
@@ -80,7 +82,6 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     else open()
   }
 
-  // Следим за глобальным состоянием: если открыли другое меню — закрываем это
   watch(activeMenuId, (id) => {
     if (id !== menuId && isOpen.value) {
       isOpen.value = false
@@ -89,7 +90,6 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
 
   function onDocClick(e: MouseEvent): void {
     if (!isOpen.value) return
-
     const target = e.target as Node
     if (triggerRef.value && triggerRef.value.contains(target)) return
     close()

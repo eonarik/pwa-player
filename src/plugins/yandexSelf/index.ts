@@ -40,36 +40,14 @@ basePlugin.handleStreamError = async (
 ): Promise<boolean> => {
   if (!error.src.includes('/api/yandex-self/download')) return false
 
+  // TODO: Автоматическое обновление токена при 401 от <audio>.
+  // <audio> не отдаёт HTTP-статус, поэтому мы не можем отличить 401 от 500.
+  // Временно: не рефрешим токен здесь, просто показываем ошибку.
+  // При ACCESS_TTL = 30 дней сессия живёт долго.
+  // Когда починим (нужен HEAD-запрос или MediaSource), вернуть refresh.
+
   const { toastService } = await import('@/services/ui/ToastService')
-  const { usePlayerStore } = await import('@/stores/player')
-
-  const ok = await yandexSelfService.refresh()
-
-  if (ok) {
-    const player = usePlayerStore()
-    if (player.currentTrack?.id === track.id) {
-      const newUrl = yandexSelfService.buildDownloadUrl(track.remotePath || '')
-      player.queue[player.currentIndex] = { ...track, source: newUrl }
-      void player.playAt(player.currentIndex)
-    }
-    return true
-  }
-
-  // refresh не удался. Различаем: сеть vs истёкшая сессия.
-  if (yandexSelfService.hasRefreshToken()) {
-    // Refresh-токен есть, но /refresh упал — скорее всего сеть.
-    toastService.error('Не удалось обновить сессию. Проверьте соединение.')
-    return true
-  }
-
-  // Refresh-токена нет (или сервер отклонил) — нужен повторный вход.
-  toastService.showPersistent('Сессия истекла. Требуется повторный вход.', 'info', {
-    label: 'Войти',
-    onAction: () => {
-      yandexSelfService.logout()
-      window.location.href = '/'
-    },
-  })
+  toastService.error('Не удалось воспроизвести трек (сессия истекла или файл недоступен)')
 
   return true
 }

@@ -6,8 +6,7 @@ import { type SavedStation } from './index'
 import RadioFilters, { type RadioCountryEntry } from './RadioFilters.vue'
 import CatalogLayout from '@/components/catalog/CatalogLayout.vue'
 import AddRemoveButton from '@/components/ui/AddRemoveButton.vue'
-import IconRadio from '@/components/icons/IconRadio.vue'
-import IconPlay from '@/components/icons/IconPlay.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 const props = defineProps<{
   savedStationIds: Set<string>
@@ -193,7 +192,7 @@ function clearSearch(): void {
           <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-card-bg">
             <img v-if="station.favicon" :src="station.favicon" class="h-full w-full object-cover"
               @error="($event.target as HTMLImageElement).style.display = 'none'" />
-            <IconRadio v-else class="h-5 w-5 text-fg-muted" />
+            <Icon v-else name="radio" w="w-5" h="h-5" class="text-fg-muted" />
           </div>
           <div class="min-w-0">
             <span class="text-sm text-fg truncate block">{{ station.name }}</span>
@@ -214,7 +213,7 @@ function clearSearch(): void {
             :class="isCurrent(station.id) ? 'text-active hover:bg-hover-bg' : 'text-fg-subtle hover:bg-hover-bg hover:text-fg'"
             :aria-label="isCurrent(station.id) ? 'Пауза' : 'Играть'"
             v-tooltip="isCurrent(station.id) ? 'Пауза' : 'Играть'" @click="onPlayClick(station)">
-            <IconPlay class="h-4 w-4" />
+            <Icon name="play" w="w-4" h="h-4" />
           </button>
           <AddRemoveButton :added="isSaved(station.id)" @add="onAddClick(station)" @remove="onRemoveClick(station)" />
         </div>

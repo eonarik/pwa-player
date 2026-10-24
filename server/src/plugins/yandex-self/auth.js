@@ -4,8 +4,10 @@ import { getSelfConfig } from './config.js'
 
 const SECRET = process.env.SESSION_SECRET || 'yandex-self-secret'
 
-// Время жизни access-токена: 15 минут (для нормальной работы)
-const ACCESS_TTL = 15 * 60 * 1000
+// TODO: Вернуть ACCESS_TTL на 15 минут и починить рефреш токенов на фронте
+// (сейчас handleStreamError не обновляет токен при 401 от <audio>).
+// Временно: 30 суток, чтобы сессия жила долго без рефреша.
+const ACCESS_TTL = 30 * 24 * 60 * 60 * 1000 // 30 дней
 // Время жизни refresh-токена: 30 дней
 const REFRESH_TTL = 30 * 24 * 60 * 60 * 1000
 
@@ -50,7 +52,6 @@ export async function login(ctx, password) {
   const allowedFolders = targetConfig.folders === undefined ? null : targetConfig.folders
   const userId = ctx || 'common'
 
-  // Генерируем пару токенов
   const accessToken = signToken({ ctx: userId, allowedFolders, exp: Date.now() + ACCESS_TTL })
   const refreshToken = signToken({
     ctx: userId,
@@ -74,7 +75,6 @@ export async function refresh(refreshToken) {
   if (!payload || payload.type !== 'refresh') throw new Error('Invalid refresh token')
   if (payload.exp < Date.now()) throw new Error('Refresh token expired')
 
-  // Выдаем новый access-токен (refresh-токен не трогаем, он долгоживущий)
   const accessToken = signToken({
     ctx: payload.ctx,
     allowedFolders: payload.allowedFolders,

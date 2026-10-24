@@ -11,9 +11,12 @@ import { pluralize } from '@/utils/pluralize'
 import { toastService } from '@/services/ui/ToastService'
 import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser'
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import Button from '@/components/ui/Button.vue'
+import Input from '@/components/ui/Input.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import Icon from '@/components/ui/Icon.vue'
 import IconHeart from '@/components/icons/IconHeart.vue'
-import IconPlaylist from '@/components/icons/IconPlaylist.vue'
-import IconTrash from '@/components/icons/IconTrash.vue'
 import type { Playlist, PlaylistExportTrack } from '@/types/playlist'
 
 const router = useRouter()
@@ -180,64 +183,44 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка -->
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
-      <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <h1 class="text-lg font-medium text-fg">Плейлисты</h1>
-
-        <div class="flex items-center gap-2">
-          <button v-if="!isCreating" type="button"
-            class="rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg"
-            @click="triggerImport">
-            Импортировать
-          </button>
-
-          <button v-if="!isCreating" type="button"
-            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="startCreate">
-            Создать плейлист
-          </button>
-        </div>
-
-        <input ref="fileInputRef" type="file" accept=".m3u,.json" class="hidden" @change="onFileSelected" />
-      </div>
-    </div>
+    <PageHeader title="Плейлисты">
+      <Button v-if="!isCreating" variant="secondary" size="sm" @click="triggerImport">
+        Импортировать
+      </Button>
+      <Button v-if="!isCreating" variant="primary" size="sm" @click="startCreate">
+        Создать плейлист
+      </Button>
+      <input ref="fileInputRef" type="file" accept=".m3u,.json" class="hidden" @change="onFileSelected" />
+    </PageHeader>
 
     <!-- Форма создания -->
     <div v-if="isCreating" class="shrink-0 px-4 py-3">
       <div class="mx-auto w-full max-w-3xl">
         <form class="flex items-center gap-2" @submit.prevent="confirmCreate">
-          <input v-model="newName" type="text" placeholder="Название плейлиста" autofocus
-            class="flex-1 rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none" />
-          <button type="submit"
-            class="rounded-btn bg-accent px-3 py-2 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-            :disabled="!newName.trim()">
-            Создать
-          </button>
-          <button type="button" class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg"
-            @click="cancelCreate">
-            Отмена
-          </button>
+          <Input v-model="newName" placeholder="Название плейлиста" autofocus class="flex-1" />
+          <Button type="submit" variant="primary" size="sm" :disabled="!newName.trim()">Создать</Button>
+          <Button variant="secondary" size="sm" @click="cancelCreate">Отмена</Button>
         </form>
       </div>
     </div>
 
     <!-- Список -->
     <div class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-3xl">
-        <div v-if="sortedPlaylists.length === 0"
-          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-          Плейлистов пока нет
-        </div>
+      <div class="mx-auto w-full max-w-3xl p-2">
+        <EmptyState v-if="sortedPlaylists.length === 0" title="Плейлистов пока нет">
+          <template #icon>
+            <Icon name="playlist" w="w-10" h="h-10" />
+          </template>
+        </EmptyState>
 
-        <div v-else class="flex flex-col gap-0.5 -mx-2.5">
+        <ListContainer v-else max-width="lg">
           <button v-for="playlist in sortedPlaylists" :key="playlist.id" type="button"
             class="group flex items-center gap-3 px-3 py-2 text-left text-fg transition hover:bg-hover-bg"
             @click="openPlaylist(playlist)">
             <!-- Иконка -->
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg">
-              <IconHeart v-if="playlist.id === FAVORITES_PLAYLIST_ID" :filled="true" class="h-5 w-5 text-active" />
-              <IconPlaylist v-else class="h-5 w-5 text-fg-muted" />
+              <IconHeart v-if="playlist.id === FAVORITES_PLAYLIST_ID" :filled="true" class="icon h-5 w-5 text-active" />
+              <Icon v-else name="playlist" w="w-5" h="h-5" class="text-fg-muted" />
             </div>
 
             <!-- Название и метаданные -->
@@ -252,13 +235,13 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
             </div>
 
             <!-- Удалить -->
-            <button v-if="playlist.id !== FAVORITES_PLAYLIST_ID" type="button"
+            <div v-if="playlist.id !== FAVORITES_PLAYLIST_ID"
               class="rounded-btn p-1.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-red-400 group-hover:opacity-100"
               aria-label="Удалить" @click.stop="deletePlaylist(playlist)">
-              <IconTrash class="h-4 w-4" />
-            </button>
+              <Icon name="trash" w="w-4" h="h-4" />
+            </div>
           </button>
-        </div>
+        </ListContainer>
       </div>
     </div>
   </div>

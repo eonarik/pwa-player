@@ -2,8 +2,8 @@
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
 import { useBatchDownload } from '@/composables/useBatchDownload'
-import IconCheck from '@/components/icons/IconCheck.vue'
-import IconDownload from '@/components/icons/IconDownload.vue'
+import Button from '@/components/ui/Button.vue'
+import Icon from '@/components/ui/Icon.vue'
 import type { LibraryTrack } from '@/types/library'
 
 const props = defineProps<{
@@ -24,6 +24,12 @@ const label = computed(() => {
   return 'Скачать'
 })
 
+const variant = computed(() => {
+  if (isDownloading.value) return 'danger'
+  if (pendingCount.value === 0) return 'secondary'
+  return 'primary'
+})
+
 function onClick() {
   if (isDownloading.value) {
     cancel()
@@ -35,22 +41,10 @@ function onClick() {
 </script>
 
 <template>
-  <button
-    v-if="hasDownloadable"
-    type="button"
-    class="flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-    :class="
-      isDownloading
-        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
-        : pendingCount === 0
-          ? 'bg-card-bg text-fg-muted'
-          : 'bg-card-bg text-fg hover:bg-hover-bg'
-    "
-    :disabled="pendingCount === 0 && !isDownloading"
-    @click="onClick"
-  >
-    <IconCheck v-if="pendingCount === 0 && !isDownloading" class="h-3.5 w-3.5" />
-    <IconDownload v-else class="h-3.5 w-3.5" />
+  <Button v-if="hasDownloadable" :variant="variant" size="sm" :disabled="pendingCount === 0 && !isDownloading"
+    @click="onClick">
+    <Icon v-if="pendingCount === 0 && !isDownloading" name="check" w="w-3.5" h="h-3.5" />
+    <Icon v-else name="download" w="w-3.5" h="h-3.5" />
     {{ label }}
-  </button>
+  </Button>
 </template>

@@ -1,9 +1,7 @@
 <!-- src/components/library/MetadataMenu.vue -->
 <script setup lang="ts">
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconChevronDown from '@/components/icons/IconChevronDown.vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
-import IconAlertTriangle from '@/components/icons/IconAlertTriangle.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 defineProps<{
   isLoading: boolean
@@ -34,15 +32,14 @@ const onOpenIssues = (close: () => void) => {
         @click.stop="toggle">
         <span v-if="isLoading">Поиск данных… {{ progress.done }}/{{ progress.total }}</span>
         <span v-else :class="issuesCount > 0 ? 'text-amber-400' : ''">Метаданные</span>
-        <IconChevronDown class="h-3 w-3 transition" :class="isOpen ? 'rotate-180' : ''" />
+        <Icon name="chevron-down" w="w-3" h="h-3" class="transition" :class="isOpen ? 'rotate-180' : ''" />
       </button>
     </template>
 
     <template #default="{ close }">
-      <!-- Состояние загрузки -->
       <template v-if="isLoading">
         <div class="flex items-center gap-2 px-4 py-2.5 text-xs text-fg-muted">
-          <IconSpinner class="h-3.5 w-3.5 animate-spin" />
+          <Icon name="spinner" w="w-3.5" h="h-3.5" class="animate-spin" />
           Поиск данных… {{ progress.done }}/{{ progress.total }}
         </div>
         <button type="button"
@@ -52,9 +49,7 @@ const onOpenIssues = (close: () => void) => {
         </button>
       </template>
 
-      <!-- Основное меню -->
       <template v-else>
-        <!-- Кнопка "Найти" -->
         <button type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50"
           :disabled="!hasUnchecked" @click="emit('search')">
@@ -62,12 +57,10 @@ const onOpenIssues = (close: () => void) => {
           <span class="block text-[10px] text-fg-muted">Через iTunes и Deezer</span>
         </button>
 
-        <!-- Промежуточная статистика (если что-то нашли) -->
         <div v-if="stats.found > 0" class="px-4 py-2.5 text-xs text-fg-muted border-t border-hover-bg">
           Найдено данных: {{ stats.found }}/{{ stats.total }}
         </div>
 
-        <!-- Кнопка "Очистить" (показываем, если есть хоть какие-то проверенные треки) -->
         <button v-if="stats.checked > 0" type="button"
           class="block w-full px-4 py-1.5 text-left text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg border-t border-hover-bg"
           @click="emit('reset')">
@@ -75,11 +68,10 @@ const onOpenIssues = (close: () => void) => {
         </button>
       </template>
 
-      <!-- Кнопка "Проблемные" -->
       <button v-if="issuesCount > 0" type="button"
         class="flex w-full items-center gap-2 border-t border-hover-bg px-4 py-2.5 text-left text-sm text-amber-400 transition hover:bg-hover-bg"
         @click="onOpenIssues(close)">
-        <IconAlertTriangle class="h-4 w-4 shrink-0" />
+        <Icon name="alert-triangle" w="w-4" h="h-4" />
         <span>Поправить треки ({{ issuesCount }})</span>
       </button>
     </template>

@@ -7,8 +7,11 @@ import { usePlayerStore } from '@/stores/player'
 import { filterTracksByArtist, groupByAlbum } from '@/utils/artists'
 import { pluralize } from '@/utils/pluralize'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import Button from '@/components/ui/Button.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import Icon from '@/components/ui/Icon.vue'
 import IconPlaylist from '@/components/icons/IconPlaylist.vue'
-import IconPlay from '@/components/icons/IconPlay.vue'
 import type { LibraryTrack } from '@/types/library'
 
 const route = useRoute()
@@ -42,49 +45,35 @@ function playAlbum(group: { tracks: LibraryTrack[] }) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка -->
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
-      <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
-        <div class="min-w-0">
-          <h1 class="truncate text-lg font-medium text-fg">{{ artistName }}</h1>
-          <p class="text-xs text-fg-muted">{{ albumsPart }} · {{ tracksPart }}</p>
-        </div>
+    <PageHeader :title="artistName" :subtitle="`${albumsPart} · ${tracksPart}`" max-width="lg">
+      <ShowSourceCheckbox />
 
-        <div class="flex shrink-0 items-center gap-3">
-          <ShowSourceCheckbox />
-
-          <button v-if="tracksCount > 0" type="button"
-            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="playAll">
-            Играть всё
-          </button>
-        </div>
-      </div>
-    </div>
+      <Button v-if="tracksCount > 0" variant="primary" size="sm" @click="playAll">
+        Играть всё
+      </Button>
+    </PageHeader>
 
     <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-5xl">
-        <div v-if="albums.length === 0" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-          У этого артиста нет треков
-        </div>
+        <EmptyState v-if="albums.length === 0" :icon="IconPlaylist" title="У этого артиста нет треков" />
 
         <div v-else
-          class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-5 lg:grid-cols-5 lg:gap-6">
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-5 lg:grid-cols-5 lg:gap-6 p-4">
           <div v-for="group in albums" :key="group.slug" class="group relative">
             <RouterLink :to="{ name: 'album', params: { artistName, album: group.slug } }" class="block">
               <div class="relative aspect-square overflow-hidden bg-card-bg">
                 <img v-if="group.coverUrl" :src="group.coverUrl" :alt="group.name"
                   class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
                 <div v-else class="flex h-full w-full items-center justify-center">
-                  <IconPlaylist class="h-12 w-12 text-fg-subtle" />
+                  <Icon name="playlist" w="w-12" h="h-12" class="text-fg-subtle" />
                 </div>
 
                 <!-- Play — верхний правый угол -->
                 <button type="button"
                   class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
                   :aria-label="`Играть альбом ${group.name}`" @click.prevent.stop="playAlbum(group)">
-                  <IconPlay class="h-5 w-5 translate-x-[1px]" />
+                  <Icon name="play" w="w-5" h="h-5" class="translate-x-[1px]" />
                 </button>
               </div>
             </RouterLink>

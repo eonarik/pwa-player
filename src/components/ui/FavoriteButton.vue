@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlaylistsStore } from '@/stores/playlists'
-import IconHeart from '@/components/icons/IconHeart.vue'
+import IconButton from './IconButton.vue'
 import type { Track } from '@/types/track'
 
 const props = withDefaults(
@@ -20,32 +20,19 @@ const isFavorite = computed(() => {
   return id ? playlists.isFavorite(id) : false
 })
 
-const iconClass = computed(() => {
-  if (props.size === 'sm') return 'h-4 w-4'
-  if (props.size === 'lg') return 'h-6 w-6'
-  return 'h-5 w-5'
-})
-
-const btnClass = computed(() => {
-  if (props.size === 'sm') return 'p-1.5'
-  return 'p-2'
-})
-
 function onClick() {
   const track = props.track
   if (!track) return
   playlists.toggleFavorite(track)
 }
+
+// Для "сердечка" у нас есть два состояния: filled и outline.
+// В реестре иконок у нас только `heart`. Если нужна заливка, можно сделать
+// `heart-filled` в реестре, либо использовать CSS (fill: currentColor для filled).
+const iconName = computed(() => isFavorite.value ? 'heart-filled' : 'heart')
 </script>
 
 <template>
-  <button type="button" class="rounded-btn transition" :class="[
-    btnClass,
-    isFavorite
-      ? 'text-active hover:bg-hover-bg'
-      : 'text-fg-subtle hover:bg-hover-bg hover:text-fg',
-  ]" :aria-label="isFavorite ? 'Убрать из избранного' : 'В избранное'"
-    v-tooltip="isFavorite ? 'Убрать из избранного' : 'В избранное'" @click.stop="onClick">
-    <IconHeart :filled="isFavorite" :class="iconClass" />
-  </button>
+  <IconButton :icon="iconName" variant="ghost" :size="size" :label="isFavorite ? 'Убрать из избранного' : 'В избранное'"
+    :class="isFavorite ? '!text-active' : ''" @click.stop="onClick" />
 </template>

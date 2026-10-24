@@ -1,18 +1,20 @@
 <!-- src/components/ui/CoverImage.vue -->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import IconPlaylist from '@/components/icons/IconPlaylist.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 const props = withDefaults(
   defineProps<{
     src: string | null | undefined
     alt?: string
-    /** Размер иконки fallback (Tailwind-класс). */
     fallbackIconClass?: string
+    /** Если true — используем IconPlaylist, иначе иконку ноты/альбома */
+    variant?: 'album' | 'artist'
   }>(),
   {
     alt: '',
     fallbackIconClass: 'h-5 w-5',
+    variant: 'album',
   },
 )
 
@@ -40,12 +42,14 @@ function onLoad(): void {
 }
 
 defineExpose({ hasError })
+
+const iconName = props.variant === 'artist' ? 'artist' : 'playlist'
 </script>
 
 <template>
   <img v-if="src && !hasError" :src="src" :alt="alt" class="h-full w-full object-cover" loading="lazy" @error="onError"
     @load="onLoad" />
   <div v-else class="flex h-full w-full items-center justify-center">
-    <IconPlaylist class="text-fg-subtle" :class="fallbackIconClass" />
+    <Icon :name="iconName" class="text-fg-subtle" :style="{ width: 'var(--icon-size)', height: 'var(--icon-size)' }" />
   </div>
 </template>

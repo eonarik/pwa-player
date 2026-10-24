@@ -3,7 +3,8 @@
 import { storeToRefs } from 'pinia'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import IconSettings from '@/components/icons/IconSettings.vue'
+import Checkbox from '@/components/ui/Checkbox.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 
 const uiSettings = useUiSettingsStore()
 const { showSource, showFiles, autoFetchMetadata } = storeToRefs(uiSettings)
@@ -12,28 +13,23 @@ const { showSource, showFiles, autoFetchMetadata } = storeToRefs(uiSettings)
 <template>
   <DropdownMenu :width="256">
     <template #trigger="{ toggle, setTriggerRef }">
-      <button :ref="setTriggerRef" type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-btn bg-card-bg text-fg transition hover:bg-hover-bg"
-        aria-label="Настройки отображения" v-tooltip="'Настройки отображения'" @click.stop="toggle">
-        <IconSettings class="h-4 w-4" />
-      </button>
+      <div :ref="setTriggerRef">
+        <IconButton icon="settings" label="Настройки отображения" @click="toggle" />
+      </div>
     </template>
 
     <template #default>
-      <label class="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-fg transition hover:bg-hover-bg">
-        <input v-model="showSource" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
-        <span>Показать источник</span>
-      </label>
-
-      <label class="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-fg transition hover:bg-hover-bg">
-        <input v-model="autoFetchMetadata" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
-        <span>Автопоиск метаданных</span>
-      </label>
-
-      <label class="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-fg transition hover:bg-hover-bg">
-        <input v-model="showFiles" type="checkbox" class="h-4 w-4 cursor-pointer accent-active" />
-        <span>Показать файлы</span>
-      </label>
+      <div class="flex flex-col gap-1 py-1">
+        <div class="px-4">
+          <Checkbox v-model="showSource" label="Показать источник" />
+        </div>
+        <div class="px-4">
+          <Checkbox v-model="autoFetchMetadata" label="Автопоиск метаданных" />
+        </div>
+        <div class="px-4">
+          <Checkbox v-model="showFiles" label="Показать файлы" />
+        </div>
+      </div>
     </template>
   </DropdownMenu>
 </template>
