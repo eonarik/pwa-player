@@ -7,7 +7,7 @@ import Checkbox from '@/components/ui/Checkbox.vue'
 import IconButton from '@/components/ui/IconButton.vue'
 
 const uiSettings = useUiSettingsStore()
-const { showSource, showFiles, autoFetchMetadata } = storeToRefs(uiSettings)
+const { showSource, showFiles, autoFetchMetadata, autoDownloadTracks } = storeToRefs(uiSettings)
 </script>
 
 <template>
@@ -25,6 +25,9 @@ const { showSource, showFiles, autoFetchMetadata } = storeToRefs(uiSettings)
         </div>
         <div class="px-4">
           <Checkbox v-model="autoFetchMetadata" label="Автопоиск метаданных" />
+        </div>
+        <div class="px-4">
+          <Checkbox v-model="autoDownloadTracks" label="Автоскачивание" />
         </div>
         <div class="px-4">
           <Checkbox v-model="showFiles" label="Показать файлы" />

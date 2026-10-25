@@ -13,7 +13,14 @@ import Checkbox from '@/components/ui/Checkbox.vue'
 import Button from '@/components/ui/Button.vue'
 
 const uiSettings = useUiSettingsStore()
-const { showSource, metadataThreshold, searchThreshold, playlistMatchThreshold, autoFetchMetadata } = storeToRefs(uiSettings)
+const {
+  showSource,
+  metadataThreshold,
+  searchThreshold,
+  playlistMatchThreshold,
+  autoFetchMetadata,
+  autoDownloadTracks
+} = storeToRefs(uiSettings)
 
 const spaceName = computed(() => downloadSpaceService.spaceName.value)
 const needsPermission = computed(() => downloadSpaceService.needsPermission.value)
@@ -115,6 +122,12 @@ async function restoreAccess(): Promise<void> {
 
     <section>
       <SectionTitle text="Метаданные" />
+
+      <div class="bg-card-bg px-4 py-3">
+        <Checkbox v-model="autoFetchMetadata" label="Автопоиск при воспроизведении"
+          description="Искать обложку и теги в фоне при старте трека" />
+      </div>
+
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Порог совпадения</p>
@@ -125,10 +138,37 @@ async function restoreAccess(): Promise<void> {
             @keydown.enter="commitMetadata" />
         </div>
       </div>
+    </section>
+
+
+    <section>
+      <SectionTitle text="Скачивание" />
 
       <div class="bg-card-bg px-4 py-3">
-        <Checkbox v-model="autoFetchMetadata" label="Автопоиск при воспроизведении"
-          description="Искать обложку и теги в фоне при старте трека" />
+        <Checkbox v-model="autoDownloadTracks" label="Автоскачивание при воспроизведении"
+          description="Автоматически скачивать треки из облака при их запуске (для офлайн-доступа)" />
+      </div>
+
+      <div class="flex flex-col gap-2 bg-card-bg px-4 py-3">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-sm text-fg">
+              <template v-if="hasSpace">{{ spaceName ?? 'Папка выбрана' }}</template>
+              <template v-else>Папка не выбрана</template>
+            </p>
+            <p v-if="needsPermission" class="text-xs text-amber-400">
+              Требуется подтвердить доступ
+            </p>
+            <p v-else-if="hasSpace" class="text-xs text-fg-muted">Доступ есть</p>
+            <p v-else class="text-xs text-fg-muted">Для скачивания треков</p>
+          </div>
+          <Button v-if="needsPermission" variant="primary" size="sm" class="shrink-0" @click="restoreAccess">
+            Восстановить
+          </Button>
+          <Button v-else variant="secondary" size="sm" class="shrink-0" :disabled="isPickingSpace" @click="pickSpace">
+            {{ isPickingSpace ? '…' : hasSpace ? 'Сменить' : 'Выбрать' }}
+          </Button>
+        </div>
       </div>
     </section>
 
@@ -150,31 +190,6 @@ async function restoreAccess(): Promise<void> {
       <SectionTitle text="Отображение" />
       <div class="bg-card-bg px-4 py-3">
         <Checkbox v-model="showSource" label="Показывать источник" description="Путь к папке в списках треков" />
-      </div>
-    </section>
-
-    <section>
-      <SectionTitle text="Папка скачивания" />
-      <div class="flex flex-col gap-2 bg-card-bg px-4 py-3">
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-sm text-fg">
-              <template v-if="hasSpace">{{ spaceName ?? 'Папка выбрана' }}</template>
-              <template v-else>Папка не выбрана</template>
-            </p>
-            <p v-if="needsPermission" class="text-xs text-amber-400">
-              Требуется подтвердить доступ
-            </p>
-            <p v-else-if="hasSpace" class="text-xs text-fg-muted">Доступ есть</p>
-            <p v-else class="text-xs text-fg-muted">Для скачивания треков</p>
-          </div>
-          <Button v-if="needsPermission" variant="primary" size="sm" class="shrink-0" @click="restoreAccess">
-            Восстановить
-          </Button>
-          <Button v-else variant="secondary" size="sm" class="shrink-0" :disabled="isPickingSpace" @click="pickSpace">
-            {{ isPickingSpace ? '…' : hasSpace ? 'Сменить' : 'Выбрать' }}
-          </Button>
-        </div>
       </div>
     </section>
   </div>

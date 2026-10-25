@@ -18,6 +18,7 @@ interface PersistedUiSettings {
   searchThreshold: number
   playlistMatchThreshold: number
   autoFetchMetadata: boolean
+  autoDownloadTracks: boolean
 }
 
 export const useUiSettingsStore = defineStore('uiSettings', () => {
@@ -27,6 +28,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   const searchThreshold = ref(DEFAULT_SEARCH_THRESHOLD)
   const playlistMatchThreshold = ref(DEFAULT_PLAYLIST_MATCH_THRESHOLD)
   const autoFetchMetadata = ref(true)
+  const autoDownloadTracks = ref(false)
 
   let isLoaded = false
   let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -60,6 +62,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
           playlistMatchThreshold.value = data.playlistMatchThreshold
         }
         autoFetchMetadata.value = data.autoFetchMetadata ?? true
+        autoDownloadTracks.value = data.autoDownloadTracks ?? false
       }
       isLoaded = true
     } catch (err) {
@@ -77,6 +80,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
         searchThreshold: searchThreshold.value,
         playlistMatchThreshold: playlistMatchThreshold.value,
         autoFetchMetadata: autoFetchMetadata.value,
+        autoDownloadTracks: autoDownloadTracks.value,
       })
     } catch (err) {
       console.error('[uiSettings] failed to save', err)
@@ -100,7 +104,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     await persistNow()
   }
 
-  watch([showSource, showFiles, metadataThreshold, searchThreshold, playlistMatchThreshold], () => {
+  watch([showSource, showFiles, metadataThreshold, searchThreshold, playlistMatchThreshold, autoFetchMetadata, autoDownloadTracks], () => {
     save()
   })
 
@@ -122,6 +126,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
 
   return {
     autoFetchMetadata,
+    autoDownloadTracks,
     showSource,
     showFiles,
     metadataThreshold,

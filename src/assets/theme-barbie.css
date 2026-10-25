@@ -27,7 +27,7 @@
   --radius-card: 2rem;
   --radius-modal: 2rem;
 
-  --font-barbie: "Nunito", sans-serif;
+  --font-barbie: "Gabriela", sans-serif;
   --font-barbie-title: "Pacifico", cursive;
 }
 
@@ -203,7 +203,7 @@
  * КРЕАТИВНАЯ ИНДИКАЦИЯ (Без полосок и стандартных столбиков)
  * ==================================================================== */
 
- /* Прячем индикаторы */
+ /* Прячем стандартные полоски-ленточки */
 [data-theme='barbie'] .list-row-indicator-dislike,
 [data-theme='barbie'] .list-row-indicator-download,
 [data-theme='barbie'] .playing-indicator-inner {
@@ -216,19 +216,37 @@
   transition: filter 0.3s ease;
 }
 
-/* 2. СКАЧАНО: Золотой/Голубой ободок вокруг обложки */
+/* 2. СКАЧИВАНИЕ И СКАЧАНО: Голубая дуга прогресса и ободок */
+[data-theme='barbie'] .track-cover {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* Прогресс: дуга вокруг обложки (когда трек качается) */
+[data-theme='barbie'] .list-row:has(.list-row-indicator-download) .track-cover:after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  /* Используем conic-gradient для рисования заполненной дуги */
+  background: conic-gradient(#8bd2f1 var(--download-progress, 0%), rgba(255, 255, 255, 0) 0);
+  border-radius: 9999px; /* Делаем круглым (или rounded-btn для квадратных) */
+}
+
+/* Скачано: сплошная голубая обводка */
 [data-theme='barbie'] .list-row_downloaded .track-cover {
-  box-shadow: 0 0 0 4px #8bd2f1, 0 4px 10px rgba(139, 210, 241, 0.4);
-  border-color: transparent;
+  box-shadow: 0 0 0 3px #8bd2f1;
+  border-radius: 9999px;
 }
 
 /* 3. ИГРАЮЩИЙ ТРЕК: Магический пульсирующий блеск */
-/* Прячем стандартные полоски */
 [data-theme='barbie'] .bg-playing {
   display: none !important;
 }
 
-/* Создаем блеск на месте PlayingIndicator */
 [data-theme='barbie'] .playing-indicator:after {
   content: '✦';
   position: absolute;
@@ -248,16 +266,17 @@
   pointer-events: none;
   z-index: 10;
 }
+
 [data-theme='barbie'] .playing-indicator:before {
   content: '';
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3); /* Чуть светлее, чтобы звезда выделялась */
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   z-index: 1;
-
+  border-radius: inherit;
 }
 
 @keyframes barbie-sparkle {

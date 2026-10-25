@@ -13,7 +13,7 @@ import { useMediaSession } from '@/composables/useMediaSession'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { syncService } from '@/services/download/SyncService'
-import { getPlugins, loadPlugin } from '@/plugins/registry'
+import { getPlugins, loadPlugin, pluginCanDownload } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
@@ -30,6 +30,8 @@ import FeedbackModal from '@/components/ui/FeedbackModal.vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import { trackMetadataService } from './services/metadata/TrackMetadataService'
 import { metadataService } from "./services/metadata/MetadataService"
+import { downloadOrchestrator } from "./services/download/DownloadOrchestrator"
+import { isLocalTrack } from "./services/library/selectors"
 
 const route = useRoute()
 const player = usePlayerStore()
@@ -151,9 +153,30 @@ onUnmounted(() => {
 })
 
 watch(currentTrack, async (track) => {
-  if (!track || !uiSettings.autoFetchMetadata) return
+  if (!track) return
+
   const libTrack = library.getTrack(track.id)
   if (!libTrack) return
+
+  // --- Автоскачивание ---
+  if (uiSettings.autoDownloadTracks) {
+    const canDownload = pluginCanDownload(libTrack.pluginId)
+    const isLocal = isLocalTrack(libTrack)
+    const isDownloading = downloadOrchestrator.isDownloading(libTrack.id)
+
+    if (canDownload && !isLocal && !isDownloading) {
+      // Проверяем, выбрана ли папка. Если нет — просто игнорируем (не спамим модалками)
+      if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
+        // Запускаем скачивание в фоне (не блокируя воспроизведение)
+        void downloadOrchestrator.downloadTrack(libTrack).catch((err) => {
+          console.warn('[app] auto-download failed', err)
+        })
+      }
+    }
+  }
+
+  // --- Автопоиск метаданных ---
+  if (!uiSettings.autoFetchMetadata) return
   if (metadataService.hasEntry(track.id)) return
 
   void (async () => {

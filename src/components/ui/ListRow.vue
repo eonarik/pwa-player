@@ -17,16 +17,19 @@ const emit = defineEmits<{
 }>()
 </script>
 
+<!-- src/components/ui/ListRow.vue -->
 <template>
   <div
     class="list-row group relative flex items-center gap-3 border-l-2 border-transparent px-2 py-2 transition radio-inset"
-    :class="[active ? 'list-row_active bg-active/10 text-active' : 'text-fg hover:bg-hover-bg', disliked && 'list-row_disliked', downloaded && 'list-row_downloaded']">
+    :class="[active ? 'list-row_active bg-active/10 text-active' : 'text-fg hover:bg-hover-bg', disliked && 'list-row_disliked', downloaded && 'list-row_downloaded']"
+    :style="{ '--download-progress': downloadProgress !== null ? `${downloadProgress * 100}%` : '0%' }">
+
     <!-- индикатор dislike -->
     <div v-if="disliked"
       class="list-row-indicator-dislike pointer-events-none absolute bottom-0 left-0.5 top-0 w-0.5 bg-red-400"
       aria-hidden="true" />
 
-    <!-- прогресс/индикатор скачивания — под красной полоской, растёт снизу вверх -->
+    <!-- прогресс/индикатор скачивания -->
     <div v-if="downloaded || downloadProgress !== null"
       class="list-row-indicator-download pointer-events-none absolute bottom-0 -left-0.5 w-0.5 bg-emerald-500" :style="{
         height: downloaded ? '100%' : `${(downloadProgress ?? 0) * 100}%`,

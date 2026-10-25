@@ -140,8 +140,9 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
       res.status(404).json({ error: 'Download link not found' })
       return
     }
-
-    const fileResponse = await fetch(href)
+    const fileResponse = await fetch(href, {
+      signal: AbortSignal.timeout(10000), // 10 секунд на соединение
+    })
     if (!fileResponse.ok || !fileResponse.body) {
       res.status(fileResponse.status).json({ error: 'Failed to fetch file' })
       return
@@ -166,7 +167,10 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
     }
     await pump()
   } catch (err) {
-    console.log(`[yandex-self] Download error:`, err.message)
+    console.error(`[yandex-self] Download error for "${rawPath}":`, err.message)
+    if (err.cause) {
+      console.error(`[yandex-self] Download error cause:`, err.cause)
+    }
 
     // Заголовки уже ушли (частично отданный файл, обрыв клиентом) —
     // отвечать нельзя, только рвём соединение.
