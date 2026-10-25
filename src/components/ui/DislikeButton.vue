@@ -42,5 +42,5 @@ function onClick() {
 <template>
   <IconButton icon="eye-off" variant="ghost" :size="size"
     :label="isDisliked ? 'Показывать при воспроизведении' : 'Скрывать при воспроизведении'"
-    :class="isDisliked ? '!text-red-400' : ''" @click.stop="onClick" />
+    :class="isDisliked ? 'text-red-400' : ''" @click.stop="onClick" />
 </template>

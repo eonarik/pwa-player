@@ -131,6 +131,13 @@ html {
   to { opacity: 1; }
 }
 
+.track-cover {
+  background-image: url('./fallback-default-cover.webp');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
 /* --- Базовые стили для иконок --- */
 .icon {
   display: inline-block;

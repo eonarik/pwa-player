@@ -3,10 +3,8 @@
 import { computed, ref, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
-import { metadataApplier } from '@/services/metadata/MetadataApplier'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
+import { metadataService } from '@/services/metadata/MetadataService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
-import { useLibraryStore } from '@/stores/library'
 import type { LibraryTrack } from '@/types/library'
 import type { MetadataCandidate } from '@/services/metadata/TrackMetadataService'
 import { UNKNOWN_ARTIST_PLACEHOLDER } from '@/services/metadata/constants'
@@ -21,7 +19,6 @@ export interface MetadataIssue {
 }
 
 export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
-  const library = useLibraryStore()
   const uiSettings = useUiSettingsStore()
   const { metadataThreshold } = storeToRefs(uiSettings)
 
@@ -37,14 +34,11 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
 
   const tracksNeedingMetadata = computed(() =>
     tracks.value.filter((t) => {
-      // 1. Проверяем, есть ли паттерн "Артист - Название" в имени файла
       const guessed = guessMetadataFromFilename(t.filename || '')
       const hasArtistPattern = Boolean(guessed.artist && guessed.title)
 
-      // Если паттерна нет — не ищем метаданные для этого файла
       if (!hasArtistPattern) return false
 
-      // 2. Проверяем, нужны ли вообще метаданные
       const artist = t.artist?.trim() ?? ''
       const album = t.album?.trim() ?? ''
       const hasArtist = artist && artist !== UNKNOWN_ARTIST_PLACEHOLDER
@@ -57,7 +51,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
 
   const uncheckedTracks = computed(() => {
     void version.value
-    return tracksNeedingMetadata.value.filter((t) => !metadataPersistenceService.has(t.id))
+    return tracksNeedingMetadata.value.filter((t) => !metadataService.hasEntry(t.id))
   })
 
   const stats = computed(() => {
@@ -65,7 +59,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
     let found = 0
     let checked = 0
     for (const t of tracks.value) {
-      const entry = metadataPersistenceService.get(t.id)
+      const entry = metadataService.getEntry(t.id)
       if (entry !== undefined) checked++
       const artist = t.artist?.trim() ?? ''
       const album = t.album?.trim() ?? ''
@@ -127,27 +121,19 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
           }
 
           if (result.status === 'not-found') {
-            metadataPersistenceService.setInMemory(track.id, {
-              artist: null,
-              title: null,
-              album: null,
-              coverUrl: null,
-              similarity: null,
-              original: null,
-            })
+            metadataService.markNotFound(track.id)
             progress.value = { done: progress.value.done + 1, total: toFetch.length }
             bumpVersion()
 
             sinceLastFlush++
             if (sinceLastFlush >= FLUSH_INTERVAL) {
               sinceLastFlush = 0
-              await metadataPersistenceService.flush()
+              await metadataService.flush()
             }
             continue
           }
 
-          // Found — общий сервис решает, применить или в issues
-          const applyResult = metadataApplier.apply(track, result.data)
+          const applyResult = metadataService.applyRemote(track.id, result.data)
 
           if (applyResult.status === 'issue') {
             foundIssues.push({
@@ -162,7 +148,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
           sinceLastFlush++
           if (sinceLastFlush >= FLUSH_INTERVAL) {
             sinceLastFlush = 0
-            await metadataPersistenceService.flush()
+            await metadataService.flush()
           }
         }
       }
@@ -171,7 +157,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
         Array.from({ length: Math.min(CONCURRENCY, toFetch.length) }, () => worker()),
       )
 
-      await metadataPersistenceService.flush()
+      await metadataService.flush()
       issues.value = foundIssues
       bumpVersion()
     } finally {
@@ -189,27 +175,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
     const ids = tracks.value.map((t) => t.id)
     if (ids.length === 0) return
 
-    for (const id of ids) {
-      const entry = metadataPersistenceService.get(id)
-      if (!entry?.original) continue
-
-      const track = library.getTrack(id)
-      if (!track) continue
-
-      const patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>> = {
-        artist: entry.original.artist,
-        title: entry.original.title,
-        album: entry.original.album,
-      }
-
-      if (!entry.original.coverUrlWasBlob) {
-        patch.coverUrl = entry.original.coverUrl
-      }
-
-      library.updateTrackMetadata(id, patch)
-    }
-
-    await metadataPersistenceService.resetForTracks(ids)
+    await metadataService.resetMany(ids)
 
     issues.value = []
     bumpVersion()

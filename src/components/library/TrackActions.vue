@@ -6,8 +6,7 @@ import { useLibraryStore } from '@/stores/library'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
-import { metadataApplier } from '@/services/metadata/MetadataApplier'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
+import { metadataService } from '@/services/metadata/MetadataService'
 import { toastService } from '@/services/ui/ToastService'
 import { modalService } from '@/services/ui/ModalService'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
@@ -50,10 +49,7 @@ const userPlaylists = computed(() =>
 const isLinear = computed(() => isLinearContent(props.track.pluginId))
 const isLive = computed(() => isLiveStream(props.track.pluginId))
 
-const hasMetadataEntry = computed(() => {
-  const entry = metadataPersistenceService.get(props.track.id)
-  return entry !== undefined && entry.artist !== null
-})
+const hasMetadataEntry = computed(() => metadataService.hasEntry(props.track.id))
 
 // --- Плейлисты --------------------------------------------------------
 
@@ -125,17 +121,7 @@ async function removeMetadata(close: () => void): Promise<void> {
     return
   }
 
-  const entry = metadataPersistenceService.get(props.track.id)
-  if (entry?.original) {
-    library.updateTrackMetadata(props.track.id, {
-      artist: entry.original.artist,
-      title: entry.original.title,
-      album: entry.original.album,
-      coverUrl: entry.original.coverUrl,
-    })
-  }
-
-  await metadataPersistenceService.resetForTracks([props.track.id])
+  await metadataService.reset(props.track.id)
 
   toastService.success('Метаданные удалены')
   closeMenu(close)
@@ -172,31 +158,16 @@ async function findMetadata(close: () => void): Promise<void> {
     }
 
     if (result.status === 'not-found') {
-      metadataPersistenceService.setInMemory(libraryTrack.id, {
-        artist: null, title: null, album: null, coverUrl: null, similarity: null, original: null,
-      })
-      await metadataPersistenceService.flush()
+      metadataService.markNotFound(libraryTrack.id)
+      await metadataService.flush()
       toastService.info('Метаданные не найдены')
       closeMenu(close)
       return
     }
 
-    const entry = metadataPersistenceService.get(libraryTrack.id)
-    if (entry && entry.similarity === 1) {
-      metadataPersistenceService.setInMemory(libraryTrack.id, {
-        artist: entry.artist,
-        title: entry.title,
-        album: entry.album,
-        coverUrl: entry.coverUrl,
-        similarity: null,
-        original: entry.original,
-      })
-    }
-
-    const applyResult = metadataApplier.apply(libraryTrack, result.data)
+    const applyResult = metadataService.applyRemote(libraryTrack.id, result.data)
 
     if (applyResult.status === 'applied') {
-      await metadataPersistenceService.flush()
       toastService.success('Метаданные обновлены')
     } else if (applyResult.status === 'issue') {
       const incoming = result.data

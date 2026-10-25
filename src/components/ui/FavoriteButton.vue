@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { usePlaylistsStore } from '@/stores/playlists'
 import IconButton from './IconButton.vue'
 import type { Track } from '@/types/track'
+import Icon from "./Icon.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -25,14 +26,12 @@ function onClick() {
   if (!track) return
   playlists.toggleFavorite(track)
 }
-
-// Для "сердечка" у нас есть два состояния: filled и outline.
-// В реестре иконок у нас только `heart`. Если нужна заливка, можно сделать
-// `heart-filled` в реестре, либо использовать CSS (fill: currentColor для filled).
-const iconName = computed(() => isFavorite.value ? 'heart-filled' : 'heart')
 </script>
 
 <template>
-  <IconButton :icon="iconName" variant="ghost" :size="size" :label="isFavorite ? 'Убрать из избранного' : 'В избранное'"
-    :class="isFavorite ? '!text-active' : ''" @click.stop="onClick" />
+  <IconButton variant="ghost" :size="size" :label="isFavorite ? 'Убрать из избранного' : 'В избранное'"
+    :class="isFavorite ? 'text-active' : ''" @click.stop="onClick">
+
+    <Icon name="heart" :w="'w-3.5'" :h="'h-3.5'" :filled="isFavorite" />
+  </IconButton>
 </template>

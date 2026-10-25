@@ -64,6 +64,10 @@ selfRoutes.use((req, res, next) => {
   return requireAuth({ allowQuery: false })(req, res, next)
 })
 
+selfRoutes.get('/auth/check', (_req, res) => {
+  res.json({ ok: true })
+})
+
 // --- Защищенные роуты ------------------------------------------------
 
 selfRoutes.get('/resources', async (req, res) => {

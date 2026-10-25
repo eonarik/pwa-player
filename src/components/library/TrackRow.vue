@@ -7,7 +7,7 @@ import TrackCover from '@/components/ui/TrackCover.vue'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useTrackDisplay } from '@/composables/useTrackDisplay'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
-import { isLocalTrack } from '@/services/library/selectors'
+import { isLocalTrack, isTrackUnavailable } from '@/services/library/selectors'
 import { formatDuration } from '@/utils/formatDuration'
 import { isLiveStream } from '@/plugins/registry'
 import type { Track } from '@/types/track'
@@ -52,13 +52,9 @@ const isLocal = computed(() => {
   return isLocalTrack(props.track as LibraryTrack)
 })
 
-const isUnavailable = computed(() => {
-  if (isLive.value) return false
-  const t = props.track
-  if (t.handle) return false
-  if (typeof t.source === 'string' && t.source.length > 0) return false
-  return true
-})
+// Только физическое наличие (handle или source). Не зависит от сессии —
+// «сессия истекла» показывается только в момент Play (handleAuthError).
+const isUnavailable = computed(() => isTrackUnavailable(props.track))
 </script>
 
 <template>

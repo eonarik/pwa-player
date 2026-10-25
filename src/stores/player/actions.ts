@@ -4,10 +4,14 @@ import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { isTrackUnavailable } from '@/services/library/selectors'
+import { AuthError } from '@/services/api/errors'
+import { apiClient } from '@/services/api/ApiClient'
+import { connectPlugin } from '@/services/plugins/connectPlugin'
+import { pluginIdFromSource } from '@/plugins/registry'
+import { toastService } from '@/services/ui/ToastService'
 import { useDislikesStore } from '../dislikes'
 import { isLiveStream } from '@/plugins/registry'
 import { shuffleArray, findFirstPlayableIndex, findPlayableIndex } from './playerHelpers'
-import { toastService } from '@/services/ui/ToastService'
 import type { Track } from '@/types/track'
 
 export interface PlayerActionsRefs {
@@ -46,6 +50,7 @@ export interface PlayerActions {
   cycleRepeat: () => void
   toggleShuffle: () => void
   handleTrackEnd: () => void
+  handleAuthError: (error: AuthError, track: Track) => void
 }
 
 export function createPlayerActions(
@@ -69,8 +74,6 @@ export function createPlayerActions(
    * Единый предикат пропуска:
    * - дизлайкнутые пользователем;
    * - недоступные (нет handle и нет source).
-   *
-   * Плеер не различает причины: для навигации это «не играть».
    */
   function shouldSkip(track: Track): boolean {
     const dislikes = useDislikesStore()
@@ -79,12 +82,42 @@ export function createPlayerActions(
     return false
   }
 
+  /**
+   * Показывает тост «Подключить» с кнопкой.
+   * После успешного connectPlugin повторяет playAt(currentIndex).
+   */
+  function handleAuthError(error: AuthError, track: Track): void {
+    const pluginId = pluginIdFromSource(track.pluginId)
+
+    const provider = apiClient.getProvider(pluginId)
+    const hasRefresh = provider?.hasRefreshToken() ?? false
+    const message =
+      error.reason === 'refresh-expired' || (error.reason === 'no-refresh-token' && hasRefresh)
+        ? 'Сессия истекла. Подключить источник заново?'
+        : 'Источник не подключён. Подключить?'
+
+    toastService.showPersistent(message, 'error', {
+      label: 'Подключить',
+      onAction: () => {
+        void (async () => {
+          try {
+            const connected = await connectPlugin(pluginId)
+            if (!connected) return
+            const idx = currentIndex.value
+            if (idx >= 0) await playAt(idx)
+          } catch (err) {
+            console.error('[player] handleAuthError: connectPlugin failed', err)
+            toastService.error('Не удалось подключить источник')
+          }
+        })()
+      },
+    })
+  }
+
   async function playAt(index: number): Promise<void> {
     const track = queue.value[index]
     if (!track) return
 
-    // Явный выбор недоступного трека — тост, ничего не делаем.
-    // (При навигации next/prev недоступные пропускаются через shouldSkip.)
     if (isTrackUnavailable(track)) {
       toastService.error('Источник недоступен. Подключите плагин или скачайте трек.')
       return
@@ -99,6 +132,10 @@ export function createPlayerActions(
     try {
       source = await resolveTrackSource(track)
     } catch (err) {
+      if (err instanceof AuthError) {
+        handleAuthError(err, track)
+        return
+      }
       console.error('[player] resolveTrackSource failed', err)
       toastService.error('Не удалось загрузить трек')
       return
@@ -125,7 +162,6 @@ export function createPlayerActions(
     queue.value = tracks
 
     if (firstPlayable === -1) {
-      // Все недоступны/дизлайкнуты — не запускаем, объясняем.
       const allUnavailable = tracks.every(isTrackUnavailable)
       if (allUnavailable) {
         toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
@@ -369,5 +405,6 @@ export function createPlayerActions(
     cycleRepeat,
     toggleShuffle,
     handleTrackEnd,
+    handleAuthError,
   }
 }

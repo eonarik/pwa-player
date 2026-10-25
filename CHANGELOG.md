@@ -3,6 +3,49 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.10.4] — 2026-10-25
+
+### Added
+
+- **`ApiClient`:** единый провайдер-агностик клиент для HTTP с поддержкой `AuthProvider` (регистрация, `isAccessValid`, `hasRefreshToken`, `refreshAccess`, `healthUrl`). Умеет превентивно рефрешить токен, ретраить 401, кидать типизированные ошибки (`AuthError` / `ServerError` / `NetworkError`), делать `healthCheck` и `ensureAuth`.
+- **`AuthProvider` для `yandex-self`:** `YandexSelfService` теперь реализует интерфейс `AuthProvider` (id, healthUrl, refresh, headers) и регистрируется в `ApiClient`. Добавлен `fetchWithAuth` для скачивания с авто-рефрешем.
+- **`AuthProvider` для `yandex`:** `YandexDiskService` зарегистрирован в `ApiClient` как провайдер с `healthUrl: '/api/auth/me'`. Cookie-сессия проверяется через health-check, рефреш не нужен (сервер сам обновляет).
+- **`connectPlugin`:** глобальный сервис подключения плагина без редиректа. Используется в `HomeView` и в плеере (для `handleAuthError`).
+- **`ensureAuth` в `resolveTrackSource`:** перед возвратом URL для `<audio>` проверяет/обновляет сессию провайдера. Если сессия мертва и не восстанавливается — бросает `AuthError`.
+- **Тост «Подключить» в плеере:** при `AuthError` от `resolveTrackSource` показывается постоянный тост с кнопкой, которая вызывает `connectPlugin` и повторяет `playAt(currentIndex)`.
+- **`handleStreamError` через `healthCheck`:** ошибка `<audio>` теперь приводит к `apiClient.healthCheck(track.pluginId)`:
+  - успех → retry `playAt(currentIndex)`;
+  - `AuthError` → тост «Подключить»;
+  - `ServerError` / `NetworkError` → пауза, тост, retry через 10 секунд (отменяется при смене трека).
+- **`MetadataService`:** единая точка изменения метаданных (`applyRemote`, `applyCandidate`, `updateManual`, `reset`, `resetMany`, `markNotFound`). Внутри — синхронизация `library`, `player.queue` и `metadataPersistenceService`. Дебаунс `flush()` (500 мс). Заменяет `MetadataApplier`.
+- **Тест `yandex-self /auth/check`:** проверяет 401 без токена, 401 с невалидным токеном, 200 с валидным.
+- **Интеграционный тест плеера:** `playAll` (все доступны / первый недоступен / все недоступны), `playAt` + `AuthError` → `connectPlugin` → retry, `handleStreamError` с `healthCheck` (success / AuthError / ServerError / NetworkError), отмена retry-таймера при смене трека.
+
+### Changed
+
+- **`player.playAt`:** `AuthError` теперь перехватывается и превращается в тост «Подключить» (через `handleAuthError`). Общая ошибка → тост «Не удалось загрузить трек».
+- **`player.playAll` / `setQueue`:** используют `findFirstPlayableIndex`, чтобы пропускать недоступные и дизлайкнутые треки. Если все недоступны — тост и очередь не заполняется.
+- **`player.playAt` → `handleAuthError`:** вынесен в публичный интерфейс `PlayerActions` и прокинут в `bindAudioEvents` (для `handleStreamError`).
+- **`TrackRow`:** использует `isTrackUnavailable` из `selectors` вместо локальной проверки `!handle && !source`.
+- **`TrackCover`:** добавлен класс `track-cover` для дефолтной обложки, если у трека нет ни `coverUrl`, ни `album`.
+- **`NowPlayingInfo` / `FullPlayer`:** `coverUrl` читается через `computed` из `library.getTrack(id)?.coverUrl` (с фоллбэком на `currentTrack.coverUrl` для stateless-треков).
+- **`playerRestore`:** убран ручной перенос `coverUrl` из `library` в `queue`. `queue` больше не хранит `coverUrl`.
+- **`MetadataPersistenceService`:** `OriginalMetadata` больше не содержит `coverUrlWasBlob` (blob URL не сохраняется — при откате `coverUrl` = `undefined`, если это был blob). Миграция старых записей при `load()`.
+
+### Fixed
+
+- **`playAll` для `yandex-self`:** воспроизведение всей папки больше не падает с тостом «сессия истекла», если сессия была валидна на момент `playAt`. При реальном истечении — тост «Подключить» + автоповтор после подключения.
+- **Кнопка «Пауза» в нижнем плеере:** больше не открывает `FullPlayer`. Причина — detached `e.target` после реактивной смены иконки (`pause` → `play`). Решение: `@click.stop` на Play/Pause + `emit('open')` только на явный триггер `NowPlayingInfo`.
+- **Ручное редактирование метаданных** (`TrackMetadataModal.save`) и **«Удалить метаданные»** (`TrackActions.removeMetadata`) больше не оставляют `queue` и `currentTrack` со старыми данными — синхронизация через `MetadataService`.
+- **«Удалить метаданные»** корректно откатывает `coverUrl` (если это был blob — становится `undefined`, если http — возвращается).
+
+### Removed
+
+- **`MetadataApplier`** — растворён в `MetadataService`.
+- **`player.updateTrackInQueue` из UI:** вызывается только из `MetadataService` (и `playerRestore`).
+- **`metadataPersistenceService.flush` из UI:** вызывается только из `MetadataService` (и `main.ts` при `beforeunload`).
+- **`plugin.handleStreamError`:** больше не используется (логика в `events.ts` через `apiClient.healthCheck`). Поле `handleStreamError?` в `LibrarySource` остаётся для будущих плагинов, но текущие его не реализуют.
+
 ## [0.10.3] — 2026-10-24
 
 ### Added

@@ -21,7 +21,6 @@ import '@/plugins/registry'
 import App from './App.vue'
 import router from './router'
 import { schemaService } from '@/services/persistence/SchemaService'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 
 import './assets/main.css'
 import { usePlaylistsStore } from './stores/playlists'
@@ -37,6 +36,7 @@ import { useUiSettingsStore } from './stores/uiSettings'
 import { initTooltip, tooltip } from './directives/tooltip'
 import { getExtensionRoutes, loadExtensions } from './plugins/extensions.ts'
 import { themeService } from './services/ui/ThemeService.ts'
+import { metadataService } from './services/metadata/MetadataService.ts'
 
 async function bootstrap() {
   themeService.load()
@@ -84,7 +84,7 @@ async function bootstrap() {
 
   const flushAll = () => {
     void librarySaveService.flushAll()
-    void metadataPersistenceService.flush()
+    void metadataService.flush()
     void usePlaylistsStore().flush()
     void useHistoryStore().flush()
     void useDislikesStore().flush()

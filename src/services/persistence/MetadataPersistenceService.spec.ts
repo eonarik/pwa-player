@@ -25,7 +25,6 @@ const ORIGINAL: OriginalMetadata = {
   title: 'Original Title',
   album: 'Original Album',
   coverUrl: undefined,
-  coverUrlWasBlob: false,
 }
 
 describe('MetadataPersistenceService', () => {

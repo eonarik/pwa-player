@@ -1,7 +1,6 @@
 <!-- src/components/ui/CoverImage.vue -->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import Icon from '@/components/ui/Icon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -42,14 +41,9 @@ function onLoad(): void {
 }
 
 defineExpose({ hasError })
-
-const iconName = props.variant === 'artist' ? 'artist' : 'playlist'
 </script>
 
 <template>
   <img v-if="src && !hasError" :src="src" :alt="alt" class="h-full w-full object-cover" loading="lazy" @error="onError"
     @load="onLoad" />
-  <div v-else class="flex h-full w-full items-center justify-center">
-    <Icon :name="iconName" class="text-fg-subtle" :style="{ width: 'var(--icon-size)', height: 'var(--icon-size)' }" />
-  </div>
 </template>

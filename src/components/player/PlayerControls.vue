@@ -59,17 +59,10 @@ function onVolumeInput(e: Event) {
   }
   player.setVolume(value)
 }
-
-function onFooterClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  const isOpenTrigger = target.closest('[data-player-open]') !== null
-  if (!isOpenTrigger && target.closest('button, a, input, [role="button"]')) return
-  emit('open')
-}
 </script>
 
 <template>
-  <footer class="relative w-full bg-bg radio-grille-bg pb-[env(safe-area-inset-bottom)]" @click="onFooterClick">
+  <footer class="relative w-full bg-bg radio-grille-bg pb-[env(safe-area-inset-bottom)]">
     <!-- Прогресс -->
     <PlayerProgressBar v-if="!isLive" :current-time="currentTime" :duration="duration" size="sm"
       :interactive="!isCoarsePointer" :expand-on-hover="!isCoarsePointer" :show-time-on-hover="!isCoarsePointer"
@@ -83,7 +76,7 @@ function onFooterClick(e: MouseEvent) {
     <div class="grid grid-cols-[1fr_auto] items-stretch md:hidden">
       <button type="button" data-player-open class="flex min-w-0 items-center pl-2 text-left"
         :aria-label="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'"
-        v-tooltip="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'">
+        v-tooltip="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'" @click="emit('open')">
         <NowPlayingInfo :track="currentTrack" cover-class="h-16 w-16" fallback-icon-class="h-6 w-6" />
       </button>
 
@@ -91,10 +84,9 @@ function onFooterClick(e: MouseEvent) {
         <IconButton v-if="!isLive" icon="prev" variant="ghost" size="lg" label="Предыдущий трек"
           @click="player.prev()" />
 
-        <!-- Play/Pause оставляем кастомным для специфичных анимаций темы -->
         <button type="button" class="player-play-pause-btn rounded-full p-2 text-fg transition hover:text-fg-muted"
           :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
-          @click="player.toggle()">
+          @click.stop="player.toggle()">
           <Icon name="pause" v-if="isPlaying" w="w-7" h="h-7" />
           <Icon name="play" v-else w="w-7" h="h-7" class="translate-x-[1px]" />
         </button>
@@ -107,9 +99,9 @@ function onFooterClick(e: MouseEvent) {
     <!-- === Десктопная версия === -->
     <div class="hidden w-full items-stretch md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
       <div class="flex min-w-0 items-center gap-3">
-        <button type="button" data-player-open class="flex min-w-0 items-center text-left"
+        <button type="button" data-player-open class="flex min-w-0 items-center pr-4 text-left"
           :aria-label="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'"
-          v-tooltip="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'">
+          v-tooltip="currentTrack ? `Открыть плеер: ${currentTrack.title}` : 'Открыть плеер'" @click="emit('open')">
           <NowPlayingInfo :track="currentTrack" cover-class="h-16 w-16" fallback-icon-class="h-6 w-6" />
         </button>
 
@@ -126,7 +118,7 @@ function onFooterClick(e: MouseEvent) {
 
         <button type="button" class="player-play-pause-btn rounded-btn p-2 text-fg transition hover:text-fg-muted"
           :aria-label="isPlaying ? 'Пауза' : 'Играть'" v-tooltip="isPlaying ? 'Пауза' : 'Играть'"
-          @click="player.toggle()">
+          @click.stop="player.toggle()">
           <Icon name="pause" v-if="isPlaying" w="w-7" h="h-7" />
           <Icon name="play" v-else w="w-7" h="h-7" class="translate-x-[1px]" />
         </button>

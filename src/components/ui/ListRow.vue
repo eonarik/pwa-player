@@ -26,7 +26,7 @@ const emit = defineEmits<{
 
     <!-- прогресс/индикатор скачивания — под красной полоской, растёт снизу вверх -->
     <div v-if="downloaded || downloadProgress !== null"
-      class="pointer-events-none absolute bottom-0 left-0 top-0 w-0.5 bg-emerald-500" :style="{
+      class="pointer-events-none absolute bottom-0 -left-0.5 w-0.5 bg-emerald-500" :style="{
         height: downloaded ? '100%' : `${(downloadProgress ?? 0) * 100}%`,
         bottom: 0,
         top: 'auto',

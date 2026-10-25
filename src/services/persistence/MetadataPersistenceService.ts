@@ -9,7 +9,6 @@ export interface OriginalMetadata {
   title: string
   album: string
   coverUrl: string | undefined
-  coverUrlWasBlob: boolean
 }
 
 export interface MetadataCacheEntry {
@@ -44,6 +43,15 @@ export class MetadataPersistenceService {
       const data = await get<Record<string, MetadataCacheEntry>>(METADATA_KEY)
       if (data) {
         for (const [trackId, entry] of Object.entries(data)) {
+          // Миграция: если original.coverUrlWasBlob === true, значит
+          // это blob — сбрасываем в undefined.
+          if (entry.original && 'coverUrlWasBlob' in entry.original) {
+            const old = entry.original as OriginalMetadata & { coverUrlWasBlob?: boolean }
+            if (old.coverUrlWasBlob) {
+              entry.original.coverUrl = undefined
+            }
+            delete (entry.original as { coverUrlWasBlob?: boolean }).coverUrlWasBlob
+          }
           this.cache.set(trackId, entry)
         }
       }

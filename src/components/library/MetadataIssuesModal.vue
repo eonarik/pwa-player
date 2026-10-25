@@ -1,7 +1,7 @@
 <!-- src/components/library/MetadataIssuesModal.vue -->
 <script setup lang="ts">
 import { reactive } from 'vue'
-import { metadataApplier } from '@/services/metadata/MetadataApplier'
+import { metadataService } from '@/services/metadata/MetadataService'
 import ModalLayout from '@/components/ui/ModalLayout.vue'
 import Button from '@/components/ui/Button.vue'
 import type { MetadataIssue } from '@/composables/useMetadataSearch'
@@ -48,7 +48,7 @@ function apply() {
     const candidate = issue.candidates[index]
     if (!candidate) continue
 
-    metadataApplier.applyCandidate(issue.track, candidate)
+    metadataService.applyCandidate(issue.track.id, candidate)
   }
   emit('close')
 }

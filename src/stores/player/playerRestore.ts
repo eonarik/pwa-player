@@ -26,8 +26,6 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
 
   const library = useLibraryStore()
 
-  // Плагины без библиотеки (radio, podcasts) — source не сбрасываем,
-  // даже если трека нет в library.
   const statelessPluginIds = new Set(
     getPlugins()
       .filter((p) => p.isStateless)
@@ -42,16 +40,9 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
       const isStateless = statelessPluginIds.has(pluginId)
 
       if (!isStateless && !track.handle) {
-        // Трек из плагина с библиотекой, но его там нет (отключён / удалён).
-        // Локальный handle сохраняем — если файл есть, играть можно.
-        // Облачный source сбрасываем, чтобы не было запросов с протухшим токеном.
         track.source = ''
       }
       continue
-    }
-
-    if (!track.coverUrl && libTrack.coverUrl) {
-      track.coverUrl = libTrack.coverUrl
     }
 
     if (!track.handle && libTrack.handle) {
@@ -61,6 +52,9 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
     if (!track.source && typeof libTrack.source === 'string' && libTrack.source) {
       track.source = libTrack.source
     }
+
+    // coverUrl больше не восстанавливаем — он читается из library
+    // через computed в NowPlayingInfo / FullPlayer.
   }
 
   return {
@@ -84,7 +78,6 @@ export async function applyRestoredPlayback(
 
   if (!track) return
 
-  // Не грузим, если источник недоступен (нет handle и нет source).
   if (!track.handle && !track.source) return
 
   let source: string | File

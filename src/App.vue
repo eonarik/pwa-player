@@ -29,7 +29,7 @@ import AppDrawer from '@/components/layout/AppDrawer.vue'
 import FeedbackModal from '@/components/ui/FeedbackModal.vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import { trackMetadataService } from './services/metadata/TrackMetadataService'
-import { metadataApplier } from './services/metadata/MetadataApplier'
+import { metadataService } from "./services/metadata/MetadataService"
 
 const route = useRoute()
 const player = usePlayerStore()
@@ -154,7 +154,7 @@ watch(currentTrack, async (track) => {
   if (!track || !uiSettings.autoFetchMetadata) return
   const libTrack = library.getTrack(track.id)
   if (!libTrack) return
-  if (metadataPersistenceService.has(track.id)) return
+  if (metadataService.hasEntry(track.id)) return
 
   void (async () => {
     const result = await trackMetadataService.fetch(
@@ -164,15 +164,12 @@ watch(currentTrack, async (track) => {
     )
 
     if (result.status === 'found') {
-      metadataApplier.apply(libTrack, result.data)
+      metadataService.applyRemote(libTrack.id, result.data)
       return
     }
 
     if (result.status === 'not-found') {
-      metadataPersistenceService.setInMemory(track.id, {
-        artist: null, title: null, album: null, coverUrl: null, similarity: null, original: null,
-      })
-      await metadataPersistenceService.flush()
+      metadataService.markNotFound(track.id)
     }
   })()
 })

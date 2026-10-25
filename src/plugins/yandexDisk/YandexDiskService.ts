@@ -1,10 +1,10 @@
 // src/plugins/yandexDisk/YandexDiskService.ts
 import { compareStrings } from '@/utils/sort'
 import type { YandexResourcesResponse, YandexResourceItem } from './types'
+import { apiClient, type AuthProvider } from '@/services/api/ApiClient'
 
 const PROXY_URL = ''
 const REQUEST_TIMEOUT_MS = 10_000
-const DISCONNECTED_KEY = 'yandex-disconnected'
 
 export class AuthRequiredError extends Error {
   constructor() {
@@ -24,8 +24,15 @@ export interface WriteTextFileResponse {
   modified: string | null
 }
 
-export class YandexDiskService {
+export class YandexDiskService implements AuthProvider {
+  readonly id = 'yandex'
+  readonly healthUrl = '/api/auth/me'
+
   private static instance: YandexDiskService | null = null
+
+  private constructor() {
+    apiClient.registerProvider(this)
+  }
 
   static getInstance(): YandexDiskService {
     if (!YandexDiskService.instance) {
@@ -34,16 +41,23 @@ export class YandexDiskService {
     return YandexDiskService.instance
   }
 
-  isDisconnected(): boolean {
-    return localStorage.getItem(DISCONNECTED_KEY) === 'true'
+  // --- AuthProvider ----------------------------------------------------
+
+  isAccessValid(): boolean {
+    // Cookie на сервере, JS не видит токен — доверяем серверу.
+    return true
   }
 
-  setDisconnected(val: boolean) {
-    if (val) {
-      localStorage.setItem(DISCONNECTED_KEY, 'true')
-    } else {
-      localStorage.removeItem(DISCONNECTED_KEY)
-    }
+  hasRefreshToken(): boolean {
+    return false
+  }
+
+  async refreshAccess(): Promise<boolean> {
+    return false
+  }
+
+  getAuthHeaders(): Record<string, string> {
+    return {}
   }
 
   async ping(): Promise<boolean> {

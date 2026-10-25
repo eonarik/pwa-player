@@ -79,6 +79,12 @@ export const usePlayerStore = defineStore('player', () => {
       flushPlayback,
       handleTrackEnd: actions.handleTrackEnd,
       updateTrackDuration: (trackId, d) => libraryWriter.updateTrackDuration(trackId, d),
+      retryPlayback: () => {
+        if (currentIndex.value >= 0) {
+          void actions.playAt(currentIndex.value)
+        }
+      },
+      handleAuthError: (error, track) => actions.handleAuthError(error, track),
     },
   )
 

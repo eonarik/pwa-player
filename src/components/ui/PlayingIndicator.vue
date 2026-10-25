@@ -12,7 +12,7 @@ withDefaults(
 <template>
   <div class="absolute inset-0 flex items-center justify-center bg-bg/50">
     <!-- Глаз (только для ретро-темы, иначе fallback на полоски) -->
-    <div v-if="variant === 'eye'" class="radio-eye h-4 w-4 md:h-6 md:w-6" />
+    <div v-if="variant === 'eye'" class="h-4 w-4 md:h-6 md:w-6 radio-eye" />
 
     <!-- Полоски (по умолчанию, или если глаз недоступен) -->
     <span v-else class="flex gap-0.5">

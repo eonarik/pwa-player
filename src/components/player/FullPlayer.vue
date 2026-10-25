@@ -13,6 +13,7 @@ import DislikeButton from '@/components/ui/DislikeButton.vue'
 import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import Icon from '@/components/ui/Icon.vue'
+import { useLibraryStore } from "@/stores/library/store.ts"
 
 defineProps<{
   title: string
@@ -45,8 +46,14 @@ watch(
 )
 
 // --- Доминирующий цвет обложки + пульсация ---------------------------
+const library = useLibraryStore()
 
-const coverSrc = computed(() => currentTrack.value?.coverUrl ?? null)
+const coverSrc = computed(() => {
+  const id = currentTrack.value?.id
+  if (!id) return null
+  return library.getTrack(id)?.coverUrl ?? currentTrack.value?.coverUrl ?? null
+})
+
 const dominantColor = useDominantColor(coverSrc)
 
 const glowStyle = computed(() => {
@@ -161,7 +168,7 @@ watch(
               class="glow-pulse pointer-events-none absolute inset-0 -z-10" :style="glowStyle" aria-hidden="true" />
 
             <div
-              class="aspect-square w-full max-w-[min(80vw,380px)] overflow-hidden rounded-card bg-bg-elevated shadow-2xl radio-inset">
+              class="track-cover aspect-square w-full max-w-[min(80vw,380px)] min-h-[380px] overflow-hidden rounded-card bg-bg-elevated">
               <CoverImage :src="currentTrack?.coverUrl" :alt="currentTrack?.album ?? ''"
                 fallback-icon-class="h-1/2 w-1/2" @error="coverHasError = true" @load="coverHasError = false" />
             </div>

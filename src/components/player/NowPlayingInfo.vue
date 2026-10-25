@@ -1,9 +1,11 @@
 <!-- src/components/player/NowPlayingInfo.vue -->
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useLibraryStore } from '@/stores/library'
 import CoverImage from '@/components/ui/CoverImage.vue'
 import type { Track } from '@/types/track'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     track: Track | null
     coverClass?: string
@@ -18,12 +20,20 @@ withDefaults(
     align: 'left',
   },
 )
+
+const library = useLibraryStore()
+
+const coverSrc = computed(() => {
+  const id = props.track?.id
+  if (!id) return props.track?.coverUrl ?? undefined
+  return library.getTrack(id)?.coverUrl ?? props.track?.coverUrl ?? undefined
+})
 </script>
 
 <template>
   <div class="flex min-w-0 items-center gap-3">
-    <div class="aspect-square shrink-0 overflow-hidden bg-card-bg" :class="coverClass">
-      <CoverImage :src="track?.coverUrl" :alt="track?.album ?? ''" :fallback-icon-class="fallbackIconClass" />
+    <div class="track-cover aspect-square shrink-0 overflow-hidden bg-card-bg" :class="coverClass">
+      <CoverImage :src="coverSrc" :alt="track?.album ?? ''" :fallback-icon-class="fallbackIconClass" />
     </div>
     <div class="min-w-0" :class="align === 'center' ? 'text-center' : 'text-left'">
       <p class="truncate text-base font-medium text-fg">

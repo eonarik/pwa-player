@@ -3,10 +3,11 @@
 import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { useHistoryStore } from '../history'
-import { isLiveStream } from '@/plugins/registry'
+import { isLiveStream, pluginIdFromSource } from '@/plugins/registry'
+import { apiClient } from '@/services/api/ApiClient'
+import { AuthError, ServerError, NetworkError } from '@/services/api/errors'
 import { toastService } from '@/services/ui/ToastService'
 import type { Track } from '@/types/track'
-import type { LibraryTrack } from '@/types/library'
 
 export interface AudioEventsRefs {
   queue: Ref<Track[]>
@@ -24,31 +25,22 @@ export interface AudioEventsCallbacks {
   flushPlayback: () => Promise<void>
   handleTrackEnd: () => void
   updateTrackDuration: (trackId: string, duration: number) => void
+  /**
+   * Повторная попытка воспроизведения текущего трека.
+   * Используется после healthCheck при сетевой ошибке.
+   */
+  retryPlayback: () => void
+  /**
+   * Обработка AuthError: тост «Подключить» + повтор playAt.
+   */
+  handleAuthError: (error: AuthError, track: Track) => void
 }
 
 export interface AudioEvents {
   unsubscribeAll: () => void
 }
 
-async function handleStreamError(
-  track: Track,
-  error: { src: string; message: string },
-): Promise<boolean> {
-  try {
-    const { loadPlugin, pluginIdFromSource } = await import('@/plugins/registry')
-    const { createPluginContext } = await import('@/plugins/context')
-    const pluginId = pluginIdFromSource(track.pluginId)
-    const plugin = await loadPlugin(pluginId)
-
-    if (!plugin.handleStreamError) return false
-
-    const context = createPluginContext(pluginId)
-    return await plugin.handleStreamError(context, track as LibraryTrack, error)
-  } catch (err) {
-    console.warn('[player] handleStreamError failed', err)
-    return false
-  }
-}
+const RETRY_DELAY_MS = 10_000
 
 export function bindAudioEvents(
   refs: AudioEventsRefs,
@@ -57,6 +49,68 @@ export function bindAudioEvents(
   const { queue, currentIndex, currentTrack, isPlaying, duration, volume, muted } = refs
 
   const unsubscribers: Array<() => void> = []
+
+  let retryTimer: ReturnType<typeof setTimeout> | null = null
+  let retryTrackId: string | null = null
+
+  function cancelRetry(): void {
+    if (retryTimer !== null) {
+      clearTimeout(retryTimer)
+      retryTimer = null
+    }
+    retryTrackId = null
+  }
+
+  function scheduleRetry(track: Track): void {
+    cancelRetry()
+    retryTrackId = track.id
+    retryTimer = setTimeout(() => {
+      retryTimer = null
+      if (currentTrack.value?.id !== retryTrackId) {
+        // Пользователь уже переключил трек — не лезем.
+        retryTrackId = null
+        return
+      }
+      retryTrackId = null
+      callbacks.retryPlayback()
+    }, RETRY_DELAY_MS)
+  }
+
+  async function handleStreamError(
+    track: Track,
+    _error: { src: string; message: string },
+  ): Promise<void> {
+    const pluginId = pluginIdFromSource(track.pluginId)
+
+    try {
+      await apiClient.healthCheck(pluginId)
+      // Сессия восстановлена. Токен мог обновиться — повторяем playAt.
+      callbacks.retryPlayback()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        callbacks.handleAuthError(err, track)
+        return
+      }
+
+      if (err instanceof ServerError) {
+        audioService.pause()
+        toastService.error('Ошибка сервера. Повторим позже.')
+        scheduleRetry(track)
+        return
+      }
+
+      if (err instanceof NetworkError) {
+        audioService.pause()
+        toastService.error('Проблема с сетью. Повторим позже.')
+        scheduleRetry(track)
+        return
+      }
+
+      console.error('[player] handleStreamError: unexpected', err)
+      audioService.pause()
+      toastService.error('Не удалось воспроизвести трек')
+    }
+  }
 
   unsubscribers.push(
     audioService.on('loadedmetadata', ({ duration: d }) => {
@@ -70,9 +124,8 @@ export function bindAudioEvents(
         }
       }
     }),
+
     audioService.on('play', () => {
-      // Защита от race condition: если play event пришел, но audio уже на паузе,
-      // не переводим UI в состояние воспроизведения.
       if (audioService.paused) {
         isPlaying.value = false
         return
@@ -84,36 +137,38 @@ export function bindAudioEvents(
       if (track && !isLiveStream(track.pluginId)) {
         useHistoryStore().recordPlay(track)
       }
+      cancelRetry()
     }),
+
     audioService.on('pause', () => {
       isPlaying.value = false
       void callbacks.flushPlayback()
     }),
+
     audioService.on('ended', () => {
       isPlaying.value = false
       callbacks.stopTimeLoop()
       void callbacks.flushPlayback()
       callbacks.handleTrackEnd()
     }),
+
     audioService.on('volumechange', ({ volume: v, muted: m }) => {
       volume.value = v
       muted.value = m
     }),
+
     audioService.on('error', ({ message, src }) => {
       console.error('[player] audio error:', message)
       isPlaying.value = false
       callbacks.stopTimeLoop()
 
       const track = currentTrack.value
-      if (track) {
-        void handleStreamError(track, { src, message }).then((handled) => {
-          if (!handled) {
-            toastService.error(message || 'Не удалось воспроизвести трек')
-          }
-        })
-      } else {
+      if (!track) {
         toastService.error(message || 'Не удалось воспроизвести трек')
+        return
       }
+
+      void handleStreamError(track, { src, message })
     }),
   )
 
@@ -121,6 +176,7 @@ export function bindAudioEvents(
     unsubscribeAll: () => {
       unsubscribers.forEach((fn) => fn())
       unsubscribers.length = 0
+      cancelRetry()
     },
   }
 }

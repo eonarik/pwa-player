@@ -3,7 +3,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
+import { metadataService } from '@/services/metadata/MetadataService'
 import { trackMetadataService, type MetadataCandidate } from '@/services/metadata/TrackMetadataService'
 import { toastService } from '@/services/ui/ToastService'
 import { modalService } from '@/services/ui/ModalService'
@@ -153,22 +153,12 @@ function save() {
     return
   }
 
-  library.updateTrackMetadata(props.track.id, {
+  metadataService.updateManual(props.track.id, {
     artist: newArtist,
     title: newTitle,
     album: newAlbum,
     coverUrl: coverUrl.value,
   })
-
-  metadataPersistenceService.setInMemory(props.track.id, {
-    artist: newArtist || null,
-    title: newTitle,
-    album: newAlbum || null,
-    coverUrl: coverUrl.value ?? null,
-    similarity: 1,
-    original: null,
-  })
-  void metadataPersistenceService.flush()
 
   toastService.success('Метаданные обновлены')
   modalService.confirm()

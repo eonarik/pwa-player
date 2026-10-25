@@ -36,7 +36,7 @@
 [data-theme='radio'] button,
 [data-theme='radio'] input,
 [data-theme='radio'] .radio-font {
-  font-family: var(--font-radio) !important;
+  font-family: var(--font-radio);
 }
 
 [data-theme='radio'] .tabular-nums {
@@ -86,8 +86,8 @@
 
 /* --- 5. Активный трек: латунная подсветка --- */
 [data-theme='radio'] .bg-active\/10 {
-  background-color: rgba(212, 175, 55, 0.08) !important;
-  border-left-color: #d4af37 !important;
+  background-color: rgba(212, 175, 55, 0.08);
+  border-left-color: #d4af37;
   box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.15);
 }
 
@@ -125,34 +125,38 @@
 /* Переопределяем цвет для активных (играет) — изумрудный */
 [data-theme='radio'] .text-red-400 > svg,
 [data-theme='radio'] .text-active > svg {
-  fill: #3ddc84 !important;
-  stroke: #3ddc84 !important;
-  filter: drop-shadow(0 0 4px rgba(61, 220, 132, 0.6)) !important;
+  stroke: #3ddc84;
+  filter: drop-shadow(0 0 4px rgba(61, 220, 132, 0.6));
+}
+
+[data-theme='radio'] .text-red-400 > .icon[fill="currentColor"],
+[data-theme='radio'] .text-active > .icon[fill="currentColor"] {
+  fill: #3ddc84;
 }
 
 /* --- 9. Плеер (Нижняя панель) --- */
 [data-theme='radio'] footer {
-  background: var(--gradient-wood) !important;
-  border-top: 2px solid #d4af37 !important;
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.9), inset 0 2px 0 rgba(255, 255, 255, 0.1) !important;
+  background: var(--gradient-wood);
+  border-top: 2px solid #d4af37;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.9), inset 0 2px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Латунная кнопка Play/Pause */
 [data-theme='radio'] .player-play-pause-btn {
-  background: radial-gradient(circle at 30% 30%, #fce68a, #8b6914) !important;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 4px 8px rgba(0,0,0,0.8) !important;
-  border: 1px solid #5c4208 !important;
-  color: #140e0a !important;
-  border-radius: 9999px !important;
-  padding: 0.5rem !important;
+  background: radial-gradient(circle at 30% 30%, #fce68a, #8b6914);
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 4px 8px rgba(0,0,0,0.8);
+  border: 1px solid #5c4208;
+  color: #140e0a;
+  border-radius: 9999px;
+  padding: 0.5rem;
 }
 
 /* Иконка внутри латунной кнопки — темная (цвет дерева) */
 [data-theme='radio'] .player-play-pause-btn svg {
-  color: var(--color-bg) !important;
-  fill: currentColor !important;
-  stroke: currentColor !important;
-  filter: none !important;
+  color: var(--color-bg);
+  fill: currentColor;
+  stroke: currentColor;
+  filter: none;
 }
 
 /* Свечение кнопки Play/Pause при воспроизведении */
@@ -167,24 +171,24 @@
 
 /* Латунный прогресс-бар */
 [data-theme='radio'] .radio-progress-fill {
-  background: var(--gradient-brass) !important;
+  background: var(--gradient-brass);
   box-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
 }
 
 /* --- 10. Текстура для меню (слева) и хедера --- */
 [data-theme='radio'] aside,
 [data-theme='radio'] .app-drawer-panel {
-  background-image: repeating-linear-gradient(90deg, #1a110a 0px, #1a110a 2px, #22160d 4px) !important;
-  border-right: 2px solid #d4af37 !important;
-  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.8) !important;
+  background-image: repeating-linear-gradient(90deg, #1a110a 0px, #1a110a 2px, #22160d 4px);
+  border-right: 2px solid #d4af37;
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.8);
 }
 
 
 
 [data-theme='radio'] header {
-  background-image: repeating-linear-gradient(0deg, #1a110a 0px, #1a110a 2px, #22160d 4px) !important;
-  border-bottom: 2px solid #d4af37 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  background-image: repeating-linear-gradient(0deg, #1a110a 0px, #1a110a 2px, #22160d 4px);
+  border-bottom: 2px solid #d4af37;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 /* --- 11. Шкалы с рисками (Тики) --- */
@@ -200,10 +204,14 @@
   transition: all 0.2s;
 }
 [data-theme='radio'] footer button:not([aria-label="Пауза"]):not([aria-label="Играть"]):hover {
-  color: var(--color-accent-hover) !important;
+  color: var(--color-accent-hover);
   text-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
 }
 
 [data-theme='radio'] button:disabled {
   opacity: 0.25;
+}
+
+[data-theme='radio'] .track-cover {
+  background-image: url('./fallback-radio-cover.png');
 }

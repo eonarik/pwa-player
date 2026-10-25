@@ -1,4 +1,5 @@
 // src/plugins/yandexSelf/YandexSelfService.ts
+
 import type {
   IYandexService,
   YandexResourcesResponse,
@@ -6,13 +7,17 @@ import type {
   YandexWriteResponse,
 } from '../yandexDisk/types'
 import { cleanDiskPath } from '@/shared/paths'
+import { apiClient, type AuthProvider } from '@/services/api/ApiClient'
 
 const API_URL = '/api/yandex-self'
 const ACCESS_KEY = 'yandex-self-access'
 const REFRESH_KEY = 'yandex-self-refresh'
 const DISCONNECTED_KEY = 'yandex-self-disconnected'
 
-export class YandexSelfService implements IYandexService {
+export class YandexSelfService implements IYandexService, AuthProvider {
+  readonly id = 'yandex-self'
+  readonly healthUrl = `${API_URL}/auth/check`
+
   private accessToken: string | null = null
   private refreshToken: string | null = null
   private refreshPromise: Promise<boolean> | null = null
@@ -20,7 +25,52 @@ export class YandexSelfService implements IYandexService {
   constructor() {
     this.accessToken = localStorage.getItem(ACCESS_KEY)
     this.refreshToken = localStorage.getItem(REFRESH_KEY)
+    apiClient.registerProvider(this)
   }
+
+  // --- AuthProvider ----------------------------------------------------
+
+  getAuthHeaders(): Record<string, string> {
+    return this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}
+  }
+
+  isAccessValid(): boolean {
+    // Без expiresAt не можем проверить локально — доверяем токену.
+    // Когда появится refresh (и expiresAt), можно будет проверять.
+    return Boolean(this.accessToken)
+  }
+
+  hasRefreshToken(): boolean {
+    return Boolean(this.refreshToken)
+  }
+
+  async refreshAccess(): Promise<boolean> {
+    if (!this.refreshToken) return false
+    if (this.refreshPromise) return this.refreshPromise
+
+    this.refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${API_URL}/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: this.refreshToken }),
+        })
+        if (!res.ok) return false
+        const data = (await res.json()) as { accessToken: string }
+        this.accessToken = data.accessToken
+        localStorage.setItem(ACCESS_KEY, data.accessToken)
+        return true
+      } catch {
+        return false
+      } finally {
+        this.refreshPromise = null
+      }
+    })()
+
+    return this.refreshPromise
+  }
+
+  // --- IYandexService --------------------------------------------------
 
   isDisconnected(): boolean {
     return localStorage.getItem(DISCONNECTED_KEY) === 'true'
@@ -39,7 +89,7 @@ export class YandexSelfService implements IYandexService {
         body: JSON.stringify({ ctx, password }),
       })
       if (!res.ok) return false
-      const data = await res.json()
+      const data = (await res.json()) as { accessToken: string; refreshToken: string }
       this.accessToken = data.accessToken
       this.refreshToken = data.refreshToken
       localStorage.setItem(ACCESS_KEY, data.accessToken)
@@ -50,32 +100,6 @@ export class YandexSelfService implements IYandexService {
     }
   }
 
-  async refresh(): Promise<boolean> {
-    if (!this.refreshToken) return false
-    if (this.refreshPromise) return this.refreshPromise
-
-    this.refreshPromise = (async () => {
-      try {
-        const res = await fetch(`${API_URL}/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: this.refreshToken }),
-        })
-        if (!res.ok) return false
-        const data = await res.json()
-        this.accessToken = data.accessToken
-        localStorage.setItem(ACCESS_KEY, data.accessToken)
-        return true
-      } catch {
-        return false
-      } finally {
-        this.refreshPromise = null
-      }
-    })()
-
-    return this.refreshPromise
-  }
-
   logout() {
     this.accessToken = null
     this.refreshToken = null
@@ -83,61 +107,19 @@ export class YandexSelfService implements IYandexService {
     localStorage.removeItem(REFRESH_KEY)
   }
 
-  hasRefreshToken(): boolean {
-    return Boolean(this.refreshToken)
-  }
-
-  /**
-   * Универсальная обертка: делает запрос, если 401 — рефрешит и повторяет.
-   * Защита от race-condition: если токен уже обновился другим запросом,
-   * не дёргает /refresh повторно.
-   */
-  async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-    const doFetch = (token: string) =>
-      fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-    const tokenAtStart = this.accessToken ?? ''
-    const res = await doFetch(tokenAtStart)
-
-    if (res.status !== 401) return res
-
-    // Токен уже обновился (другой запрос успел) — просто retry.
-    if (this.accessToken && this.accessToken !== tokenAtStart) {
-      return doFetch(this.accessToken)
-    }
-
-    if (!this.refreshToken) return res
-
-    const ok = await this.refresh()
-    if (ok && this.accessToken) {
-      return doFetch(this.accessToken)
-    }
-
-    return res
-  }
-
   async listResources(path: string): Promise<YandexResourcesResponse> {
-    if (!this.accessToken) throw new Error('Not authenticated')
     const clean = cleanDiskPath(path)
     const params = new URLSearchParams({ path: clean })
 
-    const res = await this.fetchWithAuth(`${API_URL}/resources?${params.toString()}`)
+    const res = await apiClient.fetch(`${API_URL}/resources?${params.toString()}`, {
+      auth: 'yandex-self',
+    })
 
-    if (res.status === 401) {
-      this.logout()
-      throw new Error('Session expired')
-    }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
+      const err = (await res.json().catch(() => ({}))) as { error?: string }
       throw new Error(err.error || 'Failed to fetch')
     }
-    return res.json()
+    return res.json() as Promise<YandexResourcesResponse>
   }
 
   buildDownloadUrl(path: string): string {
@@ -147,30 +129,42 @@ export class YandexSelfService implements IYandexService {
     return `${API_URL}/download?${params.toString()}`
   }
 
+  /**
+   * Универсальный fetch с авторизацией и рефрешем.
+   * Используется в downloadUrlToFile (см. yandexSelf/index.ts).
+   *
+   * Не трогает credentials: downloadUrlToFile сам добавляет 'include',
+   * для yandex-self это безвредно (Bearer-токен, не cookie).
+   */
+  fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
+    return apiClient.fetch(url, { auth: this.id, ...init })
+  }
+
   async readTextFile(remotePath: string): Promise<YandexTextResponse | null> {
-    if (!this.accessToken) return null
     const clean = cleanDiskPath(remotePath)
     const params = new URLSearchParams({ path: clean })
 
-    const res = await this.fetchWithAuth(`${API_URL}/text?${params.toString()}`)
+    const res = await apiClient.fetch(`${API_URL}/text?${params.toString()}`, {
+      auth: 'yandex-self',
+    })
 
     if (!res.ok) return null
-    return res.json()
+    return res.json() as Promise<YandexTextResponse>
   }
 
   async writeTextFile(remotePath: string, content: string): Promise<YandexWriteResponse> {
-    if (!this.accessToken) throw new Error('Not authenticated')
     const clean = cleanDiskPath(remotePath)
     const params = new URLSearchParams({ path: clean })
 
-    const res = await this.fetchWithAuth(`${API_URL}/text?${params.toString()}`, {
+    const res = await apiClient.fetch(`${API_URL}/text?${params.toString()}`, {
+      auth: 'yandex-self',
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     })
 
     if (!res.ok) throw new Error('Failed to write')
-    return res.json()
+    return res.json() as Promise<YandexWriteResponse>
   }
 }
 
