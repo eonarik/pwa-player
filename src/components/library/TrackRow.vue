@@ -62,7 +62,7 @@ const isUnavailable = computed(() => isTrackUnavailable(props.track))
     @click="emit('select')">
     <template #leading>
       <TrackCover :track="track" :class="isUnavailable ? 'opacity-50' : ''">
-        <PlayingIndicator v-if="isCurrent && isPlaying" variant="eye" />
+        <PlayingIndicator v-if="isCurrent && isPlaying" />
       </TrackCover>
     </template>
 

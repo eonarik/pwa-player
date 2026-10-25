@@ -88,8 +88,6 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
   // --- Обработка resize ------------------------------------------------
 
   let resizeObserver: ResizeObserver | null = null
-  // Сохраняем ссылку на элемент в замыкании — к моменту onUnmounted
-  // containerRef.value может быть уже null, и removeEventListener не сработает
   let observedEl: HTMLElement | null = null
 
   function updateViewportHeight(): void {
@@ -104,9 +102,6 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
 
     if (observedEl) {
       observedEl.addEventListener('scroll', onScroll, { passive: true })
-
-      // ResizeObserver — чтобы реагировать на изменение размера окна
-      // и на изменение layout (например, открытие devtools)
       resizeObserver = new ResizeObserver(updateViewportHeight)
       resizeObserver.observe(observedEl)
     }
@@ -129,26 +124,11 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
   watch(
     () => items.value.length,
     () => {
-      // После смены массива скролл может «улететь» за пределы.
-      // Просто синхронизируем scrollTop с реальным положением.
       if (containerRef.value) {
         scrollTop.value = containerRef.value.scrollTop
       }
     },
   )
-
-  /** Прокрутить к элементу по индексу */
-  function scrollToIndex(index: number): void {
-    if (!containerRef.value) return
-    const target = index * resolvedItemHeight.value
-    const viewport = viewportHeight.value
-    const current = containerRef.value.scrollTop
-
-    // Если элемент выше видимой области — скроллим так, чтобы он был сверху
-    if (target < current || target > current + viewport - resolvedItemHeight.value) {
-      containerRef.value.scrollTop = target
-    }
-  }
 
   return {
     totalHeight,
@@ -156,6 +136,5 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
     offsetY,
     startIndex,
     endIndex,
-    scrollToIndex,
   }
 }

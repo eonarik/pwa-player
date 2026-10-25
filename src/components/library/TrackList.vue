@@ -1,6 +1,6 @@
 <!-- src/components/library/TrackList.vue -->
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useVirtualList } from '@/composables/useVirtualList'
@@ -18,16 +18,14 @@ const emit = defineEmits<{
 }>()
 
 const player = usePlayerStore()
-const { currentTrack, isPlaying } = storeToRefs(player)
+const { currentTrack, isPlaying, currentIndex } = storeToRefs(player)
 
 const containerRef = ref<HTMLElement | null>(null)
 const measureRef = ref<HTMLElement | null>(null)
 
 const measuredHeight = useItemHeight(measureRef)
 
-// Дедупликация на входе — защита от повторных id в folder.trackIds.
-// Источник дубликатов чинится в sync.ts / library.ts, но если что-то
-// просочилось — не роняем Vue варнингом про duplicate keys.
+// Дедупликация на входе
 const uniqueTracks = computed<Track[]>(() => {
   const seen = new Set<string>()
   const result: Track[] = []
@@ -39,7 +37,7 @@ const uniqueTracks = computed<Track[]>(() => {
   return result
 })
 
-const { totalHeight, visibleItems, offsetY, scrollToIndex } = useVirtualList({
+const { totalHeight, visibleItems, offsetY } = useVirtualList({
   items: uniqueTracks,
   itemHeight: measuredHeight,
   overscan: 5,
@@ -52,10 +50,68 @@ function getCurrentIndex(): number {
   return uniqueTracks.value.findIndex((t) => t.id === id)
 }
 
-watch(currentTrack, () => {
+/**
+ * Прокручивает к текущему треку, если он есть в этом списке.
+ * Ждёт nextTick, чтобы высота контейнера успела обновиться.
+ */
+// Находим реальный скролл-контейнер (поднимаемся по дереву DOM)
+function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+  let parent = el?.parentElement
+  while (parent) {
+    const style = window.getComputedStyle(parent)
+    const overflowY = style.overflowY
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+      // Проверяем, что он реально может скроллиться
+      if (parent.scrollHeight > parent.clientHeight) {
+        return parent
+      }
+    }
+    parent = parent.parentElement
+  }
+  return null
+}
+
+async function scrollToCurrent() {
   const idx = getCurrentIndex()
-  if (idx >= 0) scrollToIndex(idx)
+  if (idx < 0) return
+
+  await nextTick()
+
+  // Если высота ещё не измерилась (0), пробуем подождать следующий кадр
+  if (!measuredHeight.value) {
+    requestAnimationFrame(() => void scrollToCurrent())
+    return
+  }
+
+  requestAnimationFrame(() => {
+    if (!containerRef.value) return
+
+    const scrollParent = findScrollParent(containerRef.value)
+    if (!scrollParent) return
+
+    const itemHeight = measuredHeight.value
+    const parentHeight = scrollParent.clientHeight
+    const targetScrollTop = (idx * itemHeight) - (parentHeight / 2) + (itemHeight / 2)
+
+    scrollParent.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: 'smooth'
+    })
+  })
+}
+
+// Скролл при смене трека (next/prev или клик)
+watch(currentIndex, () => {
+  scrollToCurrent()
 })
+
+// Скролл при монтировании (если зашли в папку, где уже играет трек)
+onMounted(() => {
+  scrollToCurrent()
+})
+
+// Скролл при изменении самого списка (например, переключили сортировку)
+watch(() => uniqueTracks.value.length, scrollToCurrent)
 
 function isCurrent(track: Track): boolean {
   return currentTrack.value?.id === track.id
@@ -68,8 +124,7 @@ function isCurrent(track: Track): boolean {
   </div>
 
   <div v-else ref="containerRef" class="h-full overflow-y-auto">
-    <!-- Скрытый эталон для измерения высоты.
-         Без actions — чтобы кнопки не влияли на измерение. -->
+    <!-- Скрытый эталон для измерения высоты. -->
     <div ref="measureRef" class="pointer-events-none invisible absolute left-0 top-0 w-full" aria-hidden="true">
       <TrackListItem v-if="uniqueTracks[0]" :track="uniqueTracks[0]" :index="0" :is-current="false" :is-playing="false"
         @select="() => { }" />
@@ -78,7 +133,8 @@ function isCurrent(track: Track): boolean {
     <div class="relative" :style="{ height: `${totalHeight}px` }">
       <div class="absolute inset-x-0 top-0" :style="{ transform: `translateY(${offsetY}px)` }">
         <TrackListItem v-for="{ item: track, index } in visibleItems" :key="track.id" :track="track" :index="index"
-          :is-current="isCurrent(track)" :is-playing="isPlaying" @select="(i: number) => emit('select', i)">
+          :data-track-index="index" :is-current="isCurrent(track)" :is-playing="isPlaying"
+          @select="(i: number) => emit('select', i)">
           <template #actions>
             <TrackActions :track="track" />
           </template>

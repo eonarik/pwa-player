@@ -101,7 +101,7 @@ function saveAllToPlaylist(playlistId: string | null, close: () => void): void {
       </Button>
     </PageHeader>
 
-    <div v-if="!hasQueue" class="flex flex-1">
+    <div v-if="!hasQueue" class="flex flex-1 items-center justify-center p-6 h-full">
       <EmptyState title="Очередь пуста" description="Запустите трек или папку — они появятся здесь">
         <template #icon>
           <Icon name="list" w="w-10" h="h-10" />

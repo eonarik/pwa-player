@@ -71,21 +71,17 @@ export function createPlayerActions(
   const { syncCurrentTime, stopTimeLoop } = callbacks
 
   /**
-   * Единый предикат пропуска:
-   * - дизлайкнутые пользователем;
-   * - недоступные (нет handle и нет source).
+   * Предикат пропуска для АВТОМАТИЧЕСКОГО выбора (playAll, next, prev):
+   * - дизлайкнутые;
+   * - недоступные.
    */
-  function shouldSkip(track: Track): boolean {
+  function shouldSkipAuto(track: Track): boolean {
     const dislikes = useDislikesStore()
     if (dislikes.isDisliked(track.id)) return true
     if (isTrackUnavailable(track)) return true
     return false
   }
 
-  /**
-   * Показывает тост «Подключить» с кнопкой.
-   * После успешного connectPlugin повторяет playAt(currentIndex).
-   */
   function handleAuthError(error: AuthError, track: Track): void {
     const pluginId = pluginIdFromSource(track.pluginId)
 
@@ -147,6 +143,10 @@ export function createPlayerActions(
     })
   }
 
+  /**
+   * Явный выбор трека (клик по строке в списке).
+   * Заполняет очередь всеми переданными треками и запускает указанный.
+   */
   function setQueue(tracks: Track[], startIndex = 0): void {
     if (tracks.length === 0) {
       queue.value = []
@@ -156,28 +156,31 @@ export function createPlayerActions(
     }
 
     const fromIndex = Math.min(Math.max(startIndex, 0), tracks.length - 1)
-    const firstPlayable = findFirstPlayableIndex(tracks, fromIndex, shouldSkip)
-    const safeIndex = firstPlayable !== -1 ? firstPlayable : fromIndex
+    const clicked = tracks[fromIndex]
+    if (!clicked) return
 
-    queue.value = tracks
-
-    if (firstPlayable === -1) {
-      const allUnavailable = tracks.every(isTrackUnavailable)
-      if (allUnavailable) {
-        toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
-      }
-      return
+    if (shuffle.value) {
+      // Кликнутый трек — первым, остальные перемешаны
+      const rest = tracks.filter((_, i) => i !== fromIndex)
+      const shuffledRest = shuffleArray(rest)
+      queue.value = [clicked, ...shuffledRest]
+      void playAt(0)
+    } else {
+      queue.value = tracks
+      void playAt(fromIndex)
     }
-
-    void playAt(safeIndex)
   }
 
+  /**
+   * Автовоспроизведение (кнопка "Играть всё").
+   * Пропускает дизлайки и недоступные.
+   */
   function playAll(tracks: Track[]): void {
     if (tracks.length === 0) return
 
     if (shuffle.value) {
       const shuffled = shuffleArray(tracks)
-      const firstPlayable = findFirstPlayableIndex(shuffled, 0, shouldSkip)
+      const firstPlayable = findFirstPlayableIndex(shuffled, 0, shouldSkipAuto)
 
       queue.value = shuffled
 
@@ -185,13 +188,15 @@ export function createPlayerActions(
         const allUnavailable = shuffled.every(isTrackUnavailable)
         if (allUnavailable) {
           toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
+        } else {
+          toastService.info('Все треки в списке скрыты (дизлайки)')
         }
         return
       }
 
       void playAt(firstPlayable)
     } else {
-      const firstPlayable = findFirstPlayableIndex(tracks, 0, shouldSkip)
+      const firstPlayable = findFirstPlayableIndex(tracks, 0, shouldSkipAuto)
 
       queue.value = tracks
 
@@ -199,6 +204,8 @@ export function createPlayerActions(
         const allUnavailable = tracks.every(isTrackUnavailable)
         if (allUnavailable) {
           toastService.error('Все треки недоступны. Подключите плагин или скачайте треки.')
+        } else {
+          toastService.info('Все треки в списке скрыты (дизлайки)')
         }
         return
       }
@@ -277,14 +284,15 @@ export function createPlayerActions(
     if (queue.value.length === 0) return
     if (currentTrack.value && isLiveStream(currentTrack.value.pluginId)) return
 
-    const nextIndex = findPlayableIndex(queue.value, currentIndex.value + 1, 1, shouldSkip)
+    // Автопереход: используем shouldSkipAuto (дизлайки и недоступные)
+    const nextIndex = findPlayableIndex(queue.value, currentIndex.value + 1, 1, shouldSkipAuto)
     if (nextIndex !== -1) {
       void playAt(nextIndex)
       return
     }
 
     if (repeatMode.value === 'all') {
-      const wrapIndex = findPlayableIndex(queue.value, 0, 1, shouldSkip)
+      const wrapIndex = findPlayableIndex(queue.value, 0, 1, shouldSkipAuto)
       if (wrapIndex !== -1) {
         void playAt(wrapIndex)
         return
@@ -297,7 +305,7 @@ export function createPlayerActions(
       const reshuffled = shuffleArray(rest)
       if (reshuffled.length > 0) {
         queue.value = reshuffled
-        const firstPlayable = findFirstPlayableIndex(reshuffled, 0, shouldSkip)
+        const firstPlayable = findFirstPlayableIndex(reshuffled, 0, shouldSkipAuto)
         if (firstPlayable !== -1) {
           void playAt(firstPlayable)
           return
@@ -318,14 +326,15 @@ export function createPlayerActions(
       return
     }
 
-    const prevIndex = findPlayableIndex(queue.value, currentIndex.value - 1, -1, shouldSkip)
+    // Автопереход: используем shouldSkipAuto
+    const prevIndex = findPlayableIndex(queue.value, currentIndex.value - 1, -1, shouldSkipAuto)
     if (prevIndex !== -1) {
       void playAt(prevIndex)
       return
     }
 
     if (repeatMode.value === 'all') {
-      const wrapIndex = findPlayableIndex(queue.value, queue.value.length - 1, -1, shouldSkip)
+      const wrapIndex = findPlayableIndex(queue.value, queue.value.length - 1, -1, shouldSkipAuto)
       if (wrapIndex !== -1) {
         void playAt(wrapIndex)
         return

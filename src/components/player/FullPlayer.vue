@@ -168,7 +168,8 @@ watch(
               class="glow-pulse pointer-events-none absolute inset-0 -z-10" :style="glowStyle" aria-hidden="true" />
 
             <div
-              class="track-cover aspect-square w-full max-w-[min(80vw,380px)] min-h-[380px] overflow-hidden rounded-card bg-bg-elevated">
+              class="track-cover aspect-square w-full max-w-[min(80vw,380px)] min-h-[380px] overflow-hidden rounded-card bg-bg-elevated"
+              :class="[!currentTrack?.coverUrl && coverHasError && 'track-cover_empty']">
               <CoverImage :src="currentTrack?.coverUrl" :alt="currentTrack?.album ?? ''"
                 fallback-icon-class="h-1/2 w-1/2" @error="coverHasError = true" @load="coverHasError = false" />
             </div>

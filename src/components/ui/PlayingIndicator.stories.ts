@@ -5,16 +5,14 @@ import PlayingIndicator from './PlayingIndicator.vue'
 const meta: Meta<typeof PlayingIndicator> = {
   title: 'UI/PlayingIndicator',
   component: PlayingIndicator,
-  argTypes: {
-    variant: { control: 'select', options: ['bars', 'eye'] },
-  },
+  argTypes: {},
 }
 
 export default meta
 type Story = StoryObj<typeof PlayingIndicator>
 
 export const Bars: Story = {
-  args: { variant: 'bars' },
+  args: {},
   render: (args) => ({
     components: { PlayingIndicator },
     setup: () => ({ args }),
@@ -24,9 +22,4 @@ export const Bars: Story = {
       </div>
     `,
   }),
-}
-
-export const Eye: Story = {
-  args: { variant: 'eye' },
-  render: Bars.render,
 }

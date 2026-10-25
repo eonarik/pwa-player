@@ -212,6 +212,6 @@
   opacity: 0.25;
 }
 
-[data-theme='radio'] .track-cover {
+[data-theme='radio'] .track-cover_empty {
   background-image: url('./fallback-radio-cover.png');
 }

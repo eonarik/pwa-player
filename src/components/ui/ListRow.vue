@@ -18,15 +18,17 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="group relative flex items-center gap-3 border-l-2 border-transparent px-2 py-2 transition radio-inset"
-    :class="[active ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg']">
+  <div
+    class="list-row group relative flex items-center gap-3 border-l-2 border-transparent px-2 py-2 transition radio-inset"
+    :class="[active ? 'list-row_active bg-active/10 text-active' : 'text-fg hover:bg-hover-bg', disliked && 'list-row_disliked', downloaded && 'list-row_downloaded']">
     <!-- индикатор dislike -->
-    <div v-if="disliked" class="pointer-events-none absolute bottom-0 left-0.5 top-0 w-0.5 bg-red-400"
+    <div v-if="disliked"
+      class="list-row-indicator-dislike pointer-events-none absolute bottom-0 left-0.5 top-0 w-0.5 bg-red-400"
       aria-hidden="true" />
 
     <!-- прогресс/индикатор скачивания — под красной полоской, растёт снизу вверх -->
     <div v-if="downloaded || downloadProgress !== null"
-      class="pointer-events-none absolute bottom-0 -left-0.5 w-0.5 bg-emerald-500" :style="{
+      class="list-row-indicator-download pointer-events-none absolute bottom-0 -left-0.5 w-0.5 bg-emerald-500" :style="{
         height: downloaded ? '100%' : `${(downloadProgress ?? 0) * 100}%`,
         bottom: 0,
         top: 'auto',

@@ -32,7 +32,8 @@ const coverSrc = computed(() => {
 
 <template>
   <div class="flex min-w-0 items-center gap-3">
-    <div class="track-cover aspect-square shrink-0 overflow-hidden bg-card-bg" :class="coverClass">
+    <div class="track-cover aspect-square shrink-0 overflow-hidden bg-card-bg"
+      :class="[coverClass, !coverSrc && 'track-cover_empty']">
       <CoverImage :src="coverSrc" :alt="track?.album ?? ''" :fallback-icon-class="fallbackIconClass" />
     </div>
     <div class="min-w-0" :class="align === 'center' ? 'text-center' : 'text-left'">

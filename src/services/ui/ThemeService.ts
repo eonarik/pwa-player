@@ -10,6 +10,7 @@ const THEMES: ReadonlyArray<{ id: ThemeId; label: string }> = [
   { id: 'default', label: 'Тёмная' },
   { id: 'radio', label: 'Ретро-радио' },
   { id: 'neon', label: 'Киберпанк' },
+  { id: 'barbie', label: 'Барби' },
 ]
 
 export class ThemeService {

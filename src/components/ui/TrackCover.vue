@@ -17,8 +17,8 @@ const hasAlbum = computed(() => Boolean(props.track.album?.trim()))
 </script>
 
 <template>
-  <div class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg"
-    :class="[sizeClass, !track.album && 'track-cover']">
+  <div class="track-cover relative flex shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg"
+    :class="[sizeClass, !track.album && 'track-cover_empty']">
     <span v-if="!hasCover && hasAlbum"
       class="line-clamp-3 break-words px-0.5 text-center text-[9px] leading-tight text-fg-subtle">
       {{ track.album }}

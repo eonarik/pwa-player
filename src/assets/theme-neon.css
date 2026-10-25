@@ -144,6 +144,6 @@
   border-radius: 0;
 }
 
-[data-theme='neon'] .track-cover {
+[data-theme='neon'] .track-cover_empty {
   background-image: url('./fallback-neon-cover.webp');
 }
