@@ -19,5 +19,5 @@ const iconComponent = computed(() => ICONS[props.name])
 </script>
 
 <template>
-  <component :is="iconComponent" :class="[w, h]" class="icon shrink-0" aria-hidden="true" />
+  <component :is="iconComponent" :class="[w, h]" class="icon shrink-0 text-inherit" aria-hidden="true" />
 </template>

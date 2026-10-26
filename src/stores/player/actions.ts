@@ -4,13 +4,12 @@ import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { isTrackUnavailable } from '@/services/library/selectors'
-import { AuthError } from '@/services/api/errors'
+import { AuthError, ServerError } from '@/services/api/errors'
 import { apiClient } from '@/services/api/ApiClient'
 import { connectPlugin } from '@/services/plugins/connectPlugin'
-import { pluginIdFromSource } from '@/plugins/registry'
+import { pluginIdFromSource, isLiveStream } from '@/plugins/registry'
 import { toastService } from '@/services/ui/ToastService'
 import { useDislikesStore } from '../dislikes'
-import { isLiveStream } from '@/plugins/registry'
 import { shuffleArray, findFirstPlayableIndex, findPlayableIndex } from './playerHelpers'
 import type { Track } from '@/types/track'
 
@@ -70,11 +69,6 @@ export function createPlayerActions(
 
   const { syncCurrentTime, stopTimeLoop } = callbacks
 
-  /**
-   * Предикат пропуска для АВТОМАТИЧЕСКОГО выбора (playAll, next, prev):
-   * - дизлайкнутые;
-   * - недоступные.
-   */
   function shouldSkipAuto(track: Track): boolean {
     const dislikes = useDislikesStore()
     if (dislikes.isDisliked(track.id)) return true
@@ -84,7 +78,6 @@ export function createPlayerActions(
 
   function handleAuthError(error: AuthError, track: Track): void {
     const pluginId = pluginIdFromSource(track.pluginId)
-
     const provider = apiClient.getProvider(pluginId)
     const hasRefresh = provider?.hasRefreshToken() ?? false
     const message =
@@ -132,6 +125,14 @@ export function createPlayerActions(
         handleAuthError(err, track)
         return
       }
+
+      if (err instanceof ServerError) {
+        toastService.error('Сервер временно недоступен. Пропускаем трек.')
+        // Автоматически переходим к следующему
+        setTimeout(() => next(), 100)
+        return
+      }
+
       console.error('[player] resolveTrackSource failed', err)
       toastService.error('Не удалось загрузить трек')
       return
@@ -143,10 +144,6 @@ export function createPlayerActions(
     })
   }
 
-  /**
-   * Явный выбор трека (клик по строке в списке).
-   * Заполняет очередь всеми переданными треками и запускает указанный.
-   */
   function setQueue(tracks: Track[], startIndex = 0): void {
     if (tracks.length === 0) {
       queue.value = []
@@ -160,7 +157,6 @@ export function createPlayerActions(
     if (!clicked) return
 
     if (shuffle.value) {
-      // Кликнутый трек — первым, остальные перемешаны
       const rest = tracks.filter((_, i) => i !== fromIndex)
       const shuffledRest = shuffleArray(rest)
       queue.value = [clicked, ...shuffledRest]
@@ -171,19 +167,13 @@ export function createPlayerActions(
     }
   }
 
-  /**
-   * Автовоспроизведение (кнопка "Играть всё").
-   * Пропускает дизлайки и недоступные.
-   */
   function playAll(tracks: Track[]): void {
     if (tracks.length === 0) return
 
     if (shuffle.value) {
       const shuffled = shuffleArray(tracks)
       const firstPlayable = findFirstPlayableIndex(shuffled, 0, shouldSkipAuto)
-
       queue.value = shuffled
-
       if (firstPlayable === -1) {
         const allUnavailable = shuffled.every(isTrackUnavailable)
         if (allUnavailable) {
@@ -193,13 +183,10 @@ export function createPlayerActions(
         }
         return
       }
-
       void playAt(firstPlayable)
     } else {
       const firstPlayable = findFirstPlayableIndex(tracks, 0, shouldSkipAuto)
-
       queue.value = tracks
-
       if (firstPlayable === -1) {
         const allUnavailable = tracks.every(isTrackUnavailable)
         if (allUnavailable) {
@@ -209,7 +196,6 @@ export function createPlayerActions(
         }
         return
       }
-
       void playAt(firstPlayable)
     }
   }
@@ -219,13 +205,11 @@ export function createPlayerActions(
       void playAt(0)
       return
     }
-
     const track = currentTrack.value
     if (track && isTrackUnavailable(track)) {
       toastService.error('Источник недоступен. Подключите плагин или скачайте трек.')
       return
     }
-
     audioService.play().catch((err) => {
       console.error('[player] play rejected', err)
     })
@@ -238,14 +222,12 @@ export function createPlayerActions(
   function stop(): void {
     audioService.unload()
     audioService.pause()
-
     queue.value = []
     currentIndex.value = -1
     currentTrack.value = null
     currentTime.value = 0
     duration.value = 0
     isPlaying.value = false
-
     stopTimeLoop()
   }
 
@@ -256,17 +238,13 @@ export function createPlayerActions(
 
   function removeFromQueue(index: number): void {
     if (index < 0 || index >= queue.value.length) return
-
     const wasCurrent = index === currentIndex.value
     const wasBeforeCurrent = index < currentIndex.value
-
     queue.value = queue.value.filter((_, i) => i !== index)
-
     if (queue.value.length === 0) {
       stop()
       return
     }
-
     if (wasCurrent) {
       const nextIndex = Math.min(index, queue.value.length - 1)
       void playAt(nextIndex)
@@ -283,14 +261,11 @@ export function createPlayerActions(
   function next(): void {
     if (queue.value.length === 0) return
     if (currentTrack.value && isLiveStream(currentTrack.value.pluginId)) return
-
-    // Автопереход: используем shouldSkipAuto (дизлайки и недоступные)
     const nextIndex = findPlayableIndex(queue.value, currentIndex.value + 1, 1, shouldSkipAuto)
     if (nextIndex !== -1) {
       void playAt(nextIndex)
       return
     }
-
     if (repeatMode.value === 'all') {
       const wrapIndex = findPlayableIndex(queue.value, 0, 1, shouldSkipAuto)
       if (wrapIndex !== -1) {
@@ -298,7 +273,6 @@ export function createPlayerActions(
         return
       }
     }
-
     if (shuffle.value) {
       const currentId = currentTrack.value?.id
       const rest = queue.value.filter((t) => t.id !== currentId)
@@ -312,7 +286,6 @@ export function createPlayerActions(
         }
       }
     }
-
     isPlaying.value = false
     audioService.pause()
   }
@@ -320,19 +293,15 @@ export function createPlayerActions(
   function prev(): void {
     if (queue.value.length === 0) return
     if (currentTrack.value && isLiveStream(currentTrack.value.pluginId)) return
-
     if (audioService.currentTime > 3) {
       audioService.seek(0)
       return
     }
-
-    // Автопереход: используем shouldSkipAuto
     const prevIndex = findPlayableIndex(queue.value, currentIndex.value - 1, -1, shouldSkipAuto)
     if (prevIndex !== -1) {
       void playAt(prevIndex)
       return
     }
-
     if (repeatMode.value === 'all') {
       const wrapIndex = findPlayableIndex(queue.value, queue.value.length - 1, -1, shouldSkipAuto)
       if (wrapIndex !== -1) {
@@ -340,7 +309,6 @@ export function createPlayerActions(
         return
       }
     }
-
     audioService.seek(0)
   }
 
@@ -372,15 +340,12 @@ export function createPlayerActions(
 
   function toggleShuffle(): void {
     shuffle.value = !shuffle.value
-
     if (shuffle.value && queue.value.length > 1) {
       const current = queue.value[currentIndex.value]
       if (!current) return
-
       const played = queue.value.slice(0, currentIndex.value + 1)
       const remaining = queue.value.slice(currentIndex.value + 1)
       if (remaining.length === 0) return
-
       queue.value = [...played, ...shuffleArray(remaining)]
     }
   }

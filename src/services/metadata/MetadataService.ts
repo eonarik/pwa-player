@@ -7,13 +7,14 @@ import {
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { UNKNOWN_ARTIST_PLACEHOLDER } from './constants'
-import type { LibraryTrack } from '@/types/library'
+import type { LibraryTrack, MetadataSource } from '@/types/library'
+import type { TrackMetadata } from './types'
 import type { MetadataCandidate, RemoteTrackMetadata } from './TrackMetadataService'
 
 export type ApplyResult =
   | { status: 'applied' }
   | { status: 'issue'; candidates: MetadataCandidate[] }
-  | { status: 'skipped' }
+  | { status: 'skipped'; reason: 'protected' | 'not-found' }
 
 export interface ManualPatch {
   artist: string
@@ -36,21 +37,19 @@ class MetadataService {
     return MetadataService.instance
   }
 
-  // --- Публичные методы ---------------------------------------------
-
-  /**
-   * Применить найденные метаданные (iTunes/Deezer).
-   * Если similarity ниже порога — возвращает `issue` с кандидатами,
-   * ничего не применяя.
-   */
   applyRemote(trackId: string, incoming: RemoteTrackMetadata): ApplyResult {
     const track = useLibraryStore().getTrack(trackId)
-    if (!track) return { status: 'skipped' }
+    if (!track) return { status: 'skipped', reason: 'not-found' }
+
+    // Защита от перезаписи ручных правок и честных тегов файла
+    if (track.metaSource === 'manual' || track.hasId3Tags) {
+      return { status: 'skipped', reason: 'protected' }
+    }
 
     this.saveToCache(track, incoming)
 
     if (incoming.confident) {
-      this.applyPatch(track, incoming)
+      this.applyPatch(track, incoming, 'auto')
       return { status: 'applied' }
     }
 
@@ -71,9 +70,6 @@ class MetadataService {
     return { status: 'issue', candidates }
   }
 
-  /**
-   * Применить конкретного кандидата (из MetadataIssuesModal).
-   */
   applyCandidate(trackId: string, candidate: MetadataCandidate): void {
     const track = useLibraryStore().getTrack(trackId)
     if (!track) return
@@ -87,13 +83,10 @@ class MetadataService {
       original: this.buildOriginal(track),
     })
 
-    this.applyPatch(track, candidate)
+    this.applyPatch(track, candidate, 'manual')
     this.scheduleFlush()
   }
 
-  /**
-   * Ручное редактирование (TrackMetadataModal).
-   */
   updateManual(trackId: string, patch: ManualPatch): void {
     const track = useLibraryStore().getTrack(trackId)
     if (!track) return
@@ -104,6 +97,7 @@ class MetadataService {
       title: patch.title,
       album: patch.album,
       coverUrl: patch.coverUrl,
+      metaSource: 'manual',
     })
 
     this.syncQueue(trackId)
@@ -120,35 +114,59 @@ class MetadataService {
     this.scheduleFlush()
   }
 
-  /**
-   * Сброс одного трека к оригиналу.
-   */
+  applyFromFile(trackId: string, parsed: TrackMetadata): void {
+    const track = useLibraryStore().getTrack(trackId)
+    if (!track) return
+
+    if (track.metaSource === 'manual') return
+
+    const patch: Partial<LibraryTrack> = {
+      metaSource: 'file',
+      hasId3Tags: true,
+    }
+
+    if (parsed.title) patch.title = parsed.title
+    if (parsed.artist) patch.artist = parsed.artist
+    if (parsed.album) patch.album = parsed.album
+    if (parsed.coverUrl) patch.coverUrl = parsed.coverUrl
+    if (parsed.duration) patch.duration = parsed.duration
+
+    useLibraryStore().updateTrackMetadata(trackId, patch)
+    this.syncQueue(trackId)
+  }
+
   async reset(trackId: string): Promise<void> {
     const library = useLibraryStore()
     const track = library.getTrack(trackId)
     if (!track) return
 
-    const entry = metadataPersistenceService.get(trackId)
-    if (!entry?.original) {
-      await metadataPersistenceService.resetForTracks([trackId])
-      return
+    const raw = track.raw
+
+    if (raw) {
+      library.updateTrackMetadata(trackId, {
+        artist: raw.artist,
+        title: raw.title,
+        album: raw.album,
+        coverUrl: raw.coverUrl,
+        metaSource: 'filename',
+        hasId3Tags: raw.hasId3Tags ?? false,
+      })
+    } else {
+      const entry = metadataPersistenceService.get(trackId)
+      library.updateTrackMetadata(trackId, {
+        artist: entry?.original?.artist ?? '',
+        title: entry?.original?.title ?? track.title,
+        album: entry?.original?.album ?? '',
+        coverUrl: entry?.original?.coverUrl ?? undefined,
+        metaSource: 'filename',
+        hasId3Tags: false,
+      })
     }
 
-    library.updateTrackMetadata(trackId, {
-      artist: entry.original.artist,
-      title: entry.original.title,
-      album: entry.original.album,
-      coverUrl: entry.original.coverUrl,
-    })
-
     this.syncQueue(trackId)
-
-    await metadataPersistenceService.resetForTracks([trackId])
+    await this.markNotFoundAndFlush(trackId)
   }
 
-  /**
-   * Сброс множества треков к оригиналу (useMetadataSearch.reset).
-   */
   async resetMany(trackIds: string[]): Promise<void> {
     const library = useLibraryStore()
 
@@ -156,26 +174,40 @@ class MetadataService {
       const track = library.getTrack(trackId)
       if (!track) continue
 
-      const entry = metadataPersistenceService.get(trackId)
-      if (!entry?.original) continue
+      const raw = track.raw
 
-      library.updateTrackMetadata(trackId, {
-        artist: entry.original.artist,
-        title: entry.original.title,
-        album: entry.original.album,
-        coverUrl: entry.original.coverUrl,
-      })
+      if (raw) {
+        library.updateTrackMetadata(trackId, {
+          artist: raw.artist,
+          title: raw.title,
+          album: raw.album,
+          coverUrl: raw.coverUrl,
+          metaSource: 'filename',
+          hasId3Tags: raw.hasId3Tags ?? false,
+        })
+      } else {
+        const entry = metadataPersistenceService.get(trackId)
+        library.updateTrackMetadata(trackId, {
+          artist: entry?.original?.artist ?? '',
+          title: entry?.original?.title ?? track.title,
+          album: entry?.original?.album ?? '',
+          coverUrl: entry?.original?.coverUrl ?? undefined,
+          metaSource: 'filename',
+          hasId3Tags: false,
+        })
+      }
 
       this.syncQueue(trackId)
+      this.markNotFound(trackId)
     }
 
-    await metadataPersistenceService.resetForTracks(trackIds)
+    await this.flush()
   }
 
-  /**
-   * Пометить трек как «не найдено» (кэш с TTL 7 дней).
-   */
   markNotFound(trackId: string): void {
+    const track = useLibraryStore().getTrack(trackId)
+    if (track?.metaSource === 'manual' || track?.hasId3Tags) return
+
     metadataPersistenceService.setInMemory(trackId, {
       artist: null,
       title: null,
@@ -187,7 +219,10 @@ class MetadataService {
     this.scheduleFlush()
   }
 
-  // --- Прокси для UI (useMetadataSearch) ---------------------------
+  private async markNotFoundAndFlush(trackId: string): Promise<void> {
+    this.markNotFound(trackId)
+    await this.flush()
+  }
 
   hasEntry(trackId: string): boolean {
     return metadataPersistenceService.has(trackId)
@@ -197,11 +232,6 @@ class MetadataService {
     return metadataPersistenceService.get(trackId)
   }
 
-  // --- Flush -------------------------------------------------------
-
-  /**
-   * Немедленно сохранить кэш в IDB (beforeunload / visibilitychange).
-   */
   async flush(): Promise<void> {
     if (this.flushTimer !== null) {
       clearTimeout(this.flushTimer)
@@ -218,13 +248,16 @@ class MetadataService {
     }, FLUSH_DEBOUNCE_MS)
   }
 
-  // --- Внутренние хелперы ------------------------------------------
-
   private applyPatch(
     track: LibraryTrack,
     incoming: { artist: string; title: string; album: string; coverUrl: string | null },
+    source: MetadataSource,
   ): void {
-    const patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>> = {}
+    const patch: Partial<
+      Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl' | 'metaSource'>
+    > = {
+      metaSource: source,
+    }
 
     const artist = track.artist?.trim() ?? ''
 
@@ -235,21 +268,15 @@ class MetadataService {
     if (incoming.album) patch.album = incoming.album
     if (!track.coverUrl && incoming.coverUrl) patch.coverUrl = incoming.coverUrl
 
-    if (Object.keys(patch).length === 0) return
-
     useLibraryStore().updateTrackMetadata(track.id, patch)
     this.syncQueue(track.id)
   }
 
-  /**
-   * Синхронизировать queue в player (единственное место вызова
-   * player.updateTrackInQueue — кроме playerRestore).
-   */
   private syncQueue(trackId: string): void {
     try {
       usePlayerStore().updateTrackInQueue(trackId)
     } catch {
-      // Pinia может быть не инициализирована (тесты)
+      // ignore
     }
   }
 
@@ -266,8 +293,6 @@ class MetadataService {
 
   private buildOriginal(track: LibraryTrack): OriginalMetadata {
     const coverUrl = track.coverUrl
-    // Сохраняем только http(s) URL. Blob URL невалиден после F5,
-    // поэтому при откате он становится `undefined`.
     const safeCoverUrl = coverUrl?.startsWith('http') ? coverUrl : undefined
 
     return {

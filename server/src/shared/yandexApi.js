@@ -23,27 +23,42 @@ export async function yandexFetch(accessToken, endpoint, params = {}, init = {})
     url.searchParams.set(key, String(value))
   }
 
-  const response = await fetch(url.toString(), {
-    ...init,
-    headers: {
-      Authorization: `OAuth ${accessToken}`,
-      Accept: 'application/json',
-      ...init.headers,
-    },
-  })
+  // Добавляем таймаут на уровне запроса к API
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 секунд
 
-  if (!response.ok) {
-    let message = `Yandex API error: ${response.status}`
-    try {
-      const body = await response.json()
-      message = body.message || body.description || message
-    } catch {
-      // ignore
+  try {
+    const response = await fetch(url.toString(), {
+      ...init,
+      signal: init.signal || controller.signal,
+      headers: {
+        Authorization: `OAuth ${accessToken}`,
+        Accept: 'application/json',
+        ...init.headers,
+      },
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      let message = `Yandex API error: ${response.status}`
+      try {
+        const body = await response.json()
+        message = body.message || body.description || message
+      } catch {
+        // ignore
+      }
+      throw new YandexApiError(response.status, message)
     }
-    throw new YandexApiError(response.status, message)
-  }
 
-  return response
+    return response
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') {
+      throw new YandexApiError(504, 'Yandex API Timeout (10s)')
+    }
+    throw err
+  }
 }
 
 /**

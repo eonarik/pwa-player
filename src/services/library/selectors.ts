@@ -11,9 +11,6 @@ export interface PlayabilityContext {
 
 /**
  * Можно ли воспроизвести трек прямо сейчас.
- *
- * Чистая функция: одинаковый вход → одинаковый выход. Не читает глобальное
- * состояние. Легко тестируется.
  */
 export function getPlayability(
   track: LibraryTrack | null | undefined,
@@ -40,9 +37,7 @@ export function getPlayability(
 }
 
 /**
- * Есть ли у трека локальная копия (можно слушать без сети).
- * Для `TrackRow` (полоска), для `BatchDownloadButton` (pending), для
- * `TrackActions` (пункт «Удалить с устройства»).
+ * Есть ли у трека локальная копия.
  */
 export function isLocalTrack(track: LibraryTrack | null | undefined): boolean {
   if (!track) return false
@@ -51,8 +46,7 @@ export function isLocalTrack(track: LibraryTrack | null | undefined): boolean {
 }
 
 /**
- * Есть ли трек в облаке (для `missing` в синхронизации,
- * для `removeMissing` в mergeFolderContent).
+ * Есть ли трек в облаке.
  */
 export function isRemoteTrack(track: LibraryTrack | null | undefined): boolean {
   if (!track) return false
@@ -61,12 +55,7 @@ export function isRemoteTrack(track: LibraryTrack | null | undefined): boolean {
 }
 
 /**
- * Готово ли поддерево (эта папка + все потомки просканированы).
- *
- * Заменяет `folder.ready`. Вычисляется на лету; если вызывается часто —
- * `library` кэширует результат (см. `invalidateSubtreeScanned`).
- *
- * Чистая функция от `getFolder` — легко тестируется, не зависит от store.
+ * Готово ли поддерево.
  */
 export function isSubtreeScanned(
   folderId: string,
@@ -79,7 +68,7 @@ export function isSubtreeScanned(
     visited.add(id)
 
     const folder = getFolder(id)
-    if (!folder) return true // нет папки — считаем готовой (её нет)
+    if (!folder) return true
 
     const state = folder.scanState ?? 'pending'
     if (state !== 'scanned') return false
@@ -94,15 +83,16 @@ export function isSubtreeScanned(
 }
 
 /**
- * Трек недоступен для воспроизведения: нет ни `handle` (локальный файл),
- * ни `source` (URL стриминга).
- *
- * Используется в `player` для блокировки воспроизведения и в UI для
- * индикации «Источник недоступен». Не зависит от контекста (сессия, сеть),
- * только от данных самого трека.
+ * Трек недоступен для воспроизведения:
+ * - помечен как битый (`nowhere`);
+ * - нет `handle` и нет `source`.
  */
 export function isTrackUnavailable(track: Track | LibraryTrack | null | undefined): boolean {
   if (!track) return true
+
+  // Явная пометка "битый файл"
+  if ('fileLocation' in track && track.fileLocation === 'nowhere') return true
+
   if (track.handle) return false
   if (typeof track.source === 'string' && track.source.length > 0) return false
   return true

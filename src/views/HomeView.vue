@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLibraryStore } from '@/stores/library'
+import { useLibraryStore, createLibraryWriter } from '@/stores/library'
 import {
   getPlugins,
   loadPlugin,
@@ -30,8 +30,6 @@ const pluginMetas = ref<PluginMeta[]>([])
 const isLoading = ref<string | null>(null)
 const customDataMap = ref<Record<string, boolean>>({})
 
-// Computed, а не ref — обновляется автоматически, когда в настройках
-// выбирают папку (hasSpace → true) или меняется permission.
 const spaceAvailable = computed(
   () => downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value,
 )
@@ -46,13 +44,19 @@ interface DisplayPlugin extends PluginMeta {
 const plugins = computed<DisplayPlugin[]>(() => {
   return pluginMetas.value.map((meta) => {
     const isStateless = Boolean(meta.manifest.isStateless)
+
+    // Опираемся на реальный статус плагина, а не на наличие папки в library
+    const isDisconnected = isStateless ? false : meta.isDisconnected
+
     const hasCustomData = isStateless
       ? Boolean(customDataMap.value[meta.manifest.id])
       : Boolean(meta.manifest.hasCustomData) && Boolean(customDataMap.value[meta.manifest.id])
+
     const hasLocalFiles = Boolean(customDataMap.value[meta.manifest.id])
 
     return {
       ...meta,
+      isDisconnected,
       isStateless,
       hasCustomData,
       hasLocalFiles,
@@ -63,7 +67,6 @@ const plugins = computed<DisplayPlugin[]>(() => {
 
 async function checkLocalFiles(pluginId: string): Promise<boolean> {
   if (!downloadSpaceService.hasSpace.value) return false
-
   try {
     const dir = await downloadSpaceService.getPluginDirIfExists(pluginId)
     if (!dir) return false
@@ -116,8 +119,6 @@ async function loadPlugins() {
   }
 }
 
-// Если HomeView не перемонтировался (например, переиспользован роутером),
-// а папку в настройках только что выбрали — догоняем проверку локальных файлов.
 watch(
   () => spaceAvailable.value,
   async (has, prev) => {
@@ -134,6 +135,8 @@ onMounted(async () => {
     await router.replace({ path: route.path })
     const yandexMeta = pluginMetas.value.find((m) => m.manifest.id === 'yandex')
     if (yandexMeta) {
+      localStorage.setItem('yandex-connected', 'true')
+      localStorage.removeItem('yandex-disconnected')
       await connectPlugin({ manifest: yandexMeta.manifest })
     }
   }
@@ -150,7 +153,6 @@ function hasTracksInTree(folderId: string): boolean {
 }
 
 interface OpenPluginOptions {
-  /** true — не трогаем облачный кеш, строим только из папки скачивания */
   localOnly: boolean
 }
 
@@ -178,8 +180,8 @@ async function openPlugin(row: { manifest: PluginManifest }, options: OpenPlugin
 
   let root = findRoot()
 
-  // 1. Пробуем облачный кеш (для yandex / yandex-self).
-  if (!options.localOnly && (!root || !hasTracksInTree(root.id))) {
+  // 1. Всегда сначала пробуем кэш (мгновенно)
+  if (!root || !hasTracksInTree(root.id)) {
     try {
       await plugin.restoreFromCache(context)
       root = findRoot()
@@ -188,8 +190,8 @@ async function openPlugin(row: { manifest: PluginManifest }, options: OpenPlugin
     }
   }
 
-  // 2. Локальные скачанные файлы (для yandex / yandex-self).
-  if (!root || !hasTracksInTree(root.id)) {
+  // 2. Если нужен локальный доступ и кэша нет — восстанавливаем из файлов
+  if (options.localOnly && (!root || !hasTracksInTree(root.id))) {
     if (plugin.restoreFromLocalFiles) {
       try {
         const ok = await plugin.restoreFromLocalFiles(context)
@@ -201,21 +203,35 @@ async function openPlugin(row: { manifest: PluginManifest }, options: OpenPlugin
         return
       }
     }
+    if (!root) {
+      toastService.error(`Локальные файлы для «${row.manifest.name}» не найдены`)
+      return
+    }
   }
 
-  // 3. Для плагинов без локального восстановления (local) — вызываем connect + load.
-  //    Для local это откроет системный диалог выбора папки.
-  if ((!root || !hasTracksInTree(root.id)) && !plugin.restoreFromLocalFiles && !options.localOnly) {
-    try {
-      await plugin.connect(context)
-      await plugin.load(context, { forceRefresh: true })
-      root = findRoot()
-    } catch (err) {
-      if (err instanceof Error && err.message === 'cancelled') return
-      if (err instanceof Error && err.message === 'redirect') return
-      console.warn(`[home] connect+load for "${row.manifest.id}" failed`, err)
-      toastService.error(err instanceof Error ? err.message : 'Не удалось подключить источник')
-      return
+  // 3. Если нужен облачный доступ и ничего нет — идем в сеть
+  if (!options.localOnly && (!root || !hasTracksInTree(root.id))) {
+    if (plugin.restoreFromLocalFiles) {
+      try {
+        await plugin.restoreFromLocalFiles(context)
+        root = findRoot()
+      } catch (err) {
+        console.warn('[home] failed to restore from local files', err)
+      }
+    }
+
+    if ((!root || !hasTracksInTree(root.id)) && !plugin.restoreFromLocalFiles) {
+      try {
+        await plugin.connect(context)
+        await plugin.load(context, { forceRefresh: true })
+        root = findRoot()
+      } catch (err) {
+        if (err instanceof Error && err.message === 'cancelled') return
+        if (err instanceof Error && err.message === 'redirect') return
+        console.warn(`[home] connect+load for "${row.manifest.id}" failed`, err)
+        toastService.error(err instanceof Error ? err.message : 'Не удалось подключить источник')
+        return
+      }
     }
   }
 
@@ -227,6 +243,13 @@ async function openPlugin(row: { manifest: PluginManifest }, options: OpenPlugin
   library.setCurrentFolder(root.id)
   const segments = root.path.split('/').filter(Boolean)
   router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
+
+  // 4. Фоновое обновление (чтобы не фризить при заходе в локальную папку)
+  if (options.localOnly && plugin.mergeLocalIntoLibrary) {
+    void plugin.mergeLocalIntoLibrary(context).catch((err) => {
+      console.warn(`[home] background merge for "${row.manifest.id}" failed`, err)
+    })
+  }
 }
 
 async function onOpen(row: DisplayPlugin) {
@@ -247,8 +270,6 @@ async function connectPlugin(row: { manifest: PluginManifest }) {
 
     await plugin.connect(context)
     setPluginDisconnected(row.manifest.id, false)
-    // load() сам делает mergeLocalIntoLibrary до и после облачного скана
-    // и сохраняет кеш через yandexPersistenceService.save.
     await plugin.load(context, { forceRefresh: true })
 
     toastService.success(`Источник «${row.manifest.name}» подключён`)
@@ -291,6 +312,11 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
     const context = createPluginContext(row.manifest.id)
     await plugin.disconnect(context)
     setPluginDisconnected(row.manifest.id, true)
+
+    // Очищаем библиотеку от этого плагина
+    const writer = createLibraryWriter()
+    writer.removeBySource(row.manifest.id)
+
     await loadPlugins()
     toastService.info(`Источник «${row.manifest.name}» отключён`)
   } catch (err) {

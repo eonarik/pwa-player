@@ -4,16 +4,13 @@ import type { PluginContext } from '../../types'
 import type { Folder, LibraryTrack, TextFileRef } from '@/types/library'
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
+import { guessMetadataFromFilename } from '@/utils/parseFilename'
 import type { YandexResourceItem, IYandexService } from '../types'
 
 export const ROOT_REMOTE_PATH = 'disk:/'
 
 export function isTextFile(name: string): boolean {
   return name.toLowerCase().endsWith('.txt')
-}
-
-export function titleFromFilename(name: string): string {
-  return name.replace(/\.[^.]+$/, '')
 }
 
 export interface PartitionedItems {
@@ -50,6 +47,14 @@ export function buildTrack(
   const trackId = trackIdFromPath(sourceId, trackPath)
   const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
 
+  const guessed = guessMetadataFromFilename(item.name)
+  const initialMeta = {
+    title: guessed.title,
+    artist: guessed.artist,
+    album: '',
+    coverUrl: cachedCover,
+  }
+
   return {
     id: trackId,
     pluginId: sourceId,
@@ -58,11 +63,10 @@ export function buildTrack(
     path: trackPath,
     remotePath: item.path,
     source: service.buildDownloadUrl(item.path),
-    title: titleFromFilename(item.name),
-    artist: '',
-    album: folder.name ?? '',
-    coverUrl: cachedCover,
+    ...initialMeta,
     fileLocation: 'remote-only',
+    metaSource: 'filename',
+    raw: { ...initialMeta }, // <-- Снимок
   }
 }
 

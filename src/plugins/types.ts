@@ -169,7 +169,9 @@ export interface LibraryWriter {
   updateTrackDuration(trackId: string, duration: number): void
   updateTrackMetadata(
     trackId: string,
-    patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>>,
+    patch: Partial<
+      Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl' | 'metaSource' | 'hasId3Tags'>
+    >,
   ): void
   getFolder(folderId: string): Folder | null
   getTrack(trackId: string): LibraryTrack | null

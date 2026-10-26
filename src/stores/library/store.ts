@@ -128,7 +128,9 @@ export const useLibraryStore = defineStore('library', () => {
 
   function updateTrackMetadata(
     trackId: string,
-    patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl'>>,
+    patch: Partial<
+      Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl' | 'metaSource' | 'hasId3Tags'>
+    >,
   ): void {
     const track = tracks.value[trackId]
     if (!track) return

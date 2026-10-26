@@ -1,10 +1,12 @@
 // src/plugins/yandexDisk/YandexDiskService.ts
 import { compareStrings } from '@/utils/sort'
-import type { YandexResourcesResponse, YandexResourceItem } from './types'
 import { apiClient, type AuthProvider } from '@/services/api/ApiClient'
+import type { YandexResourcesResponse, YandexResourceItem } from './types'
 
 const PROXY_URL = ''
 const REQUEST_TIMEOUT_MS = 10_000
+const DISCONNECTED_KEY = 'yandex-disconnected'
+const CONNECTED_KEY = 'yandex-connected'
 
 export class AuthRequiredError extends Error {
   constructor() {
@@ -44,12 +46,11 @@ export class YandexDiskService implements AuthProvider {
   // --- AuthProvider ----------------------------------------------------
 
   isAccessValid(): boolean {
-    // Cookie на сервере, JS не видит токен — доверяем серверу.
-    return true
+    return true // Cookie-based, JS не видит
   }
 
   hasRefreshToken(): boolean {
-    return false
+    return false // Refresh на сервере
   }
 
   async refreshAccess(): Promise<boolean> {
@@ -58,6 +59,30 @@ export class YandexDiskService implements AuthProvider {
 
   getAuthHeaders(): Record<string, string> {
     return {}
+  }
+
+  // --- IYandexService --------------------------------------------------
+
+  isDisconnected(): boolean {
+    if (localStorage.getItem(DISCONNECTED_KEY) === 'true') return true
+
+    // Если нет флага подключения, считаем отключенным
+    return localStorage.getItem(CONNECTED_KEY) !== 'true'
+  }
+
+  setDisconnected(val: boolean) {
+    if (val) {
+      localStorage.setItem(DISCONNECTED_KEY, 'true')
+      localStorage.removeItem(CONNECTED_KEY)
+    } else {
+      localStorage.removeItem(DISCONNECTED_KEY)
+      localStorage.setItem(CONNECTED_KEY, 'true')
+    }
+  }
+
+  setConnected(val: boolean) {
+    if (val) localStorage.setItem(CONNECTED_KEY, 'true')
+    else localStorage.removeItem(CONNECTED_KEY)
   }
 
   async ping(): Promise<boolean> {

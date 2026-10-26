@@ -3,7 +3,6 @@
 export {
   ROOT_REMOTE_PATH,
   isTextFile,
-  titleFromFilename,
   partitionItems,
   buildTrack,
   buildTextFile,

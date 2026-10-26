@@ -1,7 +1,7 @@
 // src/plugins/yandexDisk/sync.ts
 
 import type { PluginContext, ScanResult } from '../types'
-import type { LibraryTrack, Folder, CollectedLibrary } from '@/types/library'
+import type { LibraryTrack, Folder, CollectedLibrary, MetadataSource } from '@/types/library'
 import { scanDirectory } from '@/services/download/scanDirectory'
 import { getFileHandleFromPath } from '@/services/download/getFileFromPath'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
@@ -78,9 +78,8 @@ export async function createLocalTrackFromFile(
   const folder = findNearestFolder(context.writer, deps.sourceId, relativePath)
   if (!folder) return null
 
-  const metadata = await parseTrackMetadata(file, {
-    folderName: relativePath.split('/').slice(-2)[0],
-  })
+  const metadata = await parseTrackMetadata(file, {})
+  const hasRealTags = Boolean(metadata.artist)
 
   return {
     id: trackId,
@@ -93,9 +92,10 @@ export async function createLocalTrackFromFile(
     fileLocation: 'local-only',
     title: metadata.title,
     artist: metadata.artist,
-    album: metadata.album,
+    album: metadata.album, // Берем только из парсера (или пустой)
     duration: metadata.duration,
     coverUrl: metadata.coverUrl,
+    metaSource: hasRealTags ? 'file' : 'filename',
   }
 }
 
@@ -183,9 +183,16 @@ export async function restoreLibraryFromFiles(
         (p) => trackIdFromPath(deps.sourceId, p) === trackId,
       )
       if (!trackPath) continue
+
       const fileHandle = files.get(trackPath)!.handle
+      const file = await fileHandle.getFile()
 
       const existing = context.writer.getTrack(trackId)
+      const metadata = await parseTrackMetadata(file, {})
+      const hasRealTags = Boolean(metadata.artist)
+
+      const metaSource: MetadataSource =
+        existing?.metaSource === 'manual' ? 'manual' : hasRealTags ? 'file' : 'filename'
 
       allTracks.push({
         id: trackId,
@@ -198,14 +205,20 @@ export async function restoreLibraryFromFiles(
         source: '',
         fileLocation: 'local-only',
         title:
-          existing?.title ??
-          trackPath
-            .split('/')
-            .pop()!
-            .replace(/\.[^.]+$/, ''),
-        artist: existing?.artist ?? '',
-        album: existing?.album ?? folder.name,
-        coverUrl: existing?.coverUrl,
+          existing?.metaSource === 'manual'
+            ? existing.title
+            : metadata.title || existing?.title || '',
+        artist:
+          existing?.metaSource === 'manual'
+            ? existing.artist
+            : metadata.artist || existing?.artist || '',
+        album:
+          existing?.metaSource === 'manual'
+            ? existing.album
+            : metadata.album || existing?.album || '',
+        coverUrl: existing?.coverUrl || metadata.coverUrl,
+        metaSource,
+        duration: metadata.duration,
       })
     }
   }
@@ -293,9 +306,8 @@ export async function mergeLocalIntoLibrary(
       continue
     }
 
-    const parsed = await parseTrackMetadata(file, {
-      folderName: segments[segments.length - 1],
-    })
+    const parsed = await parseTrackMetadata(file, {})
+    const hasRealTags = Boolean(parsed.artist)
 
     createdTracks.push({
       id: trackId,
@@ -309,9 +321,10 @@ export async function mergeLocalIntoLibrary(
       fileLocation: 'local-only',
       title: parsed.title,
       artist: parsed.artist,
-      album: parsed.album,
+      album: parsed.album, // Берем только из парсера (или пустой)
       duration: parsed.duration,
       coverUrl: parsed.coverUrl,
+      metaSource: hasRealTags ? 'file' : 'filename',
     })
   }
 

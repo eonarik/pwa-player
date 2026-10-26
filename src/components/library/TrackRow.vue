@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import PlayingIndicator from '@/components/ui/PlayingIndicator.vue'
 import TrackCover from '@/components/ui/TrackCover.vue'
+import Spinner from '@/components/ui/Spinner.vue'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useTrackDisplay } from '@/composables/useTrackDisplay'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
@@ -52,18 +53,32 @@ const isLocal = computed(() => {
   return isLocalTrack(props.track as LibraryTrack)
 })
 
-// Только физическое наличие (handle или source). Не зависит от сессии —
-// «сессия истекла» показывается только в момент Play (handleAuthError).
+// Физическое наличие
 const isUnavailable = computed(() => isTrackUnavailable(props.track))
+
+// Явная проверка на битый файл (nowhere)
+const isBroken = computed(() => {
+  if ('fileLocation' in props.track && props.track.fileLocation === 'nowhere') return true
+  return false
+})
 </script>
 
 <template>
   <ListRow :active="isCurrent" :disliked="isDisliked" :download-progress="downloadProgress" :downloaded="isLocal"
     @click="emit('select')">
+
     <template #leading>
-      <TrackCover :track="track" :class="isUnavailable ? 'opacity-50' : ''">
-        <PlayingIndicator v-if="isCurrent && isPlaying" />
-      </TrackCover>
+      <div class="relative">
+        <TrackCover :track="track" :class="isUnavailable ? 'opacity-50 grayscale' : ''">
+          <PlayingIndicator v-if="isCurrent && isPlaying" />
+        </TrackCover>
+
+        <!-- Лоадер при скачивании поверх обложки -->
+        <div v-if="isDownloading"
+          class="absolute inset-0 z-10 flex items-center justify-center bg-bg/60 rounded-btn backdrop-blur-sm">
+          <Spinner size="sm" />
+        </div>
+      </div>
     </template>
 
     <template #title>
@@ -81,7 +96,11 @@ const isUnavailable = computed(() => isTrackUnavailable(props.track))
     </template>
 
     <template #subtitle>
-      <p v-if="isUnavailable" class="truncate text-[10px] text-fg-subtle">
+      <!-- Явная пометка битого файла -->
+      <p v-if="isBroken" class="truncate text-[10px] text-red-400">
+        Файл удален или поврежден
+      </p>
+      <p v-else-if="isUnavailable" class="truncate text-[10px] text-fg-subtle">
         Источник недоступен
       </p>
       <p v-else-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">

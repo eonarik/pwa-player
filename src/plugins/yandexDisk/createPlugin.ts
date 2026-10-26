@@ -1,4 +1,5 @@
 // src/plugins/yandexDisk/createPlugin.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type {
   LibrarySource,
@@ -86,7 +87,12 @@ export function createYandexPlugin({
         if (!alive) throw new Error('Сервер недоступен')
 
         const me = await authService.me()
-        if (me.authenticated) return
+        if (me.authenticated) {
+          if ('setConnected' in service && typeof service.setConnected === 'function') {
+            ;(service as any).setConnected(true)
+          }
+          return
+        }
 
         authService.startOAuth()
         throw new Error('redirect')
@@ -188,9 +194,6 @@ export function createYandexPlugin({
       throw new Error(`[${id}] track.source must be string`)
     },
 
-    /**
-     * URL для скачивания трека. Строится из `remotePath`, не из `source`.
-     */
     buildDownloadUrl(track: LibraryTrack): string {
       if (!track.remotePath) {
         throw new Error(`[${id}] track "${track.id}" has no remotePath`)
@@ -217,8 +220,6 @@ export function createYandexPlugin({
       targetDir: FileSystemDirectoryHandle,
     ): Promise<void> {
       await removeDownloadedFromDir(context, track, targetDir)
-
-      // Файла больше нет — сбрасываем handle и переводим в remote-only.
       context.writer.updateTrackHandle(track.id, undefined)
       context.writer.updateTrackFileLocation(track.id, 'remote-only')
       const nextSource = track.remotePath ? service.buildDownloadUrl(track.remotePath) : ''

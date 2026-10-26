@@ -47,6 +47,7 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
       album: t.album,
       fileLocation,
       duration: t.duration,
+      metaSource: t.metaSource,
     })
   }
 
@@ -101,6 +102,7 @@ export function fromPersisted(
       coverUrl: cachedCover,
       fileLocation,
       duration: t.duration,
+      metaSource: t.metaSource,
     }
   })
 

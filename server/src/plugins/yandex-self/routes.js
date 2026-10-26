@@ -134,17 +134,59 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
 
   try {
     const diskPath = path === '/' ? `disk:${cleanRoot}` : `disk:${cleanRoot}${path}`
-    const href = await yandexDownloadHref(process.env.YANDEX_SELF_TOKEN, diskPath)
+
+    // 1. Получаем ссылку (с ретраями)
+    let href = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        href = await yandexDownloadHref(process.env.YANDEX_SELF_TOKEN, diskPath)
+        if (href) break
+      } catch (err) {
+        // Если файла нет в метаданных — 404
+        if (err.status === 404) throw err
+        if (attempt === 3) throw err
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+    }
 
     if (!href) {
       res.status(404).json({ error: 'Download link not found' })
       return
     }
-    const fileResponse = await fetch(href, {
-      signal: AbortSignal.timeout(10000), // 10 секунд на соединение
-    })
-    if (!fileResponse.ok || !fileResponse.body) {
-      res.status(fileResponse.status).json({ error: 'Failed to fetch file' })
+
+    // 2. Скачиваем файл (с ретраями)
+    let fileResponse = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      let timeoutId
+      try {
+        const controller = new AbortController()
+        timeoutId = setTimeout(() => controller.abort(), 15000)
+
+        fileResponse = await fetch(href, {
+          headers: { Connection: 'close' },
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (fileResponse.ok) break
+
+        if (fileResponse.status === 404 || fileResponse.status === 410) {
+          res.status(404).json({ error: 'File not found on Yandex Disk' })
+          return
+        }
+
+        if (fileResponse.status >= 500) throw new Error(`Yandex HTTP ${fileResponse.status}`)
+        break
+      } catch (err) {
+        if (timeoutId) clearTimeout(timeoutId)
+        if (attempt === 3) throw err
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+    }
+
+    if (!fileResponse || !fileResponse.ok || !fileResponse.body) {
+      res.status(502).json({ error: 'Failed to fetch file from Yandex (Network Error)' })
       return
     }
 
@@ -168,14 +210,25 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
     await pump()
   } catch (err) {
     console.error(`[yandex-self] Download error for "${rawPath}":`, err.message)
-    if (err.cause) {
-      console.error(`[yandex-self] Download error cause:`, err.cause)
-    }
 
-    // Заголовки уже ушли (частично отданный файл, обрыв клиентом) —
-    // отвечать нельзя, только рвём соединение.
     if (res.headersSent || res.writableEnded) {
       res.destroy()
+      return
+    }
+
+    // Обработка специфичных ошибок Яндекса
+    if (err.status === 404 || err.name === 'NotFoundError') {
+      res.status(404).json({ error: 'File not found' })
+      return
+    }
+
+    // Сетевые ошибки (fetch failed, ETIMEDOUT, ENETUNREACH)
+    if (
+      err.cause?.code === 'ETIMEDOUT' ||
+      err.cause?.code === 'ENETUNREACH' ||
+      err.message === 'fetch failed'
+    ) {
+      res.status(502).json({ error: 'Network error while fetching from Yandex' })
       return
     }
 

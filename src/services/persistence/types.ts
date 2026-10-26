@@ -1,6 +1,6 @@
 // src/services/persistence/types.ts
 
-import type { FileLocation } from '@/types/library'
+import type { FileLocation, RawMetadata } from '@/types/library'
 
 export interface PersistedTrack {
   id: string
@@ -17,12 +17,10 @@ export interface PersistedTrack {
   path?: string
   handle?: FileSystemFileHandle
   directoryHandle?: FileSystemDirectoryHandle
-  /** URL потока (для радио или стриминга). */
   source?: string
-  /** URL обложки (если это не blob, а внешняя ссылка). */
   coverUrl?: string
-  /** Где физически находится файл. */
   fileLocation?: FileLocation
+  raw?: RawMetadata
 }
 
 export interface PersistedState {

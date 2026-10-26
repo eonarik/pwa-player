@@ -148,6 +148,18 @@ html {
   transition: fill 0.2s ease, stroke 0.2s ease, color 0.2s ease;
 }
 
+.text-active .icon,
+.text-active > .icon {
+  stroke: var(--color-active) !important;
+  color: var(--color-active) !important;
+}
+
+.text-red-400 .icon,
+.text-red-400 > .icon {
+  stroke: #f87171 !important; /* tailwind red-400 */
+  color: #f87171 !important;
+}
+
 @layer utilities {
   .rounded-card {
     border-radius: 0;

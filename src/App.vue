@@ -10,15 +10,17 @@ import { usePlaylistsStore } from '@/stores/playlists'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
+import { metadataService } from '@/services/metadata/MetadataService'
+import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { syncService } from '@/services/download/SyncService'
-import { getPlugins, loadPlugin, pluginCanDownload } from '@/plugins/registry'
+import { getPlugins, loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPageTitle } from '@/navigation/title'
 import { audioService } from '@/services/audio/AudioService'
+import type { LibraryTrack } from '@/types/library'
 import PlayerControls from '@/components/player/PlayerControls.vue'
 import FullPlayer from '@/components/player/FullPlayer.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
@@ -28,10 +30,6 @@ import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue
 import AppDrawer from '@/components/layout/AppDrawer.vue'
 import FeedbackModal from '@/components/ui/FeedbackModal.vue'
 import IconButton from '@/components/ui/IconButton.vue'
-import { trackMetadataService } from './services/metadata/TrackMetadataService'
-import { metadataService } from "./services/metadata/MetadataService"
-import { downloadOrchestrator } from "./services/download/DownloadOrchestrator"
-import { isLocalTrack } from "./services/library/selectors"
 
 const route = useRoute()
 const player = usePlayerStore()
@@ -124,7 +122,7 @@ onMounted(async () => {
   try {
     await uiSettings.load()
     await sortService.load()
-    await metadataPersistenceService.load()
+    await metadataService.flush()
     await downloadSpaceService.load()
     await history.restore()
     await dislikes.restore()
@@ -152,34 +150,27 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
-watch(currentTrack, async (track) => {
-  if (!track) return
+// Храним ID треков, которые уже ищутся или обработаны в этой сессии
+const processedTracks = new Set<string>()
 
-  const libTrack = library.getTrack(track.id)
-  if (!libTrack) return
-
-  // --- Автоскачивание ---
-  if (uiSettings.autoDownloadTracks) {
-    const canDownload = pluginCanDownload(libTrack.pluginId)
-    const isLocal = isLocalTrack(libTrack)
-    const isDownloading = downloadOrchestrator.isDownloading(libTrack.id)
-
-    if (canDownload && !isLocal && !isDownloading) {
-      // Проверяем, выбрана ли папка. Если нет — просто игнорируем (не спамим модалками)
-      if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
-        // Запускаем скачивание в фоне (не блокируя воспроизведение)
-        void downloadOrchestrator.downloadTrack(libTrack).catch((err) => {
-          console.warn('[app] auto-download failed', err)
-        })
-      }
-    }
-  }
-
-  // --- Автопоиск метаданных ---
+async function runAutoFetch(libTrack: LibraryTrack) {
   if (!uiSettings.autoFetchMetadata) return
-  if (metadataService.hasEntry(track.id)) return
+  if (libTrack.hasId3Tags) return
 
-  void (async () => {
+  const canAutoFetch =
+    libTrack.metaSource !== 'auto' &&
+    libTrack.metaSource !== 'manual' &&
+    libTrack.metaSource !== 'unknown'
+
+  if (!canAutoFetch) return
+
+  // Если уже в процессе или обработан — выходим
+  if (processedTracks.has(libTrack.id)) return
+
+  // Помечаем, что начали обработку
+  processedTracks.add(libTrack.id)
+
+  try {
     const result = await trackMetadataService.fetch(
       libTrack.artist ?? '',
       libTrack.title,
@@ -188,20 +179,40 @@ watch(currentTrack, async (track) => {
 
     if (result.status === 'found') {
       metadataService.applyRemote(libTrack.id, result.data)
-      return
+    } else {
+      // 'not-found' или 'error' — в любом случае ставим unknown, чтобы не спамить
+      useLibraryStore().updateTrackMetadata(libTrack.id, { metaSource: 'unknown' })
     }
+  } catch (err) {
+    console.warn('[app] auto-fetch failed', err)
+    // Даже если упало — ставим unknown, чтобы не спамить
+    useLibraryStore().updateTrackMetadata(libTrack.id, { metaSource: 'unknown' })
+  }
+}
 
-    if (result.status === 'not-found') {
-      metadataService.markNotFound(track.id)
-    }
-  })()
+watch(currentTrack, async (track) => {
+  if (!track) return
+
+  const libTrack = library.getTrack(track.id)
+  if (!libTrack) return
+
+  // Если мы уже обрабатывали этот трек в этой сессии — не трогаем
+  if (processedTracks.has(libTrack.id)) return
+
+  // 1. Парсинг локального файла
+  if (libTrack.handle && !libTrack.hasId3Tags && libTrack.metaSource !== 'manual') {
+    // ...
+  }
+
+  // 2. Автопоиск
+  void runAutoFetch(libTrack)
 })
 </script>
 
 <template>
-  <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg">
+  <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg relative">
     <!-- Хедер -->
-    <header class="app-safe-top flex items-center gap-2 px-3 py-2">
+    <header class="app-safe-top flex items-center gap-2 px-3 py-2 z-10">
       <IconButton icon="menu" variant="ghost" size="md" label="Меню" @click="openDrawer" class="!px-3 !w-auto">
         <span class="hidden md:inline text-sm">Меню</span>
         <span v-if="queueBadge"
@@ -216,12 +227,12 @@ watch(currentTrack, async (track) => {
       </span>
     </header>
 
-    <main class="overflow-hidden">
+    <main class="overflow-hidden z-10 relative">
       <RouterView v-if="!isBootstrapping" />
       <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">Загрузка…</div>
     </main>
 
-    <div>
+    <div class="z-20 relative">
       <PlayerControls @open="openFullPlayer" />
     </div>
 

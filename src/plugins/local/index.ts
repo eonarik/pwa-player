@@ -1,5 +1,4 @@
 // src/plugins/local/index.ts
-
 import type { LibrarySource, LoadOptions, PluginContext, ScanFolderOptions } from '../types'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { fileSystemService } from './FileSystemService'
@@ -12,7 +11,6 @@ import { folderIdFromPath } from '@/services/library/id'
 const PLUGIN_ID = 'local'
 const CONNECTED_KEY = 'local-connected'
 
-/** Собирает идентификатор root для конкретного handle */
 function rootIdFromHandle(handle: FileSystemDirectoryHandle): string {
   return `${PLUGIN_ID}:${handle.name}`
 }
@@ -30,40 +28,26 @@ const localPlugin: LibrarySource = {
     return localStorage.getItem(CONNECTED_KEY) !== 'true'
   },
 
-  // --- Подключение ----------------------------------------------------
-
   async connect(_context: PluginContext): Promise<void> {
     if (!fileSystemService.supported) {
       throw new Error(
         'File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.',
       )
     }
-
     const handle = await fileSystemService.pickDirectory()
-    if (!handle) {
-      throw new Error('cancelled')
-    }
-
+    if (!handle) throw new Error('cancelled')
     await fileSystemService.addHandle(handle)
     localStorage.setItem(CONNECTED_KEY, 'true')
   },
 
-  // --- Загрузка -------------------------------------------------------
-
   async load(context: PluginContext, _options?: LoadOptions): Promise<void> {
     const handles = await fileSystemService.getHandles()
-    if (handles.length === 0) {
-      return
-    }
-
+    if (handles.length === 0) return
     const collected = await collectAll(handles)
     if (!collected) return
-
     context.writer.setLibrary(collected, PLUGIN_ID)
     await localPersistenceService.save(toPersisted(collected))
   },
-
-  // --- Восстановление из кэша -----------------------------------------
 
   async restoreFromCache(context: PluginContext): Promise<boolean> {
     const persisted = await localPersistenceService.load()
@@ -115,6 +99,7 @@ const localPlugin: LibrarySource = {
             source: '',
             fileLocation: 'local-only',
             coverUrl: cachedCover,
+            metaSource: t.metaSource,
           }
         } catch (err) {
           console.warn(`[local-plugin] can't restore file for "${t.title}"`, err)
@@ -148,8 +133,6 @@ const localPlugin: LibrarySource = {
     return true
   },
 
-  // --- scanFolder -----------------------------------------------------
-
   async scanFolder(
     _context: PluginContext,
     _folderId: string,
@@ -157,8 +140,6 @@ const localPlugin: LibrarySource = {
   ): Promise<boolean> {
     return true
   },
-
-  // --- Стриминг -------------------------------------------------------
 
   buildStreamUrl(track: LibraryTrack): string {
     if (typeof track.source === 'string') {
@@ -168,8 +149,6 @@ const localPlugin: LibrarySource = {
   },
 
   canDownload: false,
-
-  // --- Отключение -----------------------------------------------------
 
   async disconnect(context: PluginContext): Promise<void> {
     localStorage.removeItem(CONNECTED_KEY)
@@ -226,9 +205,7 @@ async function collectAll(handles: FileSystemDirectoryHandle[]): Promise<Collect
     }
   }
 
-  if (successCount === 0) {
-    return null
-  }
+  if (successCount === 0) return null
 
   return {
     folders: allFolders,
@@ -272,6 +249,7 @@ function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
       filename: track.filename,
       path: track.path!,
       handle: track.handle,
+      metaSource: track.metaSource,
     })
   }
 

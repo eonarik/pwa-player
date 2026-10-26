@@ -56,8 +56,13 @@ function clearMetadataCache(): void {
 
 async function resetAll(): Promise<void> {
   if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return
+  // 1. Чистим токены Яндекса
   yandexSelfService.logout()
+  // 2. Чистим IndexedDB
   await schemaService.clearAll()
+  // 3. Чистим localStorage (флаги подключения, темы, настройки)
+  localStorage.clear()
+  // 4. Перезагружаем страницу
   location.reload()
 }
 

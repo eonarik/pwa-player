@@ -1,4 +1,5 @@
 // src/services/download/downloadUrlToFile.ts
+import { DownloadError } from './types'
 
 export interface DownloadUrlOptions {
   targetDir: FileSystemDirectoryHandle
@@ -29,7 +30,7 @@ export async function downloadUrlToFile(
   const response = await doFetch(url, { signal, credentials: 'include' })
 
   if (!response.ok || !response.body) {
-    throw new Error(`Download failed: HTTP ${response.status}`)
+    throw new DownloadError(response.status, `Download failed: HTTP ${response.status}`)
   }
 
   const totalFromHeader = Number(response.headers.get('Content-Length')) || 0

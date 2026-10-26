@@ -12,6 +12,20 @@ export interface TrackDownloadState {
 }
 
 /**
+ * Ошибка скачивания (с HTTP-статусом).
+ * Позволяет отличить битый файл (404) от сетевой ошибки (502/500).
+ */
+export class DownloadError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'DownloadError'
+  }
+}
+
+/**
  * Проблемы, найденные при сканировании папки скачивания.
  */
 export interface SyncIssues {

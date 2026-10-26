@@ -51,7 +51,7 @@ const isLive = computed(() => isLiveStream(props.track.pluginId))
 
 const hasMetadataEntry = computed(() => metadataService.hasEntry(props.track.id))
 
-// --- Плейлисты --------------------------------------------------------
+// --- Плейлисты (без изменений) ----------------------------------------
 
 function closeMenu(close: () => void): void {
   isSubmenuOpen.value = false
@@ -129,15 +129,32 @@ async function removeMetadata(close: () => void): Promise<void> {
 
 async function findMetadata(close: () => void): Promise<void> {
   if (isSearchingMetadata.value) return
-  isSearchingMetadata.value = true
 
   const libraryTrack = library.getTrack(props.track.id)
   if (!libraryTrack) {
     toastService.error('Трек не найден в библиотеке')
-    isSearchingMetadata.value = false
     closeMenu(close)
     return
   }
+
+  // Модалка подтверждения только если metaSource === 'file' или 'manual'
+  if (libraryTrack.metaSource === 'file' || libraryTrack.metaSource === 'manual') {
+    const confirmed = await modalService.show({
+      title: 'Перезаписать метаданные?',
+      message: 'У трека уже есть надежные метаданные (из файла или введенные вручную). Поиск в интернете может заменить их ненадежными данными.',
+      type: 'confirm',
+      confirmLabel: 'Продолжить',
+      cancelLabel: 'Отмена',
+    })
+
+    if (!confirmed) {
+      closeMenu(close)
+      return
+    }
+  }
+
+  isSearchingMetadata.value = true
+  closeMenu(close)
 
   try {
     const result = await trackMetadataService.fetch(
@@ -146,22 +163,15 @@ async function findMetadata(close: () => void): Promise<void> {
       uiSettings.metadataThreshold,
     )
 
-    if (result.status === 'aborted') {
-      closeMenu(close)
-      return
-    }
-
+    if (result.status === 'aborted') return
     if (result.status === 'error') {
       toastService.error(`Ошибка поиска: ${result.message}`)
-      closeMenu(close)
       return
     }
 
     if (result.status === 'not-found') {
-      metadataService.markNotFound(libraryTrack.id)
-      await metadataService.flush()
+      useLibraryStore().updateTrackMetadata(libraryTrack.id, { metaSource: 'unknown' })
       toastService.info('Метаданные не найдены')
-      closeMenu(close)
       return
     }
 
@@ -180,11 +190,10 @@ async function findMetadata(close: () => void): Promise<void> {
     toastService.error('Не удалось найти метаданные')
   } finally {
     isSearchingMetadata.value = false
-    closeMenu(close)
   }
 }
 
-// --- Скачивание -------------------------------------------------------
+// --- Скачивание (без изменений) ---------------------------------------
 
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
 const downloadProgress = computed(() => {
@@ -238,7 +247,10 @@ async function onDownload(close: () => void) {
       const ok = await downloadSpaceService.pickSpace()
       if (!ok) return
     }
-    await downloadOrchestrator.downloadTrack(t)
+    const success = await downloadOrchestrator.downloadTrack(t)
+    if (!success) {
+      toastService.error('Не удалось скачать трек (ошибка сети или сервера)')
+    }
   } catch (err) {
     console.error('[track-actions] download failed', err)
     toastService.error(err instanceof Error ? err.message : 'Не удалось скачать')

@@ -1,10 +1,8 @@
-// oxlint-disable vitest/require-mock-type-parameters
 // src/services/metadata/parseTrackMetadata.spec.ts
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { parseTrackMetadata } from './parseTrackMetadata'
 
-// Мокаем music-metadata-browser
 const parseBlobMock = vi.fn()
 vi.mock('music-metadata-browser', () => ({
   parseBlob: (...args: unknown[]) => parseBlobMock(...args),
@@ -26,69 +24,41 @@ describe('parseTrackMetadata', () => {
   // --- Fallback (парсер не дал метаданных) ------------------------------
 
   it('title из имени файла, если parseBlob вернул пусто', async () => {
-    parseBlobMock.mockResolvedValueOnce({
-      common: {},
-      format: {},
-    })
-
+    parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
     const file = makeFile('Karma Police.mp3')
     const result = await parseTrackMetadata(file)
-
     expect(result.title).toBe('Karma Police')
   })
 
   it('убирает расширение из fallback-title', async () => {
     parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
-
     const file = makeFile('Song Title.mp3')
     const result = await parseTrackMetadata(file)
-
     expect(result.title).toBe('Song Title')
   })
 
   it('не убирает ведущие цифры — это может быть часть названия', async () => {
     parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
-
     const file = makeFile('30 Seconds to Mars.mp3')
     const result = await parseTrackMetadata(file)
-
     expect(result.title).toBe('30 Seconds to Mars')
   })
 
   it('fallback-artist пустой', async () => {
     parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
-
     const file = makeFile('Song.mp3')
     const result = await parseTrackMetadata(file)
-
     expect(result.artist).toBe('')
   })
 
-  it('fallback-album из folderName', async () => {
+  // УДАЛЕНО: fallback-album из folderName
+  // УДАЛЕНО: fallback-album из rootFolderName
+
+  it('fallback-album = пустая строка, если тегов нет', async () => {
     parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
-
-    const file = makeFile('Song.mp3')
-    const result = await parseTrackMetadata(file, { folderName: 'OK Computer' })
-
-    expect(result.album).toBe('OK Computer')
-  })
-
-  it('fallback-album из rootFolderName, если folderName не задан', async () => {
-    parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
-
-    const file = makeFile('Song.mp3')
-    const result = await parseTrackMetadata(file, { rootFolderName: 'Music' })
-
-    expect(result.album).toBe('Music')
-  })
-
-  it('fallback-album = Unknown Album, если ни folderName, ни rootFolderName', async () => {
-    parseBlobMock.mockResolvedValueOnce({ common: {}, format: {} })
-
     const file = makeFile('Song.mp3')
     const result = await parseTrackMetadata(file)
-
-    expect(result.album).toBe('Unknown Album')
+    expect(result.album).toBe('')
   })
 
   // --- Успешный парсинг -------------------------------------------------
@@ -124,7 +94,10 @@ describe('parseTrackMetadata', () => {
 
   it('fallback на albumartist, если artist не задан', async () => {
     parseBlobMock.mockResolvedValueOnce({
-      common: { albumartist: 'Various Artists' },
+      common: {
+        albumartist: 'Various Artists',
+        album: 'Soundtrack',
+      },
       format: {},
     })
 
@@ -177,7 +150,6 @@ describe('parseTrackMetadata', () => {
     const result = await parseTrackMetadata(file, { coverFile })
 
     expect(result.coverUrl).toMatch(/^blob:/)
-    // createObjectURL вызван с coverFile, не с picture
     expect(URL.createObjectURL).toHaveBeenCalledWith(coverFile)
   })
 

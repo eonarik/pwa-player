@@ -35,8 +35,6 @@ export class YandexSelfService implements IYandexService, AuthProvider {
   }
 
   isAccessValid(): boolean {
-    // Без expiresAt не можем проверить локально — доверяем токену.
-    // Когда появится refresh (и expiresAt), можно будет проверять.
     return Boolean(this.accessToken)
   }
 
@@ -73,7 +71,10 @@ export class YandexSelfService implements IYandexService, AuthProvider {
   // --- IYandexService --------------------------------------------------
 
   isDisconnected(): boolean {
-    return localStorage.getItem(DISCONNECTED_KEY) === 'true'
+    // Если мы явно отключили его — да
+    if (localStorage.getItem(DISCONNECTED_KEY) === 'true') return true
+    // Если явно не отключали, проверяем, есть ли токен
+    return !this.accessToken
   }
 
   setDisconnected(val: boolean) {
@@ -94,6 +95,8 @@ export class YandexSelfService implements IYandexService, AuthProvider {
       this.refreshToken = data.refreshToken
       localStorage.setItem(ACCESS_KEY, data.accessToken)
       localStorage.setItem(REFRESH_KEY, data.refreshToken)
+      // Убираем флаг отключения при успешном логине
+      localStorage.removeItem(DISCONNECTED_KEY)
       return true
     } catch {
       return false
@@ -129,13 +132,6 @@ export class YandexSelfService implements IYandexService, AuthProvider {
     return `${API_URL}/download?${params.toString()}`
   }
 
-  /**
-   * Универсальный fetch с авторизацией и рефрешем.
-   * Используется в downloadUrlToFile (см. yandexSelf/index.ts).
-   *
-   * Не трогает credentials: downloadUrlToFile сам добавляет 'include',
-   * для yandex-self это безвредно (Bearer-токен, не cookie).
-   */
   fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
     return apiClient.fetch(url, { auth: this.id, ...init })
   }

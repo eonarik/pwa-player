@@ -1,11 +1,7 @@
 // src/plugins/local/types.ts
 
-/**
- * Сохранённая папка локальной библиотеки.
- * handle сериализуется браузером в IDB нативно.
- * Для искусственного контейнера (source = 'local', parentId = null)
- * handle отсутствует.
- */
+import type { MetadataSource, RawMetadata } from '@/types/library'
+
 export interface PersistedLocalFolder {
   id: string
   name: string
@@ -15,15 +11,9 @@ export interface PersistedLocalFolder {
   childFolderIds: string[]
   trackIds: string[]
   totalTrackCount: number
-  /** source root: 'local' (контейнер) или 'local:Music' (папка) */
   source?: string
 }
 
-/**
- * Сохранённый трек локальной библиотеки.
- * source (File) НЕ сохраняется — восстанавливается через handle.getFile().
- * coverUrl (blob URL) НЕ сохраняется — невалиден между сессиями.
- */
 export interface PersistedLocalTrack {
   id: string
   pluginId: string
@@ -39,6 +29,8 @@ export interface PersistedLocalTrack {
   filename: string
   path: string
   handle?: FileSystemFileHandle
+  metaSource?: MetadataSource
+  raw?: RawMetadata
 }
 
 export interface PersistedLocalLibrary {

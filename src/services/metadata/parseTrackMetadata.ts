@@ -5,28 +5,14 @@ import type { TrackMetadata } from './types'
 import { guessMetadataFromFilename } from '@/utils/parseFilename'
 
 export interface ParseContext {
-  folderName?: string
-  rootFolderName?: string
-  /** Внешний файл обложки, если найден в папке */
   coverFile?: File | null
 }
 
-/**
- * Парсит метаданные из File.
- * Чистая функция, не зависит от MetadataService.
- */
 export async function parseTrackMetadata(
   file: File,
   context: ParseContext = {},
 ): Promise<TrackMetadata> {
   const guessed = guessMetadataFromFilename(file.name)
-
-  const fallback: TrackMetadata = {
-    title: guessed.title,
-    artist: guessed.artist,
-    // Если нет тегов, альбом берем из контекста (папки)
-    album: context.folderName?.trim() || context.rootFolderName?.trim() || 'Unknown Album',
-  }
 
   try {
     const metadata = await parseBlob(file, {
@@ -37,16 +23,15 @@ export async function parseTrackMetadata(
 
     const { common, format } = metadata
 
+    // Проверяем, есть ли реальные теги артиста/альбома
+    const hasRealTags = Boolean(common.artist?.trim() || common.album?.trim())
+
     const result: TrackMetadata = {
-      // Если в тегах пусто, используем guessed
       title: common.title?.trim() || guessed.title,
-      artist: common.artist?.trim() || common.albumartist?.trim() || guessed.artist,
-      // Альбом из тегов > папки > Unknown
-      album:
-        common.album?.trim() ||
-        context.folderName?.trim() ||
-        context.rootFolderName?.trim() ||
-        'Unknown Album',
+      artist: hasRealTags
+        ? common.artist?.trim() || common.albumartist?.trim() || ''
+        : guessed.artist,
+      album: hasRealTags ? common.album?.trim() || '' : '',
       year: common.year,
       trackNumber: common.track?.no ?? undefined,
       genre: common.genre?.[0],
@@ -63,7 +48,11 @@ export async function parseTrackMetadata(
     return result
   } catch (err) {
     console.warn(`[parseTrackMetadata] failed to parse "${file.name}"`, err)
-    return fallback
+    return {
+      title: guessed.title,
+      artist: guessed.artist,
+      album: '',
+    }
   }
 }
 

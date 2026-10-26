@@ -7,7 +7,10 @@ import { createPluginContext } from '@/plugins/context'
 import { createLibraryWriter } from '@/stores/library'
 import { downloadSpaceService } from './DownloadSpaceService'
 import type { ScanResult } from '@/plugins/types'
-import type { TrackDownloadState } from './types'
+import { DownloadError, type TrackDownloadState } from './types'
+import { toastService } from '@/services/ui/ToastService'
+import { metadataWorkerService } from '../metadata/MetadataWorkerService'
+import { metadataService } from '../metadata/MetadataService'
 
 export interface BatchResult {
   succeeded: number
@@ -60,8 +63,15 @@ class DownloadOrchestrator {
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         console.info(`[download] cancelled for "${track.title}"`)
+      } else if (err instanceof DownloadError && (err.status === 404 || err.status === 410)) {
+        console.warn(`[download] file is broken (404/410) for "${track.title}"`)
+        toastService.error(`Файл "${track.title}" не найден на Диске (удалён или битый)`)
+      } else if (err instanceof DownloadError && err.status >= 500) {
+        console.error(`[download] server error for "${track.title}"`, err)
+        toastService.error(`Сервер временно недоступен. Не удалось скачать "${track.title}"`)
       } else {
         console.error(`[download] failed for "${track.title}"`, err)
+        toastService.error(`Ошибка скачивания "${track.title}"`)
       }
       return false
     }
@@ -95,29 +105,97 @@ class DownloadOrchestrator {
     this.states.value.set(track.id, state)
     this.version.value++
 
+    let attempt = 0
+    const MAX_ATTEMPTS = 3
+
     try {
-      const result = await plugin.downloadTrack(pluginContext, track, {
-        targetDir,
-        signal: abort.signal,
-        onProgress: (written, total) => {
+      while (attempt < MAX_ATTEMPTS) {
+        try {
+          const result = await plugin.downloadTrack(pluginContext, track, {
+            targetDir,
+            signal: abort.signal,
+            onProgress: (written, total) => {
+              const s = this.states.value.get(track.id)
+              if (s) {
+                s.written = written
+                s.total = total
+                this.version.value++
+              }
+            },
+          })
+
+          const writer = createLibraryWriter()
+          if (result.handle) {
+            writer.updateTrackHandle(track.id, result.handle)
+          }
+          writer.updateTrackFileLocation(track.id, 'both')
+          writer.updateTrackSource(track.id, '')
+
+          // Парсим MP3 сразу после скачивания (в воркере)
+          if (track.filename.toLowerCase().endsWith('.mp3') && result.handle) {
+            try {
+              const file = await result.handle.getFile()
+              const parsed = await metadataWorkerService.parse(file)
+
+              if (parsed && parsed.artist) {
+                // Теги есть
+                metadataService.applyFromFile(track.id, parsed)
+              } else {
+                // Тегов нет — оставляем как есть (автопоиск сработает при запуске)
+                writer.updateTrackFileLocation(track.id, 'both')
+              }
+            } catch (err) {
+              console.warn('[download] failed to parse tags after download', err)
+            }
+          }
+
+          if (plugin.saveCache) {
+            await plugin.saveCache(pluginContext)
+          }
+          return // Успех — выходим из цикла
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            throw err // Отмену не ретраим
+          }
+
+          // Проверяем, не битый ли файл (404 от бэкенда)
+          const isBrokenFile =
+            err instanceof DownloadError && (err.status === 404 || err.status === 410)
+
+          if (isBrokenFile) {
+            const writer = createLibraryWriter()
+            writer.updateTrackFileLocation(track.id, 'nowhere') // Помечаем как битый
+            throw err // Пробрасываем дальше, чтобы показать тост
+          }
+
+          attempt++
+          console.warn(`[download] attempt ${attempt} failed for "${track.title}":`, err)
+
+          if (attempt >= MAX_ATTEMPTS) {
+            throw err // Попытки кончились
+          }
+
+          // Сброс прогресса перед новой попыткой
           const s = this.states.value.get(track.id)
           if (s) {
-            s.written = written
-            s.total = total
+            s.written = 0
+            s.total = 0
             this.version.value++
           }
-        },
-      })
 
-      const writer = createLibraryWriter()
-      if (result.handle) {
-        writer.updateTrackHandle(track.id, result.handle)
-      }
-      writer.updateTrackFileLocation(track.id, 'both')
-      writer.updateTrackSource(track.id, '')
-
-      if (plugin.saveCache) {
-        await plugin.saveCache(pluginContext)
+          // Ждем 2 секунды перед повтором (если не отменено)
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(resolve, 2000)
+            abort.signal.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer)
+                reject(new DOMException('Aborted', 'AbortError'))
+              },
+              { once: true },
+            )
+          })
+        }
       }
     } finally {
       this.states.value.delete(track.id)

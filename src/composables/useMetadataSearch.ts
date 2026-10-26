@@ -9,6 +9,7 @@ import type { LibraryTrack } from '@/types/library'
 import type { MetadataCandidate } from '@/services/metadata/TrackMetadataService'
 import { UNKNOWN_ARTIST_PLACEHOLDER } from '@/services/metadata/constants'
 import { guessMetadataFromFilename } from '@/utils/parseFilename'
+import { useLibraryStore } from '@/stores/library'
 
 const CONCURRENCY = 3
 const FLUSH_INTERVAL = 10
@@ -32,6 +33,7 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
     version.value++
   }
 
+  // 1. Кандидаты на поиск (нет финальных мета)
   const tracksNeedingMetadata = computed(() =>
     tracks.value.filter((t) => {
       const guessed = guessMetadataFromFilename(t.filename || '')
@@ -49,18 +51,24 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
     }),
   )
 
+  // 2. Из них отсеиваем те, что уже искали или заполнили
   const uncheckedTracks = computed(() => {
-    void version.value
-    return tracksNeedingMetadata.value.filter((t) => !metadataService.hasEntry(t.id))
+    return tracksNeedingMetadata.value.filter((t) => {
+      if (t.hasId3Tags) return false
+      return (
+        t.metaSource !== 'auto' &&
+        t.metaSource !== 'file' &&
+        t.metaSource !== 'manual' &&
+        t.metaSource !== 'unknown'
+      )
+    })
   })
 
   const stats = computed(() => {
-    void version.value
     let found = 0
     let checked = 0
     for (const t of tracks.value) {
-      const entry = metadataService.getEntry(t.id)
-      if (entry !== undefined) checked++
+      if (t.metaSource === 'auto' || t.metaSource === 'file' || t.metaSource === 'manual') checked++
       const artist = t.artist?.trim() ?? ''
       const album = t.album?.trim() ?? ''
       if (
@@ -77,7 +85,6 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
   })
 
   const hasUnchecked = computed(() => uncheckedTracks.value.length > 0)
-
   const issues = ref<MetadataIssue[]>([])
 
   async function search(): Promise<void> {
@@ -121,15 +128,9 @@ export function useMetadataSearch(tracks: Ref<LibraryTrack[]>) {
           }
 
           if (result.status === 'not-found') {
-            metadataService.markNotFound(track.id)
+            useLibraryStore().updateTrackMetadata(track.id, { metaSource: 'unknown' })
             progress.value = { done: progress.value.done + 1, total: toFetch.length }
             bumpVersion()
-
-            sinceLastFlush++
-            if (sinceLastFlush >= FLUSH_INTERVAL) {
-              sinceLastFlush = 0
-              await metadataService.flush()
-            }
             continue
           }
 

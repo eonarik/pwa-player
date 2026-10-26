@@ -4,10 +4,11 @@ import { jaroWinkler } from './jaroWinkler.js'
 
 export const NO_ARTIST_THRESHOLD = 0.85
 
-const ARTIST_MATCH_THRESHOLD = 0.5
+const ARTIST_EXACT_THRESHOLD = 0.8 // Высокое совпадение (одно и то же)
+const ARTIST_LOOSE_THRESHOLD = 0.4 // Ниже этого — разные артисты
 const TITLE_WEIGHT = 0.8
 const ARTIST_WEIGHT = 0.2
-const MISMATCHED_ARTIST_PENALTY = 0.5
+const MISMATCHED_ARTIST_PENALTY = 0.2
 
 const TRANSLIT_TABLE = {
   а: 'a',
@@ -62,10 +63,7 @@ function fieldSimilarity(a, b) {
   if (!a && !b) return 0
   if (a === b) return 1
 
-  // Прямое сравнение
   const direct = jaroWinkler(a, b)
-
-  // Сравнение через транслит (чтобы "слот" и "slot" совпали)
   const translitA = transliterate(a)
   const translitB = transliterate(b)
   const viaTranslit = jaroWinkler(translitA, translitB)
@@ -88,13 +86,19 @@ export function metadataSimilarity(original, incoming) {
     return titleSim
   }
 
-  // Если артист состоит только из символов (#####), Jaro-Winkler сам даст низкий скор.
-  // Мы не игнорируем его, а честно сравниваем.
   const artistSim = fieldSimilarity(origArtist, incArtist)
 
-  if (artistSim < ARTIST_MATCH_THRESHOLD) {
+  // 1. Артисты вообще разные (##### vs Mishka)
+  if (artistSim < ARTIST_LOOSE_THRESHOLD) {
     return titleSim * MISMATCHED_ARTIST_PENALTY
   }
 
+  // 2. Артисты похожи, но не идеально — не штрафуем, но даем меньший вес
+  if (artistSim < ARTIST_EXACT_THRESHOLD) {
+    // Взвешиваем: title * 0.9 + artist * 0.1
+    return titleSim * 0.9 + artistSim * 0.1
+  }
+
+  // 3. Артисты совпадают отлично
   return titleSim * TITLE_WEIGHT + artistSim * ARTIST_WEIGHT
 }

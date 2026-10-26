@@ -146,11 +146,15 @@ export class FileSystemService {
           const trackPath = path ? `${path}/${file.name}` : file.name
           const trackId = trackIdFromPath(rootId, trackPath)
 
-          const metadata = await parseTrackMetadata(file, {
-            folderName: path.split('/').pop() || undefined,
-            rootFolderName: rootHandle.name,
-            coverFile,
-          })
+          const metadata = await parseTrackMetadata(file, { coverFile })
+          const hasRealTags = Boolean(metadata.artist)
+
+          const initialMeta = {
+            title: metadata.title,
+            artist: metadata.artist,
+            album: metadata.album,
+            coverUrl: metadata.coverUrl,
+          }
 
           return {
             id: trackId,
@@ -162,7 +166,9 @@ export class FileSystemService {
             directoryHandle: handle,
             source: '',
             fileLocation: 'local-only',
-            ...metadata,
+            metaSource: hasRealTags ? 'file' : 'filename',
+            ...initialMeta,
+            raw: { ...initialMeta },
           }
         }),
       )
