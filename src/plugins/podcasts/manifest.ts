@@ -14,6 +14,7 @@ export const manifest: PluginManifest = {
   isStateless: true,
   contentKind: 'linear',
   customRoute: 'podcasts',
+  order: 20,
   entry: () => import('./index'),
   extension: () => import('./extension'),
   hasCustomData: async () => (await getSubscriptions()).length > 0,

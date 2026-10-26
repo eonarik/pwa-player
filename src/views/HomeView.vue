@@ -339,8 +339,11 @@ async function disconnectPlugin(row: { manifest: PluginManifest }) {
       <div v-else class="flex flex-col gap-2">
         <div v-for="row in plugins" :key="row.manifest.id"
           class="flex items-center gap-4 rounded-card bg-card-bg p-4 transition hover:bg-hover-bg">
-          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-btn bg-hover-bg text-2xl">
-            {{ row.manifest.icon }}
+          <div
+            class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-hover-bg text-2xl">
+            <img v-if="row.manifest.icon.startsWith('/') || row.manifest.icon.startsWith('http')"
+              :src="row.manifest.icon" :alt="row.manifest.name" class="h-full w-full object-cover" />
+            <span v-else>{{ row.manifest.icon }}</span>
           </div>
 
           <div class="min-w-0 flex-1">

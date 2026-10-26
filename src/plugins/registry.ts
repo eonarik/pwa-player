@@ -35,18 +35,18 @@ for (const [path, mod] of Object.entries(manifestModules)) {
   registry.set(manifest.id, { manifest, loaded: null })
 }
 
-/**
- * Кэш «плагин отключён». Обновляется при `loadPlugin` (первичная загрузка),
- * `connect` / `disconnect` (через `setPluginDisconnected`).
- *
- * Реактивность: `disconnectedVersion` инкрементируется при изменении,
- * чтобы computed, читающие `isPluginDisconnected`, пересчитывались.
- */
 const disconnectedCache = new Map<string, boolean>()
 const disconnectedVersion = ref(0)
 
 export function getPlugins(): PluginManifest[] {
-  return Array.from(registry.values()).map((p) => p.manifest)
+  return Array.from(registry.values())
+    .map((p) => p.manifest)
+    .sort((a, b) => {
+      const orderA = a.order ?? 999
+      const orderB = b.order ?? 999
+      if (orderA !== orderB) return orderA - orderB
+      return a.name.localeCompare(b.name, 'ru')
+    })
 }
 
 export function hasPlugin(id: string): boolean {
@@ -66,7 +66,6 @@ export async function loadPlugin(id: string): Promise<LibrarySource> {
   const mod = await entry.manifest.entry()
   entry.loaded = mod.default
 
-  // Первичная загрузка: синхронизируем кэш с реальным состоянием сервиса.
   disconnectedCache.set(id, mod.default.isDisconnected?.() ?? false)
   disconnectedVersion.value++
 
@@ -82,27 +81,11 @@ export function resetPlugin(id: string): void {
   disconnectedVersion.value++
 }
 
-/**
- * Синхронно возвращает текущее известное состояние «плагин отключён».
- *
- * Реактивен: чтение `disconnectedVersion.value` подписывает вызывающий
- * computed на изменения.
- *
- * Если плагин ещё не загружен — `false` (по умолчанию «не отключён»).
- * Если у плагина нет `isDisconnected` (например, `local`) — тоже `false`.
- */
 export function isPluginDisconnected(pluginId: string): boolean {
   void disconnectedVersion.value
   return disconnectedCache.get(pluginId) ?? false
 }
 
-/**
- * Обновить кэш после `connect` / `disconnect`. Вызывается верхним уровнем
- * (`HomeView`), когда известно, что состояние плагина изменилось.
- *
- * Идемпотентно: повторный вызов с тем же значением не инкрементирует версию
- * (не дёргает лишний раз computed-подписчиков).
- */
 export function setPluginDisconnected(pluginId: string, value: boolean): void {
   const prev = disconnectedCache.get(pluginId)
   if (prev === value) return
@@ -115,9 +98,6 @@ export function pluginCanDownload(source: string): boolean {
   return manifest?.canDownload ?? false
 }
 
-/**
- * Возвращает id плагина из source.
- */
 export function pluginIdFromSource(source: string): string {
   const colon = source.indexOf(':')
   return colon === -1 ? source : source.slice(0, colon)
@@ -155,6 +135,15 @@ export function getContentKind(pluginId: string): 'music' | 'linear' {
 
 export function isLinearContent(pluginId: string): boolean {
   return getContentKind(pluginId) === 'linear'
+}
+
+/**
+ * Является ли плагин стриминговым сервисом (например, Звук).
+ * У таких треков нет локального файла, их нельзя скачать или редактировать метаданные.
+ */
+export function isStreamingPlugin(pluginId: string): boolean {
+  const manifest = registry.get(pluginIdFromSource(pluginId))?.manifest
+  return manifest?.isStreaming ?? false
 }
 
 if (import.meta.env.DEV) {

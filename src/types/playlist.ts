@@ -18,8 +18,11 @@ export interface PlaylistTrackSnapshot {
   title: string
   artist: string
   album?: string
+  duration?: number
+  coverUrl?: string
   /** Полный путь на Диске, если трек оттуда. Нужен для скачивания плейлиста. */
   remotePath?: string
+  source?: string
   /** Когда добавлен в плейлист */
   addedAt: number
 }

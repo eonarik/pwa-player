@@ -11,11 +11,12 @@ import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { usePlaylistRematch } from '@/composables/usePlaylistRematch'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
-import { sortService } from '@/services/sort/SortService'
+import { compareStrings } from '@/utils/sort'
 import PlaylistHeader from './playlist/PlaylistHeader.vue'
 import PlaylistToolbar from './playlist/PlaylistToolbar.vue'
 import PlaylistContent from './playlist/PlaylistContent.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
+import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
 
 const route = useRoute()
@@ -32,14 +33,35 @@ const playlist = computed(() => playlists.getPlaylist(playlistId.value))
 
 const isFavorites = computed(() => playlistId.value === FAVORITES_PLAYLIST_ID)
 
-const resolvedTracks = computed<LibraryTrack[]>(() => {
+// Собираем треки для отображения и воспроизведения.
+// Если трек есть в библиотеке — берем его.
+// Если нет (стриминг) — собираем виртуальный Track из снимка.
+const resolvedTracks = computed<Track[]>(() => {
   if (!playlist.value) return []
-  const result: LibraryTrack[] = []
+  const result: Track[] = []
+
   for (const snapshot of playlist.value.tracks) {
-    const track = library.getTrack(snapshot.trackId)
-    if (track) result.push(track)
+    const libTrack = library.getTrack(snapshot.trackId)
+
+    if (libTrack) {
+      result.push(libTrack)
+    } else if (snapshot.source) {
+      result.push({
+        id: snapshot.trackId,
+        pluginId: snapshot.pluginId,
+        title: snapshot.title,
+        artist: snapshot.artist,
+        album: snapshot.album ?? '',
+        duration: snapshot.duration ?? 0,
+        coverUrl: snapshot.coverUrl,
+        filename: '',
+        source: snapshot.source,
+      })
+    }
   }
-  return sortService.sort(result)
+
+  // Сортируем по названию, так как sortService ожидает LibraryTrack
+  return result.sort((a, b) => compareStrings(a.title, b.title))
 })
 
 const unavailableCount = computed(() => {
@@ -57,15 +79,23 @@ onMounted(() => {
 
 // --- Поиск -----------------------------------------------------------
 
+// Фильтруем только те треки, которые есть в библиотеке (для поиска)
+const searchableTracks = computed<LibraryTrack[]>(() => {
+  return resolvedTracks.value.filter((t): t is LibraryTrack => {
+    return Boolean(library.getTrack(t.id))
+  })
+})
+
 const { query, hasQuery, hasResults, result } = useLibrarySearch(
-  resolvedTracks,
+  searchableTracks,
   uiSettings.searchThreshold,
 )
 
-const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
+const searchFlatTracks = computed<Track[]>(() => result.value.tracks)
 
 // --- Поиск метаданных -----------------------------------------------
 
+// Метаданные ищем только для треков из библиотеки
 const {
   isLoading: isMetadataLoading,
   progress: metadataProgress,
@@ -76,7 +106,7 @@ const {
   cancel: metadataCancel,
   reset: metadataReset,
   dismissIssues: metadataDismissIssues,
-} = useMetadataSearch(resolvedTracks)
+} = useMetadataSearch(searchableTracks)
 
 const showMetadataIssues = ref(false)
 

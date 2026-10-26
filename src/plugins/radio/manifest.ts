@@ -13,6 +13,7 @@ export const manifest: PluginManifest = {
   isLiveStream: true,
   isStateless: true,
   customRoute: 'radio',
+  order: 10,
   entry: () => import('./index'),
   extension: () => import('./extension'),
   hasCustomData: () => getSavedStations().length > 0,

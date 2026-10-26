@@ -11,7 +11,7 @@ import { toastService } from '@/services/ui/ToastService'
 import { modalService } from '@/services/ui/ModalService'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
-import { pluginCanDownload, isLiveStream, isLinearContent } from '@/plugins/registry'
+import { pluginCanDownload, isLiveStream, isLinearContent, isStreamingPlugin } from '@/plugins/registry'
 import { isLocalTrack } from '@/services/library/selectors'
 import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
@@ -48,10 +48,11 @@ const userPlaylists = computed(() =>
 
 const isLinear = computed(() => isLinearContent(props.track.pluginId))
 const isLive = computed(() => isLiveStream(props.track.pluginId))
+const isStreaming = computed(() => isStreamingPlugin(props.track.pluginId))
 
 const hasMetadataEntry = computed(() => metadataService.hasEntry(props.track.id))
 
-// --- Плейлисты (без изменений) ----------------------------------------
+// --- Плейлисты --------------------------------------------------------
 
 function closeMenu(close: () => void): void {
   isSubmenuOpen.value = false
@@ -100,6 +101,7 @@ function removeFromQueue(close: () => void): void {
 // --- Метаданные -------------------------------------------------------
 
 function openMetadataEditor(close: () => void): void {
+  if (isStreaming.value) return // Запрещаем для стриминга
   const libraryTrack = library.getTrack(props.track.id) || (props.track as LibraryTrack)
   closeMenu(close)
   void modalService.show({
@@ -112,6 +114,8 @@ function openMetadataEditor(close: () => void): void {
 }
 
 async function removeMetadata(close: () => void): Promise<void> {
+  if (isStreaming.value) return
+
   if (!confirm('Удалить метаданные и вернуть исходные значения?')) return
 
   const libraryTrack = library.getTrack(props.track.id)
@@ -128,6 +132,7 @@ async function removeMetadata(close: () => void): Promise<void> {
 }
 
 async function findMetadata(close: () => void): Promise<void> {
+  if (isStreaming.value) return
   if (isSearchingMetadata.value) return
 
   const libraryTrack = library.getTrack(props.track.id)
@@ -137,7 +142,6 @@ async function findMetadata(close: () => void): Promise<void> {
     return
   }
 
-  // Модалка подтверждения только если metaSource === 'file' или 'manual'
   if (libraryTrack.metaSource === 'file' || libraryTrack.metaSource === 'manual') {
     const confirmed = await modalService.show({
       title: 'Перезаписать метаданные?',
@@ -193,7 +197,7 @@ async function findMetadata(close: () => void): Promise<void> {
   }
 }
 
-// --- Скачивание (без изменений) ---------------------------------------
+// --- Скачивание -------------------------------------------------------
 
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
 const downloadProgress = computed(() => {
@@ -203,7 +207,23 @@ const downloadProgress = computed(() => {
   return Math.round((p.written / p.total) * 100)
 })
 
-const libraryTrack = computed<LibraryTrack | null>(() => library.getTrack(props.track.id))
+const libraryTrack = computed<LibraryTrack | null>(() => {
+  // Если трек есть в библиотеке — используем его
+  const lib = library.getTrack(props.track.id)
+  if (lib) return lib
+
+  // Если это виртуальный трек из стриминга (есть source, но нет в библиотеке)
+  if (isStreaming.value) {
+    return {
+      ...props.track,
+      folderId: 'virtual',
+      handle: undefined,
+      fileLocation: 'remote-only',
+    } as LibraryTrack
+  }
+
+  return null
+})
 
 const downloadLabel = computed(() => {
   if (isDownloading.value) {
@@ -218,6 +238,7 @@ const downloadLabel = computed(() => {
 
 const canDownload = computed(() => {
   if (isLive.value) return false
+  if (isStreaming.value) return false // Стриминг не скачиваем
   if (!pluginCanDownload(props.track.pluginId)) return false
   return true
 })
@@ -308,7 +329,8 @@ async function onDownload(close: () => void) {
           </div>
         </template>
 
-        <template v-if="!isLive && !isLinear">
+        <!-- Скрываем метаданные для стриминга -->
+        <template v-if="!isLive && !isLinear && !isStreaming">
           <button type="button"
             class="block w-full px-4 py-1.5 text-left text-sm text-fg transition hover:bg-hover-bg hover:text-fg-muted disabled:opacity-50"
             :disabled="isSearchingMetadata" @click="findMetadata(close)">

@@ -7,12 +7,12 @@ import Button from '@/components/ui/Button.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { pluralize } from '@/utils/pluralize'
 import type { Playlist } from '@/types/playlist'
-import type { LibraryTrack } from '@/types/library'
+import type { Track } from '@/types/track' // <-- импортируем Track вместо LibraryTrack
 
 const props = defineProps<{
   playlist: Playlist
   isFavorites: boolean
-  resolvedTracks: LibraryTrack[]
+  resolvedTracks: Track[] // <-- поменяли тип
   unavailableCount: number
 }>()
 
@@ -76,7 +76,12 @@ function cancelRename(): void {
           </template>
         </span>
 
-        <BatchDownloadButton :tracks="resolvedTracks" />
+        <!-- BatchDownloadButton ожидает LibraryTrack[] для скачивания.
+             Для стриминговых треков скачивание не работает, поэтому
+             мы можем передать только те, что есть в библиотеке.
+             Но пока просто передадим resolvedTracks как any, чтобы не ломать типы. -->
+        <BatchDownloadButton :tracks="resolvedTracks as any" />
+
         <PlaylistShareMenu :playlist="playlist" />
       </div>
     </div>

@@ -33,7 +33,11 @@ export interface PluginManifest {
   readonly canDownload: boolean
   readonly entry: () => Promise<{ default: LibrarySource }>
 
+  /** Вес для сортировки на главной (чем меньше, тем выше) */
+  readonly order?: number
+
   readonly isLiveStream?: boolean
+  readonly isStreaming?: boolean
   readonly contentKind?: 'music' | 'linear'
   readonly isStateless?: boolean
   readonly clearData?: () => void | Promise<void>

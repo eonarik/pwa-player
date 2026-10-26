@@ -1,4 +1,5 @@
 // src/services/metadata/parseTrackMetadata.spec.ts
+// oxlint-disable vitest/require-mock-type-parameters
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { parseTrackMetadata } from './parseTrackMetadata'

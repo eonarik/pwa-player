@@ -11,6 +11,7 @@ export const manifest: PluginManifest = {
   enabled: true,
   canDownload: true,
   requiresActivation: true,
+  order: 100,
   entry: () => import('./index'),
 
   // 1. Описываем схему

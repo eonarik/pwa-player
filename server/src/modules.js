@@ -7,6 +7,7 @@ import * as feedback from './plugins/feedback/index.js'
 import * as yaSelf from './plugins/yandex-self/index.js'
 import * as podcasts from './plugins/podcasts/index.js'
 import * as hlsProxy from './plugins/hls-proxy/index.js'
+import * as zvuk from './plugins/zvuk/index.js'
 
 const MODULES = [
   { prefix: core.prefix, router: core.router }, // /api/auth
@@ -16,6 +17,7 @@ const MODULES = [
   { prefix: yaSelf.prefix, router: yaSelf.router }, // /api/yandex-self
   { prefix: podcasts.prefix, router: podcasts.router },
   { prefix: hlsProxy.prefix, router: hlsProxy.router },
+  { prefix: zvuk.prefix, router: zvuk.router },
 ]
 
 export function mountModules(app) {

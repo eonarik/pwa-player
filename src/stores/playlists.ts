@@ -93,7 +93,10 @@ export const usePlaylistsStore = defineStore('playlists', () => {
       title: track.title,
       artist: track.artist,
       album: track.album,
+      duration: track.duration,
+      coverUrl: track.coverUrl,
       remotePath,
+      source: typeof track.source === 'string' ? track.source : undefined,
       addedAt: Date.now(),
     }
   }

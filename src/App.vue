@@ -14,7 +14,7 @@ import { metadataService } from '@/services/metadata/MetadataService'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { syncService } from '@/services/download/SyncService'
-import { getPlugins, loadPlugin } from '@/plugins/registry'
+import { getPlugins, loadPlugin, isStreamingPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
@@ -194,17 +194,19 @@ watch(currentTrack, async (track) => {
   if (!track) return
 
   const libTrack = library.getTrack(track.id)
-  if (!libTrack) return
-
-  // Если мы уже обрабатывали этот трек в этой сессии — не трогаем
-  if (processedTracks.has(libTrack.id)) return
+  if (!libTrack) {
+    // Если это стриминговый трек, у которого нет записи в библиотеке — выходим
+    if (isStreamingPlugin(track.pluginId)) return
+    return
+  }
 
   // 1. Парсинг локального файла
   if (libTrack.handle && !libTrack.hasId3Tags && libTrack.metaSource !== 'manual') {
     // ...
   }
 
-  // 2. Автопоиск
+  // 2. Автопоиск (только если не стриминговый)
+  if (isStreamingPlugin(track.pluginId)) return
   void runAutoFetch(libTrack)
 })
 </script>
