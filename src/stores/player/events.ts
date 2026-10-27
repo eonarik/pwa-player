@@ -25,14 +25,7 @@ export interface AudioEventsCallbacks {
   flushPlayback: () => Promise<void>
   handleTrackEnd: () => void
   updateTrackDuration: (trackId: string, duration: number) => void
-  /**
-   * Повторная попытка воспроизведения текущего трека.
-   * Используется после healthCheck при сетевой ошибке.
-   */
   retryPlayback: () => void
-  /**
-   * Обработка AuthError: тост «Подключить» + повтор playAt.
-   */
   handleAuthError: (error: AuthError, track: Track) => void
 }
 
@@ -41,6 +34,7 @@ export interface AudioEvents {
 }
 
 const RETRY_DELAY_MS = 10_000
+const MAX_RETRIES = 3
 
 export function bindAudioEvents(
   refs: AudioEventsRefs,
@@ -53,6 +47,9 @@ export function bindAudioEvents(
   let retryTimer: ReturnType<typeof setTimeout> | null = null
   let retryTrackId: string | null = null
 
+  /** Счётчик ретраев на трек. Сбрасывается при успешном `play`. */
+  const retryCounts = new Map<string, number>()
+
   function cancelRetry(): void {
     if (retryTimer !== null) {
       clearTimeout(retryTimer)
@@ -61,13 +58,29 @@ export function bindAudioEvents(
     retryTrackId = null
   }
 
+  function bumpRetryCount(trackId: string): number {
+    const next = (retryCounts.get(trackId) ?? 0) + 1
+    retryCounts.set(trackId, next)
+    return next
+  }
+
+  function resetRetryCount(trackId: string): void {
+    retryCounts.delete(trackId)
+  }
+
   function scheduleRetry(track: Track): void {
     cancelRetry()
+
+    const attempt = bumpRetryCount(track.id)
+    if (attempt > MAX_RETRIES) {
+      toastService.error(`Не удалось воспроизвести «${track.title}» — попытки исчерпаны`)
+      return
+    }
+
     retryTrackId = track.id
     retryTimer = setTimeout(() => {
       retryTimer = null
       if (currentTrack.value?.id !== retryTrackId) {
-        // Пользователь уже переключил трек — не лезем.
         retryTrackId = null
         return
       }
@@ -84,7 +97,6 @@ export function bindAudioEvents(
 
     try {
       await apiClient.healthCheck(pluginId)
-      // Сессия восстановлена. Токен мог обновиться — повторяем playAt.
       callbacks.retryPlayback()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -134,8 +146,11 @@ export function bindAudioEvents(
       isPlaying.value = true
       callbacks.startTimeLoop()
       const track = currentTrack.value
-      if (track && !isLiveStream(track.pluginId)) {
-        useHistoryStore().recordPlay(track)
+      if (track) {
+        resetRetryCount(track.id)
+        if (!isLiveStream(track.pluginId)) {
+          useHistoryStore().recordPlay(track)
+        }
       }
       cancelRetry()
     }),
@@ -177,6 +192,7 @@ export function bindAudioEvents(
       unsubscribers.forEach((fn) => fn())
       unsubscribers.length = 0
       cancelRetry()
+      retryCounts.clear()
     },
   }
 }

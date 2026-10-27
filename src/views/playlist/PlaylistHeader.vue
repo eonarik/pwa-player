@@ -6,7 +6,7 @@ import IconButton from '@/components/ui/IconButton.vue'
 import type { Playlist } from '@/types/playlist'
 import type { Track } from '@/types/track'
 
-const props = defineProps<{
+defineProps<{
   playlist: Playlist
   isFavorites: boolean
   resolvedTracks: Track[]

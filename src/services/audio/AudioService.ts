@@ -34,8 +34,6 @@ export class AudioService {
     return AudioService.instance
   }
 
-  // --- Подписка на события ---------------------------------------------
-
   on<K extends AudioEventName>(event: K, listener: AudioListener<K>): () => void {
     if (!this.listeners[event]) {
       // @ts-expect-error — TS не выводит Set<AudioListener<K>> для mapped-типа
@@ -59,8 +57,6 @@ export class AudioService {
       }
     })
   }
-
-  // --- Загрузка источника ----------------------------------------------
 
   load(source: string | File | Blob): void {
     this.destroyHls()
@@ -131,11 +127,11 @@ export class AudioService {
     }
   }
 
-  // --- Управление воспроизведением -------------------------------------
-
   async play(): Promise<void> {
-    if (this.hlsFailed && this.currentSrc) {
-      this.load(this.currentSrc)
+    // HLS-поток уже отдал fatal error. Без явного load() повторно
+    // запускать нечего — вышестоящий код должен вызвать playAt() заново.
+    if (this.hlsFailed) {
+      throw new Error('HLS stream failed')
     }
 
     try {
@@ -144,8 +140,6 @@ export class AudioService {
         this.emit('pause', undefined as void)
       }
     } catch (err) {
-      // Если play() был прерван нашим же pause() (HLS fatal error, race) —
-      // это ожидаемое поведение, не считаем ошибкой.
       if (err instanceof DOMException && err.name === 'AbortError') {
         return
       }
@@ -160,7 +154,6 @@ export class AudioService {
 
   pause(): void {
     this.audio.pause()
-    // Вручную эмитим pause на случай, если нативный event не сработал (например, при race condition с HLS).
     this.emit('pause', undefined as void)
   }
 
@@ -184,8 +177,6 @@ export class AudioService {
     this.seek(this.audio.currentTime + delta)
   }
 
-  // --- Громкость --------------------------------------------------------
-
   setVolume(value: number): void {
     this.audio.volume = Math.min(Math.max(value, 0), 1)
   }
@@ -193,8 +184,6 @@ export class AudioService {
   setMuted(muted: boolean): void {
     this.audio.muted = muted
   }
-
-  // --- Геттеры состояния ------------------------------------------------
 
   get element(): HTMLAudioElement {
     return this.audio
@@ -227,8 +216,6 @@ export class AudioService {
   get isLive(): boolean {
     return !Number.isFinite(this.audio.duration)
   }
-
-  // --- Привязка нативных событий ---------------------------------------
 
   private bindNativeEvents(): void {
     const bind = <K extends AudioEventName>(
@@ -274,8 +261,6 @@ export class AudioService {
     this.audio.addEventListener('error', errorHandler)
     this.nativeHandlers.push({ event: 'error', handler: errorHandler })
   }
-
-  // --- Очистка ресурсов -------------------------------------------------
 
   destroy(): void {
     this.destroyHls()

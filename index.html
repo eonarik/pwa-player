@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
@@ -23,6 +23,77 @@
       rel="stylesheet"
     />
     <title>CUEI Media Player</title>
+
+    <style>
+      /* Базовые стили, чтобы не было белого экрана до загрузки CSS-бандла */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #091227;
+        color: #eaf0ff;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #app {
+        min-height: 100vh;
+      }
+
+      .app-boot-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        padding: 24px;
+        text-align: center;
+        user-select: none;
+      }
+
+      .app-boot-loader__spinner {
+        width: 40px;
+        height: 40px;
+        border-radius: 9999px;
+        border: 3px solid rgba(234, 240, 255, 0.15);
+        border-top-color: #768bbe;
+        animation: app-boot-spin 0.9s linear infinite;
+      }
+
+      .app-boot-loader__text {
+        font-size: 14px;
+        color: rgba(234, 240, 255, 0.7);
+        transition: opacity 0.3s ease;
+        min-height: 1.4em;
+      }
+
+      .app-build-info {
+        position: fixed;
+        right: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        font-size: 16px;
+        color: rgba(234, 240, 255, 0.35);
+        font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        pointer-events: none;
+        user-select: none;
+        z-index: 100;
+        transition: color 0.2s ease;
+      }
+
+      @keyframes app-boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
     <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
@@ -60,7 +131,54 @@
       </defs>
     </svg>
 
-    <div id="app"></div>
+    <div id="app">
+      <div class="app-boot-loader" id="app-boot-loader">
+        <div class="app-boot-loader__spinner"></div>
+        <div class="app-boot-loader__text" id="app-boot-loader-text">Загружаем плеер…</div>
+      </div>
+
+      <div class="app-build-info" id="app-build-info">
+        Version: %APP_VERSION% <br />Hash build: %BUILD_HASH%
+      </div>
+    </div>
+
+    <script>
+      // Смена успокаивающих фраз, пока грузится бандл.
+      // Список должен совпадать с AppLoader.vue.
+      ;(function () {
+        var phrases = [
+          'Настраиваем плеер…',
+          'Достаём пластинки…',
+          'Секунду, распаковываем треки…',
+          'Готовим сцену…',
+          'Почти готово…',
+          'Прогреваем лампы…',
+          'Загружаем библиотеку…',
+          'Крутим диски…',
+        ]
+
+        var textEl = document.getElementById('app-boot-loader-text')
+        if (!textEl) return
+
+        textEl.textContent = phrases[Math.floor(Math.random() * phrases.length)]
+
+        var current = textEl.textContent
+        setInterval(function () {
+          if (document.getElementById('app-boot-loader') === null) return
+          var next = current
+          while (next === current) {
+            next = phrases[Math.floor(Math.random() * phrases.length)]
+          }
+          current = next
+          textEl.style.opacity = '0'
+          setTimeout(function () {
+            textEl.textContent = next
+            textEl.style.opacity = '1'
+          }, 300)
+        }, 5000)
+      })()
+    </script>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

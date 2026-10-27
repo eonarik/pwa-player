@@ -1,22 +1,32 @@
 // server/src/core/session.js
 
 import session from 'express-session'
-import memorystore from 'memorystore'
+import fileStoreFactory from 'session-file-store'
 
-const MemoryStore = memorystore(session)
+const FileStore = fileStoreFactory(session)
+
+// Папка для хранения сессий.
+// Важно: она должна сохраняться между деплоями (не удаляться в deploy.yml).
+const SESSION_STORE_PATH = process.env.SESSION_STORE_PATH || './.sessions'
 
 export const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: true,
+  // Не создавать сессию, пока пользователь не авторизуется.
+  // Это избавит от мусорных файлов от ботов.
+  saveUninitialized: false,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
   },
-  store: new MemoryStore({
-    checkPeriod: 24 * 60 * 60 * 1000, // чистим протухшие раз в сутки
+  store: new FileStore({
+    path: SESSION_STORE_PATH,
+    ttl: 30 * 24 * 60 * 60, // 30 дней в секундах (для авто-очистки)
+    retries: 2,
+    reapInterval: 3600, // Раз в час проверять протухшие сессии
+    logFn: () => {}, // Отключаем спам в консоли при каждом запросе
   }),
 })
 

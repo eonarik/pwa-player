@@ -1,30 +1,20 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
-import { watchEffect, watch, onMounted, onUnmounted, ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
-import { useHistoryStore } from '@/stores/history'
 import { usePlaylistsStore } from '@/stores/playlists'
-import { useDislikesStore } from '@/stores/dislikes'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
-import { metadataService } from '@/services/metadata/MetadataService'
-import { metadataWorkerService } from '@/services/metadata/MetadataWorkerService'
-import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
-import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
+import { usePwaUpdate } from '@/composables/usePwaUpdate'
+import { useAutoActions } from '@/composables/useAutoActions'
+import { useAppBootstrap } from '@/composables/useAppBootstrap'
+import { useDocumentTitle } from '@/composables/useDocumentTitle'
+import { useTrackEndOnVisibility } from '@/composables/useTrackEndOnVisibility'
 import { syncService } from '@/services/download/SyncService'
-import { getPlugins, loadPlugin, pluginCanDownload, isStreamingPlugin } from '@/plugins/registry'
-import { createPluginContext } from '@/plugins/context'
-import { sortService } from '@/services/sort/SortService'
-import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPageTitle } from '@/navigation/title'
-import { audioService } from '@/services/audio/AudioService'
-import { isLocalTrack } from '@/services/library/selectors'
-import { guessMetadataFromFilename } from '@/utils/parseFilename'
-import type { LibraryTrack } from '@/types/library'
 import PlayerControls from '@/components/player/PlayerControls.vue'
 import FullPlayer from '@/components/player/FullPlayer.vue'
 import ModalHost from '@/components/ui/ModalHost.vue'
@@ -33,15 +23,14 @@ import SyncIssuesModal from '@/components/library/SyncIssuesModal.vue'
 import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue'
 import AppDrawer from '@/components/layout/AppDrawer.vue'
 import FeedbackModal from '@/components/ui/FeedbackModal.vue'
+import AppLoader from '@/components/layout/AppLoader.vue'
 import IconButton from '@/components/ui/IconButton.vue'
+import { downloadSpaceService } from "./services/download/DownloadSpaceService"
 
 const route = useRoute()
 const player = usePlayerStore()
 const library = useLibraryStore()
-const history = useHistoryStore()
 const playlists = usePlaylistsStore()
-const dislikes = useDislikesStore()
-const uiSettings = useUiSettingsStore()
 const { currentTrack, isPlaying, queue } = storeToRefs(player)
 
 const isFullPlayerOpen = ref(false)
@@ -49,15 +38,31 @@ const isDrawerOpen = ref(false)
 const showSyncIssues = ref(false)
 const isFeedbackOpen = ref(false)
 
-// Защита от рекурсии в watch(currentTrack)
-const processedTracks = new Set<string>()
+const { isBootstrapping } = useAppBootstrap()
 
-function openFullPlayer() { isFullPlayerOpen.value = true }
-function closeFullPlayer() { isFullPlayerOpen.value = false }
-function openDrawer() { isDrawerOpen.value = true }
-function closeDrawer() { isDrawerOpen.value = false }
-function openFeedback() { isFeedbackOpen.value = true }
-function closeFeedback() { isFeedbackOpen.value = false }
+usePwaUpdate()
+useAutoActions(currentTrack)
+useDocumentTitle(currentTrack)
+useTrackEndOnVisibility()
+
+function openFullPlayer() {
+  isFullPlayerOpen.value = true
+}
+function closeFullPlayer() {
+  isFullPlayerOpen.value = false
+}
+function openDrawer() {
+  isDrawerOpen.value = true
+}
+function closeDrawer() {
+  isDrawerOpen.value = false
+}
+function openFeedback() {
+  isFeedbackOpen.value = true
+}
+function closeFeedback() {
+  isFeedbackOpen.value = false
+}
 
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && isFullPlayerOpen.value) {
@@ -106,162 +111,17 @@ useMediaSession({
   onSeekBy: (d) => player.seekBy(d),
 })
 
-watchEffect(() => {
-  const t = currentTrack.value
-  document.title = t ? `${t.title} — ${t.artist}` : 'CUEI Media Player'
-})
-
-function handleVisibilityChange() {
-  if (document.visibilityState === 'visible' && player.isPlaying) {
-    const audio = audioService.element
-    if (audio.ended || (audio.duration > 0 && audio.currentTime >= audio.duration - 0.5)) {
-      player.handleTrackEnd()
-    }
-  }
-}
-
-const isBootstrapping = ref(true)
-
-onMounted(async () => {
+onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-
-  try {
-    await uiSettings.load()
-    await sortService.load()
-    await metadataService.flush()
-    await downloadSpaceService.load()
-    await history.restore()
-    await dislikes.restore()
-
-    // Если папка скачивания уже выбрана — сканируем все плагины с canDownload
-    if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
-      const plugins = getPlugins().filter((p) => p.canDownload)
-      for (const p of plugins) {
-        void syncService.scanPlugin(p.id)
-      }
-    }
-
-    for (const manifest of getPlugins()) {
-      try {
-        const plugin = await loadPlugin(manifest.id)
-        const context = createPluginContext(manifest.id)
-        const restored = await plugin.restoreFromCache(context)
-        if (restored) console.info(`[app] restored source: ${manifest.id}`)
-      } catch (err) {
-        console.warn(`[app] failed to restore source "${manifest.id}"`, err)
-      }
-    }
-
-    const playerRestored = await player.restore()
-    if (playerRestored) console.log('[player] restored')
-  } finally {
-    isBootstrapping.value = false
-  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
-  document.removeEventListener('visibilitychange', handleVisibilityChange)
-})
-
-async function runAutoFetch(libTrack: LibraryTrack) {
-  if (!uiSettings.autoFetchMetadata) return
-
-  // Если у нас есть ID3-теги, автопоиск не нужен
-  if (libTrack.hasId3Tags) return
-
-  // Не трогаем ручные и уже найденные
-  const canAutoFetch =
-    libTrack.metaSource !== 'auto' &&
-    libTrack.metaSource !== 'manual' &&
-    libTrack.metaSource !== 'unknown'
-
-  if (!canAutoFetch) return
-
-  try {
-    const result = await trackMetadataService.fetch(
-      libTrack.artist ?? '',
-      libTrack.title,
-      uiSettings.metadataThreshold,
-    )
-
-    if (result.status === 'found') {
-      metadataService.applyRemote(libTrack.id, result.data)
-    } else if (result.status === 'not-found') {
-      useLibraryStore().updateTrackMetadata(libTrack.id, { metaSource: 'unknown' })
-    }
-  } catch (err) {
-    console.warn('[app] auto-fetch failed', err)
-  }
-}
-
-watch(currentTrack, async (track) => {
-  if (!track) return
-
-  // Если это стриминговый трек — не ищем метаданные и не качаем
-  if (isStreamingPlugin(track.pluginId)) return
-
-  // ЗАЩИТА ОТ РЕКУРСИИ: если уже обрабатываем этот трек — выходим
-  if (processedTracks.has(track.id)) return
-
-  // Помечаем, что начали обработку
-  processedTracks.add(track.id)
-
-  const libTrack = library.getTrack(track.id)
-  if (!libTrack) return
-
-  // 1. Парсинг локального файла (только если тегов нет)
-  if (libTrack.handle && !libTrack.hasId3Tags && libTrack.metaSource !== 'manual') {
-    try {
-      const file = await libTrack.handle.getFile()
-      const parsed = await metadataWorkerService.parse(file)
-
-      if (parsed) {
-        metadataService.applyFromFile(libTrack.id, parsed)
-        return
-      } else {
-        const guessed = guessMetadataFromFilename(libTrack.filename ?? libTrack.title)
-        useLibraryStore().updateTrackMetadata(libTrack.id, {
-          title: guessed.title || libTrack.title,
-          artist: guessed.artist || libTrack.artist,
-          metaSource: 'filename',
-          hasId3Tags: false,
-        })
-        usePlayerStore().updateTrackInQueue(libTrack.id)
-
-        const updated = library.getTrack(libTrack.id)
-        if (updated) void runAutoFetch(updated)
-        return
-      }
-    } catch (err) {
-      console.error('[app] failed to parse local track metadata', err)
-    }
-  }
-
-  // 2. Автопоиск
-  void runAutoFetch(libTrack)
-
-  // 3. Автоскачивание
-  const isDownloading = downloadOrchestrator.isDownloading(libTrack.id)
-  const isWaitingForDownload = uiSettings.autoDownloadTracks &&
-    pluginCanDownload(libTrack.pluginId) &&
-    !isLocalTrack(libTrack) &&
-    !isDownloading
-
-  if (isWaitingForDownload) {
-    if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
-      void downloadOrchestrator.downloadTrack(libTrack).catch((err) => {
-        console.warn('[app] auto-download failed', err)
-      })
-    }
-  }
 })
 </script>
 
 <template>
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg relative">
-    <!-- Хедер -->
     <header class="app-safe-top flex items-center gap-2 px-3 py-2 z-10">
       <IconButton icon="menu" variant="ghost" size="md" label="Меню" @click="openDrawer" class="!px-3 !w-auto">
         <span class="hidden md:inline text-sm">Меню</span>
@@ -279,7 +139,7 @@ watch(currentTrack, async (track) => {
 
     <main class="overflow-hidden z-10 relative">
       <RouterView v-if="!isBootstrapping" />
-      <div v-else class="flex h-full items-center justify-center text-sm text-fg-muted">Загрузка…</div>
+      <AppLoader v-else />
     </main>
 
     <div class="z-20 relative">

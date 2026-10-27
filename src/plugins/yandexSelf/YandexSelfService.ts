@@ -99,6 +99,20 @@ export class YandexSelfService implements IYandexService {
     if (!res.ok) throw new Error('Failed to write')
     return res.json() as Promise<YandexWriteResponse>
   }
+
+  async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
+    try {
+      const res = await fetch(`${API_URL}/auth/check`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.status === 401) return 'expired'
+      if (!res.ok) return 'unavailable'
+      return 'ok'
+    } catch {
+      return 'unavailable'
+    }
+  }
 }
 
 export const yandexSelfService = new YandexSelfService()

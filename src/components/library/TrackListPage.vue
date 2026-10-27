@@ -34,9 +34,7 @@ const props = withDefaults(
     showPlayAll?: boolean
     showBatchAdd?: boolean
     preFilter?: (t: Track) => boolean
-    /** Если true — onSelect только эмитит, не вызывает player.setQueue */
     customSelect?: boolean
-    /** Функция ключа для v-for (для дубликатов в очереди) */
     itemKey?: (track: Track, index: number) => string
   }>(),
   {
@@ -180,24 +178,20 @@ function onSelectSearch(trackId: string) {
     <!-- Список -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl py-2">
-        <EmptyState v-if="filteredTracks.length === 0 && !hasQuery" title="Список пуст">
-          <template #icon>
-            <slot name="empty">
-              <Icon name="music" w="w-10" h="h-10" />
-            </slot>
-          </template>
-        </EmptyState>
+        <slot v-if="filteredTracks.length === 0 && !hasQuery" name="empty">
+          <EmptyState title="Список пуст">
+            <template #icon>
+              <Icon name="music" w="w-10" h="w-10" />
+            </template>
+          </EmptyState>
+        </slot>
 
         <template v-else-if="hasQuery">
-          <template v-if="filteredTracks.length === 0 && !hasQuery">
-            <slot name="empty">
-              <EmptyState title="Список пуст">
-                <template #icon>
-                  <Icon name="music" w="w-10" h="h-10" />
-                </template>
-              </EmptyState>
-            </slot>
-          </template>
+          <EmptyState v-if="!hasResults" title="Ничего не найдено">
+            <template #icon>
+              <Icon name="search" w="w-10" h="w-10" />
+            </template>
+          </EmptyState>
 
           <div v-else class="flex flex-col gap-4">
             <div v-for="group in result.groups" :key="group.artist">

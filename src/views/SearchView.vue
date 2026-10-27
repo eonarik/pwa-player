@@ -34,6 +34,13 @@ const FILTERS: Array<{ id: SourceFilter; label: string }> = [
 
 const allTracks = computed<LibraryTrack[]>(() => Object.values(library.tracks))
 
+// Показывать фильтр только если есть разные локации
+const hasMixedLocations = computed(() => {
+  if (allTracks.value.length === 0) return false
+  const locations = new Set(allTracks.value.map((t) => t.fileLocation ?? 'remote-only'))
+  return locations.size > 1
+})
+
 const filteredTracks = computed<LibraryTrack[]>(() => {
   if (sourceFilter.value === 'all') return allTracks.value
 
@@ -79,7 +86,7 @@ function isCurrent(trackId: string): boolean {
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-3">
         <SearchInput v-model="query" always-open />
 
-        <div class="flex items-center gap-2">
+        <div v-if="hasMixedLocations" class="flex items-center gap-2">
           <button v-for="f in FILTERS" :key="f.id" type="button" class="rounded-btn px-3 py-1 text-xs transition"
             :class="sourceFilter === f.id ? 'bg-card-bg text-fg font-medium' : 'text-fg-muted hover:text-fg hover:bg-hover-bg'"
             @click="sourceFilter = f.id">
@@ -116,7 +123,6 @@ function isCurrent(trackId: string): boolean {
               <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
                 {{ group.artist }}
               </p>
-              <!-- Здесь ListContainer занимает всю ширину родителя (max-w-3xl) -->
               <ListContainer max-width="lg" class="!px-0">
                 <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
                   :index="flatTracks.findIndex((t) => t.id === track.id)" :is-current="isCurrent(track.id)"

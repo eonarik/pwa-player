@@ -43,8 +43,11 @@ export async function searchAll(query, types, userToken) {
           withPopularTracks: true,
         })
         const popular = artistData?.getArtists?.[0]?.popularTracks || []
-        if (popular.length > 0) {
-          return { tracks: popular, artists: [], releases: [] }
+        // API Звука иногда возвращает null в массиве (битые треки)
+        const validPopular = popular.filter((t) => t != null)
+
+        if (validPopular.length > 0) {
+          return { tracks: validPopular, artists: [], releases: [] }
         }
       } catch (err) {
         console.warn('[zvuk] artist fetch failed', err)
@@ -71,8 +74,10 @@ export async function searchAll(query, types, userToken) {
       try {
         const releaseData = await api.execute('getRelease', { ids: [releaseId] })
         const releaseTracks = releaseData?.getReleases?.[0]?.tracks || []
-        if (releaseTracks.length > 0) {
-          return { tracks: releaseTracks, artists: [], releases: [] }
+        const validReleaseTracks = releaseTracks.filter((t) => t != null)
+
+        if (validReleaseTracks.length > 0) {
+          return { tracks: validReleaseTracks, artists: [], releases: [] }
         }
       } catch (err) {
         console.warn('[zvuk] release fetch failed', err)
@@ -81,7 +86,9 @@ export async function searchAll(query, types, userToken) {
   }
 
   // Если ищем по трекам (или если по артистам/альбомам ничего не нашли)
-  const tracks = search?.tracks?.items || []
+  const rawTracks = search?.tracks?.items || []
+  const tracks = rawTracks.filter((t) => t != null)
+
   return { tracks, artists: [], releases: [] }
 }
 

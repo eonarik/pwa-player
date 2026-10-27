@@ -51,6 +51,13 @@ export interface IYandexService {
   setDisconnected?(val: boolean): void
   isCancelled?(): boolean
   setCancelled?(val: boolean): void
+
+  /**
+   * Проверка сессии. Для yandex — /api/auth/me, для yandex-self — /api/yandex-self/auth/check.
+   * Возвращает 'ok' | 'expired' | 'unavailable'.
+   */
+  checkSession?(): Promise<'ok' | 'expired' | 'unavailable'>
+
   listResources(path: string): Promise<YandexResourcesResponse>
   buildDownloadUrl(path: string): string
   readTextFile(remotePath: string): Promise<YandexTextResponse | null>

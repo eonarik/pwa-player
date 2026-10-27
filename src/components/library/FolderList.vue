@@ -22,6 +22,7 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 type FolderPlayState = 'idle' | 'playing' | 'paused'
 
 function formatCount(folder: Folder): string {
+  if (folder.scanState === 'error') return 'Ошибка синхронизации'
   if (!library.isSubtreeScanned(folder.id)) return '…'
 
   const subfolders = folder.childFolderIds.length
@@ -49,8 +50,13 @@ function isScanning(folder: Folder): boolean {
   return folder.scanState === 'scanning'
 }
 
+function hasError(folder: Folder): boolean {
+  return folder.scanState === 'error'
+}
+
 function isEmpty(folder: Folder): boolean {
   return (
+    !hasError(folder) &&
     library.isSubtreeScanned(folder.id) &&
     folder.totalTrackCount === 0 &&
     (folder.totalTextFileCount ?? 0) === 0
@@ -85,9 +91,27 @@ async function openFolder(folder: Folder) {
   })
 }
 
+async function retryFolderScan(folder: Folder, e: Event) {
+  e.stopPropagation()
+  if (!folder.source) return
+
+  try {
+    const plugin = await loadPlugin(pluginIdFromSource(folder.source))
+    if (plugin.scanFolder) {
+      const context = createPluginContext(pluginIdFromSource(folder.source))
+      toastService.info(`Повторное сканирование «${folder.name}»…`)
+      await plugin.scanFolder(context, folder.id, { recursive: true, removeMissing: true })
+      toastService.success(`Папка «${folder.name}» обновлена`)
+    }
+  } catch (err) {
+    console.error('[folder-list] retry scan failed', err)
+    toastService.error('Не удалось обновить папку')
+  }
+}
+
 async function playFolder(folder: Folder) {
-  if (isScanning(folder)) {
-    toastService.info('Папка сканируется, подождите')
+  if (isScanning(folder) || hasError(folder)) {
+    toastService.info('Папка сканируется или недоступна, подождите')
     return
   }
   if (isEmpty(folder)) return
@@ -158,7 +182,7 @@ const getPlayLabel = (folder: Folder) => {
   return `Играть папку ${folder.name}`
 }
 
-const getFolderButtonClass = (folder: Folder) => {
+const getPlayButtonClass = (folder: Folder) => {
   if (isScanning(folder)) return 'bg-card-bg text-fg-muted cursor-default'
   if (isEmpty(folder) || folder.totalTrackCount === 0) return 'bg-card-bg text-fg-disabled cursor-default'
   if (folderPlayState(folder) === 'playing') return 'bg-active/20 text-active hover:bg-active/30'
@@ -170,27 +194,33 @@ const getFolderButtonClass = (folder: Folder) => {
 <template>
   <div v-if="currentSubfolders.length > 0" class="flex flex-col gap-0.5">
     <ListRow v-for="folder in currentSubfolders" :key="folder.id"
-      :active="folderPlayState(folder) !== 'idle' && !isEmpty(folder)" :class="isEmpty(folder) ? 'opacity-40' : ''"
-      @click="onRowClick(folder)">
+      :active="folderPlayState(folder) !== 'idle' && !isEmpty(folder) && !hasError(folder)"
+      :class="isEmpty(folder) ? 'opacity-40' : ''" @click="onRowClick(folder)">
+
       <template #leading>
         <div class="flex shrink-0 items-center gap-2">
-          <!-- Кнопка Play/Pause -->
+          <!-- Кнопка Play/Pause (всегда на месте) -->
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
-            :class="getFolderButtonClass(folder)" :aria-label="getPlayLabel(folder)" v-tooltip="getPlayLabel(folder)"
+            :class="getPlayButtonClass(folder)" :aria-label="getPlayLabel(folder)" v-tooltip="getPlayLabel(folder)"
             @click.stop="toggleFolderPlayback(folder, $event)">
-            <Icon v-if="isScanning(folder)" name="spinner" w="w-5" h="h-5" class="animate-spin" />
-            <Icon v-else-if="folderPlayState(folder) === 'playing'" name="pause" w="w-5" h="h-5" />
-            <Icon v-else name="play" w="w-5" h="h-5" class="translate-x-[1px]" />
+
+            <Icon v-if="isScanning(folder)" name="spinner" w="w-5" h="w-5" class="animate-spin" />
+            <Icon v-else-if="folderPlayState(folder) === 'playing'" name="pause" w="w-5" h="w-5" />
+            <Icon v-else name="play" w="w-5" h="w-5" class="translate-x-[1px]" />
           </div>
 
-          <!-- Иконка папки -->
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition" :class="isScanning(folder)
-            ? 'bg-card-bg text-fg-muted'
-            : folderPlayState(folder) !== 'idle'
-              ? 'bg-active/15 text-active'
-              : 'bg-card-bg text-fg-muted'
-            ">
-            <Icon name="folder" w="w-5" h="h-5" />
+          <!-- Иконка папки / Ошибка / Ретрай -->
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition group/folder" :class="isScanning(folder) ? 'bg-card-bg text-fg-muted'
+              : hasError(folder) ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer'
+                : folderPlayState(folder) !== 'idle' ? 'bg-active/15 text-active'
+                  : 'bg-card-bg text-fg-muted'
+            " :aria-label="hasError(folder) ? 'Обновить папку' : undefined"
+            v-tooltip="hasError(folder) ? 'Ошибка синхронизации. Нажмите для повтора' : undefined"
+            @click.stop="hasError(folder) ? retryFolderScan(folder, $event) : undefined">
+
+            <Icon v-if="hasError(folder)" name="refresh" w="w-5" h="w-5"
+              class="group-hover/folder:rotate-45 transition-transform" />
+            <Icon v-else name="folder" w="w-5" h="w-5" />
           </div>
         </div>
       </template>
@@ -200,11 +230,12 @@ const getFolderButtonClass = (folder: Folder) => {
       </template>
 
       <template #subtitle>
-        <p class="truncate text-xs" :class="folderPlayState(folder) !== 'idle' && !isScanning(folder)
-          ? 'text-active/60'
-          : 'text-fg-muted'
+        <p class="truncate text-xs" :class="hasError(folder) ? 'text-red-400' :
+            folderPlayState(folder) !== 'idle' && !isScanning(folder) ? 'text-active/60'
+              : 'text-fg-muted'
           ">
           <template v-if="isScanning(folder)">Сканирование…</template>
+          <template v-else-if="hasError(folder)">Ошибка синхронизации</template>
           <template v-else-if="needsScan(folder)">Ожидает сканирования</template>
           <template v-else>{{ formatCount(folder) }}</template>
         </p>
@@ -214,7 +245,7 @@ const getFolderButtonClass = (folder: Folder) => {
         <div class="shrink-0" :class="[
           isScanning(folder) || isEmpty(folder)
             ? 'text-fg-disabled cursor-default'
-            : folderPlayState(folder) !== 'idle'
+            : folderPlayState(folder) !== 'idle' || hasError(folder)
               ? 'text-active/60 hover:bg-active/20 hover:text-active'
               : 'text-fg-subtle hover:bg-hover-bg hover:text-fg-muted',
         ]" :aria-label="`Открыть папку ${folder.name}`" v-tooltip="`Открыть папку ${folder.name}`"

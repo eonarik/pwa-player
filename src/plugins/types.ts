@@ -66,6 +66,22 @@ export interface LibrarySource {
   restoreFromCache(context: PluginContext): Promise<boolean>
 
   /**
+   * Проверяет, жива ли сессия плагина.
+   * - `'ok'` — сессия валидна (или не применима для плагина).
+   * - `'expired'` — сессия истекла, нужен reconnect.
+   * - `'unavailable'` — сервер недоступен (транзиентная ошибка).
+   *
+   * Не реализован — значит, плагин без сессии (radio, podcasts, zvuk).
+   */
+  checkSession?(): Promise<'ok' | 'expired' | 'unavailable'>
+
+  /**
+   * Помечает плагин как отключённый БЕЗ чистки кеша и библиотеки.
+   * Используется, когда сессия истекла (checkSession → 'expired').
+   */
+  markDisconnected?(): void
+
+  /**
    * Восстанавливает библиотеку из локальных скачанных файлов (без облака).
    * Заменяет всё содержимое source — не мержит с текущей библиотекой.
    */

@@ -10,13 +10,13 @@ import { sortService } from '@/services/sort/SortService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { useFolderSync } from '@/composables/useFolderSync'
-import FileLocationFilter, { type SourceFilter } from '@/components/library/FileLocationFilter.vue'
 import FolderHeader from './folder/FolderHeader.vue'
 import FolderFilters from './folder/FolderFilters.vue'
 import FolderContent from './folder/FolderContent.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
 import TextEditorModal from '@/components/library/TextEditorModal.vue'
 import type { LibraryTrack, TextFileRef } from '@/types/library'
+import FileLocationFilter from "@/components/library/FileLocationFilter.vue"
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -27,6 +27,8 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 const { showFiles } = storeToRefs(uiSettings)
 
 const tracks = computed(() => currentTracks.value)
+
+type SourceFilter = 'all' | 'local' | 'cloud'
 const sourceFilter = ref<SourceFilter>('all')
 
 // Фильтрация треков
@@ -39,6 +41,13 @@ const filteredTracks = computed(() => {
     }
     return loc === 'remote-only' || loc === 'both'
   })
+})
+
+// Показываем фильтр только если в списке реально есть разные типы локаций
+const hasMixedLocations = computed(() => {
+  if (filteredTracks.value.length === 0) return false
+  const locations = new Set(filteredTracks.value.map((t) => t.fileLocation ?? 'remote-only'))
+  return locations.size > 1
 })
 
 const hasTracks = computed(() => filteredTracks.value.length > 0)
@@ -163,7 +172,7 @@ const emptyStateMessage = computed(() => {
       :current-track-id="currentTrack?.id ?? null" @select-track="onSelectTrack"
       @select-search-track="onSelectSearchTrack" @open-file="openFile" @play-search-all="playSearchAll">
       <template #filters>
-        <FileLocationFilter v-model="sourceFilter" />
+        <FileLocationFilter v-if="hasMixedLocations" v-model="sourceFilter" />
       </template>
     </FolderContent>
 

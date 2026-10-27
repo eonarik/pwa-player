@@ -121,10 +121,12 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   }
 
   function addTrackToPlaylist(playlistId: string, track: Track): boolean {
+    console.log('Adding track:', track)
+    console.log('Snapshot:', createTrackSnapshot(track))
+
     const playlist = playlists.value[playlistId]
     if (!playlist) return false
 
-    // ИСПОЛЬЗУЕМ id вместо trackId
     const exists = playlist.tracks.some((t) => t.id === track.id)
     if (exists) return false
 
@@ -137,6 +139,7 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   }
 
   function addTracksToPlaylist(playlistId: string, tracks: Track[]): number {
+  console.log('[addTracksToPlaylist] Adding many:', tracks)
     const playlist = playlists.value[playlistId]
     if (!playlist) return 0
 

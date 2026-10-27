@@ -184,6 +184,21 @@ export class YandexDiskService implements AuthProvider {
 
     return (await res.json()) as WriteTextFileResponse
   }
+
+  async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
+    try {
+      const res = await fetch(`${PROXY_URL}/api/auth/me`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.status === 401) return 'expired'
+      if (!res.ok) return 'unavailable'
+      const data = (await res.json()) as { authenticated: boolean }
+      return data.authenticated ? 'ok' : 'expired'
+    } catch {
+      return 'unavailable'
+    }
+  }
 }
 
 export const yandexDiskService = YandexDiskService.getInstance()

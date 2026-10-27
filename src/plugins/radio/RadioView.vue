@@ -81,6 +81,18 @@ function onRemoveFromSavedList(station: SavedStation): void {
   onRemove(station)
 }
 
+/**
+ * Проксируем только HLS-манифесты: `<audio>` не умеет .m3u8, а CORS
+ * у сторонних станций почти всегда закрыт. Остальные потоки отдаём как есть —
+ * если CORS-политика станции не пускает, это её проблема.
+ */
+function proxyRadioUrl(url: string): string {
+  if (url.includes('.m3u8')) {
+    return `/api/hls-proxy?url=${encodeURIComponent(url)}`
+  }
+  return url
+}
+
 function playStation(station: SavedStation): void {
   if (player.currentTrack?.id === `radio:${station.id}`) {
     player.toggle()
@@ -95,7 +107,7 @@ function playStation(station: SavedStation): void {
     album: '',
     duration: 0,
     filename: '',
-    source: station.url,
+    source: proxyRadioUrl(station.url),
     coverUrl: station.favicon || undefined,
   }
 

@@ -1,29 +1,22 @@
 <!-- src/views/PlaylistRoute.vue -->
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import { usePlaylistsStore } from '@/stores/playlists'
-import { usePlayerStore } from '@/stores/player'
-import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { usePlaylistRematch } from '@/composables/usePlaylistRematch'
 import { useResolvedTracks } from '@/composables/useResolvedTracks'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import PlaylistHeader from './playlist/PlaylistHeader.vue'
-import PlaylistToolbar from './playlist/PlaylistToolbar.vue'
 import TrackListPage from '@/components/library/TrackListPage.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
+import MetadataMenu from '@/components/library/MetadataMenu.vue'
 import type { LibraryTrack } from '@/types/library'
-import { useLibraryStore } from "@/stores/library/store.ts"
+import { useLibraryStore } from '@/stores/library'
 
 const route = useRoute()
 const router = useRouter()
 const playlists = usePlaylistsStore()
-const player = usePlayerStore()
-const uiSettings = useUiSettingsStore()
-
-const { isPlaying } = storeToRefs(player)
 
 const playlistId = computed(() => String(route.params.id))
 const playlist = computed(() => playlists.getPlaylist(playlistId.value))
@@ -39,14 +32,20 @@ const unavailableCount = computed(() => {
 
 const { rematch } = usePlaylistRematch(playlist)
 
+watch(
+  () => Object.keys(useLibraryStore().tracks).length,
+  (len) => {
+    if (len > 0) rematch()
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   rematch()
 })
 
 // Метаданные
 const searchableTracks = computed<LibraryTrack[]>(() => {
-  // В PlaylistRoute фильтрация теперь внутри TrackListPage,
-  // но для поиска метаданных нам нужны все доступные треки из библиотеки
   return resolvedTracks.value.filter((t): t is LibraryTrack => Boolean(useLibraryStore().getTrack(t.id)))
 })
 
@@ -98,33 +97,20 @@ function onDelete(): void {
     </div>
 
     <template v-else>
-      <!-- Используем новый TrackListPage -->
       <TrackListPage :title="playlist.name" :subtitle="`${resolvedTracks.length} из ${playlist.tracks.length}`"
         :tracks="playlist.tracks" :is-snapshot="true" :show-search="true" :show-filter="true" :show-play-all="true"
         :show-batch-add="true">
 
-        <!-- Кнопки в шапке (Ренейм, Удалить, Поделиться) -->
+        <!-- Кнопки в шапке (Метаданные, Ренейм, Удалить, Поделиться) -->
         <template #header-actions>
+          <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
+            :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"
+            @cancel="metadataCancel" @reset="metadataReset" @open-issues="openMetadataIssues" />
+
           <PlaylistHeader :playlist="playlist" :is-favorites="isFavorites" :resolved-tracks="resolvedTracks"
             :unavailable-count="unavailableCount" @rename="onRename" @delete="onDelete" />
         </template>
-
-        <!-- Метаданные трека (если нужны) -->
-        <template #track-meta>
-          <!-- Тут можно вывести дату добавления, если нужно -->
-        </template>
       </TrackListPage>
-
-      <!-- Панель метаданных (поиск, очистка) -->
-      <div class="shrink-0 border-t border-hover-bg bg-bg pb-2">
-        <div class="mx-auto w-full max-w-3xl">
-          <PlaylistToolbar :query="''" :is-favorites="isFavorites" :metadata-loading="isMetadataLoading"
-            :metadata-progress="metadataProgress" :metadata-stats="metadataStats"
-            :metadata-has-unchecked="metadataHasUnchecked" :metadata-issues-count="metadataIssues.length"
-            @metadata-search="metadataSearch" @metadata-cancel="metadataCancel" @metadata-reset="metadataReset"
-            @open-issues="openMetadataIssues" @delete="onDelete" />
-        </div>
-      </div>
 
       <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
     </template>

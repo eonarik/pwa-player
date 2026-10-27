@@ -1,12 +1,13 @@
 // src/plugins/yandexDisk/manifest.ts
 
+import diskIcon from '@/assets/yandex-disk.png'
 import type { PluginManifest } from '../types'
 import { PLUGIN_ID } from './constants'
 
 export const manifest: PluginManifest = {
   id: PLUGIN_ID,
   name: 'Яндекс.Диск',
-  icon: '☁️',
+  icon: diskIcon,
   version: '0.1.0',
   enabled: true,
   canDownload: true,

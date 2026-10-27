@@ -5,13 +5,9 @@ import IconButton from '@/components/ui/IconButton.vue'
 import PlaylistSubmenu from './PlaylistSubmenu.vue'
 import type { Track } from '@/types/track'
 
-const props = defineProps<{
+defineProps<{
   tracks: Track[]
 }>()
-
-function onAction() {
-  // если треков нет, ничего не делаем
-}
 </script>
 
 <template>

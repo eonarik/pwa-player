@@ -1,17 +1,20 @@
 <!-- src/components/library/TrackActions.vue -->
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
-import { usePlaylistsStore } from '@/stores/playlists'
+import { computed, ref } from 'vue'
 import { useLibraryStore } from '@/stores/library'
 import { useUiSettingsStore } from '@/stores/uiSettings'
-import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
 import { metadataService } from '@/services/metadata/MetadataService'
 import { toastService } from '@/services/ui/ToastService'
 import { modalService } from '@/services/ui/ModalService'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
-import { pluginCanDownload, isLiveStream, isLinearContent, isStreamingPlugin } from '@/plugins/registry'
+import {
+  pluginCanDownload,
+  isLiveStream,
+  isLinearContent,
+  isStreamingPlugin
+} from '@/plugins/registry'
 import { isLocalTrack } from '@/services/library/selectors'
 import TrackReactionButtons from '../ui/TrackReactionButtons.vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
@@ -34,19 +37,10 @@ const emit = defineEmits<{
   (e: 'removed-from-queue'): void
 }>()
 
-const playlists = usePlaylistsStore()
 const library = useLibraryStore()
 const uiSettings = useUiSettingsStore()
 
-const isSubmenuOpen = ref(false)
-const isCreatingNew = ref(false)
-const newPlaylistName = ref('')
 const isSearchingMetadata = ref(false)
-const inputRef = ref<HTMLInputElement | null>(null)
-
-const userPlaylists = computed(() =>
-  playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID),
-)
 
 const isLinear = computed(() => isLinearContent(props.track.pluginId))
 const isLive = computed(() => isLiveStream(props.track.pluginId))
@@ -54,58 +48,12 @@ const isStreaming = computed(() => isStreamingPlugin(props.track.pluginId))
 
 const hasMetadataEntry = computed(() => metadataService.hasEntry(props.track.id))
 
-// --- Плейлисты --------------------------------------------------------
-
-function closeMenu(close: () => void): void {
-  isSubmenuOpen.value = false
-  isCreatingNew.value = false
-  newPlaylistName.value = ''
-  close()
-}
-
-function toggleSubmenu(): void {
-  isSubmenuOpen.value = !isSubmenuOpen.value
-}
-
-function addToPlaylist(playlistId: string, close: () => void): void {
-  playlists.addTrackToPlaylist(playlistId, props.track)
-  closeMenu(close)
-}
-
-async function startCreate(): Promise<void> {
-  isCreatingNew.value = true
-  newPlaylistName.value = ''
-  await nextTick()
-  inputRef.value?.focus()
-}
-
-function confirmCreate(close: () => void): void {
-  const name = newPlaylistName.value.trim()
-  if (!name) return
-  const id = playlists.createPlaylist(name)
-  playlists.addTrackToPlaylist(id, props.track)
-  closeMenu(close)
-}
-
-function removeFromPlaylist(close: () => void): void {
-  if (!props.playlistId) return
-  playlists.removeTrackFromPlaylist(props.playlistId, props.track.id)
-  emit('removed-from-playlist')
-  closeMenu(close)
-}
-
-function removeFromQueue(close: () => void): void {
-  if (props.queueIndex === undefined) return
-  emit('removed-from-queue')
-  closeMenu(close)
-}
-
 // --- Метаданные -------------------------------------------------------
 
 function openMetadataEditor(close: () => void): void {
   if (isStreaming.value) return // Запрещаем для стриминга
   const libraryTrack = library.getTrack(props.track.id) || (props.track as LibraryTrack)
-  closeMenu(close)
+  close()
   void modalService.show({
     title: 'Редактировать метаданные',
     type: 'custom',
@@ -123,14 +71,13 @@ async function removeMetadata(close: () => void): Promise<void> {
   const libraryTrack = library.getTrack(props.track.id)
   if (!libraryTrack) {
     toastService.error('Трек не найден в библиотеке')
-    closeMenu(close)
+    close()
     return
   }
 
   await metadataService.reset(props.track.id)
-
   toastService.success('Метаданные удалены')
-  closeMenu(close)
+  close()
 }
 
 async function findMetadata(close: () => void): Promise<void> {
@@ -140,27 +87,27 @@ async function findMetadata(close: () => void): Promise<void> {
   const libraryTrack = library.getTrack(props.track.id)
   if (!libraryTrack) {
     toastService.error('Трек не найден в библиотеке')
-    closeMenu(close)
+    close()
     return
   }
 
   if (libraryTrack.metaSource === 'file' || libraryTrack.metaSource === 'manual') {
     const confirmed = await modalService.show({
       title: 'Перезаписать метаданные?',
-      message: 'У трека уже есть надежные метаданные (из файла или введенные вручную). Поиск в интернете может заменить их ненадежными данными.',
+      message: 'У трека уже есть надежные метаданные. Поиск в интернете может заменить их ненадежными данными.',
       type: 'confirm',
       confirmLabel: 'Продолжить',
       cancelLabel: 'Отмена',
     })
 
     if (!confirmed) {
-      closeMenu(close)
+      close()
       return
     }
   }
 
   isSearchingMetadata.value = true
-  closeMenu(close)
+  close()
 
   try {
     const result = await trackMetadataService.fetch(
@@ -210,11 +157,9 @@ const downloadProgress = computed(() => {
 })
 
 const libraryTrack = computed<LibraryTrack | null>(() => {
-  // Если трек есть в библиотеке — используем его
   const lib = library.getTrack(props.track.id)
   if (lib) return lib
 
-  // Если это виртуальный трек из стриминга (есть source, но нет в библиотеке)
   if (isStreaming.value) {
     return {
       ...props.track,
@@ -240,7 +185,7 @@ const downloadLabel = computed(() => {
 
 const canDownload = computed(() => {
   if (isLive.value) return false
-  if (isStreaming.value) return false // Стриминг не скачиваем
+  if (isStreaming.value) return false
   if (!pluginCanDownload(props.track.pluginId)) return false
   return true
 })
@@ -278,6 +223,21 @@ async function onDownload(close: () => void) {
     console.error('[track-actions] download failed', err)
     toastService.error(err instanceof Error ? err.message : 'Не удалось скачать')
   }
+}
+
+// --- Удаление --------------------------------------------------------
+
+function removeFromPlaylist(close: () => void): void {
+  if (!props.playlistId) return
+  usePlaylistsStore().removeTrackFromPlaylist(props.playlistId, props.track.id)
+  emit('removed-from-playlist')
+  close()
+}
+
+function removeFromQueue(close: () => void): void {
+  if (props.queueIndex === undefined) return
+  emit('removed-from-queue')
+  close()
 }
 </script>
 

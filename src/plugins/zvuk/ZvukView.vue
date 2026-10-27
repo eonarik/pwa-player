@@ -59,7 +59,8 @@ async function doSearch() {
     const fetched = await zvukService.search(q, searchTypes.value)
     if (query.value.trim() !== q) return
 
-    tracks.value = fetched.tracks || []
+    // API Звука иногда возвращает null в массиве (битые треки) — отфильтровываем
+    tracks.value = (fetched.tracks || []).filter((t): t is ZvukTrack => t != null)
 
     if (tracks.value.length === 0) {
       error.value = 'Ничего не найдено'

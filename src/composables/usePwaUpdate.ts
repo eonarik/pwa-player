@@ -1,39 +1,24 @@
 // src/composables/usePwaUpdate.ts
 
 import { watch } from 'vue'
-import { useRegisterSW } from 'virtual:pwa-register/vue'
+import { pwaService } from '@/services/pwa/PwaService'
 import { toastService } from '@/services/ui/ToastService'
 
 /**
- * Проверяет наличие обновления PWA и показывает тост с кнопкой
- * «Перезагрузить». Пользователь сам решает, когда применить обновление —
- * чтобы не прерывать воспроизведение.
+ * Инициализирует PWA-обновления и показывает тост «Доступно обновление»
+ * с кнопкой «Перезагрузить». Вызывать один раз в App.vue.
  */
 export function usePwaUpdate(): void {
-  const { needRefresh, updateServiceWorker } = useRegisterSW({
-    onRegisteredSW(_swUrl, registration) {
-      if (!registration) return
-      setInterval(
-        () => {
-          void registration.update()
-        },
-        60 * 60 * 1000,
-      )
-    },
-    onRegisterError(error) {
-      console.error('[pwa] register error', error)
-    },
-  })
+  pwaService.init()
 
   watch(
-    needRefresh,
+    pwaService.needRefresh,
     (need) => {
-      console.log('[pwa] needRefresh', need)
       if (!need) return
       toastService.showPersistent('Доступно обновление', 'info', {
         label: 'Перезагрузить',
         onAction: () => {
-          void updateServiceWorker(true)
+          void pwaService.applyUpdate()
         },
       })
     },

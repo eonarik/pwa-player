@@ -10,7 +10,7 @@ import { useTrackDisplay } from '@/composables/useTrackDisplay'
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { isLocalTrack, isTrackUnavailable } from '@/services/library/selectors'
 import { formatDuration } from '@/utils/formatDuration'
-import { isLiveStream } from '@/plugins/registry'
+import { isLiveStream, isStreamingPlugin } from '@/plugins/registry'
 import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
 
@@ -32,6 +32,7 @@ const emit = defineEmits<{
 const dislikes = useDislikesStore()
 
 const isLive = computed(() => isLiveStream(props.track.pluginId))
+const isStreaming = computed(() => isStreamingPlugin(props.track.pluginId))
 const isDisliked = computed(() => dislikes.isDisliked(props.track.id))
 
 const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
@@ -41,7 +42,7 @@ const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
 
 const downloadProgress = computed<number | null>(() => {
-  if (!props.showDownload || isLive.value) return null
+  if (!props.showDownload || isLive.value || isStreaming.value) return null
   if (!isDownloading.value) return null
   const p = downloadOrchestrator.getProgress(props.track.id)
   if (!p || p.total <= 0) return 0
@@ -49,14 +50,12 @@ const downloadProgress = computed<number | null>(() => {
 })
 
 const isLocal = computed(() => {
-  if (!props.showDownload || isLive.value) return false
+  if (!props.showDownload || isLive.value || isStreaming.value) return false
   return isLocalTrack(props.track as LibraryTrack)
 })
 
-// Физическое наличие
 const isUnavailable = computed(() => isTrackUnavailable(props.track))
 
-// Явная проверка на битый файл (nowhere)
 const isBroken = computed(() => {
   if ('fileLocation' in props.track && props.track.fileLocation === 'nowhere') return true
   return false
@@ -113,13 +112,19 @@ const isBroken = computed(() => {
     </template>
 
     <template #meta>
-      <span v-if="isLive"
-        class="shrink-0 rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-active">
-        Live
-      </span>
-      <span v-else class="shrink-0 text-xs tabular-nums text-fg-muted">
-        {{ formatDuration(track.duration) }}
-      </span>
+      <div class="flex shrink-0 items-center gap-2">
+        <span v-if="isLive"
+          class="rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-active">
+          Live
+        </span>
+        <span v-else-if="isStreaming"
+          class="rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-active">
+          Stream
+        </span>
+        <span v-if="!isLive" class="text-xs tabular-nums text-fg-muted">
+          {{ formatDuration(track.duration) }}
+        </span>
+      </div>
     </template>
 
     <template #trailing>

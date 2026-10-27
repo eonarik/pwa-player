@@ -19,7 +19,7 @@ vi.mock('./config.js', () => ({
 }))
 
 // Мокаем express-session (просто фейковая сессия в памяти для теста)
-function makeRequest(app, method, path, { session } = {}) {
+function makeRequest(app, method, path) {
   return new Promise((resolve, reject) => {
     const server = http.createServer(app)
     server.listen(0, '127.0.0.1', async () => {

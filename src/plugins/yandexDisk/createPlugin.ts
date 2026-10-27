@@ -55,12 +55,25 @@ export function createYandexPlugin({
     isAvailable: () => typeof window !== 'undefined',
     isDisconnected: () => service.isDisconnected?.() ?? false,
 
+    async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
+      if (!service.checkSession) return 'ok'
+      return service.checkSession()
+    },
+
+    markDisconnected(): void {
+      service.setDisconnected?.(true)
+    },
+
     async connect(context: PluginContext): Promise<void> {
       if (service.setDisconnected) service.setDisconnected(false)
       if (service.setCancelled) service.setCancelled(false)
 
       if (isSelf) {
         if (!service.login) throw new Error('Service does not support login')
+
+        // Если сессия уже жива — второй раз пароль не просим.
+        const alive = await service.checkSession?.()
+        if (alive === 'ok') return
 
         const code = await context.showModal<string>({
           title: `Вход в ${name}`,
@@ -249,8 +262,9 @@ export function createYandexPlugin({
     async disconnect(context: PluginContext): Promise<void> {
       if (service.setCancelled) service.setCancelled(true)
       if (service.setDisconnected) service.setDisconnected(true)
-      await yandexPersistenceService.clear(id)
+
       context.writer.removeBySource(id)
+
       if (service.logout) service.logout()
     },
   }

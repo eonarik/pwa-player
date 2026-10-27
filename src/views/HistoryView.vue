@@ -3,7 +3,6 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useHistoryStore } from '@/stores/history'
-import { usePlayerStore } from '@/stores/player'
 import { pluralize } from '@/utils/pluralize'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import PageHeader from '@/components/ui/PageHeader.vue'
@@ -12,7 +11,6 @@ import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import TrackListPage from '@/components/library/TrackListPage.vue'
 
 const history = useHistoryStore()
-const player = usePlayerStore()
 
 const { uniqueHistory, sortedHistory, isEmpty } = storeToRefs(history)
 

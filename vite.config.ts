@@ -15,6 +15,19 @@ import pkg from './package.json' with { type: 'json' }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const appVersion = pkg.version
+const buildHash = process.env.GIT_HASH ?? 'dev'
+const shortHash = buildHash.slice(0, 7)
+
+function injectVersion() {
+  return {
+    name: 'inject-version',
+    transformIndexHtml(html: string) {
+      return html.replaceAll('%APP_VERSION%', appVersion).replaceAll('%BUILD_HASH%', shortHash)
+    },
+  }
+}
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
@@ -64,6 +77,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
       },
     }),
+    injectVersion(),
   ],
   resolve: {
     alias: {

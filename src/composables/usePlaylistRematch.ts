@@ -20,6 +20,8 @@ export function usePlaylistRematch(playlist: Ref<Playlist | null>): {
     if (!playlist.value) return
 
     const allTracks = Object.values(library.tracks)
+    if (allTracks.length === 0) return
+
     let changed = false
     const threshold = uiSettings.playlistMatchThreshold
 
