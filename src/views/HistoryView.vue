@@ -21,6 +21,7 @@ import ListContainer from '@/components/ui/ListContainer.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { LibraryTrack } from '@/types/library'
 import type { Track } from '@/types/track'
+import BatchAddToPlaylistButton from "@/components/library/BatchAddToPlaylistButton.vue"
 
 const history = useHistoryStore()
 const library = useLibraryStore()
@@ -88,6 +89,7 @@ function isCurrent(trackId: string): boolean {
   <div class="flex h-full flex-col overflow-hidden">
     <PageHeader title="История" :subtitle="pluralize(visibleHistory.length, ['запись', 'записи', 'записей'])">
       <ShowSourceCheckbox />
+      <BatchAddToPlaylistButton :tracks="resolvedTracks" />
       <Button v-if="!isEmpty" variant="primary" size="sm" @click="playAll">Играть всё</Button>
       <Button v-if="!isEmpty" variant="danger" size="sm" @click="clearHistory">Очистить</Button>
     </PageHeader>

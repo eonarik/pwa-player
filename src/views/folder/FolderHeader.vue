@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import FolderBreadcrumbs from '@/components/library/FolderBreadcrumbs.vue'
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
+import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue'
 import { pluralize } from '@/utils/pluralize'
 import type { Folder, LibraryTrack } from '@/types/library'
 
@@ -38,9 +39,9 @@ defineProps<{
             пусто
           </template>
         </span>
-
         <span v-else-if="isScanning" class="shrink-0 text-xs text-fg-muted">Сканирование…</span>
 
+        <BatchAddToPlaylistButton :tracks="subtreeTracks" />
         <BatchDownloadButton :tracks="subtreeTracks" />
       </div>
     </div>

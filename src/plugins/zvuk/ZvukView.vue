@@ -7,6 +7,7 @@ import SearchInput from '@/components/ui/SearchInput.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import TrackRow from '@/components/library/TrackRow.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
+import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Spinner from '@/components/ui/Spinner.vue'
@@ -109,13 +110,15 @@ function isCurrent(track: ZvukTrack): boolean {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <PageHeader title="Звук" subtitle="Поиск по каталогу Звука" />
+    <PageHeader title="Звук" subtitle="Поиск по каталогу Звука">
+      <BatchAddToPlaylistButton :tracks="playableTracks" />
+    </PageHeader>
 
     <div class="shrink-0 px-4 py-2">
       <div class="mx-auto w-full max-w-3xl flex flex-col gap-3">
         <SearchInput :model-value="query" always-open placeholder="Что ищем?" @update:model-value="onSearchInput" />
 
-        <!-- Галочки -->
+        <!-- Чекбоксы -->
         <div class="flex items-center gap-4 text-sm">
           <label class="flex items-center gap-2 cursor-pointer text-fg">
             <input type="checkbox" :checked="searchTypes.includes('tracks')" class="accent-active"

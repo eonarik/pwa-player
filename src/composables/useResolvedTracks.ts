@@ -16,7 +16,16 @@ export function useResolvedTracks(snapshots: Ref<TrackSnapshot[]>) {
       const libTrack = library.getTrack(snapshot.id)
 
       if (libTrack) {
-        result.push(libTrack)
+        // Мержим данные: если у локального трека чего-то нет, берем из снимка
+        result.push({
+          ...libTrack,
+          artist: libTrack.artist || snapshot.artist || '',
+          title: libTrack.title || snapshot.title || '',
+          album: libTrack.album || snapshot.album || '',
+          coverUrl: libTrack.coverUrl || snapshot.coverUrl,
+          duration: libTrack.duration || snapshot.duration,
+          // source не трогаем, он должен быть у локального трека (если он remote)
+        })
       } else if (isStreamingPlugin(snapshot.pluginId) && snapshot.source) {
         result.push({
           id: snapshot.id,

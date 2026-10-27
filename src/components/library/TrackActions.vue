@@ -20,6 +20,8 @@ import Icon from '@/components/ui/Icon.vue'
 import TrackMetadataModal from './TrackMetadataModal.vue'
 import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
+import PlaylistSubmenu from "./PlaylistSubmenu.vue"
+import Divider from "../ui/Divider.vue"
 
 const props = defineProps<{
   track: Track
@@ -292,41 +294,8 @@ async function onDownload(close: () => void) {
 
       <template #default="{ close }">
         <template v-if="!isLive">
-          <button type="button"
-            class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-            @click="toggleSubmenu">
-            <span>Добавить в плейлист</span>
-            <Icon :name="isSubmenuOpen ? 'chevron-down' : 'chevron-right'" w="w-3.5" h="h-3.5" class="text-fg-muted" />
-          </button>
-
-          <div v-if="isSubmenuOpen">
-            <button v-for="p in userPlaylists" :key="p.id" type="button"
-              class="block w-full truncate px-6 py-2 text-left text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-              @click="addToPlaylist(p.id, close)">
-              {{ p.name }}
-            </button>
-            <button v-if="!isCreatingNew" type="button"
-              class="block w-full px-6 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
-              @click="startCreate">
-              + Создать новый
-            </button>
-            <form v-else class="px-4 py-2" @submit.prevent="confirmCreate(close)">
-              <input ref="inputRef" v-model="newPlaylistName" type="text" placeholder="Название плейлиста"
-                class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
-                @keydown.esc="isCreatingNew = false" />
-              <div class="mt-2 flex items-center justify-end gap-2">
-                <button type="button" class="rounded-btn px-2 py-1 text-xs text-fg-muted transition hover:text-fg"
-                  @click="isCreatingNew = false">
-                  Отмена
-                </button>
-                <button type="submit"
-                  class="rounded-btn bg-accent px-3 py-1 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-                  :disabled="!newPlaylistName.trim()">
-                  Создать
-                </button>
-              </div>
-            </form>
-          </div>
+          <PlaylistSubmenu :tracks="[track]" in-dropdown @close="close" />
+          <Divider />
         </template>
 
         <!-- Скрываем метаданные для стриминга -->
