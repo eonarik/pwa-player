@@ -9,6 +9,8 @@ import { backupService, type BackupDomain } from '@/services/backup/BackupServic
 import { toastService } from '@/services/ui/ToastService'
 import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService'
 import { downloadTextFile } from '@/utils/downloadFile'
+import { get as idbGet, del as idbDel } from 'idb-keyval'
+import { createStore } from 'idb-keyval'
 import SectionTitle from '@/components/ui/SectionTitle.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import Button from '@/components/ui/Button.vue'
@@ -21,7 +23,6 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const isExporting = ref(false)
 const isImporting = ref(false)
 
-// Чекбоксы для доменов
 const checkMedia = ref(true)
 const checkSources = ref(true)
 const checkSettings = ref(true)
@@ -56,13 +57,33 @@ function clearMetadataCache(): void {
 
 async function resetAll(): Promise<void> {
   if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return
+
   // 1. Чистим токены Яндекса
   yandexSelfService.logout()
-  // 2. Чистим IndexedDB
+
+  // 2. Чистим IndexedDB (основное хранилище)
   await schemaService.clearAll()
-  // 3. Чистим localStorage (флаги подключения, темы, настройки)
+
+  // 3. Чистим хранилище плагинов (cuei-plugins)
+  try {
+    const pluginsStore = createStore('cuei-plugins', 'keyval')
+    const keys = await idbGet<IDBValidKey[]>('keys', pluginsStore)
+    if (keys && Array.isArray(keys)) {
+      for (const key of keys) {
+        await idbDel(key, pluginsStore)
+      }
+    }
+  } catch (err) {
+    // Если базы cuei-plugins еще нет (например, плагины не активировались),
+    // idb-keyval выкинет NotFoundError. Это нормально — просто игнорируем.
+    console.warn('[resetAll] cuei-plugins store not found or empty', err)
+  }
+
+  // 4. Чистим localStorage и sessionStorage
   localStorage.clear()
-  // 4. Перезагружаем страницу
+  sessionStorage.clear()
+
+  // 5. Перезагружаем страницу
   location.reload()
 }
 

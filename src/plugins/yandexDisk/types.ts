@@ -1,7 +1,6 @@
 // src/plugins/yandexDisk/types.ts
 
-import type { ScanState, TextFileRef } from '@/types/library'
-
+import type { ScanState, TextFileRef, Album } from '@/types/library'
 import type { PersistedTrack } from '@/services/persistence/types'
 
 export type PersistedYandexTrack = PersistedTrack
@@ -45,19 +44,19 @@ export interface YandexDownloadResponse {
 
 export interface IYandexService {
   ping?(): Promise<boolean>
-  login?(ctx: string, password: string): Promise<boolean>
+
+  /**
+   * Авторизация. Сервис сам показывает модалку и спрашивает пароль.
+   * Возвращает true при успехе, false при отмене.
+   */
+  login?(): Promise<boolean>
+
   logout?(): void
   isDisconnected?(): boolean
   setDisconnected?(val: boolean): void
   isCancelled?(): boolean
   setCancelled?(val: boolean): void
-
-  /**
-   * Проверка сессии. Для yandex — /api/auth/me, для yandex-self — /api/yandex-self/auth/check.
-   * Возвращает 'ok' | 'expired' | 'unavailable'.
-   */
   checkSession?(): Promise<'ok' | 'expired' | 'unavailable'>
-
   listResources(path: string): Promise<YandexResourcesResponse>
   buildDownloadUrl(path: string): string
   readTextFile(remotePath: string): Promise<YandexTextResponse | null>
@@ -86,6 +85,7 @@ export interface PersistedYandexFolder {
 export interface PersistedYandexLibrary {
   folders: PersistedYandexFolder[]
   tracks: PersistedYandexTrack[]
+  albums?: Album[]
   rootFolderId: string
   rootFolderName: string
   rootPath: string

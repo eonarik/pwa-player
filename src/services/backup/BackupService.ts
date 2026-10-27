@@ -8,6 +8,8 @@ import { useUiSettingsStore } from '@/stores/uiSettings'
 import { themeService, type ThemeId } from '@/services/ui/ThemeService'
 import { toastService } from '@/services/ui/ToastService'
 import type { PersistedSubscriptions } from '@/plugins/podcasts/types'
+import { useLibraryStore } from '@/stores/library'
+import type { Track } from '@/types'
 
 export const BACKUP_FORMAT = 'cuei-backup'
 export const BACKUP_VERSION = 1
@@ -224,16 +226,36 @@ class BackupService {
     const playlists = usePlaylistsStore()
     const history = useHistoryStore()
     const dislikes = useDislikesStore()
+    const library = useLibraryStore()
 
     if (Array.isArray(media.playlists)) {
       playlists.playlists = {}
       for (const p of media.playlists as Array<Record<string, unknown>>) {
         const id = String(p.id ?? '')
         if (!id) continue
+
+        let trackIds: string[] = []
+        if (Array.isArray(p.trackIds)) {
+          trackIds = p.trackIds as string[]
+        } else if (Array.isArray(p.tracks)) {
+          // Миграция старого формата (снимки -> trackIds + виртуальные треки)
+          for (const snapshot of p.tracks as Array<Record<string, unknown>>) {
+            if (snapshot.id && typeof snapshot.id === 'string') {
+              if (!library.getTrack(snapshot.id)) {
+                library.resolveOrCreateTrack({
+                  ...(snapshot as unknown as Track),
+                  // folderId и isVirtual проставятся внутри resolveOrCreateTrack
+                })
+              }
+              trackIds.push(snapshot.id)
+            }
+          }
+        }
+
         playlists.playlists[id] = {
           id,
           name: String(p.name ?? 'Без названия'),
-          tracks: Array.isArray(p.tracks) ? (p.tracks as never[]) : [],
+          trackIds: Array.from(new Set(trackIds)),
           createdAt: Number(p.createdAt ?? Date.now()),
           updatedAt: Number(p.updatedAt ?? Date.now()),
         }
@@ -242,12 +264,38 @@ class BackupService {
     }
 
     if (Array.isArray(media.history)) {
-      history.entries = media.history as never[]
+      const newEntries: Array<{ trackId: string; playedAt: number }> = []
+      for (const e of media.history as Array<Record<string, unknown>>) {
+        if (typeof e.trackId === 'string') {
+          newEntries.push({ trackId: e.trackId, playedAt: Number(e.playedAt ?? Date.now()) })
+        } else if (typeof e.id === 'string') {
+          if (!library.getTrack(e.id)) {
+            library.resolveOrCreateTrack({
+              ...(e as unknown as Track),
+            })
+          }
+          newEntries.push({ trackId: e.id, playedAt: Number(e.playedAt ?? Date.now()) })
+        }
+      }
+      history.entries = newEntries
       history.save()
     }
 
     if (Array.isArray(media.dislikes)) {
-      dislikes.entries = media.dislikes as never[]
+      const newEntries: Array<{ trackId: string; dislikedAt: number }> = []
+      for (const e of media.dislikes as Array<Record<string, unknown>>) {
+        if (typeof e.trackId === 'string') {
+          newEntries.push({ trackId: e.trackId, dislikedAt: Number(e.dislikedAt ?? Date.now()) })
+        } else if (typeof e.id === 'string') {
+          if (!library.getTrack(e.id)) {
+            library.resolveOrCreateTrack({
+              ...(e as unknown as Track),
+            })
+          }
+          newEntries.push({ trackId: e.id, dislikedAt: Number(e.dislikedAt ?? Date.now()) })
+        }
+      }
+      dislikes.entries = newEntries
       dislikes.save()
     }
   }
@@ -273,9 +321,7 @@ class BackupService {
         savedAt: Date.now(),
       } as PersistedSubscriptions)
 
-      // На всякий случай чистим старый localStorage
       localStorage.removeItem('podcasts:subscriptions')
-
       localStorage.setItem('podcasts:searchQuery', sources.podcasts.searchQuery ?? '')
       if (sources.podcasts.filters) {
         localStorage.setItem('podcasts:topLimit', String(sources.podcasts.filters.topLimit ?? 15))

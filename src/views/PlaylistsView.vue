@@ -1,5 +1,4 @@
 <!-- src/views/PlaylistsView.vue -->
-<!-- src/views/PlaylistsView.vue -->
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -12,7 +11,6 @@ import { pluralize } from '@/utils/pluralize'
 import { toastService } from '@/services/ui/ToastService'
 import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser'
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
-import { createTrackSnapshot } from '@/utils/trackSnapshot' // <-- импорт
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
@@ -21,7 +19,6 @@ import Icon from '@/components/ui/Icon.vue'
 import IconHeart from '@/components/icons/IconHeart.vue'
 import ListContainer from '@/components/ui/ListContainer.vue'
 import type { Playlist, PlaylistExportTrack } from '@/types/playlist'
-import type { Track } from "@/types"
 
 const router = useRouter()
 const playlists = usePlaylistsStore()
@@ -89,11 +86,11 @@ async function onFileSelected(e: Event) {
         toastService.error('Неверный формат JSON плейлиста')
         return
       }
-      createPlaylistFromImport(parsed.name, parsed.tracks)
+      await createPlaylistFromImport(parsed.name, parsed.tracks)
     } else if (format === 'm3u') {
       const parsed = parseM3U(content)
       const name = file.name.replace(/\.[^.]+$/, '')
-      createPlaylistFromImport(name, parsed)
+      await createPlaylistFromImport(name, parsed)
     } else {
       toastService.error('Не удалось распознать формат плейлиста')
     }
@@ -105,7 +102,7 @@ async function onFileSelected(e: Event) {
   }
 }
 
-function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
+async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
   if (tracks.length === 0) {
     toastService.error('Плейлист пуст')
     return
@@ -131,10 +128,7 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
 
     if (exactMatch) {
       matched++
-      playlist.tracks.push({
-        ...createTrackSnapshot(exactMatch),
-        addedAt: Date.now(),
-      })
+      playlist.trackIds.push(exactMatch.id)
       continue
     }
 
@@ -142,27 +136,24 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
 
     if (bestMatch.track) {
       fuzzyMatched++
-      playlist.tracks.push({
-        ...createTrackSnapshot(bestMatch.track),
-        addedAt: Date.now(),
-      })
+      playlist.trackIds.push(bestMatch.track.id)
     } else {
       unmatched++
-      // Создаем "пустой" трек для неизвестного
-      const fallbackTrack: Track = {
-        id: `imported:${crypto.randomUUID()}`,
+      const fallbackId = `imported:${crypto.randomUUID()}`
+
+      const resolvedId = await library.resolveOrCreateTrack({
+        id: fallbackId,
         pluginId: 'imported',
         title: t.title || 'Unknown Title',
         artist: t.artist || '',
         album: t.album || '',
         duration: t.duration || 0,
         filename: '',
-        source: '',
-      }
-      playlist.tracks.push({
-        ...createTrackSnapshot(fallbackTrack),
-        addedAt: Date.now(),
+        sources: [],
+        fileLocation: 'remote-only',
       })
+
+      playlist.trackIds.push(resolvedId)
     }
   }
 
@@ -227,7 +218,7 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ playlist.name }}</p>
               <p class="truncate text-xs text-fg-muted">
-                {{ pluralize(playlist.tracks.length, ['трек', 'трека', 'треков']) }}
+                {{ pluralize(playlist.trackIds.length, ['трек', 'трека', 'треков']) }}
                 <span v-if="playlist.id !== FAVORITES_PLAYLIST_ID">
                   · {{ formatDate(playlist.updatedAt) }}
                 </span>

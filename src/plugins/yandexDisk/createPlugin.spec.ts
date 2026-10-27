@@ -90,16 +90,15 @@ function makeContext(): PluginContext {
 
 describe('createYandexPlugin — checkSession / markDisconnected', () => {
   it('checkSession → ok, если service.checkSession возвращает ok', async () => {
-    const service = makeService({
-      checkSession: vi.fn(async (): Promise<SessionResult> => 'ok'),
-    })
+    const checkSession = vi.fn(async (): Promise<SessionResult> => 'ok')
+    const service = makeService({ checkSession })
     const plugin = createYandexPlugin({ id: 'yandex', name: 'Y', icon: '', service })
 
     expect(await plugin.checkSession!()).toBe('ok')
-    expect(service.checkSession).toHaveBeenCalledOnce()
+    expect(checkSession).toHaveBeenCalledOnce()
   })
 
-  it('checkSession → expired, если service.checkSession возвращает expired', async () => {
+  it('checkSession → expired', async () => {
     const service = makeService({
       checkSession: vi.fn(async (): Promise<SessionResult> => 'expired'),
     })
@@ -132,106 +131,40 @@ describe('createYandexPlugin — checkSession / markDisconnected', () => {
   })
 })
 
-describe('createYandexPlugin — connect (isSelf)', () => {
+describe('createYandexPlugin — connect', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('не показывает модалку, если checkSession → ok', async () => {
-    const login = vi.fn(async () => true)
-    const checkSession = vi.fn(async () => 'ok' as const)
-    const service = makeService({ login, checkSession })
-    const plugin = createYandexPlugin({
-      id: 'yandex-self',
-      name: 'Self',
-      icon: '',
-      service,
-      isSelf: true,
-    })
-
-    const context = makeContext()
-    await plugin.connect(context)
-
-    expect(checkSession).toHaveBeenCalledOnce()
-    expect(context.showModal).not.toHaveBeenCalled()
-    expect(login).not.toHaveBeenCalled()
-  })
-
-  it('показывает модалку, если checkSession → expired', async () => {
-    const login = vi.fn(async () => true)
-    const checkSession = vi.fn(async () => 'expired' as const)
-    const service = makeService({ login, checkSession })
-    const plugin = createYandexPlugin({
-      id: 'yandex-self',
-      name: 'Self',
-      icon: '',
-      service,
-      isSelf: true,
-    })
-
-    const context = makeContext()
-    vi.mocked(context.showModal).mockResolvedValue('pass')
-
-    await plugin.connect(context)
-
-    expect(context.showModal).toHaveBeenCalledOnce()
-    expect(login).toHaveBeenCalledWith('common', 'pass')
-  })
-
-  it('показывает модалку, если checkSession не реализован', async () => {
+  it('вызывает login, если он реализован', async () => {
     const login = vi.fn(async () => true)
     const service = makeService({ login })
-    const plugin = createYandexPlugin({
-      id: 'yandex-self',
-      name: 'Self',
-      icon: '',
-      service,
-      isSelf: true,
-    })
+    const plugin = createYandexPlugin({ id: 'yandex-self', name: 'Self', icon: '', service })
 
     const context = makeContext()
-    vi.mocked(context.showModal).mockResolvedValue('pass')
-
     await plugin.connect(context)
 
-    expect(context.showModal).toHaveBeenCalledOnce()
+    expect(login).toHaveBeenCalledOnce()
+    expect(context.showModal).not.toHaveBeenCalled()
   })
 
-  it('cancelled — бросает cancelled', async () => {
-    const service = makeService({
-      login: vi.fn(async () => true),
-      checkSession: vi.fn(async () => 'expired' as const),
-    })
-    const plugin = createYandexPlugin({
-      id: 'yandex-self',
-      name: 'Self',
-      icon: '',
-      service,
-      isSelf: true,
-    })
+  it('бросает cancelled, если login вернул false', async () => {
+    const login = vi.fn(async () => false)
+    const service = makeService({ login })
+    const plugin = createYandexPlugin({ id: 'yandex-self', name: 'Self', icon: '', service })
 
     const context = makeContext()
-    vi.mocked(context.showModal).mockResolvedValue(null)
-
     await expect(plugin.connect(context)).rejects.toThrow('cancelled')
   })
 
-  it('неверный пароль — бросает ошибку', async () => {
-    const service = makeService({
-      login: vi.fn(async () => false),
-      checkSession: vi.fn(async () => 'expired' as const),
+  it('бросает ошибку, если login выбросил исключение (например, таймаут)', async () => {
+    const login = vi.fn(async () => {
+      throw new Error('Yandex API Timeout (10s)')
     })
-    const plugin = createYandexPlugin({
-      id: 'yandex-self',
-      name: 'Self',
-      icon: '',
-      service,
-      isSelf: true,
-    })
+    const service = makeService({ login })
+    const plugin = createYandexPlugin({ id: 'yandex-self', name: 'Self', icon: '', service })
 
     const context = makeContext()
-    vi.mocked(context.showModal).mockResolvedValue('wrong')
-
-    await expect(plugin.connect(context)).rejects.toThrow('Неверный пароль или контекст')
+    await expect(plugin.connect(context)).rejects.toThrow('Yandex API Timeout (10s)')
   })
 })

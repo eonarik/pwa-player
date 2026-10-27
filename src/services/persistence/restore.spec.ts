@@ -18,6 +18,7 @@ function makePersisted(overrides: Partial<PersistedTrack> = {}): PersistedTrack 
     album: 'Album',
     filename: 'song.mp3',
     path: 'song.mp3',
+    sources: [],
     ...overrides,
   }
 }
@@ -34,33 +35,33 @@ function makeFileHandle(name = 'song.mp3'): FileSystemFileHandle {
 describe('restoreTrack', () => {
   it('восстанавливает handle', async () => {
     const handle = makeFileHandle()
-    const persisted = makePersisted({ handle })
+    const persisted = makePersisted({ handle, sources: [] })
 
     const track = await restoreTrack(persisted)
 
     expect(track).not.toBeNull()
     expect(track!.id).toBe(persisted.id)
     expect(track!.handle).toBe(handle)
-    expect(track!.source).toBe('')
+    expect(track!.sources).toEqual([])
   })
 
-  it('без handle → source = пустая строка', async () => {
-    const persisted = makePersisted({ handle: undefined })
+  it('без handle → sources пустой', async () => {
+    const persisted = makePersisted({ handle: undefined, sources: [] })
 
     const track = await restoreTrack(persisted)
 
     expect(track).not.toBeNull()
-    expect(track!.source).toBe('')
+    expect(track!.sources).toEqual([])
     expect(track!.handle).toBeUndefined()
   })
 
   it('source (URL) сохраняется', async () => {
-    const persisted = makePersisted({ source: 'https://example.com/song.mp3' })
-
+    const persisted = makePersisted({
+      sources: [{ id: '1', pluginId: 'local', url: 'https://example.com/song.mp3', priority: 10 }],
+    })
     const track = await restoreTrack(persisted)
-
     expect(track).not.toBeNull()
-    expect(track!.source).toBe('https://example.com/song.mp3')
+    expect(track!.sources[0]!.url).toBe('https://example.com/song.mp3')
   })
 
   it('сохраняет метаданные', async () => {

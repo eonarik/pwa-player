@@ -3,29 +3,21 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { dislikesPersistenceService } from '@/services/persistence/DislikesPersistenceService'
-import { createTrackSnapshot } from '@/utils/trackSnapshot'
+import { useLibraryStore } from './library'
 import type { DislikeEntry } from '@/types/dislike'
 import type { Track } from '@/types/track'
 
 export const useDislikesStore = defineStore('dislikes', () => {
-  // --- Состояние ------------------------------------------------------
-
   const entries = ref<DislikeEntry[]>([])
-
   const isRestoring = ref(false)
 
-  // --- Computed -------------------------------------------------------
-
   const dislikedIds = computed<Set<string>>(() => {
-    // ИСПОЛЬЗУЕМ id вместо trackId
-    return new Set(entries.value.map((e) => e.id))
+    return new Set(entries.value.map((e) => e.trackId))
   })
 
   const sortedEntries = computed<DislikeEntry[]>(() => {
     return [...entries.value].sort((a, b) => b.dislikedAt - a.dislikedAt)
   })
-
-  // --- Восстановление и сохранение ------------------------------------
 
   async function restore(): Promise<boolean> {
     isRestoring.value = true
@@ -58,34 +50,28 @@ export const useDislikesStore = defineStore('dislikes', () => {
     await dislikesPersistenceService.flush()
   }
 
-  // --- Внутренние хелперы ---------------------------------------------
-
-  function toEntry(track: Track): DislikeEntry {
-    return {
-      ...createTrackSnapshot(track),
-      dislikedAt: Date.now(),
-    }
-  }
-
-  // --- Действия -------------------------------------------------------
-
   function isDisliked(trackId: string): boolean {
     return dislikedIds.value.has(trackId)
   }
 
-  function dislike(track: Track): void {
-    if (isDisliked(track.id)) return
-    entries.value.push(toEntry(track))
+  async function dislike(track: Track): Promise<void> {
+    const library = useLibraryStore()
+    const resolvedId = await library.resolveOrCreateTrack(track)
+
+    if (isDisliked(resolvedId)) return
+    entries.value.push({ trackId: resolvedId, dislikedAt: Date.now() })
   }
 
   function undislike(trackId: string): void {
-    // ИСПОЛЬЗУЕМ id вместо trackId
-    entries.value = entries.value.filter((e) => e.id !== trackId)
+    entries.value = entries.value.filter((e) => e.trackId !== trackId)
   }
 
-  function toggleDislike(track: Track): boolean {
-    if (isDisliked(track.id)) {
-      undislike(track.id)
+  async function toggleDislike(track: Track): Promise<boolean> {
+    const library = useLibraryStore()
+    const resolvedId = await library.resolveOrCreateTrack(track)
+
+    if (isDisliked(resolvedId)) {
+      undislike(resolvedId)
       return false
     } else {
       dislike(track)

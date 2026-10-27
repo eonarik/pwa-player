@@ -8,6 +8,7 @@ import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack }
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 import { folderIdFromPath } from '@/services/library/id'
+import { toRaw } from 'vue'
 
 const PLUGIN_ID = 'local'
 const CONNECTED_KEY = 'local-connected'
@@ -99,7 +100,7 @@ const localPlugin: LibrarySource = {
             path: t.path,
             handle: t.handle,
             directoryHandle: folder?.handle,
-            source: '',
+            sources: t.sources || [],
             fileLocation: 'local-only',
             coverUrl: cachedCover,
             metaSource: t.metaSource,
@@ -128,6 +129,7 @@ const localPlugin: LibrarySource = {
     const collected: CollectedLibrary = {
       folders: Object.values(newFolders),
       tracks: Object.values(newTracks),
+      albums: persisted.albums || [],
       rootFolderId: persisted.rootFolderId,
       rootFolderName: persisted.rootFolderName,
     }
@@ -145,9 +147,8 @@ const localPlugin: LibrarySource = {
   },
 
   buildStreamUrl(track: LibraryTrack): string {
-    if (typeof track.source === 'string') {
-      return track.source
-    }
+    const source = track.sources?.[0]
+    if (source?.url) return source.url
     throw new Error('[local-plugin] buildStreamUrl is not supported for local files')
   },
 
@@ -237,29 +238,33 @@ function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
   const tracks: PersistedLocalTrack[] = []
   for (const track of collected.tracks) {
     if (!track.handle) continue
+    const rawTrack = toRaw(track)
+
     tracks.push({
-      id: track.id,
-      pluginId: track.pluginId,
-      folderId: track.folderId,
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      year: track.year,
-      trackNumber: track.trackNumber,
-      genre: track.genre,
-      duration: track.duration,
-      codec: track.codec,
-      filename: track.filename,
-      path: track.path!,
-      handle: track.handle,
-      source: track.source,
-      metaSource: track.metaSource,
+      id: rawTrack.id,
+      pluginId: rawTrack.pluginId,
+      folderId: rawTrack.folderId,
+      title: rawTrack.title,
+      artist: rawTrack.artist,
+      album: rawTrack.album,
+      year: rawTrack.year,
+      trackNumber: rawTrack.trackNumber,
+      genre: rawTrack.genre,
+      duration: rawTrack.duration,
+      codec: rawTrack.codec,
+      filename: rawTrack.filename,
+      path: rawTrack.path!,
+      handle: rawTrack.handle,
+      sources: rawTrack.sources ? JSON.parse(JSON.stringify(rawTrack.sources)) : [],
+      metaSource: rawTrack.metaSource,
+      raw: rawTrack.raw ? JSON.parse(JSON.stringify(rawTrack.raw)) : undefined,
     })
   }
 
   return {
     folders,
     tracks,
+    albums: collected.albums ? JSON.parse(JSON.stringify(collected.albums)) : [],
     rootFolderId: collected.rootFolderId,
     rootFolderName: collected.rootFolderName,
     savedAt: Date.now(),

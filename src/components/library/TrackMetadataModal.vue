@@ -1,4 +1,3 @@
-<!-- src/components/library/TrackMetadataModal.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -24,11 +23,15 @@ const props = defineProps<{
 
 const library = useLibraryStore()
 
-// Исходные значения для отслеживания изменений
+const currentAlbum = computed(() => {
+  if (!props.track.albumId) return null
+  return library.getAlbum(props.track.albumId)
+})
+
 const initialArtist = props.track.artist ?? ''
 const initialTitle = props.track.title ?? ''
 const initialAlbum = props.track.album ?? ''
-const initialCoverUrl = props.track.coverUrl
+const initialCoverUrl = currentAlbum.value?.coverUrl
 
 const artist = ref(initialArtist)
 const title = ref(initialTitle)

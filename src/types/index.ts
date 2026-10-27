@@ -11,6 +11,6 @@ export type {
 } from './library'
 export type { TransferState } from './transfer'
 export type { Playability } from './playability'
-export type { Playlist, PlaylistTrackSnapshot, PlaylistExportTrack } from './playlist'
+export type { Playlist, PlaylistExportTrack } from './playlist'
 export type { PlayHistoryEntry } from './history'
 export type { DislikeEntry } from './dislike'

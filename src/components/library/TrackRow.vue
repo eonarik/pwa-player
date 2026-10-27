@@ -60,6 +60,7 @@ const isBroken = computed(() => {
   if ('fileLocation' in props.track && props.track.fileLocation === 'nowhere') return true
   return false
 })
+
 </script>
 
 <template>

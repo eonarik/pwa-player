@@ -1,6 +1,6 @@
 // src/plugins/extensions.ts
 
-import { getPlugins } from './registry'
+import { getPlugins, isPluginActivated } from './registry'
 import type { PluginMenuItem, PluginManifest } from './types'
 import type { RouteRecordRaw } from 'vue-router'
 import type { PluginSettingsSchema } from './settingsTypes'
@@ -118,6 +118,10 @@ export function getAllSettingsSchemas(): PluginSettingsEntry[] {
   const result: PluginSettingsEntry[] = []
 
   for (const manifest of getPlugins()) {
+    if (manifest.requiresActivation && !isPluginActivated(manifest.id)) {
+      continue
+    }
+
     const ext = extensions.find((e) => e.pluginId === manifest.id)
     const schema = ext?.settingsSchema ?? null
     if (!schema) continue

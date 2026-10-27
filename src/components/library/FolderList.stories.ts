@@ -14,10 +14,8 @@ const meta: Meta<typeof FolderList> = {
         const library = useLibraryStore()
         const player = usePlayerStore()
 
-        // 1. Сбрасываем состояние
         library.clear()
 
-        // 2. Создаём мок-папки
         const rootFolder: Folder = {
           id: 'folder:mock:root',
           name: 'Music',
@@ -51,7 +49,7 @@ const meta: Meta<typeof FolderList> = {
           trackIds: [],
           totalTrackCount: 0,
           source: 'local',
-          scanState: 'scanning', // показывает спиннер
+          scanState: 'scanning',
         }
 
         const sub3: Folder = {
@@ -63,7 +61,7 @@ const meta: Meta<typeof FolderList> = {
           trackIds: [],
           totalTrackCount: 0,
           source: 'local',
-          scanState: 'scanned', // будет "пусто"
+          scanState: 'scanned',
         }
 
         const mockTracks: LibraryTrack[] = [
@@ -76,7 +74,14 @@ const meta: Meta<typeof FolderList> = {
             album: 'Album 1',
             filename: '01.mp3',
             path: 'Nostalgy/01.mp3',
-            source: 'https://example.com/1.mp3',
+            sources: [
+              {
+                id: 'track:mock:1',
+                pluginId: 'local',
+                url: 'https://example.com/1.mp3',
+                priority: 10,
+              },
+            ],
             fileLocation: 'remote-only',
             duration: 180,
           },
@@ -89,36 +94,34 @@ const meta: Meta<typeof FolderList> = {
             album: 'Album 1',
             filename: '02.mp3',
             path: 'Nostalgy/02.mp3',
-            source: 'https://example.com/2.mp3',
+            sources: [
+              {
+                id: 'track:mock:2',
+                pluginId: 'local',
+                url: 'https://example.com/2.mp3',
+                priority: 10,
+              },
+            ],
             fileLocation: 'remote-only',
             duration: 200,
           },
         ]
 
-        // 1. Заполняем папки
         library.folders = {
           [rootFolder.id]: rootFolder,
           [sub1.id]: sub1,
           [sub2.id]: sub2,
           [sub3.id]: sub3,
         }
-
-        // 2. Заполняем треки (используем non-null assertion, так как массив жестко задан выше)
-        const track0 = mockTracks[0]!
-        const track1 = mockTracks[1]!
-
         library.tracks = {
-          [track0.id]: track0,
-          [track1.id]: track1,
+          [mockTracks[0]!.id]: mockTracks[0]!,
+          [mockTracks[1]!.id]: mockTracks[1]!,
         }
-
-        // 3. Устанавливаем текущую папку
         library.setCurrentFolder(rootFolder.id)
 
-        // 4. Мок плеера
-        player.queue = [track0]
+        player.queue = [mockTracks[0]!]
         player.currentIndex = 0
-        player.currentTrack = track0
+        player.currentTrack = mockTracks[0]!
         player.isPlaying = true
 
         return {}

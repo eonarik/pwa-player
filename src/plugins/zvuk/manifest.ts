@@ -1,4 +1,5 @@
 // src/plugins/zvuk/manifest.ts
+
 import type { PluginManifest } from '../types'
 import zvukIcon from '@/assets/sber-zvuk.png'
 
@@ -13,6 +14,7 @@ export const manifest: PluginManifest = {
   isStreaming: true,
   customRoute: 'zvuk',
   order: 40,
+  sourcePriority: 30,
   entry: () => import('./index'),
   extension: () => import('./extension'),
 }

@@ -1,12 +1,10 @@
 // src/types/dislike.ts
 
-import type { TrackSnapshot } from './snapshot'
-
 /**
- * Запись дизлайка — снимок метаданных на момент дизлайка.
- * Позволяет показать в настройках, что именно пользователь дизлайкнул,
- * даже если трек больше недоступен в библиотеке.
+ * Запись дизлайка.
  */
-export interface DislikeEntry extends TrackSnapshot {
+export interface DislikeEntry {
+  /** ID трека в библиотеке */
+  trackId: string
   dislikedAt: number
 }

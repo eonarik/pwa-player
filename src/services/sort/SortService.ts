@@ -25,7 +25,7 @@ export const FIELD_LABELS: Record<SortField, string> = {
 class SortService {
   private static instance: SortService | null = null
 
-  readonly field = ref<SortField>('artist') // <-- По умолчанию артист
+  readonly field = ref<SortField>('artist')
   readonly dir = ref<SortDir>('asc')
 
   private loaded = false

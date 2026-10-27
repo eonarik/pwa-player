@@ -12,6 +12,7 @@ export const manifest: PluginManifest = {
   enabled: true,
   canDownload: true,
   order: 30,
+  sourcePriority: 20,
   entry: () => import('./index'),
   options: {
     emptyStateMessage:

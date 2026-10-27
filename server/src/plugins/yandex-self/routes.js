@@ -18,13 +18,26 @@ selfRoutes.post('/auth', async (req, res) => {
   const { ctx, password } = req.body
   try {
     const result = await login(ctx, password)
-
-    // Сохраняем в сессию
     req.session.selfAuth = result
-
     res.json({ ok: true, allowedFolders: result.allowedFolders })
   } catch (err) {
-    res.status(401).json({ error: err.message })
+    // Если ошибка связана с API Яндекса (таймаут, сеть)
+    if (err.code === 'YANDEX_API_ERROR' || err.name === 'YandexApiError') {
+      res.status(err.status || 500).json({ error: err.message })
+      return
+    }
+
+    // Если неверный пароль или контекст
+    if (
+      err.message === 'Неверный пароль' ||
+      err.message === 'Контекст не найден и общий доступ не настроен'
+    ) {
+      res.status(401).json({ error: err.message })
+      return
+    }
+
+    // Прочие ошибки
+    res.status(500).json({ error: err.message })
   }
 })
 

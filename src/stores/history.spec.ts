@@ -1,9 +1,10 @@
 // src/stores/history.spec.ts
 // oxlint-disable vitest/require-mock-type-parameters
+
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useHistoryStore } from './history'
-import { HISTORY_MAX_SIZE } from '@/types/history'
+import { useLibraryStore } from './library'
 import type { Track } from '@/types/track'
 
 vi.mock('@/services/persistence/HistoryPersistenceService', () => ({
@@ -21,7 +22,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     title: 'Song',
     artist: 'Artist',
     album: 'Album',
-    source: 'file://',
+    sources: [{ id: 'track:1', pluginId: 'local', url: 'file://', priority: 10 }],
     filename: 'song.mp3',
     ...overrides,
   } as Track
@@ -38,65 +39,84 @@ describe('useHistoryStore', () => {
     expect(store.isEmpty).toBe(true)
   })
 
-  it('recordPlay добавляет запись', () => {
+  it('recordPlay добавляет запись', async () => {
     const store = useHistoryStore()
-    store.recordPlay(makeTrack())
+    await store.recordPlay(makeTrack())
     expect(store.entries).toHaveLength(1)
-    expect(store.entries[0]!.id).toBe('track:1')
+    expect(store.entries[0]!.trackId).toBe('track:1')
   })
 
   it('recordPlay обновляет существующую (upsert)', async () => {
     const store = useHistoryStore()
-    store.recordPlay(makeTrack())
+    await store.recordPlay(makeTrack())
     await new Promise((r) => setTimeout(r, 5))
-    store.recordPlay(makeTrack())
+    await store.recordPlay(makeTrack())
 
     expect(store.entries).toHaveLength(1)
     expect(store.entries[0]!.playedAt).toBeGreaterThan(store.entries[0]!.playedAt - 1)
   })
 
-  it('uniqueHistory — по одному на trackId', () => {
+  it('uniqueHistory — по одному на trackId', async () => {
     const store = useHistoryStore()
-    store.recordPlay(makeTrack({ id: 'a' }))
-    store.recordPlay(makeTrack({ id: 'b' }))
-    store.recordPlay(makeTrack({ id: 'a' }))
+    await store.recordPlay(makeTrack({ id: 'a' }))
+    await store.recordPlay(makeTrack({ id: 'b' }))
+    await store.recordPlay(makeTrack({ id: 'a' }))
 
     expect(store.uniqueHistory).toHaveLength(2)
   })
 
   it('sortedHistory — по playedAt DESC', async () => {
     const store = useHistoryStore()
-    store.recordPlay(makeTrack({ id: 'a' }))
+    await store.recordPlay(makeTrack({ id: 'a' }))
     await new Promise((r) => setTimeout(r, 5))
-    store.recordPlay(makeTrack({ id: 'b' }))
+    await store.recordPlay(makeTrack({ id: 'b' }))
 
-    expect(store.sortedHistory[0]!.id).toBe('b')
+    expect(store.sortedHistory[0]!.trackId).toBe('b')
   })
 
-  it('обрезает до HISTORY_MAX_SIZE', () => {
+  it('обрезает до HISTORY_MAX_SIZE', async () => {
     const store = useHistoryStore()
-    for (let i = 0; i < HISTORY_MAX_SIZE + 5; i++) {
-      store.recordPlay(makeTrack({ id: `t-${i}` }))
-    }
-    expect(store.entries.length).toBeLessThanOrEqual(HISTORY_MAX_SIZE)
+
+    // Заполняем историю напрямую, минуя логику recordPlay (чтобы не ждать 1000 сохранений)
+    store.entries = Array.from({ length: 1005 }).map((_, i) => ({
+      trackId: `t-${i}`,
+      playedAt: Date.now() + i,
+    }))
+
+    // Вызываем recordPlay для одного нового трека
+    await store.recordPlay(makeTrack({ id: 'new-track' }))
+
+    // Проверяем, что история обрезалась
+    expect(store.entries.length).toBe(1000) // или HISTORY_MAX_SIZE
+    // Проверяем, что старые удалились, а новые остались
+    expect(store.entries.some((e) => e.trackId === 't-0')).toBe(false)
+    expect(store.entries.some((e) => e.trackId === 'new-track')).toBe(true)
   })
 
-  it('clear очищает', () => {
+  it('clear очищает', async () => {
     const store = useHistoryStore()
-    store.recordPlay(makeTrack())
+    await store.recordPlay(makeTrack())
     store.clear()
     expect(store.entries).toEqual([])
   })
 
-  it('сохраняет source для стриминговых треков', () => {
+  it('recordPlay стримингового трека сохраняет его в library как виртуальный', async () => {
     const store = useHistoryStore()
+    const library = useLibraryStore()
+
     const track = makeTrack({
       id: 'zvuk:123',
       pluginId: 'zvuk',
-      source: 'https://stream',
+      sources: [{ id: 'zvuk:123', pluginId: 'zvuk', url: 'https://stream', priority: 30 }],
     })
 
-    store.recordPlay(track)
-    expect(store.entries[0]!.source).toBe('https://stream')
+    await store.recordPlay(track)
+
+    expect(store.entries[0]!.trackId).toBe('zvuk:123')
+
+    const libTrack = library.getTrack('zvuk:123')
+    expect(libTrack).toBeDefined()
+    expect(libTrack!.sources[0]!.url).toBe('https://stream')
+    expect(libTrack!.isVirtual).toBe(true)
   })
 })

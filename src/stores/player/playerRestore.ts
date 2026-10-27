@@ -1,6 +1,5 @@
 // src/stores/player/playerRestore.ts
 
-import { getPlugins } from '@/plugins/registry'
 import { audioService } from '@/services/audio/AudioService'
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { persistenceService } from '@/services/persistence/PersistenceService'
@@ -26,22 +25,10 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
 
   const library = useLibraryStore()
 
-  const statelessPluginIds = new Set(
-    getPlugins()
-      .filter((p) => p.isStateless)
-      .map((p) => p.id),
-  )
-
   for (const track of tracks) {
     const libTrack = library.getTrack(track.id)
 
     if (!libTrack) {
-      const pluginId = track.pluginId.split(':')[0] ?? track.pluginId
-      const isStateless = statelessPluginIds.has(pluginId)
-
-      if (!isStateless && !track.handle) {
-        track.source = ''
-      }
       continue
     }
 
@@ -49,12 +36,10 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
       track.handle = libTrack.handle
     }
 
-    if (!track.source && typeof libTrack.source === 'string' && libTrack.source) {
-      track.source = libTrack.source
+    // Если у трека не было источников, берем из библиотеки
+    if ((!track.sources || track.sources.length === 0) && libTrack.sources) {
+      track.sources = libTrack.sources
     }
-
-    // coverUrl больше не восстанавливаем — он читается из library
-    // через computed в NowPlayingInfo / FullPlayer.
   }
 
   return {
@@ -78,11 +63,16 @@ export async function applyRestoredPlayback(
 
   if (!track) return
 
-  if (!track.handle && !track.source) return
+  const firstSource = track.sources?.[0]
+  if (!track.handle && !firstSource) return
 
   let source: string | File
   try {
-    source = await resolveTrackSource(track)
+    // Используем первый попавшийся source или handle
+    source = await resolveTrackSource(
+      track,
+      firstSource || { id: track.id, pluginId: track.pluginId, url: '', priority: 0 },
+    )
   } catch {
     return
   }

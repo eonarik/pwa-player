@@ -1,4 +1,5 @@
 // src/plugins/radio/index.ts
+import type { LibraryTrack } from '@/types/library'
 import type { LibrarySource, PluginContext } from '../types'
 import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants'
 
@@ -19,7 +20,10 @@ export function getSavedStations(): SavedStation[] {
     if (!Array.isArray(parsed)) return []
     return parsed.filter(
       (s): s is SavedStation =>
-        Boolean(s) && typeof s.id === 'string' && typeof s.name === 'string' && typeof s.url === 'string',
+        Boolean(s) &&
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.url === 'string',
     )
   } catch {
     return []
@@ -68,8 +72,10 @@ const radioPlugin: LibrarySource = {
     return true
   },
 
-  buildStreamUrl(track): string {
-    return typeof track.source === 'string' ? track.source : ''
+  buildStreamUrl(track: LibraryTrack): string {
+    const source = track.sources?.[0]
+    if (source?.url) return source.url
+    return ''
   },
 
   async disconnect(_context: PluginContext): Promise<void> {

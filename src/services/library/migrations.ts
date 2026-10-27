@@ -12,6 +12,7 @@ import type { FileLocation, ScanState } from '@/types/library'
  *
  * Используется в `fromPersisted` (чтение старых кешей). Новый код
  * `origin` не пишет, поэтому миграция нужна только при чтении.
+ * TODO(v1.0.0): Удалить этот файл вместе со SCHEMA_VERSION 4.
  */
 export function migrateFileLocation(
   origin: 'remote' | 'downloaded' | 'only-local' | undefined | null,

@@ -20,7 +20,9 @@ const sampleTrack: LibraryTrack = {
   album: 'OK Computer',
   filename: '01.mp3',
   path: '01.mp3',
-  source: 'https://example.com/song.mp3',
+  sources: [
+    { id: 'track:test:1', pluginId: 'local', url: 'https://example.com/song.mp3', priority: 10 },
+  ],
   fileLocation: 'remote-only',
   duration: 261,
 }

@@ -107,8 +107,11 @@ export function createPlayerActions(
     const track = queue.value[index]
     if (!track) return
 
-    if (isTrackUnavailable(track)) {
-      toastService.error('Источник недоступен. Подключите плагин или скачайте трек.')
+    // Сортируем источники по приоритету (на всякий случай, если они не отсортированы)
+    const sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority)
+
+    if (sortedSources.length === 0) {
+      toastService.error('Источник недоступен. Нет доступных ссылок.')
       return
     }
 
@@ -117,31 +120,39 @@ export function createPlayerActions(
     duration.value = 0
     currentTime.value = 0
 
-    let source: string | File
-    try {
-      source = await resolveTrackSource(track)
-    } catch (err) {
-      if (err instanceof AuthError) {
-        handleAuthError(err, track)
-        return
-      }
+    let lastError: Error | null = null
 
-      if (err instanceof ServerError) {
-        toastService.error('Сервер временно недоступен. Пропускаем трек.')
-        // Автоматически переходим к следующему
-        setTimeout(() => next(), 100)
-        return
-      }
+    // Перебираем все источники по очереди
+    for (const source of sortedSources) {
+      try {
+        const resolved = await resolveTrackSource(track, source)
 
-      console.error('[player] resolveTrackSource failed', err)
-      toastService.error('Не удалось загрузить трек')
-      return
+        audioService.load(resolved)
+        await audioService.play()
+
+        // Если дошли сюда — играет!
+        return
+      } catch (err) {
+        if (err instanceof AuthError) {
+          // Если это ошибка авторизации, дальше пробовать нет смысла, нужен reconnect
+          handleAuthError(err, track)
+          return
+        }
+
+        if (err instanceof ServerError) {
+          console.warn(`[player] Source ${source.id} failed with ServerError, trying next...`)
+          lastError = err
+          continue // пробуем следующий источник
+        }
+
+        console.warn(`[player] Source ${source.id} failed, trying next...`, err)
+        lastError = err instanceof Error ? err : new Error(String(err))
+      }
     }
 
-    audioService.load(source)
-    audioService.play().catch((err) => {
-      console.error('[player] play rejected', err)
-    })
+    // Если все источники упали
+    console.error('[player] All sources failed for track', track.id, lastError)
+    toastService.error('Не удалось воспроизвести трек (все источники недоступны)')
   }
 
   function setQueue(tracks: Track[], startIndex = 0): void {

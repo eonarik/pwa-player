@@ -1,52 +1,42 @@
 <!-- src/views/PlaylistRoute.vue -->
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlaylistsStore } from '@/stores/playlists'
+import { useLibraryStore } from '@/stores/library'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
-import { usePlaylistRematch } from '@/composables/usePlaylistRematch'
-import { useResolvedTracks } from '@/composables/useResolvedTracks'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import PlaylistHeader from './playlist/PlaylistHeader.vue'
 import TrackListPage from '@/components/library/TrackListPage.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
 import MetadataMenu from '@/components/library/MetadataMenu.vue'
 import type { LibraryTrack } from '@/types/library'
-import { useLibraryStore } from '@/stores/library'
 
 const route = useRoute()
 const router = useRouter()
 const playlists = usePlaylistsStore()
+const library = useLibraryStore()
 
 const playlistId = computed(() => String(route.params.id))
 const playlist = computed(() => playlists.getPlaylist(playlistId.value))
 const isFavorites = computed(() => playlistId.value === FAVORITES_PLAYLIST_ID)
 
-const snapshots = computed(() => playlist.value?.tracks ?? [])
-const resolvedTracks = useResolvedTracks(snapshots)
+// Берем треки напрямую из библиотеки
+const resolvedTracks = computed(() => {
+  if (!playlist.value) return []
+  return playlist.value.trackIds
+    .map(id => library.getTrack(id))
+    .filter((t): t is LibraryTrack => Boolean(t))
+})
 
 const unavailableCount = computed(() => {
   if (!playlist.value) return 0
-  return playlist.value.tracks.length - resolvedTracks.value.length
-})
-
-const { rematch } = usePlaylistRematch(playlist)
-
-watch(
-  () => Object.keys(useLibraryStore().tracks).length,
-  (len) => {
-    if (len > 0) rematch()
-  },
-  { immediate: true },
-)
-
-onMounted(() => {
-  rematch()
+  return playlist.value.trackIds.length - resolvedTracks.value.length
 })
 
 // Метаданные
 const searchableTracks = computed<LibraryTrack[]>(() => {
-  return resolvedTracks.value.filter((t): t is LibraryTrack => Boolean(useLibraryStore().getTrack(t.id)))
+  return resolvedTracks.value.filter((t): t is LibraryTrack => Boolean(library.getTrack(t.id)))
 })
 
 const {
@@ -97,11 +87,10 @@ function onDelete(): void {
     </div>
 
     <template v-else>
-      <TrackListPage :title="playlist.name" :subtitle="`${resolvedTracks.length} из ${playlist.tracks.length}`"
-        :tracks="playlist.tracks" :is-snapshot="true" :show-search="true" :show-filter="true" :show-play-all="true"
+      <TrackListPage :title="playlist.name" :subtitle="`${resolvedTracks.length} из ${playlist.trackIds.length}`"
+        :tracks="resolvedTracks" :is-snapshot="false" :show-search="true" :show-filter="true" :show-play-all="true"
         :show-batch-add="true">
 
-        <!-- Кнопки в шапке (Метаданные, Ренейм, Удалить, Поделиться) -->
         <template #header-actions>
           <MetadataMenu :is-loading="isMetadataLoading" :progress="metadataProgress" :stats="metadataStats"
             :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssues.length" @search="metadataSearch"

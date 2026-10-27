@@ -1,6 +1,7 @@
 // src/plugins/local/types.ts
 
 import type { PersistedTrack } from '@/services/persistence/types'
+import type { Album } from '@/types/library'
 
 export type PersistedLocalTrack = PersistedTrack
 
@@ -19,6 +20,7 @@ export interface PersistedLocalFolder {
 export interface PersistedLocalLibrary {
   folders: PersistedLocalFolder[]
   tracks: PersistedLocalTrack[]
+  albums?: Album[]
   rootFolderId: string
   rootFolderName: string
   savedAt: number

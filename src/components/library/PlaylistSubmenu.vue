@@ -39,9 +39,9 @@ function closeMenu() {
   emit('close')
 }
 
-function addToPlaylist(playlistId: string) {
+async function addToPlaylist(playlistId: string) {
   if (props.tracks.length === 0) return
-  playlists.addTracksToPlaylist(playlistId, props.tracks)
+  await playlists.addTracksToPlaylist(playlistId, props.tracks)
   closeMenu()
 }
 

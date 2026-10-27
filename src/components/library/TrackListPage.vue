@@ -8,7 +8,6 @@ import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPluginName } from '@/plugins/lookup'
 import { pluginIdFromSource } from '@/plugins/registry'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
-import { useResolvedTracks } from '@/composables/useResolvedTracks'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import FileLocationFilter from './FileLocationFilter.vue'
 import type { FilterOption } from '@/types/filter'
@@ -20,15 +19,13 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ListContainer from '@/components/ui/ListContainer.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { LibraryTrack } from '@/types/library'
-import type { TrackSnapshot } from '@/types/snapshot'
 import type { Track } from '@/types/track'
 
 const props = withDefaults(
   defineProps<{
     title: string
     subtitle?: string
-    tracks: Track[] | TrackSnapshot[]
-    isSnapshot?: boolean
+    tracks: Track[]
     showSearch?: boolean
     showFilter?: boolean
     showPlayAll?: boolean
@@ -38,7 +35,6 @@ const props = withDefaults(
     itemKey?: (track: Track, index: number) => string
   }>(),
   {
-    isSnapshot: false,
     showSearch: true,
     showFilter: true,
     showPlayAll: true,
@@ -60,15 +56,8 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 
 const sourceFilter = ref<string>('all')
 
-const snapshotsRef = computed(() => props.tracks as TrackSnapshot[])
-const resolvedFromSnapshot = useResolvedTracks(snapshotsRef)
-
-const baseTracks = computed<Track[]>(() => {
-  if (props.isSnapshot) {
-    return resolvedFromSnapshot.value
-  }
-  return props.tracks as Track[]
-})
+// Треки теперь всегда приходят готовыми
+const baseTracks = computed<Track[]>(() => props.tracks)
 
 const preFilteredTracks = computed(() => {
   if (!props.preFilter) return baseTracks.value

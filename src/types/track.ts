@@ -2,16 +2,15 @@
 
 import type { FileLocation, RawMetadata, MetadataSource } from './library'
 
-/**
- * Базовый интерфейс трека.
- * Содержит все возможные поля, которые могут встречаться в плеере,
- * библиотеке, плейлистах, истории и персистентности.
- */
-export interface Track {
-  /** Уникальный ID (в формате track:pluginId:path) */
+export interface TrackSource {
   id: string
+  pluginId: string
+  url?: string
+  priority: number
+}
 
-  /** id плагина-источника: 'local', 'yandex', 'zvuk', ... */
+export interface Track {
+  id: string
   pluginId: string
 
   // --- Метаданные ---
@@ -23,38 +22,27 @@ export interface Track {
   genre?: string
   duration?: number
   codec?: string
-  /** URL обложки (http(s) или blob) */
+
+  /**
+   * URL обложки. Используется ТОЛЬКО для стриминга без альбомов (радио, подкасты).
+   * Для локальных и облачных треков обложка всегда берется из Album.
+   */
   coverUrl?: string
 
-  /** Источник текущих метаданных (для приоритезации) */
   metaSource?: MetadataSource
-  /** true, если в файле есть теги (ID3/FLAC) */
   hasId3Tags?: boolean
-  /** Снимок первичных метаданных (при сканировании) */
   raw?: RawMetadata
 
-  // --- Источник воспроизведения ---
-  /**
-   * URL для стриминга.
-   * Для локальных копий — пустая строка.
-   */
-  source?: string
+  albumId?: string
+  isVirtual?: boolean
 
-  /**
-   * Хэндл файла для локальных копий.
-   * Единственный источник правды для локального файла.
-   */
+  sources: TrackSource[]
+
   handle?: FileSystemFileHandle
-  /** Хэндл директории (для восстановления обложек) */
   directoryHandle?: FileSystemDirectoryHandle
 
-  // --- Локация ---
-  /** Имя файла (например, '01.mp3') */
   filename?: string
-  /** Путь внутри источника (например, 'Rock/01.mp3') */
   path?: string
-  /** Полный путь в облаке (например, 'disk:/Music/01.mp3') */
   remotePath?: string
-  /** Где физически находится файл */
   fileLocation?: FileLocation
 }

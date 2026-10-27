@@ -30,7 +30,7 @@ export async function scanDownloadDirForSource(
   const byPath = new Map<string, LibraryTrack>()
   for (const track of allTracks) {
     const path = track.path ?? track.filename
-    if (path) byPath.set(path, track) // <-- проверка на undefined
+    if (path) byPath.set(path, track)
   }
 
   const downloaded = new Map<string, string>()
@@ -54,7 +54,7 @@ export async function scanDownloadDirForSource(
   for (const track of allTracks) {
     if (!isLocallyAvailable(track)) continue
     const path = track.path ?? track.filename
-    if (!path || !files.has(path)) missing.push(track.id) // <-- проверка
+    if (!path || !files.has(path)) missing.push(track.id)
   }
 
   return { downloaded, onlyLocal, missing }
@@ -90,14 +90,19 @@ export async function createLocalTrackFromFile(
     filename,
     path: relativePath,
     handle: fileHandle,
-    source: '',
+    sources: [],
     fileLocation: 'local-only',
     title: metadata.title,
     artist: metadata.artist,
-    album: metadata.album, // Берем только из парсера (или пустой)
+    album: metadata.album,
     duration: metadata.duration,
-    coverUrl: metadata.coverUrl,
     metaSource: hasRealTags ? 'file' : 'filename',
+    raw: {
+      title: metadata.title,
+      artist: metadata.artist,
+      album: metadata.album,
+      coverUrl: metadata.coverUrl,
+    },
   }
 }
 
@@ -204,7 +209,7 @@ export async function restoreLibraryFromFiles(
         path: trackPath,
         remotePath: existing?.remotePath ?? `disk:${trackPath}`,
         handle: fileHandle,
-        source: '',
+        sources: existing?.sources || [],
         fileLocation: 'local-only',
         title:
           existing?.metaSource === 'manual'
@@ -218,9 +223,14 @@ export async function restoreLibraryFromFiles(
           existing?.metaSource === 'manual'
             ? existing.album
             : metadata.album || existing?.album || '',
-        coverUrl: existing?.coverUrl || metadata.coverUrl,
         metaSource,
         duration: metadata.duration,
+        raw: {
+          title: metadata.title,
+          artist: metadata.artist,
+          album: metadata.album,
+          coverUrl: existing?.raw?.coverUrl || metadata.coverUrl,
+        },
       })
     }
   }
@@ -295,7 +305,6 @@ export async function mergeLocalIntoLibrary(
     if (existingTrack) {
       context.writer.updateTrackHandle(trackId, fileHandle)
       context.writer.updateTrackFileLocation(trackId, 'both')
-      context.writer.updateTrackSource(trackId, '')
       updatedCount++
       continue
     }
@@ -319,14 +328,19 @@ export async function mergeLocalIntoLibrary(
       path: relativePath,
       remotePath: `disk:${relativePath}`,
       handle: fileHandle,
-      source: '',
+      sources: [],
       fileLocation: 'local-only',
       title: parsed.title,
       artist: parsed.artist,
-      album: parsed.album, // Берем только из парсера (или пустой)
+      album: parsed.album,
       duration: parsed.duration,
-      coverUrl: parsed.coverUrl,
       metaSource: hasRealTags ? 'file' : 'filename',
+      raw: {
+        title: parsed.title,
+        artist: parsed.artist,
+        album: parsed.album,
+        coverUrl: parsed.coverUrl,
+      },
     })
   }
 

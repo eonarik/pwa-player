@@ -1,12 +1,11 @@
 // src/types/history.ts
 
-import type { TrackSnapshot } from './snapshot'
-
 /**
  * Запись истории воспроизведения.
- * Снимок метаданных, чтобы история не ломалась при смене источника.
  */
-export interface PlayHistoryEntry extends TrackSnapshot {
+export interface PlayHistoryEntry {
+  /** ID трека в библиотеке */
+  trackId: string
   /** Когда последний раз воспроизводился (timestamp) */
   playedAt: number
 }

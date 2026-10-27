@@ -48,18 +48,17 @@ async function unsubscribe(sub: Subscription, e: Event): Promise<void> {
 function episodeToTrack(
   ep: { id: string; podcastId: string; title: string; audioUrl: string; image: string; durationSec: number | null },
   podcastTitle: string,
-  podcastImage: string | undefined,
 ): Track {
+  const id = `podcast:${ep.podcastId}:${ep.id}`
   return {
-    id: `podcast:${ep.podcastId}:${ep.id}`,
+    id,
     pluginId: PLUGIN_ID,
     title: ep.title,
     artist: podcastTitle,
     album: podcastTitle,
     duration: ep.durationSec ?? 0,
     filename: '',
-    source: ep.audioUrl,
-    coverUrl: ep.image || podcastImage || undefined,
+    sources: [{ id, pluginId: PLUGIN_ID, url: ep.audioUrl, priority: 30 }],
   }
 }
 
@@ -93,7 +92,6 @@ function playAllEpisodes(sub: Subscription, e: Event): void {
         durationSec: ep.durationSec,
       },
       sub.podcast.title,
-      sub.podcast.image,
     ),
   )
   player.playAll(tracks)

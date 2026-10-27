@@ -36,17 +36,22 @@ export interface RawMetadata {
   hasId3Tags?: boolean
 }
 
-/**
- * Трек, который находится в библиотеке (привязан к папке).
- */
+export interface Album {
+  id: string
+  name: string
+  artist: string
+  coverUrl?: string
+  trackIds: string[]
+}
+
 export interface LibraryTrack extends Track {
-  /** ID папки, в которой лежит трек */
   folderId: string
 }
 
 export interface CollectedLibrary {
   folders: Folder[]
   tracks: LibraryTrack[]
+  albums?: Album[]
   rootFolderId: string
   rootFolderName: string
 }

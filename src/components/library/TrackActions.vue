@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useLibraryStore } from '@/stores/library'
+import { usePlaylistsStore } from '@/stores/playlists'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
 import { metadataService } from '@/services/metadata/MetadataService'
@@ -38,6 +39,7 @@ const emit = defineEmits<{
 }>()
 
 const library = useLibraryStore()
+const playlists = usePlaylistsStore()
 const uiSettings = useUiSettingsStore()
 
 const isSearchingMetadata = ref(false)
@@ -164,6 +166,7 @@ const libraryTrack = computed<LibraryTrack | null>(() => {
     return {
       ...props.track,
       folderId: 'virtual',
+      isVirtual: true,
       handle: undefined,
       fileLocation: 'remote-only',
     } as LibraryTrack
@@ -229,7 +232,7 @@ async function onDownload(close: () => void) {
 
 function removeFromPlaylist(close: () => void): void {
   if (!props.playlistId) return
-  usePlaylistsStore().removeTrackFromPlaylist(props.playlistId, props.track.id)
+  playlists.removeTrackFromPlaylist(props.playlistId, props.track.id)
   emit('removed-from-playlist')
   close()
 }
@@ -258,7 +261,6 @@ function removeFromQueue(close: () => void): void {
           <Divider />
         </template>
 
-        <!-- Скрываем метаданные для стриминга -->
         <template v-if="!isLive && !isLinear && !isStreaming">
           <button type="button"
             class="block w-full px-4 py-1.5 text-left text-sm text-fg transition hover:bg-hover-bg hover:text-fg-muted disabled:opacity-50"

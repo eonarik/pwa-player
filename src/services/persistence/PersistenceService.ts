@@ -125,7 +125,6 @@ export class PersistenceService {
     const raw = toRaw(track)
     const handle = raw.handle ? toRaw(raw.handle) : undefined
     const fileLocation = (raw as { fileLocation?: FileLocation }).fileLocation
-    const isLocal = fileLocation === 'local-only' || fileLocation === 'both'
 
     return {
       id: raw.id,
@@ -142,10 +141,9 @@ export class PersistenceService {
       path: raw.path,
       handle,
       directoryHandle: raw.directoryHandle ? toRaw(raw.directoryHandle) : undefined,
-      // Для локальных source пустой; для remote-only — URL.
-      source: isLocal ? undefined : typeof raw.source === 'string' ? raw.source : undefined,
+      sources: raw.sources,
+      raw: raw.raw ? JSON.parse(JSON.stringify(raw.raw)) : undefined,
       fileLocation,
-      // Сохраняем только http(s) ссылки, так как blob URL невалиден после перезагрузки
       coverUrl: raw.coverUrl?.startsWith('http') ? raw.coverUrl : undefined,
     }
   }

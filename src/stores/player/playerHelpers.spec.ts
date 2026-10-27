@@ -12,7 +12,7 @@ function makeTrack(id: string): Track {
     artist: '',
     album: '',
     filename: '',
-    source: 'file://',
+    sources: [{ id, pluginId: 'local', url: 'file://', priority: 10 }],
   } as Track
 }
 

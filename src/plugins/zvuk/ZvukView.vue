@@ -81,16 +81,22 @@ onUnmounted(() => {
 function toPlayableTrack(zvukTrack: ZvukTrack): Track {
   const coverUrl = zvukTrack.release?.image?.src?.replace('{size}', '400') || undefined
   const artist = zvukTrack.artists?.map(a => a.title).join(', ') || 'Звук'
+  const id = `zvuk:${zvukTrack.id}`
 
   return {
-    id: `zvuk:${zvukTrack.id}`,
+    id,
     pluginId: 'zvuk',
     title: zvukTrack.title,
     artist: artist,
     album: zvukTrack.release?.title || '',
     duration: zvukTrack.duration,
     filename: '',
-    source: zvukService.getStreamUrl(zvukTrack.id),
+    sources: [{
+      id,
+      pluginId: 'zvuk',
+      url: zvukService.getStreamUrl(zvukTrack.id),
+      priority: 30, // zvuk приоритет 30
+    }],
     coverUrl: coverUrl,
   }
 }

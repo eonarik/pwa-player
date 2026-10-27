@@ -1,9 +1,10 @@
-// oxlint-disable vitest/require-mock-type-parameters
 // src/stores/playlists.spec.ts
+// oxlint-disable vitest/require-mock-type-parameters
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePlaylistsStore } from './playlists'
+import { useLibraryStore } from './library'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
 import type { Track } from '@/types/track'
 
@@ -22,7 +23,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     title: 'Song',
     artist: 'Artist',
     album: 'Album',
-    source: 'file://',
+    sources: [{ id: 'track:1', pluginId: 'local', url: 'file://', priority: 10 }],
     filename: 'song.mp3',
     ...overrides,
   } as Track
@@ -36,8 +37,6 @@ describe('usePlaylistsStore', () => {
   it('ensureFavorites создаёт Избранное', async () => {
     const store = usePlaylistsStore()
     await store.restore()
-    // ensureFavorites вызывается внутри restore
-    // Проверяем после создания плейлиста
     const fav = store.favorites
     expect(fav).not.toBeNull()
     expect(fav!.id).toBe(FAVORITES_PLAYLIST_ID)
@@ -56,41 +55,48 @@ describe('usePlaylistsStore', () => {
     expect(store.playlists[id]!.name).toBe('Новый плейлист')
   })
 
-  it('addTrackToPlaylist добавляет', () => {
+  it('addTracksToPlaylist добавляет', async () => {
     const store = usePlaylistsStore()
     const id = store.createPlaylist('Test')
-    const added = store.addTrackToPlaylist(id, makeTrack())
-    expect(added).toBe(true)
-    expect(store.playlists[id]!.tracks).toHaveLength(1)
+    const track = makeTrack()
+
+    const added = await store.addTracksToPlaylist(id, [track])
+    expect(added).toBe(1)
+    expect(store.playlists[id]!.trackIds).toHaveLength(1)
+    expect(store.playlists[id]!.trackIds[0]).toBe('track:1')
   })
 
-  it('addTrackToPlaylist идемпотентен', () => {
+  it('addTracksToPlaylist идемпотентен', async () => {
     const store = usePlaylistsStore()
     const id = store.createPlaylist('Test')
-    store.addTrackToPlaylist(id, makeTrack())
-    const second = store.addTrackToPlaylist(id, makeTrack())
-    expect(second).toBe(false)
-    expect(store.playlists[id]!.tracks).toHaveLength(1)
+    const track = makeTrack()
+
+    await store.addTracksToPlaylist(id, [track])
+    const second = await store.addTracksToPlaylist(id, [track])
+
+    expect(second).toBe(0)
+    expect(store.playlists[id]!.trackIds).toHaveLength(1)
   })
 
-  it('removeTrackFromPlaylist', () => {
+  it('removeTrackFromPlaylist', async () => {
     const store = usePlaylistsStore()
     const id = store.createPlaylist('Test')
-    store.addTrackToPlaylist(id, makeTrack())
+    await store.addTracksToPlaylist(id, [makeTrack()])
+
     const removed = store.removeTrackFromPlaylist(id, 'track:1')
     expect(removed).toBe(true)
-    expect(store.playlists[id]!.tracks).toHaveLength(0)
+    expect(store.playlists[id]!.trackIds).toHaveLength(0)
   })
 
-  it('toggleFavorite', () => {
+  it('toggleFavorite', async () => {
     const store = usePlaylistsStore()
     const track = makeTrack()
 
-    const added = store.toggleFavorite(track)
+    const added = await store.toggleFavorite(track)
     expect(added).toBe(true)
     expect(store.isFavorite(track.id)).toBe(true)
 
-    const removed = store.toggleFavorite(track)
+    const removed = await store.toggleFavorite(track)
     expect(removed).toBe(false)
     expect(store.isFavorite(track.id)).toBe(false)
   })
@@ -109,16 +115,24 @@ describe('usePlaylistsStore', () => {
     expect(store.favorites).not.toBeNull()
   })
 
-  it('сохраняет source для стриминговых треков', () => {
+  it('добавление стримингового трека сохраняет его в library как виртуальный', async () => {
     const store = usePlaylistsStore()
+    const library = useLibraryStore()
     const id = store.createPlaylist('Test')
+
     const track = makeTrack({
       id: 'zvuk:123',
       pluginId: 'zvuk',
-      source: 'https://stream',
+      sources: [{ id: 'zvuk:123', pluginId: 'zvuk', url: 'https://stream', priority: 30 }],
     })
 
-    store.addTrackToPlaylist(id, track)
-    expect(store.playlists[id]!.tracks[0]!.source).toBe('https://stream')
+    await store.addTracksToPlaylist(id, [track])
+
+    expect(store.playlists[id]!.trackIds[0]).toBe('zvuk:123')
+
+    const libTrack = library.getTrack('zvuk:123')
+    expect(libTrack).toBeDefined()
+    expect(libTrack!.sources[0]!.url).toBe('https://stream')
+    expect(libTrack!.isVirtual).toBe(true)
   })
 })

@@ -7,8 +7,7 @@ import IconButton from '@/components/ui/IconButton.vue'
 import { toastService } from '@/services/ui/ToastService'
 import { exportToM3U, exportToJSON } from '@/utils/playlistParser'
 import { downloadTextFile } from '@/utils/downloadFile'
-import type { Playlist } from '@/types/playlist'
-import type { PlaylistExportTrack } from '@/types/playlist'
+import type { Playlist, PlaylistExportTrack } from '@/types/playlist'
 
 const props = defineProps<{
   playlist: Playlist
@@ -17,15 +16,14 @@ const props = defineProps<{
 const library = useLibraryStore()
 
 const exportTracks = computed<PlaylistExportTrack[]>(() => {
-  return props.playlist.tracks.map((snapshot) => {
-    // ИСПОЛЬЗУЕМ id вместо trackId
-    const track = library.getTrack(snapshot.id)
+  return props.playlist.trackIds.map((id) => {
+    const track = library.getTrack(id)
     return {
-      artist: snapshot.artist || '',
-      title: snapshot.title || 'Unknown Title',
-      album: snapshot.album,
-      duration: track?.duration ?? snapshot.duration,
-      path: track?.path || snapshot.remotePath,
+      artist: track?.artist || '',
+      title: track?.title || 'Unknown Title',
+      album: track?.album,
+      duration: track?.duration,
+      path: track?.path || track?.remotePath,
     }
   })
 })

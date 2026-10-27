@@ -13,7 +13,7 @@ import DislikeButton from '@/components/ui/DislikeButton.vue'
 import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import Icon from '@/components/ui/Icon.vue'
-import { useLibraryStore } from "@/stores/library/store.ts"
+import { useLibraryStore } from "@/stores/library"
 
 defineProps<{
   title: string
@@ -48,10 +48,14 @@ watch(
 // --- Доминирующий цвет обложки + пульсация ---------------------------
 const library = useLibraryStore()
 
-const coverSrc = computed(() => {
-  const id = currentTrack.value?.id
+const album = computed(() => {
+  const id = currentTrack.value?.albumId
   if (!id) return null
-  return library.getTrack(id)?.coverUrl ?? currentTrack.value?.coverUrl ?? null
+  return library.getAlbum(id)
+})
+
+const coverSrc = computed(() => {
+  return album.value?.coverUrl ?? null
 })
 
 const dominantColor = useDominantColor(coverSrc)

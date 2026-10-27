@@ -1,3 +1,4 @@
+// src/components/library/TrackRow.stories.ts
 import type { Meta, StoryObj } from '@storybook/vue3'
 import TrackRow from './TrackRow.vue'
 import type { LibraryTrack } from '@/types/library'
@@ -22,7 +23,9 @@ const sampleTrack: LibraryTrack = {
   album: 'OK Computer',
   filename: '01.mp3',
   path: '01.mp3',
-  source: 'https://example.com/song.mp3',
+  sources: [
+    { id: 'track:test:1', pluginId: 'local', url: 'https://example.com/song.mp3', priority: 10 },
+  ],
   fileLocation: 'remote-only',
   duration: 261,
 }
@@ -30,13 +33,7 @@ const sampleTrack: LibraryTrack = {
 type Story = StoryObj<typeof TrackRow>
 
 export const Default: Story = {
-  args: {
-    track: sampleTrack,
-    index: 0,
-    isCurrent: false,
-    isPlaying: false,
-    showDownload: true,
-  },
+  args: { track: sampleTrack, index: 0, isCurrent: false, isPlaying: false, showDownload: true },
   render: (args) => ({
     components: { TrackRow },
     setup: () => ({ args }),
@@ -50,17 +47,11 @@ export const Playing: Story = {
 }
 
 export const Local: Story = {
-  args: {
-    ...Default.args,
-    track: { ...sampleTrack, fileLocation: 'both' },
-  },
+  args: { ...Default.args, track: { ...sampleTrack, fileLocation: 'both' } },
   render: Default.render,
 }
 
 export const Unavailable: Story = {
-  args: {
-    ...Default.args,
-    track: { ...sampleTrack, source: '' },
-  },
+  args: { ...Default.args, track: { ...sampleTrack, sources: [] } },
   render: Default.render,
 }

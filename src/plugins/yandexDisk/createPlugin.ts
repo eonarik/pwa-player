@@ -31,7 +31,6 @@ export interface YandexPluginOptions {
   name: string
   icon: string
   service: IYandexService
-  isSelf?: boolean
 }
 
 export function createYandexPlugin({
@@ -39,7 +38,6 @@ export function createYandexPlugin({
   name,
   icon,
   service,
-  isSelf = false,
 }: YandexPluginOptions): LibrarySource {
   let cancelled = false
   service.isCancelled = () => cancelled
@@ -64,52 +62,32 @@ export function createYandexPlugin({
       service.setDisconnected?.(true)
     },
 
-    async connect(context: PluginContext): Promise<void> {
+    async connect(): Promise<void> {
       if (service.setDisconnected) service.setDisconnected(false)
       if (service.setCancelled) service.setCancelled(false)
 
-      if (isSelf) {
-        if (!service.login) throw new Error('Service does not support login')
-
-        // Если сессия уже жива — второй раз пароль не просим.
-        const alive = await service.checkSession?.()
-        if (alive === 'ok') return
-
-        const code = await context.showModal<string>({
-          title: `Вход в ${name}`,
-          message: 'Введите пароль (необязательно)',
-          type: 'input',
-          inputType: 'password',
-        })
-
-        if (code === null) throw new Error('cancelled')
-
-        let ctx = 'common'
-        let password = code
-
-        if (code.includes(':')) {
-          const parts = code.split(':')
-          ctx = parts[0] || 'common'
-          password = parts[1] || ''
-        }
-
-        const ok = await service.login(ctx, password)
-        if (!ok) throw new Error('Неверный пароль или контекст')
-      } else {
-        const alive = service.ping ? await service.ping() : true
-        if (!alive) throw new Error('Сервер недоступен')
-
-        const me = await authService.me()
-        if (me.authenticated) {
-          if ('setConnected' in service && typeof service.setConnected === 'function') {
-            ;(service as any).setConnected(true)
-          }
-          return
-        }
-
-        authService.startOAuth()
-        throw new Error('redirect')
+      // Если сервис умеет логиниться сам (через модалку), пусть логинится.
+      // Мы не знаем, как он это делает.
+      if (service.login) {
+        const ok = await service.login()
+        if (!ok) throw new Error('cancelled')
+        return
       }
+
+      // Для OAuth (yandex)
+      const alive = service.ping ? await service.ping() : true
+      if (!alive) throw new Error('Сервер недоступен')
+
+      const me = await authService.me()
+      if (me.authenticated) {
+        if ('setConnected' in service && typeof (service as any).setConnected === 'function') {
+          ;(service as any).setConnected(true)
+        }
+        return
+      }
+
+      authService.startOAuth()
+      throw new Error('redirect')
     },
 
     async load(context: PluginContext, options?: LoadOptions): Promise<void> {
@@ -203,8 +181,9 @@ export function createYandexPlugin({
     },
 
     buildStreamUrl(track: LibraryTrack): string {
-      if (typeof track.source === 'string') return track.source
-      throw new Error(`[${id}] track.source must be string`)
+      const source = track.sources?.[0]
+      if (source?.url) return source.url
+      throw new Error(`[${id}] track has no stream url`)
     },
 
     buildDownloadUrl(track: LibraryTrack): string {
@@ -264,7 +243,6 @@ export function createYandexPlugin({
       if (service.setDisconnected) service.setDisconnected(true)
 
       context.writer.removeBySource(id)
-
       if (service.logout) service.logout()
     },
   }

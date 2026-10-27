@@ -12,7 +12,7 @@ export interface ZvukTrack {
   duration: number
   artists: ZvukArtist[]
   release: {
-    title: string // <-- добавили title
+    title: string
     image: { src: string }
   } | null
 }

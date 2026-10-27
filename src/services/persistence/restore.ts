@@ -5,7 +5,7 @@ import type { PersistedTrack } from './types'
 import type { Track } from '@/types/track'
 
 export async function restoreTrack(persisted: PersistedTrack): Promise<Track | null> {
-  const base: Omit<Track, 'source'> & { handle?: FileSystemFileHandle } = {
+  const base: Omit<Track, 'sources'> = {
     id: persisted.id,
     pluginId: persisted.pluginId,
     title: persisted.title,
@@ -21,11 +21,12 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     handle: persisted.handle,
     directoryHandle: persisted.directoryHandle,
     coverUrl: persisted.coverUrl,
+    raw: persisted.raw,
   }
 
   return {
     ...base,
-    source: persisted.source ?? '',
+    sources: persisted.sources || [],
   }
 }
 

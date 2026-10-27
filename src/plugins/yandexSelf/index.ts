@@ -8,7 +8,6 @@ const basePlugin = createYandexPlugin({
   name: 'Логии',
   icon: '🐹',
   service: yandexSelfService,
-  isSelf: true,
 })
 
 export default basePlugin

@@ -11,6 +11,7 @@ export const manifest: PluginManifest = {
   enabled: true,
   canDownload: false,
   order: 0,
+  sourcePriority: 10,
   entry: () => import('./index'),
   getSettings: getLocalSettingsSchema,
   runSettingsAction: runLocalSettingsAction,

@@ -1,5 +1,6 @@
 // src/plugins/yandexDisk/persist.ts
 
+import { toRaw } from 'vue'
 import type {
   CollectedLibrary,
   FileLocation,
@@ -35,25 +36,30 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
     const isLocal = fileLocation === 'local-only' || fileLocation === 'both'
     if (!t.remotePath && !isLocal) continue
 
+    const rawTrack = toRaw(t)
+
     tracks.push({
-      id: t.id,
-      pluginId: t.pluginId,
-      folderId: t.folderId,
-      filename: t.filename,
-      path: t.path!,
-      remotePath: t.remotePath ?? '',
-      title: t.title,
-      artist: t.artist,
-      album: t.album,
+      id: rawTrack.id,
+      pluginId: rawTrack.pluginId,
+      folderId: rawTrack.folderId,
+      filename: rawTrack.filename,
+      path: rawTrack.path!,
+      remotePath: rawTrack.remotePath ?? '',
+      title: rawTrack.title,
+      artist: rawTrack.artist,
+      album: rawTrack.album,
       fileLocation,
-      duration: t.duration,
-      metaSource: t.metaSource,
+      duration: rawTrack.duration,
+      metaSource: rawTrack.metaSource,
+      sources: rawTrack.sources ? JSON.parse(JSON.stringify(rawTrack.sources)) : [],
+      raw: rawTrack.raw ? JSON.parse(JSON.stringify(rawTrack.raw)) : undefined,
     })
   }
 
   return {
     folders,
     tracks,
+    albums: collected.albums ? JSON.parse(JSON.stringify(collected.albums)) : [],
     rootFolderId: collected.rootFolderId,
     rootFolderName: collected.rootFolderName,
     rootPath: ROOT_REMOTE_PATH,
@@ -86,7 +92,6 @@ export function fromPersisted(
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
     const cachedCover = metadataPersistenceService.get(t.id)?.coverUrl ?? undefined
     const source = t.remotePath ? service.buildDownloadUrl(t.remotePath) : ''
-    // ИСПРАВЛЕНО: используем fileLocation, а не origin
     const fileLocation: FileLocation = t.fileLocation ?? 'remote-only'
 
     return {
@@ -96,7 +101,6 @@ export function fromPersisted(
       filename: t.filename,
       path: t.path,
       remotePath: t.remotePath || undefined,
-      source,
       title: t.title,
       artist: t.artist,
       album: t.album,
@@ -104,12 +108,14 @@ export function fromPersisted(
       fileLocation,
       duration: t.duration,
       metaSource: t.metaSource,
+      sources: t.sources || [{ id: t.id, pluginId: t.pluginId, url: source, priority: 20 }],
     }
   })
 
   return {
     folders,
     tracks,
+    albums: cached.albums || [],
     rootFolderId: cached.rootFolderId,
     rootFolderName: cached.rootFolderName,
   }
@@ -131,14 +137,17 @@ export async function enrichWithLocalFiles(
 
     if (handle) {
       track.handle = handle
-      track.source = ''
     } else {
       track.handle = undefined
       track.fileLocation = 'remote-only'
-      if (track.remotePath && service) {
-        track.source = service.buildDownloadUrl(track.remotePath)
-      } else {
-        track.source = ''
+      // Если был локальный handle, но он пропал, возвращаем source обратно
+      if (track.sources.length === 0 && track.remotePath && service) {
+        track.sources.push({
+          id: track.id,
+          pluginId: track.pluginId,
+          url: service.buildDownloadUrl(track.remotePath),
+          priority: 20,
+        })
       }
     }
   }

@@ -99,15 +99,16 @@ function playStation(station: SavedStation): void {
     return
   }
 
+  const id = `radio:${station.id}`
   const track: Track = {
-    id: `radio:${station.id}`,
+    id,
     pluginId: PLUGIN_ID,
     title: station.name,
     artist: '',
     album: '',
     duration: 0,
     filename: '',
-    source: proxyRadioUrl(station.url),
+    sources: [{ id, pluginId: PLUGIN_ID, url: proxyRadioUrl(station.url), priority: 20 }],
     coverUrl: station.favicon || undefined,
   }
 

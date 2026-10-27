@@ -3,6 +3,7 @@
 import type { LibrarySource, PluginContext } from '../types'
 import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants'
 import { getSubscriptions } from './PodcastStorage'
+import type { LibraryTrack } from '@/types/library'
 
 const podcastsPlugin: LibrarySource = {
   id: PLUGIN_ID,
@@ -24,8 +25,10 @@ const podcastsPlugin: LibrarySource = {
     return subs.length > 0
   },
 
-  buildStreamUrl(track): string {
-    return typeof track.source === 'string' ? track.source : ''
+  buildStreamUrl(track: LibraryTrack): string {
+    const source = track.sources?.[0]
+    if (source?.url) return source.url
+    return ''
   },
 
   async disconnect(_context: PluginContext): Promise<void> {

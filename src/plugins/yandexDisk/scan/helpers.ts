@@ -62,11 +62,13 @@ export function buildTrack(
     filename: item.name,
     path: trackPath,
     remotePath: item.path,
-    source: service.buildDownloadUrl(item.path),
+    sources: [
+      { id: trackId, pluginId: sourceId, url: service.buildDownloadUrl(item.path), priority: 20 },
+    ],
     ...initialMeta,
     fileLocation: 'remote-only',
     metaSource: 'filename',
-    raw: { ...initialMeta }, // <-- Снимок
+    raw: { ...initialMeta },
   }
 }
 

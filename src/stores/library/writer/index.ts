@@ -1,5 +1,4 @@
 // src/stores/library/writer/index.ts
-
 import type { LibraryWriter } from '@/plugins/types'
 import { useLibraryStore } from '../store'
 import { setLibrary } from './library'
@@ -9,8 +8,9 @@ import {
   removeTracks,
   updateTrackFileLocation,
   updateTrackHandle,
-  updateTrackSource,
   updateTrackDuration,
+  updateTrackMetadata,
+  updateTrackSources,
 } from './tracks'
 import { matchesSource } from './helpers'
 
@@ -46,13 +46,23 @@ export function createLibraryWriter(): LibraryWriter {
       updateTrackHandle(store(), trackId, handle)
     },
     updateTrackSource(trackId, source) {
-      updateTrackSource(store(), trackId, source)
+      // Оставляем для совместимости со старым интерфейсом, просто добавляем source в массив
+      const track = store().getTrack(trackId)
+      if (track && source) {
+        const exists = track.sources.some((s) => s.url === source)
+        if (!exists) {
+          updateTrackSources(store(), trackId, [
+            ...track.sources,
+            { id: trackId, pluginId: track.pluginId, url: source, priority: 20 },
+          ])
+        }
+      }
     },
     updateTrackDuration(trackId, duration) {
       updateTrackDuration(store(), trackId, duration)
     },
     updateTrackMetadata(trackId, patch) {
-      store().updateTrackMetadata(trackId, patch)
+      updateTrackMetadata(store(), trackId, patch)
     },
     getFolder(folderId) {
       return store().getFolder(folderId)

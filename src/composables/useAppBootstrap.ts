@@ -5,19 +5,15 @@ import { usePlayerStore } from '@/stores/player'
 import { useHistoryStore } from '@/stores/history'
 import { useDislikesStore } from '@/stores/dislikes'
 import { useUiSettingsStore } from '@/stores/uiSettings'
+import { useLibraryStore } from '@/stores/library'
 import { metadataService } from '@/services/metadata/MetadataService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
 import { syncService } from '@/services/download/SyncService'
 import { getPlugins, loadPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
+import { reconciliationService } from '@/services/library/ReconciliationService'
 
-/**
- * Инициализация приложения: восстановление сторов, плагинов, плеера.
- *
- * `isBootstrapping` — true, пока не завершены все restore.
- * UI показывает AppLoader, пока он true.
- */
 export function useAppBootstrap() {
   const isBootstrapping = ref(true)
 
@@ -26,6 +22,7 @@ export function useAppBootstrap() {
     const history = useHistoryStore()
     const dislikes = useDislikesStore()
     const uiSettings = useUiSettingsStore()
+    const library = useLibraryStore()
 
     try {
       await uiSettings.load()
@@ -35,7 +32,8 @@ export function useAppBootstrap() {
       await history.restore()
       await dislikes.restore()
 
-      // Сканирование скачанных файлов (если папка выбрана и есть доступ).
+      await library.restoreVirtualTracks()
+
       if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
         const plugins = getPlugins().filter((p) => p.canDownload)
         for (const p of plugins) {
@@ -43,7 +41,6 @@ export function useAppBootstrap() {
         }
       }
 
-      // Восстановление кэша плагинов.
       for (const manifest of getPlugins()) {
         try {
           const plugin = await loadPlugin(manifest.id)
@@ -54,6 +51,8 @@ export function useAppBootstrap() {
           console.warn(`[app] failed to restore source "${manifest.id}"`, err)
         }
       }
+
+      void reconciliationService.reconcile()
 
       const playerRestored = await player.restore()
       if (playerRestored) console.log('[player] restored')

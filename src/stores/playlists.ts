@@ -4,18 +4,13 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { playlistPersistenceService } from '@/services/persistence/PlaylistPersistenceService'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
-import { createTrackSnapshot } from '@/utils/trackSnapshot'
+import { useLibraryStore } from './library'
 import type { Playlist } from '@/types/playlist'
 import type { Track } from '@/types/track'
 
 export const usePlaylistsStore = defineStore('playlists', () => {
-  // --- Состояние ------------------------------------------------------
-
   const playlists = ref<Record<string, Playlist>>({})
-
   const isRestoring = ref(false)
-
-  // --- Computed -------------------------------------------------------
 
   const sortedPlaylists = computed<Playlist[]>(() => {
     return Object.values(playlists.value).sort((a, b) => b.updatedAt - a.updatedAt)
@@ -28,11 +23,8 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   const favoriteTrackIds = computed<Set<string>>(() => {
     const fav = favorites.value
     if (!fav) return new Set()
-    // ИСПОЛЬЗУЕМ id вместо trackId
-    return new Set(fav.tracks.map((t) => t.id))
+    return new Set(fav.trackIds)
   })
-
-  // --- Восстановление и сохранение ------------------------------------
 
   async function restore(): Promise<boolean> {
     isRestoring.value = true
@@ -71,22 +63,18 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     await playlistPersistenceService.flush()
   }
 
-  // --- Внутренние хелперы ---------------------------------------------
-
   function ensureFavorites(): void {
     if (!playlists.value[FAVORITES_PLAYLIST_ID]) {
       const now = Date.now()
       playlists.value[FAVORITES_PLAYLIST_ID] = {
         id: FAVORITES_PLAYLIST_ID,
         name: 'Избранное',
-        tracks: [],
+        trackIds: [],
         createdAt: now,
         updatedAt: now,
       }
     }
   }
-
-  // --- Действия -------------------------------------------------------
 
   function createPlaylist(name: string): string {
     const id = `playlist:${crypto.randomUUID()}`
@@ -94,7 +82,7 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     playlists.value[id] = {
       id,
       name: name.trim() || 'Новый плейлист',
-      tracks: [],
+      trackIds: [],
       createdAt: now,
       updatedAt: now,
     }
@@ -102,10 +90,7 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   }
 
   function renamePlaylist(id: string, name: string): void {
-    if (id === FAVORITES_PLAYLIST_ID) {
-      console.warn('[playlists] cannot rename favorites')
-      return
-    }
+    if (id === FAVORITES_PLAYLIST_ID) return
     const playlist = playlists.value[id]
     if (!playlist) return
     playlist.name = name.trim() || playlist.name
@@ -113,49 +98,26 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   }
 
   function deletePlaylist(id: string): void {
-    if (id === FAVORITES_PLAYLIST_ID) {
-      console.warn('[playlists] cannot delete favorites')
-      return
-    }
+    if (id === FAVORITES_PLAYLIST_ID) return
     delete playlists.value[id]
   }
 
-  function addTrackToPlaylist(playlistId: string, track: Track): boolean {
-    console.log('Adding track:', track)
-    console.log('Snapshot:', createTrackSnapshot(track))
-
-    const playlist = playlists.value[playlistId]
-    if (!playlist) return false
-
-    const exists = playlist.tracks.some((t) => t.id === track.id)
-    if (exists) return false
-
-    playlist.tracks.push({
-      ...createTrackSnapshot(track),
-      addedAt: Date.now(),
-    })
-    playlist.updatedAt = Date.now()
-    return true
-  }
-
-  function addTracksToPlaylist(playlistId: string, tracks: Track[]): number {
-  console.log('[addTracksToPlaylist] Adding many:', tracks)
+  async function addTracksToPlaylist(playlistId: string, tracks: Track[]): Promise<number> {
     const playlist = playlists.value[playlistId]
     if (!playlist) return 0
 
-    // ИСПОЛЬЗУЕМ id вместо trackId
-    const existing = new Set(playlist.tracks.map((t) => t.id))
+    const library = useLibraryStore()
+    const existing = new Set(playlist.trackIds)
     let added = 0
     const now = Date.now()
 
     for (const track of tracks) {
-      if (existing.has(track.id)) continue
-      existing.add(track.id)
+      const resolvedId = await library.resolveOrCreateTrack(track)
 
-      playlist.tracks.push({
-        ...createTrackSnapshot(track),
-        addedAt: now,
-      })
+      if (existing.has(resolvedId)) continue
+      existing.add(resolvedId)
+
+      playlist.trackIds.push(resolvedId)
       added++
     }
 
@@ -170,11 +132,10 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     const playlist = playlists.value[playlistId]
     if (!playlist) return false
 
-    const initialLength = playlist.tracks.length
-    // ИСПОЛЬЗУЕМ id вместо trackId
-    playlist.tracks = playlist.tracks.filter((t) => t.id !== trackId)
+    const initialLength = playlist.trackIds.length
+    playlist.trackIds = playlist.trackIds.filter((id) => id !== trackId)
 
-    if (playlist.tracks.length !== initialLength) {
+    if (playlist.trackIds.length !== initialLength) {
       playlist.updatedAt = Date.now()
       return true
     }
@@ -185,13 +146,13 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     return favoriteTrackIds.value.has(trackId)
   }
 
-  function toggleFavorite(track: Track): boolean {
+  async function toggleFavorite(track: Track): Promise<boolean> {
     ensureFavorites()
     if (isFavorite(track.id)) {
       removeTrackFromPlaylist(FAVORITES_PLAYLIST_ID, track.id)
       return false
     } else {
-      addTrackToPlaylist(FAVORITES_PLAYLIST_ID, track)
+      await addTracksToPlaylist(FAVORITES_PLAYLIST_ID, [track])
       return true
     }
   }
@@ -219,7 +180,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     createPlaylist,
     renamePlaylist,
     deletePlaylist,
-    addTrackToPlaylist,
     addTracksToPlaylist,
     removeTrackFromPlaylist,
     isFavorite,

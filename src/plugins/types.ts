@@ -36,6 +36,9 @@ export interface PluginManifest {
   /** Вес для сортировки на главной (чем меньше, тем выше) */
   readonly order?: number
 
+  /** Приоритет источников (чем меньше, тем раньше пробуем при воспроизведении) */
+  readonly sourcePriority?: number
+
   readonly isLiveStream?: boolean
   readonly isStreaming?: boolean
   readonly contentKind?: 'music' | 'linear'

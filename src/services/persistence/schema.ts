@@ -15,9 +15,8 @@
  * История версий:
  * 1-3 — ранние версии (JWT, .settings.json, YANDEX_MUSIC_PATH)
  * 4 — OAuth-сессии, удаление JWT, app:/ как корень Яндекс.Диска
- *
- * С 0.4.0 обнуление больше не применяется — только миграции.
+ * 5 — Мультиисточниковые треки (sources[]), отказ от снимков в плейлистах
  */
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 export const SCHEMA_VERSION_KEY = 'player:schemaVersion'

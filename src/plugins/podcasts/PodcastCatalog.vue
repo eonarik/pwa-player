@@ -99,17 +99,20 @@ async function togglePlayPodcast(podcast: Podcast): Promise<void> {
   const episodes = await getOrLoadEpisodes(podcast)
   if (!episodes || episodes.length === 0) return
 
-  const tracks: Track[] = episodes.map((ep) => ({
-    id: `podcast:${podcast.id}:${ep.id}`,
-    pluginId: PLUGIN_ID,
-    title: ep.title,
-    artist: podcast.title,
-    album: podcast.title,
-    duration: ep.durationSec ?? 0,
-    filename: '',
-    source: ep.audioUrl,
-    coverUrl: ep.image || podcast.image || undefined,
-  }))
+  const tracks: Track[] = episodes.map((ep) => {
+    const id = `podcast:${podcast.id}:${ep.id}`
+    return {
+      id,
+      pluginId: PLUGIN_ID,
+      title: ep.title,
+      artist: podcast.title,
+      album: podcast.title,
+      duration: ep.durationSec ?? 0,
+      filename: '',
+      sources: [{ id, pluginId: PLUGIN_ID, url: ep.audioUrl, priority: 30 }],
+      coverUrl: ep.image || podcast.image || undefined,
+    }
+  })
   player.playAll(tracks)
 }
 

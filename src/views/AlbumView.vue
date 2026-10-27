@@ -2,130 +2,91 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
-import { usePlayerStore } from '@/stores/player'
-import { useUiSettingsStore } from '@/stores/uiSettings'
-import { useLibrarySearch } from '@/composables/useLibrarySearch'
-import { filterTracksByArtist, groupByAlbum } from '@/utils/artists'
+import { NO_ALBUM_SLUG, NO_ALBUM_LABEL } from '@/utils/artists'
 import { pluralize } from '@/utils/pluralize'
-import TrackListItem from '@/components/library/TrackListItem.vue'
-import TrackActions from '@/components/library/TrackActions.vue'
-import SearchInput from '@/components/ui/SearchInput.vue'
+import { compareStrings } from '@/utils/sort'
+import TrackListPage from '@/components/library/TrackListPage.vue'
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue'
 import type { LibraryTrack } from '@/types/library'
+import EmptyState from "@/components/ui/EmptyState.vue"
+import Icon from "@/components/ui/Icon.vue"
 
 const route = useRoute()
 const library = useLibraryStore()
-const player = usePlayerStore()
-const uiSettings = useUiSettingsStore()
-const { currentTrack, isPlaying } = storeToRefs(player)
 
 const artistName = computed(() => String(route.params.artistName ?? ''))
 const albumSlug = computed(() => String(route.params.album ?? ''))
 
-const artistTracks = computed<LibraryTrack[]>(() =>
-  filterTracksByArtist(Object.values(library.tracks), artistName.value),
-)
+const isNoAlbum = computed(() => albumSlug.value === NO_ALBUM_SLUG)
 
 const currentAlbum = computed(() => {
-  const groups = groupByAlbum(artistTracks.value)
-  return groups.find((g) => g.slug === albumSlug.value) ?? null
+  if (isNoAlbum.value) return null
+  return Object.values(library.albums).find(
+    (a) => a.artist === artistName.value && a.name.toLowerCase().replace(/\s+/g, '-') === albumSlug.value
+  ) || null
 })
 
-const tracks = computed<LibraryTrack[]>(() => currentAlbum.value?.tracks ?? [])
+const tracks = computed<LibraryTrack[]>(() => {
+  if (isNoAlbum.value) {
+    const normArtist = artistName.value.toLowerCase().trim()
+    return Object.values(library.tracks)
+      .filter((t) => (t.artist || '').toLowerCase().trim() === normArtist)
+      .filter((t) => !t.album || !t.album.trim())
+      .sort((a, b) => compareStrings(a.title, b.title))
+  }
 
-// --- Поиск -----------------------------------------------------------
+  if (!currentAlbum.value) return []
+  return currentAlbum.value.trackIds
+    .map((id) => library.getTrack(id))
+    .filter((t): t is LibraryTrack => Boolean(t))
+    .sort((a, b) => {
+      const an = a.trackNumber ?? Number.MAX_SAFE_INTEGER
+      const bn = b.trackNumber ?? Number.MAX_SAFE_INTEGER
+      if (an !== bn) return an - bn
+      return compareStrings(a.title, b.title)
+    })
+})
 
-const { query, hasQuery, result } = useLibrarySearch(tracks, uiSettings.searchThreshold)
+const displayAlbumName = computed(() => {
+  return isNoAlbum.value ? NO_ALBUM_LABEL : (currentAlbum.value?.name ?? 'Альбом')
+})
 
-const visibleTracks = computed<LibraryTrack[]>(() =>
-  hasQuery.value ? result.value.tracks : tracks.value,
-)
-
-// --- Действия -------------------------------------------------------
-
-function playAll() {
-  if (visibleTracks.value.length === 0) return
-  player.playAll(visibleTracks.value)
-}
-
-function onSelectTrack(index: number) {
-  player.setQueue(visibleTracks.value, index)
-}
-
-function isCurrent(trackId: string): boolean {
-  return currentTrack.value?.id === trackId
-}
+const subtitle = computed(() => {
+  if (tracks.value.length === 0) return ''
+  return pluralize(tracks.value.length, ['трек', 'трека', 'треков'])
+})
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка -->
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
-      <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <div class="min-w-0">
-          <nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Навигация">
-            <RouterLink :to="{ name: 'artist', params: { artistName } }"
-              class="truncate rounded-btn px-1.5 py-0.5 text-fg-muted transition hover:bg-hover-bg hover:text-fg">
-              {{ artistName }}
-            </RouterLink>
-            <span class="shrink-0 text-fg-subtle">/</span>
-            <span class="truncate rounded-btn px-1.5 py-0.5 font-medium text-fg">
-              {{ currentAlbum?.name ?? 'Альбом' }}
-            </span>
-          </nav>
-
-          <p v-if="visibleTracks.length > 0" class="px-1.5 text-xs text-fg-muted">
-            <template v-if="hasQuery">
-              Найдено: {{ visibleTracks.length }} из {{ tracks.length }}
-            </template>
-            <template v-else>
-              {{ pluralize(tracks.length, ['трек', 'трека', 'треков']) }}
-            </template>
-          </p>
-        </div>
-
-        <div class="flex shrink-0 items-center gap-3">
+    <TrackListPage :title="displayAlbumName" :subtitle="subtitle" :tracks="tracks" :show-search="true"
+      :show-filter="true" :show-play-all="true" :show-batch-add="true">
+      <!-- Кастомный хедер для хлебных крошек -->
+      <template #header-actions>
+        <div class="flex items-center gap-3">
+          <RouterLink :to="{ name: 'artist', params: { artistName } }"
+            class="flex items-center gap-1 truncate rounded-btn px-2 py-1 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg">
+            <Icon name="arrow-left" w="w-4" h="w-4" />
+            {{ artistName }}
+          </RouterLink>
           <ShowSourceCheckbox />
-
-          <button v-if="visibleTracks.length > 0" type="button"
-            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="playAll">
-            Играть всё
-          </button>
         </div>
-      </div>
-    </div>
+      </template>
 
-    <!-- Поиск -->
-    <div class="shrink-0 px-4 py-2">
-      <div class="mx-auto w-full max-w-3xl">
-        <SearchInput v-model="query" />
-      </div>
-    </div>
-
-    <!-- Контент -->
-    <div class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-3xl p-2">
-        <div v-if="tracks.length === 0" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-          Альбом не найден
-        </div>
-
-        <div v-else-if="visibleTracks.length === 0"
-          class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-          Ничего не найдено
-        </div>
-
-        <div v-else class="flex flex-col gap-0.5">
-          <TrackListItem v-for="(track, index) in visibleTracks" :key="track.id" :track="track" :index="index"
-            :is-current="isCurrent(track.id)" :is-playing="isPlaying" @select="onSelectTrack">
-            <template #actions>
-              <TrackActions :track="track" />
-            </template>
-          </TrackListItem>
-        </div>
-      </div>
-    </div>
+      <!-- Кастомное пустое состояние, если альбом не найден (а не просто пуст) -->
+      <template #empty>
+        <EmptyState v-if="!currentAlbum && !isNoAlbum" title="Альбом не найден">
+          <template #icon>
+            <Icon name="album" w="w-10" h="w-10" />
+          </template>
+        </EmptyState>
+        <EmptyState v-else title="В этом альбоме нет треков">
+          <template #icon>
+            <Icon name="music" w="w-10" h="w-10" />
+          </template>
+        </EmptyState>
+      </template>
+    </TrackListPage>
   </div>
 </template>

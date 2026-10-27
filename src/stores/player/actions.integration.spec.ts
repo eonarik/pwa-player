@@ -114,7 +114,14 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     artist: 'Artist',
     album: 'Album',
     filename: '01.mp3',
-    source: 'https://example.com/song.mp3',
+    sources: [
+      {
+        id: 'track:yandex-self:disk:/Music/01.mp3',
+        pluginId: 'yandex-self',
+        url: 'https://example.com/song.mp3',
+        priority: 20,
+      },
+    ],
     ...overrides,
   } as Track
 }
@@ -196,7 +203,7 @@ describe('player actions — интеграция с events', () => {
     })
 
     it('первый недоступен → стартует со второго', async () => {
-      const unavailable = makeTrack({ id: 't1', source: '', handle: undefined })
+      const unavailable = makeTrack({ id: 't1', sources: [] })
       const available = makeTrack({ id: 't2' })
       const tracks = [unavailable, available]
 
@@ -216,8 +223,8 @@ describe('player actions — интеграция с events', () => {
 
     it('все недоступны → тост, очередь не запускается', async () => {
       const tracks = [
-        makeTrack({ id: 't1', source: '', handle: undefined }),
-        makeTrack({ id: 't2', source: '', handle: undefined }),
+        makeTrack({ id: 't1', sources: [], handle: undefined }),
+        makeTrack({ id: 't2', sources: [], handle: undefined }),
       ]
       const refs = makeRefs(tracks)
       const actions = createPlayerActions(refs, makeActionsCallbacks())

@@ -6,6 +6,7 @@ import type {
   YandexTextResponse,
   YandexWriteResponse,
 } from '../yandexDisk/types'
+import { modalService } from '@/services/ui/ModalService'
 import { cleanDiskPath } from '@/shared/paths'
 
 const API_URL = '/api/yandex-self'
@@ -25,19 +26,70 @@ export class YandexSelfService implements IYandexService {
     else localStorage.removeItem(DISCONNECTED_KEY)
   }
 
-  async login(ctx: string, password: string): Promise<boolean> {
+  async login(): Promise<boolean> {
+    // 1. Проверяем, может, уже залогинены
+    const alive = await this.checkSession?.()
+    if (alive === 'ok') return true
+
+    // 2. Спрашиваем пароль через модалку
+    const code = await modalService.show<string>({
+      title: 'Вход в Логии',
+      message: 'Введите пароль (необязательно)',
+      type: 'input',
+      inputType: 'password',
+    })
+
+    if (code === null) return false // Пользователь отменил
+
+    let ctx = 'common'
+    let password = code
+
+    if (code.includes(':')) {
+      const parts = code.split(':')
+      ctx = parts[0] || 'common'
+      password = parts[1] || ''
+    }
+
+    // 3. Делаем запрос
     try {
       const res = await fetch(`${API_URL}/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ctx, password }),
-        credentials: 'include', // Важно для сессии
+        credentials: 'include',
       })
-      if (!res.ok) return false
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+
+        // 401 — неверный пароль
+        if (res.status === 401) {
+          throw new Error(data.error || 'Неверный пароль')
+        }
+
+        // 500+ — ошибка сервера (таймаут)
+        throw new Error(data.error || 'Ошибка сервера при подключении')
+      }
+
       localStorage.removeItem(DISCONNECTED_KEY)
       return true
+    } catch (err) {
+      if (err instanceof Error) throw err
+      throw new Error('Ошибка сети')
+    }
+  }
+
+  async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
+    try {
+      const res = await fetch(`${API_URL}/auth/check`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.status === 401) return 'expired'
+      if (!res.ok) return 'unavailable'
+      return 'ok'
     } catch {
-      return false
+      return 'unavailable'
     }
   }
 
@@ -98,20 +150,6 @@ export class YandexSelfService implements IYandexService {
 
     if (!res.ok) throw new Error('Failed to write')
     return res.json() as Promise<YandexWriteResponse>
-  }
-
-  async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
-    try {
-      const res = await fetch(`${API_URL}/auth/check`, {
-        credentials: 'include',
-        signal: AbortSignal.timeout(5000),
-      })
-      if (res.status === 401) return 'expired'
-      if (!res.ok) return 'unavailable'
-      return 'ok'
-    } catch {
-      return 'unavailable'
-    }
   }
 }
 

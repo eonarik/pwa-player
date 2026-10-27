@@ -1,7 +1,7 @@
 // src/plugins/local/FileSystemService.ts
 
 import { get, set, del } from 'idb-keyval'
-import type { FileEntry, PermissionMode } from './fsTypes'
+import type { PermissionMode } from './fsTypes'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
 import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
@@ -24,8 +24,6 @@ export class FileSystemService {
   get supported(): boolean {
     return 'showDirectoryPicker' in window
   }
-
-  // --- Хэндлы ----------------------------------------------------------
 
   async getHandles(): Promise<FileSystemDirectoryHandle[]> {
     try {
@@ -84,8 +82,6 @@ export class FileSystemService {
     await del(HANDLES_KEY)
   }
 
-  // --- Права доступа ----------------------------------------------------
-
   async verifyPermission(
     handle: FileSystemDirectoryHandle,
     mode: PermissionMode = 'read',
@@ -104,8 +100,6 @@ export class FileSystemService {
       return false
     }
   }
-
-  // --- Обход папки: нормализованная библиотека -------------------------
 
   async collectLibrary(
     rootHandle: FileSystemDirectoryHandle,
@@ -164,7 +158,7 @@ export class FileSystemService {
             path: trackPath,
             handle: fileHandle,
             directoryHandle: handle,
-            source: '',
+            sources: [],
             fileLocation: 'local-only',
             metaSource: hasRealTags ? 'file' : 'filename',
             ...initialMeta,
@@ -211,29 +205,6 @@ export class FileSystemService {
       tracks,
       rootFolderId: rootFolder.id,
       rootFolderName: rootHandle.name,
-    }
-  }
-
-  // --- Хелперы ----------------------------------------------------------
-
-  private async entryToFileEntry(
-    handle: FileSystemFileHandle,
-    directoryHandle: FileSystemDirectoryHandle,
-    pathPrefix: string,
-  ): Promise<FileEntry | null> {
-    try {
-      const file = await handle.getFile()
-      return {
-        handle,
-        directoryHandle,
-        file,
-        name: file.name,
-        path: pathPrefix ? `${pathPrefix}/${file.name}` : file.name,
-        size: file.size,
-      }
-    } catch (err) {
-      console.warn(`[local-plugin] failed to read ${handle.name}`, err)
-      return null
     }
   }
 

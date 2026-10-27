@@ -49,16 +49,16 @@ const sortedEpisodes = computed<Episode[]>(() => {
 const currentTrackId = computed(() => player.currentTrack?.id ?? null)
 
 function episodeToTrack(ep: Episode): Track {
+  const id = `podcast:${ep.podcastId}:${ep.id}`
   return {
-    id: `podcast:${ep.podcastId}:${ep.id}`,
+    id,
     pluginId: PLUGIN_ID,
     title: ep.title,
     artist: subscription.value?.podcast.title ?? '',
     album: subscription.value?.podcast.title ?? '',
     duration: ep.durationSec ?? 0,
     filename: '',
-    source: ep.audioUrl,
-    coverUrl: ep.image || subscription.value?.podcast.image || undefined,
+    sources: [{ id, pluginId: PLUGIN_ID, url: ep.audioUrl, priority: 30 }],
   }
 }
 

@@ -4,18 +4,23 @@ import { fuzzyMatch } from '@/utils/fuzzyMatch'
 import { layoutVariants } from '@/utils/layout'
 import type { LibraryTrack } from '@/types/library'
 import type { PlaylistExportTrack } from '@/types/playlist'
+import type { Track } from '@/types/track'
 
-export interface MatchResult {
-  track: LibraryTrack | null
+export interface MatchResult<T = LibraryTrack | Track> {
+  track: T | null
   score: number
 }
 
-export function findBestMatch(
-  incoming: PlaylistExportTrack,
-  libraryTracks: LibraryTrack[],
+/**
+ * Ищет лучшее совпадение среди треков библиотеки.
+ * Используется для склейки дубликатов (локальный файл + стриминг).
+ */
+export function findBestMatch<T extends LibraryTrack | Track>(
+  incoming: PlaylistExportTrack | Track,
+  libraryTracks: T[],
   threshold = 0.8,
-): MatchResult {
-  let bestTrack: LibraryTrack | null = null
+): MatchResult<T> {
+  let bestTrack: T | null = null
   let bestScore = 0
 
   const incomingTitle = (incoming.title || '').toLowerCase().trim()

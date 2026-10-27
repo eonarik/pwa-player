@@ -1,5 +1,6 @@
 // src/plugins/zvuk/index.ts
 import type { LibrarySource, PluginContext } from '../types'
+import type { LibraryTrack } from '@/types/library'
 
 const zvukPlugin: LibrarySource = {
   id: 'zvuk',
@@ -20,8 +21,10 @@ const zvukPlugin: LibrarySource = {
     return false
   },
 
-  buildStreamUrl(track): string {
-    return typeof track.source === 'string' ? track.source : ''
+  buildStreamUrl(track: LibraryTrack): string {
+    const source = track.sources?.[0]
+    if (source?.url) return source.url
+    return ''
   },
 
   async disconnect(_context: PluginContext): Promise<void> {

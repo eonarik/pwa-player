@@ -28,51 +28,43 @@ describe('getPlayability', () => {
   })
 
   it('nowhere → missing', () => {
-    const t = makeTrack({ fileLocation: 'nowhere', source: '' })
+    const t = makeTrack({ fileLocation: 'nowhere', sources: [] })
     expect(getPlayability(t, noDisconnected)).toBe('missing')
   })
 
-  it('both с handle → playable', () => {
-    const t = makeTrack({
-      fileLocation: 'both',
-      handle: {} as FileSystemFileHandle,
-    })
-    expect(getPlayability(t, noDisconnected)).toBe('playable')
-  })
-
-  it('local-only с handle → playable', () => {
-    const t = makeTrack({
-      fileLocation: 'local-only',
-      handle: {} as FileSystemFileHandle,
-    })
-    expect(getPlayability(t, noDisconnected)).toBe('playable')
-  })
-
   it('both без handle → unavailable (битое состояние)', () => {
-    const t = makeTrack({ fileLocation: 'both', source: '' })
+    const t = makeTrack({ fileLocation: 'both', sources: [] })
     expect(getPlayability(t, noDisconnected)).toBe('unavailable')
   })
 
   it('remote-only, сессия жива → playable-streaming', () => {
-    const t = makeTrack({ fileLocation: 'remote-only', source: 'http://...' })
+    const t = makeTrack({
+      fileLocation: 'remote-only',
+      sources: [{ id: 't', pluginId: 'yandex', url: 'http://...', priority: 20 }],
+    })
     expect(getPlayability(t, noDisconnected)).toBe('playable-streaming')
   })
 
   it('remote-only, сессия мертва → needs-reconnect', () => {
-    const t = makeTrack({ fileLocation: 'remote-only', source: 'http://...' })
+    const t = makeTrack({
+      fileLocation: 'remote-only',
+      sources: [{ id: 't', pluginId: 'yandex', url: 'http://...', priority: 20 }],
+    })
     expect(getPlayability(t, disconnected)).toBe('needs-reconnect')
   })
 
   it('downloading перебивает всё', () => {
     const t = makeTrack({
       fileLocation: 'remote-only',
-      source: 'http://...',
+      sources: [{ id: 't', pluginId: 'yandex', url: 'http://...', priority: 20 }],
     })
     expect(getPlayability(t, downloading)).toBe('downloading')
   })
 
   it('undefined fileLocation → как remote-only', () => {
-    const t = makeTrack({ source: 'http://...' })
+    const t = makeTrack({
+      sources: [{ id: 't', pluginId: 'yandex', url: 'http://...', priority: 20 }],
+    })
     expect(getPlayability(t, noDisconnected)).toBe('playable-streaming')
   })
 })

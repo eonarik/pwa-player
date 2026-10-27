@@ -1,6 +1,6 @@
 // src/services/library/selectors.ts
 
-import type { Track } from '@/types'
+import type { Track } from '@/types/track'
 import type { Folder, LibraryTrack } from '@/types/library'
 import type { Playability } from '@/types/playability'
 
@@ -29,8 +29,8 @@ export function getPlayability(
   }
 
   // remote-only
-  const hasSourceString = typeof track.source === 'string' && track.source.length > 0
-  if (!hasSourceString) return 'missing'
+  const hasSources = Array.isArray(track.sources) && track.sources.length > 0
+  if (!hasSources) return 'missing'
   if (ctx.isPluginDisconnected) return 'needs-reconnect'
 
   return 'playable-streaming'
@@ -85,7 +85,7 @@ export function isSubtreeScanned(
 /**
  * Трек недоступен для воспроизведения:
  * - помечен как битый (`nowhere`);
- * - нет `handle` и нет `source`.
+ * - нет `handle` и нет ни одного `source`.
  */
 export function isTrackUnavailable(track: Track | LibraryTrack | null | undefined): boolean {
   if (!track) return true
@@ -94,6 +94,6 @@ export function isTrackUnavailable(track: Track | LibraryTrack | null | undefine
   if ('fileLocation' in track && track.fileLocation === 'nowhere') return true
 
   if (track.handle) return false
-  if (typeof track.source === 'string' && track.source.length > 0) return false
+  if (Array.isArray(track.sources) && track.sources.length > 0) return false
   return true
 }

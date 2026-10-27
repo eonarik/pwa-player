@@ -24,9 +24,8 @@ const props = withDefaults(
 const library = useLibraryStore()
 
 const coverSrc = computed(() => {
-  const id = props.track?.id
-  if (!id) return props.track?.coverUrl ?? undefined
-  return library.getTrack(id)?.coverUrl ?? props.track?.coverUrl ?? undefined
+  if (!props.track?.albumId) return undefined
+  return library.getAlbum(props.track.albumId)?.coverUrl
 })
 </script>
 

@@ -27,7 +27,6 @@ const FLUSH_DEBOUNCE_MS = 500
 
 class MetadataService {
   private static instance: MetadataService | null = null
-
   private flushTimer: ReturnType<typeof setTimeout> | null = null
 
   static getInstance(): MetadataService {
@@ -41,7 +40,6 @@ class MetadataService {
     const track = useLibraryStore().getTrack(trackId)
     if (!track) return { status: 'skipped', reason: 'not-found' }
 
-    // Защита от перезаписи ручных правок и честных тегов файла
     if (track.metaSource === 'manual' || track.hasId3Tags) {
       return { status: 'skipped', reason: 'protected' }
     }
@@ -88,19 +86,28 @@ class MetadataService {
   }
 
   updateManual(trackId: string, patch: ManualPatch): void {
-    const track = useLibraryStore().getTrack(trackId)
+    const library = useLibraryStore()
+    const track = library.getTrack(trackId)
     if (!track) return
 
-    const library = useLibraryStore()
     library.updateTrackMetadata(trackId, {
       artist: patch.artist,
       title: patch.title,
       album: patch.album,
-      coverUrl: patch.coverUrl,
       metaSource: 'manual',
     })
 
     this.syncQueue(trackId)
+
+    // Синхронизация с альбомом
+    const updatedTrack = library.getTrack(trackId)
+    if (updatedTrack?.albumId) {
+      const album = library.getAlbum(updatedTrack.albumId)
+      if (album) {
+        album.name = patch.album || album.name
+        if (patch.coverUrl) album.coverUrl = patch.coverUrl
+      }
+    }
 
     metadataPersistenceService.setInMemory(trackId, {
       artist: patch.artist || null,
@@ -115,9 +122,9 @@ class MetadataService {
   }
 
   applyFromFile(trackId: string, parsed: TrackMetadata): void {
-    const track = useLibraryStore().getTrack(trackId)
+    const library = useLibraryStore()
+    const track = library.getTrack(trackId)
     if (!track) return
-
     if (track.metaSource === 'manual') return
 
     const patch: Partial<LibraryTrack> = {
@@ -128,10 +135,19 @@ class MetadataService {
     if (parsed.title) patch.title = parsed.title
     if (parsed.artist) patch.artist = parsed.artist
     if (parsed.album) patch.album = parsed.album
-    if (parsed.coverUrl) patch.coverUrl = parsed.coverUrl
     if (parsed.duration) patch.duration = parsed.duration
 
-    useLibraryStore().updateTrackMetadata(trackId, patch)
+    library.updateTrackMetadata(trackId, patch)
+
+    // Синхронизация с альбомом (если обложка была)
+    const updatedTrack = library.getTrack(trackId)
+    if (updatedTrack?.albumId && parsed.coverUrl) {
+      const album = library.getAlbum(updatedTrack.albumId)
+      if (album && !album.coverUrl) {
+        album.coverUrl = parsed.coverUrl
+      }
+    }
+
     this.syncQueue(trackId)
   }
 
@@ -141,26 +157,35 @@ class MetadataService {
     if (!track) return
 
     const raw = track.raw
+    let resetCoverUrl: string | undefined = undefined
 
     if (raw) {
+      resetCoverUrl = raw.coverUrl
       library.updateTrackMetadata(trackId, {
         artist: raw.artist,
         title: raw.title,
         album: raw.album,
-        coverUrl: raw.coverUrl,
         metaSource: 'filename',
         hasId3Tags: raw.hasId3Tags ?? false,
       })
     } else {
       const entry = metadataPersistenceService.get(trackId)
+      resetCoverUrl = entry?.original?.coverUrl ?? undefined
       library.updateTrackMetadata(trackId, {
         artist: entry?.original?.artist ?? '',
         title: entry?.original?.title ?? track.title,
         album: entry?.original?.album ?? '',
-        coverUrl: entry?.original?.coverUrl ?? undefined,
         metaSource: 'filename',
         hasId3Tags: false,
       })
+    }
+
+    const updatedTrack = library.getTrack(trackId)
+    if (updatedTrack?.albumId && resetCoverUrl) {
+      const album = library.getAlbum(updatedTrack.albumId)
+      if (album) {
+        album.coverUrl = resetCoverUrl
+      }
     }
 
     this.syncQueue(trackId)
@@ -168,40 +193,9 @@ class MetadataService {
   }
 
   async resetMany(trackIds: string[]): Promise<void> {
-    const library = useLibraryStore()
-
-    for (const trackId of trackIds) {
-      const track = library.getTrack(trackId)
-      if (!track) continue
-
-      const raw = track.raw
-
-      if (raw) {
-        library.updateTrackMetadata(trackId, {
-          artist: raw.artist,
-          title: raw.title,
-          album: raw.album,
-          coverUrl: raw.coverUrl,
-          metaSource: 'filename',
-          hasId3Tags: raw.hasId3Tags ?? false,
-        })
-      } else {
-        const entry = metadataPersistenceService.get(trackId)
-        library.updateTrackMetadata(trackId, {
-          artist: entry?.original?.artist ?? '',
-          title: entry?.original?.title ?? track.title,
-          album: entry?.original?.album ?? '',
-          coverUrl: entry?.original?.coverUrl ?? undefined,
-          metaSource: 'filename',
-          hasId3Tags: false,
-        })
-      }
-
-      this.syncQueue(trackId)
-      this.markNotFound(trackId)
+    for (const id of trackIds) {
+      await this.reset(id)
     }
-
-    await this.flush()
   }
 
   markNotFound(trackId: string): void {
@@ -253,22 +247,28 @@ class MetadataService {
     incoming: { artist: string; title: string; album: string; coverUrl: string | null },
     source: MetadataSource,
   ): void {
-    const patch: Partial<
-      Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'coverUrl' | 'metaSource'>
-    > = {
+    const patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'metaSource'>> = {
       metaSource: source,
     }
 
     const artist = track.artist?.trim() ?? ''
-
     if (!artist || artist === UNKNOWN_ARTIST_PLACEHOLDER) {
       if (incoming.artist) patch.artist = incoming.artist
     }
     if (incoming.title) patch.title = incoming.title
     if (incoming.album) patch.album = incoming.album
-    if (!track.coverUrl && incoming.coverUrl) patch.coverUrl = incoming.coverUrl
 
-    useLibraryStore().updateTrackMetadata(track.id, patch)
+    const library = useLibraryStore()
+    library.updateTrackMetadata(track.id, patch)
+
+    const updatedTrack = library.getTrack(track.id)
+    if (updatedTrack?.albumId && incoming.coverUrl) {
+      const album = library.getAlbum(updatedTrack.albumId)
+      if (album && !album.coverUrl) {
+        album.coverUrl = incoming.coverUrl
+      }
+    }
+
     this.syncQueue(track.id)
   }
 
@@ -292,7 +292,7 @@ class MetadataService {
   }
 
   private buildOriginal(track: LibraryTrack): OriginalMetadata {
-    const coverUrl = track.coverUrl
+    const coverUrl = track.raw?.coverUrl
     const safeCoverUrl = coverUrl?.startsWith('http') ? coverUrl : undefined
 
     return {

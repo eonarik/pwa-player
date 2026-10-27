@@ -4,6 +4,7 @@ import { watch, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import { isLiveStream } from '@/plugins/registry'
 import type { Track } from '@/types/track'
+import { useLibraryStore } from '@/stores/library'
 
 interface MediaSessionOptions {
   currentTrack: Ref<Track | null>
@@ -76,14 +77,18 @@ export function useMediaSession(options: MediaSessionOptions) {
         return
       }
 
+      const library = useLibraryStore()
+      const album = track.albumId ? library.getAlbum(track.albumId) : null
+      const coverUrl = album?.coverUrl
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artist,
         album: track.album,
-        artwork: track.coverUrl
+        artwork: coverUrl
           ? [
               {
-                src: track.coverUrl,
+                src: coverUrl,
                 sizes: '512x512',
                 type: 'image/jpeg',
               },
