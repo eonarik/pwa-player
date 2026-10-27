@@ -4,18 +4,22 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { pluralize } from '@/utils/pluralize'
-import QueueTrackRow from '@/components/queue/QueueTrackRow.vue'
-import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue' // <-- импорт
-import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue'
-import PageHeader from '@/components/ui/PageHeader.vue'
+import TrackListPage from '@/components/library/TrackListPage.vue'
+import TrackActions from '@/components/library/TrackActions.vue'
 import Button from '@/components/ui/Button.vue'
-import ListContainer from '@/components/ui/ListContainer.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Icon from '@/components/ui/Icon.vue'
+import type { Track } from '@/types/track'
 
 const player = usePlayerStore()
-const { queue, currentIndex, currentTrack, isPlaying } = storeToRefs(player)
+const { queue } = storeToRefs(player)
+
 const hasQueue = computed(() => queue.value.length > 0)
+
+const subtitle = computed(() => {
+  if (!hasQueue.value) return ''
+  return pluralize(queue.value.length, ['трек', 'трека', 'треков'])
+})
 
 function playAt(index: number): void {
   player.playAt(index)
@@ -30,37 +34,31 @@ function clearQueue(): void {
   if (!confirmed) return
   player.clearQueue()
 }
+
+function itemKey(track: Track, index: number): string {
+  return `${track.id}-${index}`
+}
 </script>
 
 <template>
-  <div class="flex h-full flex-col overflow-hidden">
-    <PageHeader title="Очередь" :subtitle="hasQueue
-      ? `${pluralize(queue.length, ['трек', 'трека', 'треков'])}${currentTrack ? ` · играет ${currentIndex + 1}-й` : ''}`
-      : 'пусто'
-      ">
-
-      <BatchAddToPlaylistButton :tracks="queue" />
-
-      <FolderSettingsMenu />
+  <TrackListPage title="Очередь" :subtitle="subtitle" :tracks="queue" :show-search="false" :show-filter="true"
+    :show-play-all="false" :show-batch-add="true" :custom-select="true" :item-key="itemKey" @select-track="playAt">
+    <template #header-actions>
       <Button v-if="hasQueue" variant="danger" size="sm" @click="clearQueue">
         Очистить
       </Button>
-    </PageHeader>
+    </template>
 
-    <div v-if="!hasQueue" class="flex flex-1 items-center justify-center p-6 h-full">
+    <template #track-actions="{ track, index }">
+      <TrackActions :track="track" :queue-index="index" @removed-from-queue="removeAt(index)" />
+    </template>
+
+    <template #empty>
       <EmptyState title="Очередь пуста" description="Запустите трек или папку — они появятся здесь">
         <template #icon>
-          <Icon name="list" w="w-10" h="h-10" />
+          <Icon name="list" w="w-10" h="w-10" />
         </template>
       </EmptyState>
-    </div>
-
-    <div v-else class="flex-1 overflow-y-auto">
-      <ListContainer>
-        <QueueTrackRow v-for="(track, index) in queue" :key="`${track.id}-${index}`" :track="track" :index="index"
-          :is-current="index === currentIndex" :is-playing="isPlaying" @select="playAt(index)"
-          @remove="removeAt(index)" />
-      </ListContainer>
-    </div>
-  </div>
+    </template>
+  </TrackListPage>
 </template>

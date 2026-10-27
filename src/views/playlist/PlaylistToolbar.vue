@@ -25,9 +25,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
+  <div class="flex shrink-0 flex-col gap-2 px-4 py-2">
     <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-2">
         <SearchInput :model-value="query" @update:model-value="(v: string) => emit('update:query', v)" />
       </div>
 
@@ -39,6 +39,10 @@ const emit = defineEmits<{
         <IconButton v-if="!isFavorites" icon="trash" variant="danger" label="Удалить плейлист"
           @click="emit('delete')" />
       </div>
+    </div>
+
+    <div v-if="$slots.filters" class="mx-auto w-full max-w-3xl">
+      <slot name="filters" />
     </div>
   </div>
 </template>

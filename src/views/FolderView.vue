@@ -10,6 +10,7 @@ import { sortService } from '@/services/sort/SortService'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { useFolderSync } from '@/composables/useFolderSync'
+import FileLocationFilter, { type SourceFilter } from '@/components/library/FileLocationFilter.vue'
 import FolderHeader from './folder/FolderHeader.vue'
 import FolderFilters from './folder/FolderFilters.vue'
 import FolderContent from './folder/FolderContent.vue'
@@ -26,8 +27,21 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 const { showFiles } = storeToRefs(uiSettings)
 
 const tracks = computed(() => currentTracks.value)
+const sourceFilter = ref<SourceFilter>('all')
 
-const hasTracks = computed(() => tracks.value.length > 0)
+// Фильтрация треков
+const filteredTracks = computed(() => {
+  if (sourceFilter.value === 'all') return tracks.value
+  return tracks.value.filter((t) => {
+    const loc = t.fileLocation ?? 'remote-only'
+    if (sourceFilter.value === 'local') {
+      return loc === 'local-only' || loc === 'both'
+    }
+    return loc === 'remote-only' || loc === 'both'
+  })
+})
+
+const hasTracks = computed(() => filteredTracks.value.length > 0)
 const hasFolders = computed(() => currentSubfolders.value.length > 0)
 
 const isScanning = computed(() => currentFolder.value?.scanState === 'scanning')
@@ -45,7 +59,6 @@ const textFiles = computed<TextFileRef[]>(() => {
 })
 
 const hasTextFiles = computed(() => textFiles.value.length > 0)
-
 const openedFile = ref<TextFileRef | null>(null)
 
 function openFile(file: TextFileRef): void {
@@ -61,7 +74,16 @@ const { query, hasQuery, hasResults, result } = useLibrarySearch(
   uiSettings.searchThreshold,
 )
 
-const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
+const searchFlatTracks = computed<LibraryTrack[]>(() => {
+  if (sourceFilter.value === 'all') return result.value.tracks
+  return result.value.tracks.filter((t) => {
+    const loc = t.fileLocation ?? 'remote-only'
+    if (sourceFilter.value === 'local') {
+      return loc === 'local-only' || loc === 'both'
+    }
+    return loc === 'remote-only' || loc === 'both'
+  })
+})
 
 function onSelectSearchTrack(trackId: string): void {
   const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
@@ -109,7 +131,7 @@ const {
 
 function onSelectTrack(index: number): void {
   if (isScanning.value) return
-  player.setQueue(tracks.value, index)
+  player.setQueue(filteredTracks.value, index)
 }
 
 const emptyStateMessage = computed(() => {
@@ -123,7 +145,7 @@ const emptyStateMessage = computed(() => {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <FolderHeader :current-folder="currentFolder" :subfolders-count="currentSubfolders.length"
-      :tracks-count="tracks.length" :files-count="textFiles.length" :subtree-tracks="subtreeTracks"
+      :tracks-count="filteredTracks.length" :files-count="textFiles.length" :subtree-tracks="subtreeTracks"
       :is-scanning="isScanning" />
 
     <FolderFilters v-model:query="query" :needs-attention="needsAttention" :metadata-loading="isMetadataLoading"
@@ -135,11 +157,15 @@ const emptyStateMessage = computed(() => {
       @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
 
     <FolderContent :has-folders="hasFolders" :has-text-files="hasTextFiles" :has-tracks="hasTracks"
-      :text-files="textFiles" :tracks="tracks" :empty-state-message="emptyStateMessage"
+      :text-files="textFiles" :tracks="filteredTracks" :empty-state-message="emptyStateMessage"
       :current-folder-id="currentFolder?.id ?? null" :is-scanning="isScanning" :has-query="hasQuery"
       :has-results="hasResults" :search-flat-tracks="searchFlatTracks" :groups="result.groups" :is-playing="isPlaying"
       :current-track-id="currentTrack?.id ?? null" @select-track="onSelectTrack"
-      @select-search-track="onSelectSearchTrack" @open-file="openFile" @play-search-all="playSearchAll" />
+      @select-search-track="onSelectSearchTrack" @open-file="openFile" @play-search-all="playSearchAll">
+      <template #filters>
+        <FileLocationFilter v-model="sourceFilter" />
+      </template>
+    </FolderContent>
 
     <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
 

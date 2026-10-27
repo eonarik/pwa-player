@@ -45,6 +45,11 @@ function isSearchCurrent(trackId: string): boolean {
   <!-- Режим поиска -->
   <div v-if="hasQuery" class="flex-1 overflow-y-auto">
     <div class="mx-auto w-full max-w-3xl p-2">
+      <!-- Слот для фильтров -->
+      <div v-if="$slots.filters" class="mb-2">
+        <slot name="filters" />
+      </div>
+
       <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
         Ничего не найдено
       </div>
@@ -84,6 +89,11 @@ function isSearchCurrent(trackId: string): boolean {
   <!-- Обычный режим -->
   <div v-else class="flex-1 overflow-y-auto">
     <div class="mx-auto w-full max-w-3xl">
+      <!-- Слот для фильтров -->
+      <div v-if="$slots.filters" class="px-3 py-2">
+        <slot name="filters" />
+      </div>
+
       <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
         <SectionTitle text="Папки" />
         <FolderList />
