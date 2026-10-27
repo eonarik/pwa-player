@@ -11,15 +11,19 @@ import { useDislikesStore } from '@/stores/dislikes'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useMediaSession } from '@/composables/useMediaSession'
 import { metadataService } from '@/services/metadata/MetadataService'
+import { metadataWorkerService } from '@/services/metadata/MetadataWorkerService'
 import { trackMetadataService } from '@/services/metadata/TrackMetadataService'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
 import { syncService } from '@/services/download/SyncService'
-import { getPlugins, loadPlugin, isStreamingPlugin } from '@/plugins/registry'
+import { getPlugins, loadPlugin, pluginCanDownload, isStreamingPlugin } from '@/plugins/registry'
 import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPageTitle } from '@/navigation/title'
 import { audioService } from '@/services/audio/AudioService'
+import { isLocalTrack } from '@/services/library/selectors'
+import { guessMetadataFromFilename } from '@/utils/parseFilename'
 import type { LibraryTrack } from '@/types/library'
 import PlayerControls from '@/components/player/PlayerControls.vue'
 import FullPlayer from '@/components/player/FullPlayer.vue'
@@ -44,6 +48,9 @@ const isFullPlayerOpen = ref(false)
 const isDrawerOpen = ref(false)
 const showSyncIssues = ref(false)
 const isFeedbackOpen = ref(false)
+
+// Защита от рекурсии в watch(currentTrack)
+const processedTracks = new Set<string>()
 
 function openFullPlayer() { isFullPlayerOpen.value = true }
 function closeFullPlayer() { isFullPlayerOpen.value = false }
@@ -127,6 +134,14 @@ onMounted(async () => {
     await history.restore()
     await dislikes.restore()
 
+    // Если папка скачивания уже выбрана — сканируем все плагины с canDownload
+    if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
+      const plugins = getPlugins().filter((p) => p.canDownload)
+      for (const p of plugins) {
+        void syncService.scanPlugin(p.id)
+      }
+    }
+
     for (const manifest of getPlugins()) {
       try {
         const plugin = await loadPlugin(manifest.id)
@@ -150,25 +165,19 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
-// Храним ID треков, которые уже ищутся или обработаны в этой сессии
-const processedTracks = new Set<string>()
-
 async function runAutoFetch(libTrack: LibraryTrack) {
   if (!uiSettings.autoFetchMetadata) return
+
+  // Если у нас есть ID3-теги, автопоиск не нужен
   if (libTrack.hasId3Tags) return
 
+  // Не трогаем ручные и уже найденные
   const canAutoFetch =
     libTrack.metaSource !== 'auto' &&
     libTrack.metaSource !== 'manual' &&
     libTrack.metaSource !== 'unknown'
 
   if (!canAutoFetch) return
-
-  // Если уже в процессе или обработан — выходим
-  if (processedTracks.has(libTrack.id)) return
-
-  // Помечаем, что начали обработку
-  processedTracks.add(libTrack.id)
 
   try {
     const result = await trackMetadataService.fetch(
@@ -179,35 +188,74 @@ async function runAutoFetch(libTrack: LibraryTrack) {
 
     if (result.status === 'found') {
       metadataService.applyRemote(libTrack.id, result.data)
-    } else {
-      // 'not-found' или 'error' — в любом случае ставим unknown, чтобы не спамить
+    } else if (result.status === 'not-found') {
       useLibraryStore().updateTrackMetadata(libTrack.id, { metaSource: 'unknown' })
     }
   } catch (err) {
     console.warn('[app] auto-fetch failed', err)
-    // Даже если упало — ставим unknown, чтобы не спамить
-    useLibraryStore().updateTrackMetadata(libTrack.id, { metaSource: 'unknown' })
   }
 }
 
 watch(currentTrack, async (track) => {
   if (!track) return
 
-  const libTrack = library.getTrack(track.id)
-  if (!libTrack) {
-    // Если это стриминговый трек, у которого нет записи в библиотеке — выходим
-    if (isStreamingPlugin(track.pluginId)) return
-    return
-  }
-
-  // 1. Парсинг локального файла
-  if (libTrack.handle && !libTrack.hasId3Tags && libTrack.metaSource !== 'manual') {
-    // ...
-  }
-
-  // 2. Автопоиск (только если не стриминговый)
+  // Если это стриминговый трек — не ищем метаданные и не качаем
   if (isStreamingPlugin(track.pluginId)) return
+
+  // ЗАЩИТА ОТ РЕКУРСИИ: если уже обрабатываем этот трек — выходим
+  if (processedTracks.has(track.id)) return
+
+  // Помечаем, что начали обработку
+  processedTracks.add(track.id)
+
+  const libTrack = library.getTrack(track.id)
+  if (!libTrack) return
+
+  // 1. Парсинг локального файла (только если тегов нет)
+  if (libTrack.handle && !libTrack.hasId3Tags && libTrack.metaSource !== 'manual') {
+    try {
+      const file = await libTrack.handle.getFile()
+      const parsed = await metadataWorkerService.parse(file)
+
+      if (parsed) {
+        metadataService.applyFromFile(libTrack.id, parsed)
+        return
+      } else {
+        const guessed = guessMetadataFromFilename(libTrack.filename ?? libTrack.title)
+        useLibraryStore().updateTrackMetadata(libTrack.id, {
+          title: guessed.title || libTrack.title,
+          artist: guessed.artist || libTrack.artist,
+          metaSource: 'filename',
+          hasId3Tags: false,
+        })
+        usePlayerStore().updateTrackInQueue(libTrack.id)
+
+        const updated = library.getTrack(libTrack.id)
+        if (updated) void runAutoFetch(updated)
+        return
+      }
+    } catch (err) {
+      console.error('[app] failed to parse local track metadata', err)
+    }
+  }
+
+  // 2. Автопоиск
   void runAutoFetch(libTrack)
+
+  // 3. Автоскачивание
+  const isDownloading = downloadOrchestrator.isDownloading(libTrack.id)
+  const isWaitingForDownload = uiSettings.autoDownloadTracks &&
+    pluginCanDownload(libTrack.pluginId) &&
+    !isLocalTrack(libTrack) &&
+    !isDownloading
+
+  if (isWaitingForDownload) {
+    if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
+      void downloadOrchestrator.downloadTrack(libTrack).catch((err) => {
+        console.warn('[app] auto-download failed', err)
+      })
+    }
+  }
 })
 </script>
 

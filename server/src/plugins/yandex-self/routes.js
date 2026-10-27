@@ -1,6 +1,6 @@
 // server/src/plugins/yandex-self/routes.js
 import { Router } from 'express'
-import { login, validateToken, refresh } from './auth.js'
+import { login } from './auth.js'
 import {
   yandexListResources,
   yandexDownloadHref,
@@ -12,56 +12,46 @@ import { mapAndFilterItems, normalizePath } from './filter.js'
 
 export const selfRoutes = Router()
 
-// --- Публичные роуты (без проверки JWT) -----------------------------
+// --- Публичные роуты (без проверки сессии) -----------------------------
 
 selfRoutes.post('/auth', async (req, res) => {
   const { ctx, password } = req.body
   try {
     const result = await login(ctx, password)
-    res.json(result)
+
+    // Сохраняем в сессию
+    req.session.selfAuth = result
+
+    res.json({ ok: true, allowedFolders: result.allowedFolders })
   } catch (err) {
     res.status(401).json({ error: err.message })
   }
 })
 
-selfRoutes.post('/refresh', async (req, res) => {
-  const { refreshToken } = req.body
-  if (!refreshToken) return res.status(400).json({ error: 'refreshToken is required' })
-
-  try {
-    const result = await refresh(refreshToken)
-    res.json(result)
-  } catch {
-    res.status(401).json({ error: 'Invalid refresh token' })
+selfRoutes.post('/logout', (req, res) => {
+  if (req.session) {
+    req.session.selfAuth = null
   }
+  res.json({ ok: true })
 })
 
-// --- Middleware для проверки JWT ------------------------------------
+// --- Middleware для проверки сессии ------------------------------------
 
-function requireAuth(options = { allowQuery: false }) {
+function requireAuth() {
   return (req, res, next) => {
-    const authHeader = req.headers.authorization
-    let token = authHeader?.split(' ')[1]
-
-    if (!token && options.allowQuery && typeof req.query.token === 'string') {
-      token = req.query.token
-    }
-
-    const payload = validateToken(token)
-
-    if (!payload) {
+    if (!req.session?.selfAuth) {
       res.status(401).json({ error: 'Unauthorized' })
       return
     }
-    req.selfAuth = payload
+    req.selfAuth = req.session.selfAuth
     next()
   }
 }
 
-// Применяем строгую проверку ко всем роутам, кроме /download и /refresh
+// Применяем строгую проверку ко всем роутам, кроме /download
 selfRoutes.use((req, res, next) => {
-  if (req.path === '/download' || req.path === '/refresh') return next()
-  return requireAuth({ allowQuery: false })(req, res, next)
+  if (req.path === '/download') return next()
+  return requireAuth()(req, res, next)
 })
 
 selfRoutes.get('/auth/check', (_req, res) => {
@@ -101,7 +91,7 @@ selfRoutes.get('/resources', async (req, res) => {
 
     data._embedded = { ...data._embedded, items }
     data.total = items.length
-    data.items = items // Для совместимости с фронтендом
+    data.items = items
 
     res.json(data)
   } catch (err) {
@@ -110,7 +100,7 @@ selfRoutes.get('/resources', async (req, res) => {
   }
 })
 
-selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) => {
+selfRoutes.get('/download', requireAuth(), async (req, res) => {
   const { path: rawPath = '' } = req.query
   if (!rawPath) {
     res.status(400).json({ error: 'path is required' })
@@ -236,7 +226,7 @@ selfRoutes.get('/download', requireAuth({ allowQuery: true }), async (req, res) 
   }
 })
 
-selfRoutes.get('/text', requireAuth({ allowQuery: true }), async (req, res) => {
+selfRoutes.get('/text', requireAuth(), async (req, res) => {
   const { path: rawPath = '' } = req.query
   if (!rawPath) {
     res.status(400).json({ error: 'path is required' })
@@ -274,7 +264,7 @@ selfRoutes.get('/text', requireAuth({ allowQuery: true }), async (req, res) => {
   }
 })
 
-selfRoutes.put('/text', requireAuth({ allowQuery: true }), async (req, res) => {
+selfRoutes.put('/text', requireAuth(), async (req, res) => {
   const { path: rawPath = '' } = req.query
   if (!rawPath) {
     res.status(400).json({ error: 'path is required' })

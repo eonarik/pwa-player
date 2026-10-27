@@ -108,4 +108,17 @@ describe('usePlaylistsStore', () => {
     store.deletePlaylist(FAVORITES_PLAYLIST_ID)
     expect(store.favorites).not.toBeNull()
   })
+
+  it('сохраняет source для стриминговых треков', () => {
+    const store = usePlaylistsStore()
+    const id = store.createPlaylist('Test')
+    const track = makeTrack({
+      id: 'zvuk:123',
+      pluginId: 'zvuk',
+      source: 'https://stream',
+    })
+
+    store.addTrackToPlaylist(id, track)
+    expect(store.playlists[id]!.tracks[0]!.source).toBe('https://stream')
+  })
 })

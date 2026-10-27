@@ -9,7 +9,7 @@ import { downloadSpaceService } from './DownloadSpaceService'
 import { getFileHandleFromPath } from './getFileFromPath'
 import { toastService } from '@/services/ui/ToastService'
 import type { SyncReport, SyncIssues, SelectedIssues } from './types'
-import type { LibraryTrack } from '@/types/library'
+import type { LibraryTrack } from '@/types'
 
 class SyncService {
   private static instance: SyncService | null = null
@@ -24,6 +24,48 @@ class SyncService {
     }
     return SyncService.instance
   }
+
+  // --- сканирование одного плагина -------------------------
+  async scanPlugin(pluginId: string): Promise<void> {
+    if (!downloadSpaceService.hasSpace.value) return
+
+    try {
+      const plugin = await loadPlugin(pluginIdFromSource(pluginId))
+      if (!plugin.scanDownloadDir || !plugin.canDownload) return
+
+      const targetDir = await downloadSpaceService.getPluginDir(pluginId)
+      const scanResult = await downloadOrchestrator.scan(pluginId)
+      if (!scanResult) return
+
+      const writer = createLibraryWriter()
+
+      // Обновляем скачанные треки
+      for (const [trackId, relativePath] of scanResult.downloaded) {
+        const handle = await getFileHandleFromPath(targetDir, relativePath)
+        if (handle) {
+          writer.updateTrackHandle(trackId, handle)
+          writer.updateTrackFileLocation(trackId, 'both')
+          writer.updateTrackSource(trackId, '')
+        }
+      }
+
+      // Обновляем отсутствующие треки
+      for (const trackId of scanResult.missing) {
+        writer.updateTrackFileLocation(trackId, 'remote-only')
+        writer.updateTrackHandle(trackId, undefined)
+      }
+
+      // Сохраняем кеш плагина
+      if (plugin.saveCache) {
+        const context = createPluginContext(pluginIdFromSource(pluginId))
+        await plugin.saveCache(context)
+      }
+    } catch (err) {
+      console.warn(`[sync] failed to scan plugin "${pluginId}"`, err)
+    }
+  }
+
+  // --- полная синхронизация ------------------------
 
   async syncAll(): Promise<SyncReport[]> {
     if (this.isSyncing.value) return []

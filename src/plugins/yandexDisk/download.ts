@@ -24,7 +24,9 @@ export async function downloadTrackToDir(
   options: DownloadTrackOptions,
 ): Promise<DownloadedTrackInfo> {
   const url = deps.buildDownloadUrl(track)
-  const relativePath = track.path ?? track.filename
+  // Фоллбек: path -> filename -> title
+  const relativePath = track.path ?? track.filename ?? `${track.title}.mp3`
+
   const result = await downloadUrlToFile(url, {
     targetDir: options.targetDir,
     relativePath,
@@ -42,7 +44,7 @@ export async function removeDownloadedFromDir(
   track: LibraryTrack,
   targetDir: FileSystemDirectoryHandle,
 ): Promise<void> {
-  const relativePath = track.path ?? track.filename
+  const relativePath = track.path ?? track.filename ?? `${track.title}.mp3`
   const segments = relativePath.split('/').filter(Boolean)
   const fileName = segments.pop()
   if (!fileName) return

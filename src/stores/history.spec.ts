@@ -87,4 +87,16 @@ describe('useHistoryStore', () => {
     store.clear()
     expect(store.entries).toEqual([])
   })
+
+  it('сохраняет source для стриминговых треков', () => {
+    const store = useHistoryStore()
+    const track = makeTrack({
+      id: 'zvuk:123',
+      pluginId: 'zvuk',
+      source: 'https://stream',
+    })
+
+    store.recordPlay(track)
+    expect(store.entries[0]!.source).toBe('https://stream')
+  })
 })

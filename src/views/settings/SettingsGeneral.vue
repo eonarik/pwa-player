@@ -4,6 +4,8 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
+import { syncService } from '@/services/download/SyncService'
+import { getPlugins } from '@/plugins/registry'
 import { toastService } from '@/services/ui/ToastService'
 import { themeService, type ThemeId } from '@/services/ui/ThemeService'
 import SectionTitle from '@/components/ui/SectionTitle.vue'
@@ -80,7 +82,15 @@ async function pickSpace(): Promise<void> {
   isPickingSpace.value = true
   try {
     const handle = await downloadSpaceService.pickSpace()
-    if (handle) toastService.success('Папка скачивания выбрана')
+    if (handle) {
+      toastService.success('Папка скачивания выбрана')
+
+      // Запускаем сканирование для всех плагинов с canDownload
+      const plugins = getPlugins().filter((p) => p.canDownload)
+      for (const p of plugins) {
+        void syncService.scanPlugin(p.id)
+      }
+    }
   } finally {
     isPickingSpace.value = false
   }
@@ -88,8 +98,16 @@ async function pickSpace(): Promise<void> {
 
 async function restoreAccess(): Promise<void> {
   const state = await downloadSpaceService.requestAccess()
-  if (state === 'granted') toastService.success('Доступ восстановлен')
-  else toastService.error('Доступ отклонён')
+  if (state === 'granted') {
+    toastService.success('Доступ восстановлен')
+    // Тоже запускаем скан, чтобы обновить fileLocation
+    const plugins = getPlugins().filter((p) => p.canDownload)
+    for (const p of plugins) {
+      void syncService.scanPlugin(p.id)
+    }
+  } else {
+    toastService.error('Доступ отклонён')
+  }
 }
 </script>
 
@@ -122,12 +140,6 @@ async function restoreAccess(): Promise<void> {
 
     <section>
       <SectionTitle text="Метаданные" />
-
-      <div class="bg-card-bg px-4 py-3">
-        <Checkbox v-model="autoFetchMetadata" label="Автопоиск при воспроизведении"
-          description="Искать обложку и теги в фоне при старте трека" />
-      </div>
-
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
         <div class="min-w-0">
           <p class="text-sm text-fg">Порог совпадения</p>
@@ -138,13 +150,38 @@ async function restoreAccess(): Promise<void> {
             @keydown.enter="commitMetadata" />
         </div>
       </div>
+
+      <div class="bg-card-bg px-4 py-3">
+        <Checkbox v-model="autoFetchMetadata" label="Автопоиск при воспроизведении"
+          description="Искать обложку и теги в фоне при старте трека" />
+      </div>
     </section>
 
+    <section>
+      <SectionTitle text="Импорт плейлистов" />
+      <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
+        <div class="min-w-0">
+          <p class="text-sm text-fg">Порог совпадения</p>
+          <p class="text-xs text-fg-muted">Насколько строго искать треки при импорте</p>
+        </div>
+        <div class="shrink-0 w-20">
+          <Input v-model="localPlaylistThreshold" type="number" class="text-right" @blur="commitPlaylist"
+            @keydown.enter="commitPlaylist" />
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <SectionTitle text="Отображение" />
+      <div class="bg-card-bg px-4 py-3">
+        <Checkbox v-model="showSource" label="Показывать источник" description="Путь к папке в списках треков" />
+      </div>
+    </section>
 
     <section>
       <SectionTitle text="Скачивание" />
 
-      <div class="bg-card-bg px-4 py-3">
+      <div class="bg-card-bg px-4 py-3 mb-2">
         <Checkbox v-model="autoDownloadTracks" label="Автоскачивание при воспроизведении"
           description="Автоматически скачивать треки из облака при их запуске (для офлайн-доступа)" />
       </div>
@@ -169,27 +206,6 @@ async function restoreAccess(): Promise<void> {
             {{ isPickingSpace ? '…' : hasSpace ? 'Сменить' : 'Выбрать' }}
           </Button>
         </div>
-      </div>
-    </section>
-
-    <section>
-      <SectionTitle text="Импорт плейлистов" />
-      <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
-        <div class="min-w-0">
-          <p class="text-sm text-fg">Порог совпадения</p>
-          <p class="text-xs text-fg-muted">Насколько строго искать треки при импорте</p>
-        </div>
-        <div class="shrink-0 w-20">
-          <Input v-model="localPlaylistThreshold" type="number" class="text-right" @blur="commitPlaylist"
-            @keydown.enter="commitPlaylist" />
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <SectionTitle text="Отображение" />
-      <div class="bg-card-bg px-4 py-3">
-        <Checkbox v-model="showSource" label="Показывать источник" description="Путь к папке в списках треков" />
       </div>
     </section>
   </div>

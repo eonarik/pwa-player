@@ -29,7 +29,8 @@ export async function scanDownloadDirForSource(
 
   const byPath = new Map<string, LibraryTrack>()
   for (const track of allTracks) {
-    byPath.set(track.path ?? track.filename, track)
+    const path = track.path ?? track.filename
+    if (path) byPath.set(path, track) // <-- проверка на undefined
   }
 
   const downloaded = new Map<string, string>()
@@ -52,7 +53,8 @@ export async function scanDownloadDirForSource(
   const missing: string[] = []
   for (const track of allTracks) {
     if (!isLocallyAvailable(track)) continue
-    if (!files.has(track.path ?? track.filename)) missing.push(track.id)
+    const path = track.path ?? track.filename
+    if (!path || !files.has(path)) missing.push(track.id) // <-- проверка
   }
 
   return { downloaded, onlyLocal, missing }

@@ -3,6 +3,7 @@
 import { get, set, del } from 'idb-keyval'
 import { ref } from 'vue'
 import { queryPermission, requestPermission, type PermissionState } from './PermissionService'
+import { syncService } from './SyncService'
 
 const SPACE_KEY = 'player:downloadSpace'
 
@@ -55,6 +56,10 @@ class DownloadSpaceService {
       this.spaceName.value = handle.name
       this.needsPermission.value = false
       await set(SPACE_KEY, handle)
+
+      // Запускаем сканирование в фоне
+      void syncService.syncAll()
+
       return handle
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {

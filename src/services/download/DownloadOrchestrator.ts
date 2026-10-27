@@ -132,7 +132,7 @@ class DownloadOrchestrator {
           writer.updateTrackSource(track.id, '')
 
           // Парсим MP3 сразу после скачивания (в воркере)
-          if (track.filename.toLowerCase().endsWith('.mp3') && result.handle) {
+          if (track.filename?.toLowerCase().endsWith('.mp3') && result.handle) {
             try {
               const file = await result.handle.getFile()
               const parsed = await metadataWorkerService.parse(file)

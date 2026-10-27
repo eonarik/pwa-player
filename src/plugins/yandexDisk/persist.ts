@@ -125,6 +125,8 @@ export async function enrichWithLocalFiles(
     if (location !== 'local-only' && location !== 'both') continue
 
     const relativePath = track.path ?? track.filename
+    if (!relativePath) continue
+
     const handle = await getFileHandleFromPath(targetDir, relativePath)
 
     if (handle) {

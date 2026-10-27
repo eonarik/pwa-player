@@ -17,7 +17,7 @@ export interface Track {
   // --- Метаданные ---
   title: string
   artist: string
-  album: string
+  album?: string
   year?: number
   trackNumber?: number
   genre?: string
@@ -50,7 +50,7 @@ export interface Track {
 
   // --- Локация ---
   /** Имя файла (например, '01.mp3') */
-  filename: string
+  filename?: string
   /** Путь внутри источника (например, 'Rock/01.mp3') */
   path?: string
   /** Полный путь в облаке (например, 'disk:/Music/01.mp3') */
