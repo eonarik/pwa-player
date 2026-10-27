@@ -9,12 +9,4 @@ export default {
       component: () => import('./ZvukView.vue'),
     },
   ],
-  menuItems: [
-    {
-      id: 'zvuk',
-      label: 'Звук',
-      icon: 'music', // Убедись, что такая иконка есть в реестре (ICONS)
-      routeName: 'zvuk',
-    },
-  ],
 } satisfies PluginExtension

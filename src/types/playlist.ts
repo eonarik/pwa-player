@@ -1,5 +1,7 @@
 // src/types/playlist.ts
 
+import type { TrackSnapshot } from './snapshot'
+
 /**
  * Снимок метаданных трека на момент добавления в плейлист.
  *
@@ -8,22 +10,7 @@
  * - Снимок позволяет показать пользователю, что было в плейлисте.
  * - remotePath нужен для скачивания плейлиста с Яндекс.Диска.
  */
-export interface PlaylistTrackSnapshot {
-  /** Полный trackId в формате библиотеки: 'track:yandex:disk:/...' */
-  trackId: string
-
-  /** id плагина-источника: 'local', 'yandex', ... */
-  pluginId: string
-
-  title: string
-  artist: string
-  album?: string
-  duration?: number
-  coverUrl?: string
-  /** Полный путь на Диске, если трек оттуда. Нужен для скачивания плейлиста. */
-  remotePath?: string
-  source?: string
-  /** Когда добавлен в плейлист */
+export interface PlaylistTrackSnapshot extends TrackSnapshot {
   addedAt: number
 }
 

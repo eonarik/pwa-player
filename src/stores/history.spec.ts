@@ -1,6 +1,5 @@
-// oxlint-disable vitest/require-mock-type-parameters
 // src/stores/history.spec.ts
-
+// oxlint-disable vitest/require-mock-type-parameters
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useHistoryStore } from './history'
@@ -43,7 +42,7 @@ describe('useHistoryStore', () => {
     const store = useHistoryStore()
     store.recordPlay(makeTrack())
     expect(store.entries).toHaveLength(1)
-    expect(store.entries[0]!.trackId).toBe('track:1')
+    expect(store.entries[0]!.id).toBe('track:1')
   })
 
   it('recordPlay обновляет существующую (upsert)', async () => {
@@ -71,7 +70,7 @@ describe('useHistoryStore', () => {
     await new Promise((r) => setTimeout(r, 5))
     store.recordPlay(makeTrack({ id: 'b' }))
 
-    expect(store.sortedHistory[0]!.trackId).toBe('b')
+    expect(store.sortedHistory[0]!.id).toBe('b')
   })
 
   it('обрезает до HISTORY_MAX_SIZE', () => {

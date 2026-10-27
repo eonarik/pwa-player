@@ -1,4 +1,5 @@
 <!-- src/views/PlaylistsView.vue -->
+<!-- src/views/PlaylistsView.vue -->
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -11,14 +12,16 @@ import { pluralize } from '@/utils/pluralize'
 import { toastService } from '@/services/ui/ToastService'
 import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser'
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
+import { createTrackSnapshot } from '@/utils/trackSnapshot' // <-- импорт
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Icon from '@/components/ui/Icon.vue'
 import IconHeart from '@/components/icons/IconHeart.vue'
+import ListContainer from '@/components/ui/ListContainer.vue'
 import type { Playlist, PlaylistExportTrack } from '@/types/playlist'
-import ListContainer from "@/components/ui/ListContainer.vue"
+import type { Track } from "@/types"
 
 const router = useRouter()
 const playlists = usePlaylistsStore()
@@ -129,12 +132,7 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
     if (exactMatch) {
       matched++
       playlist.tracks.push({
-        trackId: exactMatch.id,
-        pluginId: exactMatch.pluginId,
-        title: exactMatch.title,
-        artist: exactMatch.artist,
-        album: exactMatch.album,
-        remotePath: exactMatch.remotePath,
+        ...createTrackSnapshot(exactMatch),
         addedAt: Date.now(),
       })
       continue
@@ -145,23 +143,24 @@ function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
     if (bestMatch.track) {
       fuzzyMatched++
       playlist.tracks.push({
-        trackId: bestMatch.track.id,
-        pluginId: bestMatch.track.pluginId,
-        title: bestMatch.track.title,
-        artist: bestMatch.track.artist,
-        album: bestMatch.track.album,
-        remotePath: bestMatch.track.remotePath,
+        ...createTrackSnapshot(bestMatch.track),
         addedAt: Date.now(),
       })
     } else {
       unmatched++
-      playlist.tracks.push({
-        trackId: `imported:${crypto.randomUUID()}`,
+      // Создаем "пустой" трек для неизвестного
+      const fallbackTrack: Track = {
+        id: `imported:${crypto.randomUUID()}`,
         pluginId: 'imported',
         title: t.title || 'Unknown Title',
         artist: t.artist || '',
-        album: t.album,
-        remotePath: t.path,
+        album: t.album || '',
+        duration: t.duration || 0,
+        filename: '',
+        source: '',
+      }
+      playlist.tracks.push({
+        ...createTrackSnapshot(fallbackTrack),
         addedAt: Date.now(),
       })
     }

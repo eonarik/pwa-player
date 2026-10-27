@@ -1,12 +1,10 @@
-// oxlint-disable vitest/require-mock-type-parameters
 // src/stores/dislikes.spec.ts
-
+// oxlint-disable vitest/require-mock-type-parameters
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useDislikesStore } from './dislikes'
 import type { Track } from '@/types/track'
 
-// Мок persistence — чтобы не писать в IDB
 vi.mock('@/services/persistence/DislikesPersistenceService', () => ({
   dislikesPersistenceService: {
     load: vi.fn(async () => null),
@@ -45,7 +43,7 @@ describe('useDislikesStore', () => {
     store.dislike(track)
 
     expect(store.entries).toHaveLength(1)
-    expect(store.entries[0]!.trackId).toBe('track:1')
+    expect(store.entries[0]!.id).toBe('track:1')
     expect(store.isDisliked('track:1')).toBe(true)
   })
 
@@ -96,7 +94,7 @@ describe('useDislikesStore', () => {
     await new Promise((r) => setTimeout(r, 5))
     store.dislike(t2)
 
-    expect(store.sortedEntries[0]!.trackId).toBe('b')
+    expect(store.sortedEntries[0]!.id).toBe('b')
   })
 
   it('clear очищает всё', () => {

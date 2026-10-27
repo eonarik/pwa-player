@@ -1,4 +1,5 @@
 // src/plugins/local/index.ts
+
 import type { LibrarySource, LoadOptions, PluginContext, ScanFolderOptions } from '../types'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { fileSystemService } from './FileSystemService'
@@ -76,14 +77,16 @@ const localPlugin: LibrarySource = {
       persisted.tracks.map(async (t) => {
         try {
           if (!t.handle) throw new Error('no handle')
-          const folder = newFolders[t.folderId]
+
+          const folderId = t.folderId ?? ''
+          const folder = newFolders[folderId]
           const cachedEntry = metadataPersistenceService.get(t.id)
           const cachedCover = cachedEntry?.coverUrl ?? undefined
 
           newTracks[t.id] = {
             id: t.id,
             pluginId: t.pluginId,
-            folderId: t.folderId,
+            folderId: folderId,
             title: t.title,
             artist: t.artist,
             album: t.album,
@@ -249,6 +252,7 @@ function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
       filename: track.filename,
       path: track.path!,
       handle: track.handle,
+      source: track.source,
       metaSource: track.metaSource,
     })
   }

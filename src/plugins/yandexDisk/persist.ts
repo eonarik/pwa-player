@@ -9,7 +9,7 @@ import type {
 } from '@/types/library'
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { getFileHandleFromPath } from '@/services/download/getFileFromPath'
-import { migrateFileLocation, migrateScanState } from '@/services/library/migrations'
+import { migrateScanState } from '@/services/library/migrations'
 import type { PersistedYandexLibrary, IYandexService } from './types'
 
 const ROOT_REMOTE_PATH = 'disk:/'
@@ -86,12 +86,13 @@ export function fromPersisted(
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
     const cachedCover = metadataPersistenceService.get(t.id)?.coverUrl ?? undefined
     const source = t.remotePath ? service.buildDownloadUrl(t.remotePath) : ''
-    const fileLocation: FileLocation = t.fileLocation ?? migrateFileLocation(t.origin)
+    // ИСПРАВЛЕНО: используем fileLocation, а не origin
+    const fileLocation: FileLocation = t.fileLocation ?? 'remote-only'
 
     return {
       id: t.id,
       pluginId: t.pluginId,
-      folderId: t.folderId,
+      folderId: t.folderId!,
       filename: t.filename,
       path: t.path,
       remotePath: t.remotePath || undefined,

@@ -4,6 +4,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { historyPersistenceService } from '@/services/persistence/HistoryPersistenceService'
 import { HISTORY_MAX_SIZE } from '@/types/history'
+import { createTrackSnapshot } from '@/utils/trackSnapshot'
 import type { PlayHistoryEntry } from '@/types/history'
 import type { Track } from '@/types/track'
 
@@ -23,8 +24,9 @@ export const useHistoryStore = defineStore('history', () => {
   const uniqueHistory = computed<PlayHistoryEntry[]>(() => {
     const seen = new Map<string, PlayHistoryEntry>()
     for (const entry of sortedHistory.value) {
-      if (!seen.has(entry.trackId)) {
-        seen.set(entry.trackId, entry)
+      // ИСПОЛЬЗУЕМ id вместо trackId
+      if (!seen.has(entry.id)) {
+        seen.set(entry.id, entry)
       }
     }
     return Array.from(seen.values())
@@ -68,14 +70,8 @@ export const useHistoryStore = defineStore('history', () => {
   // --- Внутренние хелперы ---------------------------------------------
 
   function toEntry(track: Track): PlayHistoryEntry {
-    const remotePath = (track as { remotePath?: string }).remotePath
     return {
-      trackId: track.id,
-      pluginId: track.pluginId,
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      remotePath,
+      ...createTrackSnapshot(track),
       playedAt: Date.now(),
     }
   }
@@ -84,7 +80,8 @@ export const useHistoryStore = defineStore('history', () => {
 
   function recordPlay(track: Track): void {
     const trackId = track.id
-    const index = entries.value.findIndex((e) => e.trackId === trackId)
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    const index = entries.value.findIndex((e) => e.id === trackId)
 
     if (index !== -1) {
       entries.value[index] = {
@@ -98,8 +95,9 @@ export const useHistoryStore = defineStore('history', () => {
     if (entries.value.length > HISTORY_MAX_SIZE) {
       const sorted = [...entries.value].sort((a, b) => a.playedAt - b.playedAt)
       const toRemove = entries.value.length - HISTORY_MAX_SIZE
-      const removeIds = new Set(sorted.slice(0, toRemove).map((e) => e.trackId))
-      entries.value = entries.value.filter((e) => !removeIds.has(e.trackId))
+      // ИСПОЛЬЗУЕМ id вместо trackId
+      const removeIds = new Set(sorted.slice(0, toRemove).map((e) => e.id))
+      entries.value = entries.value.filter((e) => !removeIds.has(e.id))
     }
   }
 
@@ -109,7 +107,8 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   function getEntry(trackId: string): PlayHistoryEntry | null {
-    return entries.value.find((e) => e.trackId === trackId) ?? null
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    return entries.value.find((e) => e.id === trackId) ?? null
   }
 
   return {

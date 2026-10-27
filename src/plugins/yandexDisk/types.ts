@@ -1,12 +1,10 @@
 // src/plugins/yandexDisk/types.ts
 
-import type {
-  FileLocation,
-  ScanState,
-  TextFileRef,
-  MetadataSource,
-  RawMetadata,
-} from '@/types/library'
+import type { ScanState, TextFileRef } from '@/types/library'
+
+import type { PersistedTrack } from '@/services/persistence/types'
+
+export type PersistedYandexTrack = PersistedTrack
 
 export interface YandexResourceItem {
   path: string
@@ -76,27 +74,6 @@ export interface PersistedYandexFolder {
    * @deprecated Только для чтения старых кешей. Не пишется с 0.11.0.
    */
   scanStatus?: 'scanned' | 'scanning'
-}
-
-export interface PersistedYandexTrack {
-  id: string
-  pluginId: string
-  folderId: string
-  filename: string
-  path: string
-  remotePath: string
-  title: string
-  artist: string
-  album: string
-  fileLocation?: FileLocation
-  duration?: number
-  metaSource?: MetadataSource
-  raw?: RawMetadata
-
-  /**
-   * @deprecated Только для чтения старых кешей. Не пишется с 0.11.0.
-   */
-  origin?: 'remote' | 'downloaded' | 'only-local'
 }
 
 export interface PersistedYandexLibrary {

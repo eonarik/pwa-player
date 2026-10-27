@@ -1,21 +1,12 @@
 // src/types/history.ts
 
+import type { TrackSnapshot } from './snapshot'
+
 /**
  * Запись истории воспроизведения.
  * Снимок метаданных, чтобы история не ломалась при смене источника.
  */
-export interface PlayHistoryEntry {
-  /** Полный trackId в формате библиотеки: 'track:yandex:disk:/...' */
-  trackId: string
-
-  /** id плагина-источника: 'local', 'yandex', ... */
-  pluginId: string
-
-  title: string
-  artist: string
-  album?: string
-  /** Полный путь на Диске, если трек оттуда. Для скачивания из истории */
-  remotePath?: string
+export interface PlayHistoryEntry extends TrackSnapshot {
   /** Когда последний раз воспроизводился (timestamp) */
   playedAt: number
 }

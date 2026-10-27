@@ -7,9 +7,9 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
+import { useResolvedTracks } from '@/composables/useResolvedTracks'
 import { pluralize } from '@/utils/pluralize'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
-import TrackResolvedItem from '@/components/library/TrackResolvedItem.vue'
 import TrackListItem from '@/components/library/TrackListItem.vue'
 import TrackActions from '@/components/library/TrackActions.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
@@ -20,6 +20,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ListContainer from '@/components/ui/ListContainer.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { LibraryTrack } from '@/types/library'
+import type { Track } from '@/types/track'
 
 const dislikes = useDislikesStore()
 const library = useLibraryStore()
@@ -31,21 +32,20 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 
 const isEmpty = computed(() => sortedEntries.value.length === 0)
 
-const resolvedTracks = computed<LibraryTrack[]>(() => {
-  const result: LibraryTrack[] = []
-  for (const entry of sortedEntries.value) {
-    const track = library.getTrack(entry.trackId)
-    if (track) result.push(track)
-  }
-  return result
+const resolvedTracks = useResolvedTracks(sortedEntries)
+
+const searchableTracks = computed<LibraryTrack[]>(() => {
+  return resolvedTracks.value.filter((t): t is LibraryTrack => {
+    return Boolean(library.getTrack(t.id))
+  })
 })
 
 const { query, hasQuery, hasResults, result } = useLibrarySearch(
-  resolvedTracks,
+  searchableTracks,
   uiSettings.searchThreshold,
 )
 
-const searchFlatTracks = computed<LibraryTrack[]>(() => result.value.tracks)
+const searchFlatTracks = computed<Track[]>(() => result.value.tracks)
 
 function onSelectSearchTrack(trackId: string) {
   const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
@@ -62,10 +62,9 @@ function playAll() {
   player.playAll(resolvedTracks.value)
 }
 
-function onSelectTrack(trackId: string) {
-  const idx = resolvedTracks.value.findIndex((t) => t.id === trackId)
-  if (idx < 0) return
-  player.setQueue(resolvedTracks.value, idx)
+function onSelectTrack(index: number) {
+  if (index < 0) return
+  player.setQueue(resolvedTracks.value, index)
 }
 
 function isCurrent(trackId: string): boolean {
@@ -128,10 +127,15 @@ function clearDislikes() {
         </template>
 
         <ListContainer v-else max-width="lg">
-          <TrackResolvedItem v-for="(entry, index) in sortedEntries" :key="entry.trackId" :track-id="entry.trackId"
-            :index="index" :is-current="isCurrent(entry.trackId)" :is-playing="isPlaying"
-            :meta-label="formatRelativeTime(entry.dislikedAt)" :snapshot="entry"
-            @select="onSelectTrack(entry.trackId)" />
+          <TrackListItem v-for="(track, index) in resolvedTracks" :key="track.id" :track="track" :index="index"
+            :is-current="isCurrent(track.id)" :is-playing="isPlaying" @select="() => onSelectTrack(index)">
+            <template #actions>
+              <span v-if="sortedEntries[index]" class="mr-2 text-[10px] tabular-nums text-fg-subtle">
+                {{ formatRelativeTime(sortedEntries[index]!.dislikedAt) }}
+              </span>
+              <TrackActions :track="track" />
+            </template>
+          </TrackListItem>
         </ListContainer>
       </div>
     </div>

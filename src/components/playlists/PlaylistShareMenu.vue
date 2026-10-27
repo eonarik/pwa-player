@@ -18,12 +18,13 @@ const library = useLibraryStore()
 
 const exportTracks = computed<PlaylistExportTrack[]>(() => {
   return props.playlist.tracks.map((snapshot) => {
-    const track = library.getTrack(snapshot.trackId)
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    const track = library.getTrack(snapshot.id)
     return {
       artist: snapshot.artist || '',
       title: snapshot.title || 'Unknown Title',
       album: snapshot.album,
-      duration: track?.duration,
+      duration: track?.duration ?? snapshot.duration,
       path: track?.path || snapshot.remotePath,
     }
   })

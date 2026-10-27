@@ -4,7 +4,8 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { playlistPersistenceService } from '@/services/persistence/PlaylistPersistenceService'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
-import type { Playlist, PlaylistTrackSnapshot } from '@/types/playlist'
+import { createTrackSnapshot } from '@/utils/trackSnapshot'
+import type { Playlist } from '@/types/playlist'
 import type { Track } from '@/types/track'
 
 export const usePlaylistsStore = defineStore('playlists', () => {
@@ -27,7 +28,8 @@ export const usePlaylistsStore = defineStore('playlists', () => {
   const favoriteTrackIds = computed<Set<string>>(() => {
     const fav = favorites.value
     if (!fav) return new Set()
-    return new Set(fav.tracks.map((t) => t.trackId))
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    return new Set(fav.tracks.map((t) => t.id))
   })
 
   // --- Восстановление и сохранение ------------------------------------
@@ -84,23 +86,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     }
   }
 
-  /** Снимок трека для плейлиста */
-  function toSnapshot(track: Track): PlaylistTrackSnapshot {
-    const remotePath = (track as { remotePath?: string }).remotePath
-    return {
-      trackId: track.id,
-      pluginId: track.pluginId,
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      duration: track.duration,
-      coverUrl: track.coverUrl,
-      remotePath,
-      source: typeof track.source === 'string' ? track.source : undefined,
-      addedAt: Date.now(),
-    }
-  }
-
   // --- Действия -------------------------------------------------------
 
   function createPlaylist(name: string): string {
@@ -139,10 +124,14 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     const playlist = playlists.value[playlistId]
     if (!playlist) return false
 
-    const exists = playlist.tracks.some((t) => t.trackId === track.id)
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    const exists = playlist.tracks.some((t) => t.id === track.id)
     if (exists) return false
 
-    playlist.tracks.push(toSnapshot(track))
+    playlist.tracks.push({
+      ...createTrackSnapshot(track),
+      addedAt: Date.now(),
+    })
     playlist.updatedAt = Date.now()
     return true
   }
@@ -151,15 +140,17 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     const playlist = playlists.value[playlistId]
     if (!playlist) return 0
 
-    const existing = new Set(playlist.tracks.map((t) => t.trackId))
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    const existing = new Set(playlist.tracks.map((t) => t.id))
     let added = 0
     const now = Date.now()
 
     for (const track of tracks) {
       if (existing.has(track.id)) continue
       existing.add(track.id)
+
       playlist.tracks.push({
-        ...toSnapshot(track),
+        ...createTrackSnapshot(track),
         addedAt: now,
       })
       added++
@@ -177,7 +168,8 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     if (!playlist) return false
 
     const initialLength = playlist.tracks.length
-    playlist.tracks = playlist.tracks.filter((t) => t.trackId !== trackId)
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    playlist.tracks = playlist.tracks.filter((t) => t.id !== trackId)
 
     if (playlist.tracks.length !== initialLength) {
       playlist.updatedAt = Date.now()

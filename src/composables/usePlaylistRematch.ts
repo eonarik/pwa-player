@@ -8,17 +8,6 @@ import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
 import { toastService } from '@/services/ui/ToastService'
 import type { Playlist } from '@/types/playlist'
 
-/**
- * Автоматическое пересопоставление треков плейлиста с библиотекой.
- *
- * Если в плейлисте есть snapshot с trackId, которого нет в библиотеке
- * (трек был импортирован, когда источник не был подключён, или трек
- * переехал), пытаемся найти совпадение через `findBestMatch`.
- * При успехе обновляем snapshot на актуальный trackId.
- *
- * Возвращает функцию `rematch()`, которую вызывают при заходе
- * в плейлист. Если изменений не было — ничего не делает.
- */
 export function usePlaylistRematch(playlist: Ref<Playlist | null>): {
   rematch: () => void
 } {
@@ -34,7 +23,7 @@ export function usePlaylistRematch(playlist: Ref<Playlist | null>): {
     const threshold = uiSettings.playlistMatchThreshold
 
     for (const snapshot of playlist.value.tracks) {
-      const existing = library.getTrack(snapshot.trackId)
+      const existing = library.getTrack(snapshot.id)
       if (existing) continue
 
       const match = findBestMatch(
@@ -48,7 +37,7 @@ export function usePlaylistRematch(playlist: Ref<Playlist | null>): {
       )
 
       if (match.track) {
-        snapshot.trackId = match.track.id
+        snapshot.id = match.track.id
         snapshot.pluginId = match.track.pluginId
         snapshot.remotePath = match.track.remotePath
         snapshot.title = match.track.title

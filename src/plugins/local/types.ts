@@ -1,6 +1,8 @@
 // src/plugins/local/types.ts
 
-import type { MetadataSource, RawMetadata } from '@/types/library'
+import type { PersistedTrack } from '@/services/persistence/types'
+
+export type PersistedLocalTrack = PersistedTrack
 
 export interface PersistedLocalFolder {
   id: string
@@ -12,25 +14,6 @@ export interface PersistedLocalFolder {
   trackIds: string[]
   totalTrackCount: number
   source?: string
-}
-
-export interface PersistedLocalTrack {
-  id: string
-  pluginId: string
-  folderId: string
-  title: string
-  artist: string
-  album: string
-  year?: number
-  trackNumber?: number
-  genre?: string
-  duration?: number
-  codec?: string
-  filename: string
-  path: string
-  handle?: FileSystemFileHandle
-  metaSource?: MetadataSource
-  raw?: RawMetadata
 }
 
 export interface PersistedLocalLibrary {

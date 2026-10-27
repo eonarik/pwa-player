@@ -3,6 +3,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { dislikesPersistenceService } from '@/services/persistence/DislikesPersistenceService'
+import { createTrackSnapshot } from '@/utils/trackSnapshot'
 import type { DislikeEntry } from '@/types/dislike'
 import type { Track } from '@/types/track'
 
@@ -16,7 +17,8 @@ export const useDislikesStore = defineStore('dislikes', () => {
   // --- Computed -------------------------------------------------------
 
   const dislikedIds = computed<Set<string>>(() => {
-    return new Set(entries.value.map((e) => e.trackId))
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    return new Set(entries.value.map((e) => e.id))
   })
 
   const sortedEntries = computed<DislikeEntry[]>(() => {
@@ -59,14 +61,8 @@ export const useDislikesStore = defineStore('dislikes', () => {
   // --- Внутренние хелперы ---------------------------------------------
 
   function toEntry(track: Track): DislikeEntry {
-    const remotePath = (track as { remotePath?: string }).remotePath
     return {
-      trackId: track.id,
-      pluginId: track.pluginId,
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      remotePath,
+      ...createTrackSnapshot(track),
       dislikedAt: Date.now(),
     }
   }
@@ -83,7 +79,8 @@ export const useDislikesStore = defineStore('dislikes', () => {
   }
 
   function undislike(trackId: string): void {
-    entries.value = entries.value.filter((e) => e.trackId !== trackId)
+    // ИСПОЛЬЗУЕМ id вместо trackId
+    entries.value = entries.value.filter((e) => e.id !== trackId)
   }
 
   function toggleDislike(track: Track): boolean {

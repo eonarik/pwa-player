@@ -36,16 +36,12 @@ export interface RawMetadata {
   hasId3Tags?: boolean
 }
 
+/**
+ * Трек, который находится в библиотеке (привязан к папке).
+ */
 export interface LibraryTrack extends Track {
+  /** ID папки, в которой лежит трек */
   folderId: string
-  handle?: FileSystemFileHandle
-  remotePath?: string
-  fileLocation?: FileLocation
-  metaSource?: MetadataSource
-  /** true, если в файле есть теги (ID3/FLAC), false если нет */
-  hasId3Tags?: boolean
-  /** Снимок первичных метаданных (при сканировании) */
-  raw?: RawMetadata
 }
 
 export interface CollectedLibrary {

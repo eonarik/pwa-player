@@ -10,14 +10,14 @@ import { useUiSettingsStore } from '@/stores/uiSettings'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { usePlaylistRematch } from '@/composables/usePlaylistRematch'
+import { useResolvedTracks } from '@/composables/useResolvedTracks'
 import { FAVORITES_PLAYLIST_ID } from '@/types/playlist'
-import { compareStrings } from '@/utils/sort'
 import PlaylistHeader from './playlist/PlaylistHeader.vue'
 import PlaylistToolbar from './playlist/PlaylistToolbar.vue'
 import PlaylistContent from './playlist/PlaylistContent.vue'
 import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
-import type { Track } from '@/types/track'
 import type { LibraryTrack } from '@/types/library'
+import type { Track } from '@/types/track'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,36 +33,9 @@ const playlist = computed(() => playlists.getPlaylist(playlistId.value))
 
 const isFavorites = computed(() => playlistId.value === FAVORITES_PLAYLIST_ID)
 
-// Собираем треки для отображения и воспроизведения.
-// Если трек есть в библиотеке — берем его.
-// Если нет (стриминг) — собираем виртуальный Track из снимка.
-const resolvedTracks = computed<Track[]>(() => {
-  if (!playlist.value) return []
-  const result: Track[] = []
-
-  for (const snapshot of playlist.value.tracks) {
-    const libTrack = library.getTrack(snapshot.trackId)
-
-    if (libTrack) {
-      result.push(libTrack)
-    } else if (snapshot.source) {
-      result.push({
-        id: snapshot.trackId,
-        pluginId: snapshot.pluginId,
-        title: snapshot.title,
-        artist: snapshot.artist,
-        album: snapshot.album ?? '',
-        duration: snapshot.duration ?? 0,
-        coverUrl: snapshot.coverUrl,
-        filename: '',
-        source: snapshot.source,
-      })
-    }
-  }
-
-  // Сортируем по названию, так как sortService ожидает LibraryTrack
-  return result.sort((a, b) => compareStrings(a.title, b.title))
-})
+// Используем общий composable для сборки треков (из библиотеки + виртуальные)
+const snapshots = computed(() => playlist.value?.tracks ?? [])
+const resolvedTracks = useResolvedTracks(snapshots)
 
 const unavailableCount = computed(() => {
   if (!playlist.value) return 0
@@ -79,7 +52,7 @@ onMounted(() => {
 
 // --- Поиск -----------------------------------------------------------
 
-// Фильтруем только те треки, которые есть в библиотеке (для поиска)
+// Для поиска используем только те треки, что есть в библиотеке
 const searchableTracks = computed<LibraryTrack[]>(() => {
   return resolvedTracks.value.filter((t): t is LibraryTrack => {
     return Boolean(library.getTrack(t.id))
@@ -95,7 +68,6 @@ const searchFlatTracks = computed<Track[]>(() => result.value.tracks)
 
 // --- Поиск метаданных -----------------------------------------------
 
-// Метаданные ищем только для треков из библиотеки
 const {
   isLoading: isMetadataLoading,
   progress: metadataProgress,
