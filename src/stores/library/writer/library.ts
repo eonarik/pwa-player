@@ -1,7 +1,6 @@
 // src/stores/library/writer/library.ts
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { CollectedLibrary } from '@/types/library'
+import type { Album, CollectedLibrary } from '@/types/library'
 import type { useLibraryStore } from '../store'
 import { buildFolderWithScanState } from './folders'
 import { buildTrackWithLocation } from './tracks'
@@ -9,14 +8,14 @@ import { matchesSource, resetCurrentFolderIfDeleted } from './helpers'
 import { invalidateSubtreeCache } from '../subtreeCache'
 import { assertTrackInvariants } from '@/services/library/asserts'
 import { librarySaveService } from '@/services/library/LibrarySaveService'
-import { buildEntitiesForTrack } from '@/services/library/EntityGraph'
+import { buildEntitiesForTrack, createAlbumId } from '@/services/library/EntityGraph'
 import { reconciliationService } from '@/services/library/ReconciliationService'
+import type { TrackSource } from "@/types/track"
 
 type LibraryStore = ReturnType<typeof useLibraryStore>
 
 export function setLibrary(s: LibraryStore, collected: CollectedLibrary, sourceId: string): void {
-  // 1. Запоминаем albumId и sources старых треков, чтобы не потерять их при сканировании
-  const savedMeta = new Map<string, { albumId?: string; sources?: any[] }>()
+  const savedMeta = new Map<string, { albumId?: string; sources?: TrackSource[] }>()
 
   for (const [id, track] of Object.entries(s.tracks)) {
     if (matchesSource(track.pluginId, sourceId)) {
@@ -29,7 +28,6 @@ export function setLibrary(s: LibraryStore, collected: CollectedLibrary, sourceI
     }
   }
 
-  // 2. Очищаем старые данные этого источника
   for (const [id, folder] of Object.entries(s.folders)) {
     if (matchesSource(folder.source, sourceId)) delete s.folders[id]
   }
@@ -40,39 +38,29 @@ export function setLibrary(s: LibraryStore, collected: CollectedLibrary, sourceI
         URL.revokeObjectURL(track.raw.coverUrl)
       }
 
-      // Отвязываем от альбома
       if (track.albumId) {
         const album = s.albums[track.albumId]
         if (album) {
           album.trackIds = album.trackIds.filter((tid) => tid !== id)
-          if (album.trackIds.length === 0) {
-            delete s.albums[track.albumId]
-          }
         }
       }
-
       delete s.tracks[id]
     }
   }
 
-  // 3. Добавляем новые папки
   for (const folder of collected.folders) {
     s.folders[folder.id] = buildFolderWithScanState(folder, sourceId)
   }
 
-  // 4. Добавляем новые треки
   for (const track of collected.tracks) {
     let next = buildTrackWithLocation(track, sourceId)
 
-    // Восстанавливаем albumId и sources из памяти
     const saved = savedMeta.get(next.id)
     if (saved) {
       if (saved.albumId && !next.albumId) {
         next.albumId = saved.albumId
         const album = s.albums[saved.albumId]
-        if (album) {
-          next.album = album.name
-        }
+        if (album) next.album = album.name
       }
       if (saved.sources && saved.sources.length > 0) {
         const mergedSources = [...(next.sources || [])]
@@ -88,20 +76,26 @@ export function setLibrary(s: LibraryStore, collected: CollectedLibrary, sourceI
 
     assertTrackInvariants(next, 'setLibrary')
 
-    // Создаем/обновляем альбом (если у трека появились данные)
-    const { track: trackWithAlbum, album } = buildEntitiesForTrack(next)
+    // Если у трека нет albumId, ищем альбом в памяти
+    let existingAlbum: Album | null = null
+    if (next.albumId) {
+      existingAlbum = s.albums[next.albumId] || null
+    } else if (next.album) {
+      const tempId = createAlbumId(next.album, next.artist)
+      if (tempId) existingAlbum = s.albums[tempId] || null
+    }
+
+    const { track: trackWithAlbum, album } = buildEntitiesForTrack(next, existingAlbum)
     next = trackWithAlbum
 
     if (album) {
       const existing = s.albums[album.id]
       if (existing) {
+        // Если альбом уже есть, не перезаписываем обложку, если она там есть
+        if (!existing.coverUrl && album.coverUrl) existing.coverUrl = album.coverUrl
         if (!existing.trackIds.includes(next.id)) {
           existing.trackIds.push(next.id)
         }
-        if (!existing.coverUrl && album.coverUrl) {
-          existing.coverUrl = album.coverUrl
-        }
-        existing.name = album.name
       } else {
         s.albums[album.id] = album
       }
@@ -110,29 +104,13 @@ export function setLibrary(s: LibraryStore, collected: CollectedLibrary, sourceI
     s.tracks[next.id] = next
   }
 
-  // 5. Мержим альбомы, которые пришли от плагина (если есть)
-  if (collected.albums) {
-    for (const album of collected.albums) {
-      const existing = s.albums[album.id]
-      if (existing) {
-        const newIds = new Set([...existing.trackIds, ...album.trackIds])
-        existing.trackIds = Array.from(newIds)
-        if (!existing.coverUrl && album.coverUrl) existing.coverUrl = album.coverUrl
-      } else {
-        s.albums[album.id] = album
-      }
-    }
-  }
-
   for (const folder of collected.folders) {
     invalidateSubtreeCache(folder.id, (id) => s.folders[id] ?? null)
   }
 
   resetCurrentFolderIfDeleted(s)
-
   librarySaveService.scheduleSave(sourceId)
 
-  // 6. Запускаем фоновую склейку
   if (collected.tracks.length > 0) {
     void reconciliationService.reconcile()
   }

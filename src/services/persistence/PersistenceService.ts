@@ -141,7 +141,7 @@ export class PersistenceService {
       path: raw.path,
       handle,
       directoryHandle: raw.directoryHandle ? toRaw(raw.directoryHandle) : undefined,
-      sources: raw.sources,
+      sources: raw.sources ? JSON.parse(JSON.stringify(raw.sources)) : [],
       raw: raw.raw ? JSON.parse(JSON.stringify(raw.raw)) : undefined,
       fileLocation,
       coverUrl: raw.coverUrl?.startsWith('http') ? raw.coverUrl : undefined,

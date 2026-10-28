@@ -161,7 +161,7 @@ const emptyStateMessage = computed(() => {
       :metadata-progress="metadataProgress" :metadata-stats="metadataStats"
       :metadata-has-unchecked="metadataHasUnchecked" :metadata-issues-count="metadataIssues.length"
       :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice" :is-refreshing="isRefreshing"
-      :is-refreshing-from-device="isRefreshingFromDevice" @metadata-search="metadataSearch"
+      :is-refreshing-from-device="isRefreshingFromDevice" :tracks="filteredTracks" @metadata-search="metadataSearch"
       @metadata-cancel="metadataCancel" @metadata-reset="metadataReset" @open-issues="openMetadataIssues"
       @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
 

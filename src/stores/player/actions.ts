@@ -4,7 +4,7 @@ import type { Ref, ShallowRef } from 'vue'
 import { audioService } from '@/services/audio/AudioService'
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource'
 import { isTrackUnavailable } from '@/services/library/selectors'
-import { AuthError, ServerError } from '@/services/api/errors'
+import { AuthError } from '@/services/api/errors'
 import { apiClient } from '@/services/api/ApiClient'
 import { connectPlugin } from '@/services/plugins/connectPlugin'
 import { pluginIdFromSource, isLiveStream } from '@/plugins/registry'
@@ -107,11 +107,15 @@ export function createPlayerActions(
     const track = queue.value[index]
     if (!track) return
 
-    // Сортируем источники по приоритету (на всякий случай, если они не отсортированы)
     const sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority)
 
     if (sortedSources.length === 0) {
       toastService.error('Источник недоступен. Нет доступных ссылок.')
+      if (queue.value.length > 1) {
+        next()
+      } else {
+        stop()
+      }
       return
     }
 
@@ -122,37 +126,34 @@ export function createPlayerActions(
 
     let lastError: Error | null = null
 
-    // Перебираем все источники по очереди
     for (const source of sortedSources) {
       try {
         const resolved = await resolveTrackSource(track, source)
-
         audioService.load(resolved)
         await audioService.play()
-
-        // Если дошли сюда — играет!
         return
       } catch (err) {
         if (err instanceof AuthError) {
-          // Если это ошибка авторизации, дальше пробовать нет смысла, нужен reconnect
           handleAuthError(err, track)
           return
         }
 
-        if (err instanceof ServerError) {
-          console.warn(`[player] Source ${source.id} failed with ServerError, trying next...`)
-          lastError = err
-          continue // пробуем следующий источник
-        }
-
-        console.warn(`[player] Source ${source.id} failed, trying next...`, err)
         lastError = err instanceof Error ? err : new Error(String(err))
+
+        // При ошибке 500/404 просто идем к следующему источнику
+        console.warn(`[player] Source ${source.id} failed, trying next...`, err)
       }
     }
 
-    // Если все источники упали
     console.error('[player] All sources failed for track', track.id, lastError)
     toastService.error('Не удалось воспроизвести трек (все источники недоступны)')
+
+    // Если в очереди есть еще треки — скипаем, иначе стоп
+    if (queue.value.length > 1) {
+      setTimeout(() => next(), 500)
+    } else {
+      stop()
+    }
   }
 
   function setQueue(tracks: Track[], startIndex = 0): void {

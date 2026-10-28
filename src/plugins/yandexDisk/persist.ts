@@ -8,9 +8,9 @@ import type {
   LibraryTrack,
   ScanState,
 } from '@/types/library'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { getFileHandleFromPath } from '@/services/download/getFileFromPath'
 import { migrateScanState } from '@/services/library/migrations'
+import { guessMetadataFromFilename } from '@/utils/parseFilename'
 import type { PersistedYandexLibrary, IYandexService } from './types'
 
 const ROOT_REMOTE_PATH = 'disk:/'
@@ -59,7 +59,6 @@ export function toPersisted(collected: CollectedLibrary): PersistedYandexLibrary
   return {
     folders,
     tracks,
-    albums: collected.albums ? JSON.parse(JSON.stringify(collected.albums)) : [],
     rootFolderId: collected.rootFolderId,
     rootFolderName: collected.rootFolderName,
     rootPath: ROOT_REMOTE_PATH,
@@ -90,9 +89,19 @@ export function fromPersisted(
   })
 
   const tracks: LibraryTrack[] = cached.tracks.map((t) => {
-    const cachedCover = metadataPersistenceService.get(t.id)?.coverUrl ?? undefined
     const source = t.remotePath ? service.buildDownloadUrl(t.remotePath) : ''
     const fileLocation: FileLocation = t.fileLocation ?? 'remote-only'
+
+    // Восстанавливаем артиста, если его нет
+    const guessed = guessMetadataFromFilename(t.filename || t.title, '')
+    const finalArtist = t.artist || guessed.artist || 'Неизвестный исполнитель'
+    const finalTitle = t.title || guessed.title
+
+    const raw = t.raw || {
+      title: finalTitle,
+      artist: finalArtist,
+      album: t.album || '',
+    }
 
     return {
       id: t.id,
@@ -101,21 +110,24 @@ export function fromPersisted(
       filename: t.filename,
       path: t.path,
       remotePath: t.remotePath || undefined,
-      title: t.title,
-      artist: t.artist,
+      title: finalTitle,
+      artist: finalArtist,
       album: t.album,
-      coverUrl: cachedCover,
       fileLocation,
       duration: t.duration,
       metaSource: t.metaSource,
       sources: t.sources || [{ id: t.id, pluginId: t.pluginId, url: source, priority: 20 }],
+      raw: {
+        ...raw,
+        artist: raw.artist || finalArtist,
+        title: raw.title || finalTitle,
+      },
     }
   })
 
   return {
     folders,
     tracks,
-    albums: cached.albums || [],
     rootFolderId: cached.rootFolderId,
     rootFolderName: cached.rootFolderName,
   }
@@ -140,7 +152,6 @@ export async function enrichWithLocalFiles(
     } else {
       track.handle = undefined
       track.fileLocation = 'remote-only'
-      // Если был локальный handle, но он пропал, возвращаем source обратно
       if (track.sources.length === 0 && track.remotePath && service) {
         track.sources.push({
           id: track.id,

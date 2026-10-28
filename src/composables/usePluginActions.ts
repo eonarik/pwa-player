@@ -38,7 +38,7 @@ export function usePluginActions({ onReload }: PluginActionsOptions) {
     return Object.values(library.folders).find((f) => f.source === sourceId && f.parentId === null)
   }
 
-  async function openPlugin(
+  async function doOpenPlugin(
     row: { manifest: PluginManifest },
     options: { localOnly: boolean },
   ): Promise<void> {
@@ -47,93 +47,37 @@ export function usePluginActions({ onReload }: PluginActionsOptions) {
       return
     }
 
-    if (isLoading.value) return
-    isLoading.value = row.manifest.id
+    if (downloadSpaceService.hasSpace.value && downloadSpaceService.needsPermission.value) {
+      const state = await downloadSpaceService.requestAccess()
+      if (state !== 'granted') {
+        toastService.error('Нет доступа к папке скачивания. Подтвердите доступ и попробуйте снова.')
+        return
+      }
+    }
 
-    try {
-      if (downloadSpaceService.hasSpace.value && downloadSpaceService.needsPermission.value) {
-        const state = await downloadSpaceService.requestAccess()
-        if (state !== 'granted') {
+    const plugin = await loadPlugin(row.manifest.id)
+    const context = createPluginContext(row.manifest.id)
+
+    if (options.localOnly) {
+      let restored = false
+      if (plugin.restoreFromLocalFiles) {
+        try {
+          restored = await plugin.restoreFromLocalFiles(context)
+        } catch (err) {
+          console.warn('[home] restoreFromLocalFiles failed', err)
           toastService.error(
-            'Нет доступа к папке скачивания. Подтвердите доступ и попробуйте снова.',
+            err instanceof Error ? err.message : 'Не удалось прочитать локальные файлы',
           )
           return
         }
       }
 
-      const plugin = await loadPlugin(row.manifest.id)
-      const context = createPluginContext(row.manifest.id)
-
-      if (options.localOnly) {
-        let restored = false
-        if (plugin.restoreFromLocalFiles) {
-          try {
-            restored = await plugin.restoreFromLocalFiles(context)
-          } catch (err) {
-            console.warn('[home] restoreFromLocalFiles failed', err)
-            toastService.error(
-              err instanceof Error ? err.message : 'Не удалось прочитать локальные файлы',
-            )
-            return
-          }
-        }
-
-        if (!restored) {
-          toastService.error(`Локальные файлы для «${row.manifest.name}» не найдены`)
-          return
-        }
-
-        const root = findRoot(row.manifest.id)
-        if (!root) {
-          toastService.error(`Источник «${row.manifest.name}» не содержит данных`)
-          return
-        }
-
-        library.setCurrentFolder(root.id)
-        const segments = root.path.split('/').filter(Boolean)
-        router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
+      if (!restored) {
+        toastService.error(`Локальные файлы для «${row.manifest.name}» не найдены`)
         return
       }
 
-      // Облачный режим.
-      let root = findRoot(row.manifest.id)
-      if (!root || !hasTracksInTree(root.id)) {
-        try {
-          await plugin.restoreFromCache(context)
-        } catch (err) {
-          console.warn('[home] failed to restore from cache', err)
-        }
-        root = findRoot(row.manifest.id)
-      }
-
-      if (root && hasTracksInTree(root.id)) {
-        library.setCurrentFolder(root.id)
-        const segments = root.path.split('/').filter(Boolean)
-        router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
-        return
-      }
-
-      if (plugin.isDisconnected?.()) {
-        try {
-          await plugin.connect(context)
-        } catch (err) {
-          if (err instanceof Error && err.message === 'cancelled') return
-          if (err instanceof Error && err.message === 'redirect') return
-          console.warn(`[home] connect for "${row.manifest.id}" failed`, err)
-          toastService.error(err instanceof Error ? err.message : 'Не удалось подключить источник')
-          return
-        }
-      }
-
-      try {
-        await plugin.load(context, { forceRefresh: true })
-      } catch (err) {
-        console.warn(`[home] load for "${row.manifest.id}" failed`, err)
-        toastService.error(err instanceof Error ? err.message : 'Не удалось загрузить источник')
-        return
-      }
-
-      root = findRoot(row.manifest.id)
+      const root = findRoot(row.manifest.id)
       if (!root) {
         toastService.error(`Источник «${row.manifest.name}» не содержит данных`)
         return
@@ -142,6 +86,67 @@ export function usePluginActions({ onReload }: PluginActionsOptions) {
       library.setCurrentFolder(root.id)
       const segments = root.path.split('/').filter(Boolean)
       router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
+      return
+    }
+
+    // Облачный режим.
+    let root = findRoot(row.manifest.id)
+    if (!root || !hasTracksInTree(root.id)) {
+      try {
+        await plugin.restoreFromCache(context)
+      } catch (err) {
+        console.warn('[home] failed to restore from cache', err)
+      }
+      root = findRoot(row.manifest.id)
+    }
+
+    if (root && hasTracksInTree(root.id)) {
+      library.setCurrentFolder(root.id)
+      const segments = root.path.split('/').filter(Boolean)
+      router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
+      return
+    }
+
+    if (plugin.isDisconnected?.()) {
+      try {
+        await plugin.connect(context)
+      } catch (err) {
+        if (err instanceof Error && err.message === 'cancelled') return
+        if (err instanceof Error && err.message === 'redirect') return
+        console.warn(`[home] connect for "${row.manifest.id}" failed`, err)
+        toastService.error(err instanceof Error ? err.message : 'Не удалось подключить источник')
+        return
+      }
+    }
+
+    try {
+      await plugin.load(context, { forceRefresh: true })
+    } catch (err) {
+      console.warn(`[home] load for "${row.manifest.id}" failed`, err)
+      toastService.error(err instanceof Error ? err.message : 'Не удалось загрузить источник')
+      return
+    }
+
+    root = findRoot(row.manifest.id)
+    if (!root) {
+      toastService.error(`Источник «${row.manifest.name}» не содержит данных`)
+      return
+    }
+
+    library.setCurrentFolder(root.id)
+    const segments = root.path.split('/').filter(Boolean)
+    router.push({ name: 'folder', params: { pluginId: row.manifest.id, path: segments } })
+  }
+
+  async function openPlugin(
+    row: { manifest: PluginManifest },
+    options: { localOnly: boolean },
+  ): Promise<void> {
+    if (isLoading.value) return
+    isLoading.value = row.manifest.id
+
+    try {
+      await doOpenPlugin(row, options)
     } finally {
       isLoading.value = null
     }
@@ -155,21 +160,16 @@ export function usePluginActions({ onReload }: PluginActionsOptions) {
       const plugin = await loadPlugin(row.manifest.id)
       const context = createPluginContext(row.manifest.id)
 
-      // 1. Подключаемся (OAuth / пароль)
       await plugin.connect(context)
       setPluginDisconnected(row.manifest.id, false)
-
-      // 2. Загружаем данные (из кеша или из облака)
       await plugin.load(context, { forceRefresh: false })
 
       toastService.success(`Источник «${row.manifest.name}» подключён`)
-
-      // 3. Обновляем список плагинов в UI (checkSession и т.д.)
       await onReload()
       await nextTick()
 
-      // 4. Переходим внутрь
-      await openPlugin({ manifest: row.manifest }, { localOnly: false })
+      // Вызываем внутренний метод, который НЕ проверяет isLoading
+      await doOpenPlugin({ manifest: row.manifest }, { localOnly: false })
     } catch (err) {
       if (err instanceof Error && err.message === 'cancelled') return
       if (err instanceof Error && err.message === 'redirect') return

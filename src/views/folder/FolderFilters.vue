@@ -5,10 +5,13 @@ import FolderSortMenu from '@/components/library/FolderSortMenu.vue'
 import FolderSyncMenu from '@/components/library/FolderSyncMenu.vue'
 import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue'
 import MetadataMenu from '@/components/library/MetadataMenu.vue'
+import AlternatesButton from '@/components/library/AlternatesButton.vue' // <-- ДОБАВЛЕНО
 import Divider from '@/components/ui/Divider.vue'
+import type { Track } from '@/types/track'
 
 defineProps<{
   query: string
+  tracks: Track[] // <-- ДОБАВЛЕНО
   metadataLoading: boolean
   metadataProgress: { done: number; total: number }
   metadataStats: { found: number; checked: number; total: number }
@@ -44,12 +47,15 @@ function onQueryUpdate(value: string): void {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
+        <!-- <-- ДОБАВЛЕНО -->
+        <AlternatesButton :tracks="tracks" />
+
         <MetadataMenu :is-loading="metadataLoading" :progress="metadataProgress" :stats="metadataStats"
           :has-unchecked="metadataHasUnchecked" :issues-count="metadataIssuesCount" @search="emit('metadata-search')"
           @cancel="emit('metadata-cancel')" @reset="emit('metadata-reset')" @open-issues="emit('open-issues')" />
 
         <template v-if="canRefresh || canRefreshFromDevice">
-          <Divider class="mx-0.5" />
+          <Divider :vertical="true" with-margin />
 
           <FolderSyncMenu :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice"
             :is-refreshing="isRefreshing" :is-refreshing-from-device="isRefreshingFromDevice"

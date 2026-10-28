@@ -6,13 +6,14 @@ import { guessMetadataFromFilename } from '@/utils/parseFilename'
 
 export interface ParseContext {
   coverFile?: File | null
+  parentFolder?: string // <-- ДОБАВЛЕНО
 }
 
 export async function parseTrackMetadata(
   file: File,
   context: ParseContext = {},
 ): Promise<TrackMetadata> {
-  const guessed = guessMetadataFromFilename(file.name)
+  const guessed = guessMetadataFromFilename(file.name, context.parentFolder)
 
   try {
     const metadata = await parseBlob(file, {
@@ -23,7 +24,6 @@ export async function parseTrackMetadata(
 
     const { common, format } = metadata
 
-    // Проверяем, есть ли реальные теги артиста/альбома
     const hasRealTags = Boolean(common.artist?.trim() || common.album?.trim())
 
     const result: TrackMetadata = {

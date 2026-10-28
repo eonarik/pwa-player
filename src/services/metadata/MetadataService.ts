@@ -6,15 +6,16 @@ import {
 } from '@/services/persistence/MetadataPersistenceService'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
+import { loadPlugin } from '@/plugins/registry'
+import { createPluginContext } from '@/plugins/context'
 import { UNKNOWN_ARTIST_PLACEHOLDER } from './constants'
 import type { LibraryTrack, MetadataSource } from '@/types/library'
 import type { TrackMetadata } from './types'
-import type { MetadataCandidate, RemoteTrackMetadata } from './TrackMetadataService'
+import type { RemoteTrackMetadata } from './TrackMetadataService'
+import type { TrackSource } from '@/types/track'
 
 export type ApplyResult =
-  | { status: 'applied' }
-  | { status: 'issue'; candidates: MetadataCandidate[] }
-  | { status: 'skipped'; reason: 'protected' | 'not-found' }
+  { status: 'applied' } | { status: 'skipped'; reason: 'protected' | 'not-found' }
 
 export interface ManualPatch {
   artist: string
@@ -48,41 +49,26 @@ class MetadataService {
 
     if (incoming.confident) {
       this.applyPatch(track, incoming, 'auto')
-      return { status: 'applied' }
+    } else {
+      // Сохраняем как альтернативный источник
+      const library = useLibraryStore()
+      const altSource: TrackSource = {
+        id: `metadata:${incoming.artist}:${incoming.title}`,
+        pluginId: 'metadata',
+        url: incoming.coverUrl || undefined,
+        priority: 100,
+      }
+
+      if (!track.alternateSources) track.alternateSources = []
+      if (!track.alternateSources.some((s) => s.id === altSource.id)) {
+        track.alternateSources.push(altSource)
+        // Обновляем трек в библиотеке (реактивно)
+        library.tracks[trackId] = { ...track }
+        this.saveCacheForTrack(track)
+      }
     }
 
-    const candidates =
-      incoming.candidates && incoming.candidates.length > 0
-        ? incoming.candidates
-        : [
-            {
-              artist: incoming.artist,
-              title: incoming.title,
-              album: incoming.album,
-              coverUrl: incoming.coverUrl,
-              source: incoming.source,
-              similarity: incoming.similarity,
-            },
-          ]
-
-    return { status: 'issue', candidates }
-  }
-
-  applyCandidate(trackId: string, candidate: MetadataCandidate): void {
-    const track = useLibraryStore().getTrack(trackId)
-    if (!track) return
-
-    metadataPersistenceService.setInMemory(trackId, {
-      artist: candidate.artist,
-      title: candidate.title,
-      album: candidate.album,
-      coverUrl: candidate.coverUrl,
-      similarity: candidate.similarity,
-      original: this.buildOriginal(track),
-    })
-
-    this.applyPatch(track, candidate, 'manual')
-    this.scheduleFlush()
+    return { status: 'applied' }
   }
 
   updateManual(trackId: string, patch: ManualPatch): void {
@@ -99,7 +85,6 @@ class MetadataService {
 
     this.syncQueue(trackId)
 
-    // Синхронизация с альбомом
     const updatedTrack = library.getTrack(trackId)
     if (updatedTrack?.albumId) {
       const album = library.getAlbum(updatedTrack.albumId)
@@ -119,6 +104,7 @@ class MetadataService {
     })
 
     this.scheduleFlush()
+    this.saveCacheForTrack(track)
   }
 
   applyFromFile(trackId: string, parsed: TrackMetadata): void {
@@ -139,7 +125,6 @@ class MetadataService {
 
     library.updateTrackMetadata(trackId, patch)
 
-    // Синхронизация с альбомом (если обложка была)
     const updatedTrack = library.getTrack(trackId)
     if (updatedTrack?.albumId && parsed.coverUrl) {
       const album = library.getAlbum(updatedTrack.albumId)
@@ -190,6 +175,7 @@ class MetadataService {
 
     this.syncQueue(trackId)
     await this.markNotFoundAndFlush(trackId)
+    this.saveCacheForTrack(track)
   }
 
   async resetMany(trackIds: string[]): Promise<void> {
@@ -270,6 +256,24 @@ class MetadataService {
     }
 
     this.syncQueue(track.id)
+    this.saveCacheForTrack(track)
+  }
+
+  private saveCacheForTrack(track: LibraryTrack): void {
+    const pluginId = track.pluginId.split(':')[0]
+    if (!pluginId) return
+
+    void (async () => {
+      try {
+        const plugin = await loadPlugin(pluginId)
+        if (plugin.saveCache) {
+          const context = createPluginContext(pluginId)
+          await plugin.saveCache(context)
+        }
+      } catch (err) {
+        console.warn(`[metadata] failed to save cache for ${pluginId}`, err)
+      }
+    })()
   }
 
   private syncQueue(trackId: string): void {

@@ -140,7 +140,9 @@ export class FileSystemService {
           const trackPath = path ? `${path}/${file.name}` : file.name
           const trackId = trackIdFromPath(rootId, trackPath)
 
-          const metadata = await parseTrackMetadata(file, { coverFile })
+          const parentFolder = path.split('/').filter(Boolean).pop()
+
+          const metadata = await parseTrackMetadata(file, { coverFile, parentFolder })
           const hasRealTags = Boolean(metadata.artist)
 
           const initialMeta = {

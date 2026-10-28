@@ -39,6 +39,12 @@ const { showSource, hasArtist, title, subtitle, hasSubtitle } = useTrackDisplay(
   computed(() => props.track),
 )
 
+// <-- ДОБАВЛЕНО: Фоллбэк для артиста
+const displayArtist = computed(() => {
+  if (hasArtist.value) return props.track.artist
+  return 'Неизвестный исполнитель'
+})
+
 const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id))
 
 const downloadProgress = computed<number | null>(() => {
@@ -60,7 +66,6 @@ const isBroken = computed(() => {
   if ('fileLocation' in props.track && props.track.fileLocation === 'nowhere') return true
   return false
 })
-
 </script>
 
 <template>
@@ -73,7 +78,6 @@ const isBroken = computed(() => {
           <PlayingIndicator v-if="isCurrent && isPlaying" />
         </TrackCover>
 
-        <!-- Лоадер при скачивании поверх обложки -->
         <div v-if="isDownloading"
           class="absolute inset-0 z-10 flex items-center justify-center bg-bg/60 rounded-btn backdrop-blur-sm">
           <Spinner size="sm" />
@@ -84,9 +88,9 @@ const isBroken = computed(() => {
     <template #title>
       <p class="truncate text-sm font-medium" :class="isUnavailable ? 'line-through text-fg-muted' : ''">
         <template v-if="showSource && hasArtist">
-          <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }"
+          <RouterLink :to="{ name: 'artist', params: { artistName: displayArtist } }"
             class="transition hover:text-active" :class="isUnavailable ? 'pointer-events-none' : ''" @click.stop>
-            {{ track.artist }}
+            {{ displayArtist }}
           </RouterLink>
           <span> — </span>
         </template>
@@ -96,18 +100,18 @@ const isBroken = computed(() => {
     </template>
 
     <template #subtitle>
-      <!-- Явная пометка битого файла -->
       <p v-if="isBroken" class="truncate text-[10px] text-red-400">
         Файл удален или поврежден
       </p>
       <p v-else-if="isUnavailable" class="truncate text-[10px] text-fg-subtle">
         Источник недоступен
       </p>
-      <p v-else-if="!showSource && hasArtist" class="truncate text-xs text-fg-muted">
-        <RouterLink :to="{ name: 'artist', params: { artistName: track.artist } }" class="transition hover:text-active"
-          @click.stop>
-          {{ track.artist }}
+      <p v-else-if="!showSource" class="truncate text-xs text-fg-muted">
+        <RouterLink v-if="hasArtist" :to="{ name: 'artist', params: { artistName: displayArtist } }"
+          class="transition hover:text-active" @click.stop>
+          {{ displayArtist }}
         </RouterLink>
+        <span v-else>{{ displayArtist }}</span>
       </p>
       <p v-else-if="hasSubtitle" class="truncate text-xs text-fg-muted">{{ subtitle }}</p>
     </template>
@@ -120,7 +124,7 @@ const isBroken = computed(() => {
         </span>
         <span v-else-if="isStreaming"
           class="rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-active">
-          Stream
+          Стрим
         </span>
         <span v-if="!isLive" class="text-xs tabular-nums text-fg-muted">
           {{ formatDuration(track.duration) }}

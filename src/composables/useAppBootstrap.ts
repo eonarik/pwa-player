@@ -32,8 +32,11 @@ export function useAppBootstrap() {
       await history.restore()
       await dislikes.restore()
 
+      // 1. Загружаем Альбомы и виртуальные треки ДО плагинов
+      await library.restoreAlbums()
       await library.restoreVirtualTracks()
 
+      // 2. Сканирование скачанных файлов
       if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
         const plugins = getPlugins().filter((p) => p.canDownload)
         for (const p of plugins) {
@@ -41,6 +44,7 @@ export function useAppBootstrap() {
         }
       }
 
+      // 3. Восстановление кэша плагинов
       for (const manifest of getPlugins()) {
         try {
           const plugin = await loadPlugin(manifest.id)
@@ -52,7 +56,11 @@ export function useAppBootstrap() {
         }
       }
 
+      // 4. Запускаем фоновую склейку
       void reconciliationService.reconcile()
+
+      // 5. Чистим альбомы без треков
+      library.cleanupOrphanAlbums()
 
       const playerRestored = await player.restore()
       if (playerRestored) console.log('[player] restored')

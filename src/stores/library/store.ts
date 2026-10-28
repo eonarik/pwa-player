@@ -1,17 +1,18 @@
 // src/stores/library/store.ts
 
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Folder, LibraryTrack, Album } from '@/types/library'
-import type { Track, TrackSource } from '@/types/track'
 import { virtualTracksService } from '@/services/persistence/VirtualTracksService'
+import { albumService } from '@/services/persistence/AlbumService'
 import { librarySaveService } from '@/services/library/LibrarySaveService'
-import { buildEntitiesForTrack } from '@/services/library/EntityGraph'
-import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
-import { getPluginManifest } from '@/plugins/lookup'
 import { sortService } from '@/services/sort/SortService'
 import { isSubtreeScanned as isSubtreeScannedPure } from '@/services/library/selectors'
 import { subtreeCache, clearSubtreeCache } from './subtreeCache'
+import { createVirtualTracks } from './virtualTracks'
+import { createAlbums } from './albums'
+import { createResolveTrack } from './resolveTrack'
+import { createAlternateActions } from './actions'
 
 export const useLibraryStore = defineStore('library', () => {
   const folders = ref<Record<string, Folder>>({})
@@ -20,6 +21,10 @@ export const useLibraryStore = defineStore('library', () => {
   const virtualTracks = ref<Record<string, LibraryTrack>>({})
   const currentFolderId = ref<string | null>(null)
 
+  // Автосохранение альбомов
+  watch(albums, () => void albumService.saveAll(albums.value), { deep: true })
+
+  // --- Computed ---
   const hasLibrary = computed(() => Object.keys(folders.value).length > 0)
 
   const currentFolder = computed<Folder | null>(() => {
@@ -67,174 +72,31 @@ export const useLibraryStore = defineStore('library', () => {
     return Boolean(folder && folder.parentId)
   })
 
-  /**
-   * Ищет трек в библиотеке по artist+title.
-   * Если находит — обогащает метаданные и добавляет новый source.
-   * Если нет — создает виртуальный трек.
-   * Возвращает ID трека в библиотеке.
-   */
-  function resolveOrCreateTrack(incoming: Track): string {
-    // 1. Если это трек из самой библиотеки (не виртуальный)
-    if (tracks.value[incoming.id] && !incoming.isVirtual) {
-      return incoming.id
-    }
+  // --- Хелперы (Composables) ---
+  const { addVirtualTrack, removeVirtualTrack, restoreVirtualTracks, clearVirtualTracks } =
+    createVirtualTracks({
+      tracks,
+      virtualTracks,
+      albums,
+    })
 
-    // 2. Ищем совпадения среди существующих треков
-    const candidates = Object.values(tracks.value).filter((t) => !t.isVirtual)
-    const { track: match, score } = findBestMatch(incoming, candidates, 0.8)
+  const { restoreAlbums, cleanupOrphanAlbums, clearAlbums } = createAlbums({
+    albums,
+  })
 
-    const manifest = getPluginManifest(incoming.pluginId)
-    const priority = manifest?.sourcePriority ?? 999
+  const { resolveOrCreateTrack } = createResolveTrack({
+    tracks,
+    albums,
+    virtualTracks,
+  })
 
-    const newSource: TrackSource = {
-      id: incoming.id,
-      pluginId: incoming.pluginId,
-      url: incoming.sources?.[0]?.url,
-      priority,
-    }
+  const { confirmAlternate, dismissAlternate } = createAlternateActions({
+    tracks,
+  })
 
-    // 3. Если нашли совпадение — обогащаем и добавляем source
-    if (match && score >= 0.8) {
-      const existing = tracks.value[match.id]!
-
-      if (!existing.album && incoming.album) existing.album = incoming.album
-      if (!existing.artist && incoming.artist) existing.artist = incoming.artist
-
-      // Берем обложку из самого трека или из raw
-      const incomingCover = incoming.coverUrl || incoming.raw?.coverUrl
-
-      if (!existing.albumId && existing.album) {
-        const { track: updatedTrack, album: newAlbum } = buildEntitiesForTrack(existing)
-        existing.albumId = updatedTrack.albumId
-
-        if (newAlbum) {
-          const existingAlbum = albums.value[newAlbum.id]
-          if (existingAlbum) {
-            if (!existingAlbum.trackIds.includes(existing.id)) {
-              existingAlbum.trackIds.push(existing.id)
-            }
-            if (!existingAlbum.coverUrl && incomingCover) {
-              existingAlbum.coverUrl = incomingCover
-            }
-          } else {
-            newAlbum.coverUrl = incomingCover // <-- Берем из incoming
-            albums.value[newAlbum.id] = newAlbum
-          }
-        }
-      }
-
-      const hasSource = existing.sources.some((s) => s.id === newSource.id)
-      if (!hasSource) {
-        existing.sources.push(newSource)
-        existing.sources.sort((a, b) => a.priority - b.priority)
-      }
-
-      if (existing.albumId) {
-        const album = albums.value[existing.albumId]
-        if (album && !album.coverUrl && incomingCover) {
-          album.coverUrl = incomingCover
-        }
-      }
-
-      return existing.id
-    }
-
-    // 4. Если не нашли — создаем новый виртуальный трек
-    const virtualId = incoming.id
-    const next: LibraryTrack = {
-      ...incoming,
-      id: virtualId,
-      folderId: 'virtual',
-      isVirtual: true,
-      sources: [newSource],
-    }
-
-    const { track: trackWithAlbum, album } = buildEntitiesForTrack(next)
-
-    if (album) {
-      const existingAlbum = albums.value[album.id]
-      if (existingAlbum) {
-        if (!existingAlbum.trackIds.includes(trackWithAlbum.id))
-          existingAlbum.trackIds.push(trackWithAlbum.id)
-        if (!existingAlbum.coverUrl && album.coverUrl) existingAlbum.coverUrl = album.coverUrl
-      } else {
-        albums.value[album.id] = album
-      }
-    }
-
-    virtualTracks.value[trackWithAlbum.id] = trackWithAlbum
-    tracks.value[trackWithAlbum.id] = trackWithAlbum
-
-    void virtualTracksService.saveAll(virtualTracks.value)
-
-    return trackWithAlbum.id
-  }
-
-  /**
-   * Удаляет виртуальный трек.
-   */
-  function removeVirtualTrack(trackId: string): void {
-    const track = virtualTracks.value[trackId]
-    if (!track) return
-
-    // Отвязываем от альбома
-    if (track.albumId) {
-      const album = albums.value[track.albumId]
-      if (album) {
-        album.trackIds = album.trackIds.filter((id) => id !== trackId)
-        if (album.trackIds.length === 0) {
-          delete albums.value[track.albumId]
-        }
-      }
-    }
-
-    delete virtualTracks.value[trackId]
-    delete tracks.value[trackId]
-
-    void virtualTracksService.saveAll(virtualTracks.value)
-  }
-
-  /**
-   * Восстанавливает виртуальные треки из IndexedDB при старте.
-   */
-  async function restoreVirtualTracks(): Promise<void> {
-    const saved = await virtualTracksService.loadAll()
-
-    for (const track of Object.values(saved)) {
-      if (!tracks.value[track.id]) {
-        tracks.value[track.id] = track
-        virtualTracks.value[track.id] = track
-
-        // Восстанавливаем альбомы
-        if (track.albumId && track.album) {
-          const existingAlbum = albums.value[track.albumId]
-
-          if (!existingAlbum) {
-            albums.value[track.albumId] = {
-              id: track.albumId,
-              name: track.album,
-              artist: track.artist,
-              coverUrl: track.raw?.coverUrl,
-              trackIds: [track.id],
-            }
-          } else {
-            if (!existingAlbum.trackIds.includes(track.id)) {
-              existingAlbum.trackIds.push(track.id)
-            }
-            if (!existingAlbum.coverUrl && track.raw?.coverUrl) {
-              existingAlbum.coverUrl = track.raw.coverUrl
-            }
-          }
-        }
-      }
-    }
-  }
-
+  // --- Функции ---
   function setCurrentFolder(folderId: string): void {
-    if (!folders.value[folderId]) {
-      console.warn(`[library] folder ${folderId} not found`)
-      return
-    }
+    if (!folders.value[folderId]) return
     currentFolderId.value = folderId
   }
 
@@ -249,7 +111,6 @@ export const useLibraryStore = defineStore('library', () => {
   function getAllTracksInFolderRecursive(folderId: string): LibraryTrack[] {
     const folder = folders.value[folderId]
     if (!folder) return []
-
     const result: LibraryTrack[] = []
     const visited = new Set<string>()
     const seenTracks = new Set<string>()
@@ -259,16 +120,13 @@ export const useLibraryStore = defineStore('library', () => {
       visited.add(id)
       const f = folders.value[id]
       if (!f) return
-
       for (const trackId of f.trackIds) {
         if (seenTracks.has(trackId)) continue
         seenTracks.add(trackId)
         const track = tracks.value[trackId]
         if (track) result.push(track)
       }
-      for (const childId of f.childFolderIds) {
-        walk(childId)
-      }
+      for (const childId of f.childFolderIds) walk(childId)
     }
 
     walk(folderId)
@@ -277,18 +135,14 @@ export const useLibraryStore = defineStore('library', () => {
 
   function clear(): void {
     for (const track of Object.values(tracks.value)) {
-      if (track.raw?.coverUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(track.raw.coverUrl)
-      }
+      if (track.raw?.coverUrl?.startsWith('blob:')) URL.revokeObjectURL(track.raw.coverUrl)
     }
-
     folders.value = {}
     tracks.value = {}
-    albums.value = {}
-    virtualTracks.value = {}
     currentFolderId.value = null
     clearSubtreeCache()
-    void virtualTracksService.clear()
+    clearVirtualTracks()
+    clearAlbums()
   }
 
   function getTrack(id: string): LibraryTrack | null {
@@ -315,7 +169,6 @@ export const useLibraryStore = defineStore('library', () => {
       virtualTracks.value[trackId] = tracks.value[trackId]
       void virtualTracksService.saveAll(virtualTracks.value)
     }
-
     if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
   }
 
@@ -325,7 +178,6 @@ export const useLibraryStore = defineStore('library', () => {
     albums,
     virtualTracks,
     currentFolderId,
-
     hasLibrary,
     currentFolder,
     currentSubfolders,
@@ -333,9 +185,14 @@ export const useLibraryStore = defineStore('library', () => {
     breadcrumbs,
     canGoUp,
 
-    resolveOrCreateTrack,
+    addVirtualTrack,
     removeVirtualTrack,
     restoreVirtualTracks,
+    restoreAlbums,
+    cleanupOrphanAlbums,
+    resolveOrCreateTrack,
+    confirmAlternate,
+    dismissAlternate,
     setCurrentFolder,
     isSubtreeScanned,
     getAllTracksInFolderRecursive,

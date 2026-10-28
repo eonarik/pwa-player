@@ -47,10 +47,11 @@ export function buildTrack(
   const trackId = trackIdFromPath(sourceId, trackPath)
   const cachedCover = metadataPersistenceService.get(trackId)?.coverUrl ?? undefined
 
-  const guessed = guessMetadataFromFilename(item.name)
+  const guessed = guessMetadataFromFilename(item.name, folder.name)
+
   const initialMeta = {
-    title: guessed.title,
-    artist: guessed.artist,
+    title: guessed.title || item.name,
+    artist: guessed.artist || 'Неизвестный исполнитель',
     album: '',
     coverUrl: cachedCover,
   }

@@ -4,6 +4,7 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlaylistsStore } from '@/stores/playlists'
 import { useHistoryStore } from '@/stores/history'
 import { useDislikesStore } from '@/stores/dislikes'
+import { useUiSettingsStore } from '@/stores/uiSettings'
 import { virtualTracksService } from '@/services/persistence/VirtualTracksService'
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher'
 import { loadPlugin } from '@/plugins/registry'
@@ -30,7 +31,9 @@ class ReconciliationService {
       const playlists = usePlaylistsStore()
       const history = useHistoryStore()
       const dislikes = useDislikesStore()
+      const uiSettings = useUiSettingsStore()
 
+      const threshold = uiSettings.playlistMatchThreshold
       const virtualTracks = Object.values(library.virtualTracks)
       const localTracks = Object.values(library.tracks).filter((t) => !t.isVirtual)
 
@@ -41,70 +44,67 @@ class ReconciliationService {
       for (const virtual of virtualTracks) {
         if (!library.virtualTracks[virtual.id]) continue
 
-        const { track: match, score } = findBestMatch(virtual, localTracks, 0.7)
+        const { track: match, score } = findBestMatch(virtual, localTracks, threshold)
 
-        if (match && score >= 0.7) {
+        if (match && score >= threshold) {
           const targetId = match.id
           const sourceId = virtual.id
 
-          // 1. Переносим sources
-          const newSources = [...match.sources]
-          for (const src of virtual.sources) {
-            if (!newSources.some((s) => s.id === src.id)) {
-              newSources.push(src)
-            }
-          }
-          newSources.sort((a, b) => a.priority - b.priority)
-          match.sources = newSources
+          const artistStrict =
+            (match.artist || '').toLowerCase().trim() ===
+            (virtual.artist || '').toLowerCase().trim()
+          const titleStrict =
+            (match.title || '').toLowerCase().trim() === (virtual.title || '').toLowerCase().trim()
+          const isStrictMatch = artistStrict && titleStrict
 
-          // 2. Обогащаем метаданные
-          if (!match.album && virtual.album) match.album = virtual.album
-          if (!match.artist && virtual.artist) match.artist = virtual.artist
-
-          // Берем обложку напрямую из трека или его raw
-          const virtualCover = virtual.coverUrl || virtual.raw?.coverUrl
-
-          // 3. Если у локального трека не было albumId, но теперь есть album — создаем сущность
-          if (!match.albumId && match.album) {
-            const { track: updatedTrack, album: newAlbum } = buildEntitiesForTrack(match)
-            match.albumId = updatedTrack.albumId
-
-            if (newAlbum) {
-              const existing = library.getAlbum(newAlbum.id)
-              if (existing) {
-                if (!existing.trackIds.includes(match.id)) existing.trackIds.push(match.id)
-                if (!existing.coverUrl && virtualCover) existing.coverUrl = virtualCover
-              } else {
-                newAlbum.coverUrl = virtualCover
-                library.albums[newAlbum.id] = newAlbum
+          if (isStrictMatch) {
+            // --- Строгий мэтч ---
+            const newSources = [...match.sources]
+            for (const src of virtual.sources) {
+              if (!newSources.some((s) => s.id === src.id)) {
+                newSources.push(src)
               }
             }
-          }
+            newSources.sort((a, b) => a.priority - b.priority)
+            match.sources = newSources
 
-          // 4. Обновляем существующий альбом
-          if (match.albumId) {
-            const album = library.getAlbum(match.albumId)
-            if (album) {
-              let albumUpdated = false
+            if (!match.album && virtual.album) match.album = virtual.album
+            if (!match.artist && virtual.artist) match.artist = virtual.artist
 
-              if (!album.coverUrl && virtualCover) {
+            const virtualCover = virtual.coverUrl || virtual.raw?.coverUrl
+
+            if (!match.albumId && match.album) {
+              const { track: updatedTrack, album: newAlbum } = buildEntitiesForTrack(match)
+              match.albumId = updatedTrack.albumId
+              if (newAlbum) {
+                const existing = library.getAlbum(newAlbum.id)
+                if (existing) {
+                  if (!existing.trackIds.includes(match.id)) existing.trackIds.push(match.id)
+                  if (!existing.coverUrl && virtualCover) existing.coverUrl = virtualCover
+                } else {
+                  newAlbum.coverUrl = virtualCover
+                  library.albums[newAlbum.id] = newAlbum
+                }
+              }
+            }
+
+            if (match.albumId) {
+              const album = library.getAlbum(match.albumId)
+              if (album && !album.coverUrl && virtualCover) {
                 album.coverUrl = virtualCover
-                albumUpdated = true
               }
-              if (!album.trackIds.includes(match.id)) {
-                album.trackIds.push(match.id)
-                albumUpdated = true
-              }
-              if (albumUpdated) {
-                library.albums[album.id] = album
+            }
+          } else {
+            // --- Нестрогий мэтч ---
+            if (!match.alternateSources) match.alternateSources = []
+            for (const src of virtual.sources) {
+              if (!match.alternateSources.some((s) => s.id === src.id)) {
+                match.alternateSources.push(src)
               }
             }
           }
 
-          // 5. Заменяем ID в коллекциях
           this.replaceTrackIdInCollections(sourceId, targetId, { playlists, history, dislikes })
-
-          // 6. Удаляем виртуальный трек
           library.removeVirtualTrack(sourceId)
           hasChanges = true
         }
@@ -113,7 +113,6 @@ class ReconciliationService {
       if (hasChanges) {
         await virtualTracksService.saveAll(library.virtualTracks)
 
-        // Сохраняем кеши плагинов
         const affectedPlugins = new Set<string>()
         for (const track of localTracks) {
           if (track.pluginId) affectedPlugins.add(track.pluginId)

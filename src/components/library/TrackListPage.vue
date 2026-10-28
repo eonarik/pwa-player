@@ -14,6 +14,7 @@ import type { FilterOption } from '@/types/filter'
 import TrackListItem from './TrackListItem.vue'
 import TrackActions from './TrackActions.vue'
 import BatchAddToPlaylistButton from './BatchAddToPlaylistButton.vue'
+import AlternatesButton from './AlternatesButton.vue' // <-- ДОБАВЛЕНО
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ListContainer from '@/components/ui/ListContainer.vue'
@@ -56,7 +57,6 @@ const { currentTrack, isPlaying } = storeToRefs(player)
 
 const sourceFilter = ref<string>('all')
 
-// Треки теперь всегда приходят готовыми
 const baseTracks = computed<Track[]>(() => props.tracks)
 
 const preFilteredTracks = computed(() => {
@@ -129,7 +129,6 @@ function onSelectSearch(trackId: string) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Шапка -->
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-30">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
         <div class="min-w-0">
@@ -138,12 +137,14 @@ function onSelectSearch(trackId: string) {
         </div>
 
         <div class="flex shrink-0 items-center gap-2">
+          <!-- <-- ДОБАВЛЕНО: Кнопка альтернатив -->
+          <AlternatesButton :tracks="filteredTracks" />
+
           <slot name="header-actions" />
         </div>
       </div>
     </div>
 
-    <!-- Панель инструментов -->
     <div v-if="showSearch || showFilter || showPlayAll || showBatchAdd"
       class="shrink-0 px-4 py-2 border-b border-hover-bg bg-bg">
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-3">
@@ -164,7 +165,6 @@ function onSelectSearch(trackId: string) {
       </div>
     </div>
 
-    <!-- Список -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl py-2">
         <slot v-if="filteredTracks.length === 0 && !hasQuery" name="empty">

@@ -1,9 +1,9 @@
 // src/stores/library/writer/tracks.ts
 
-import type { FileLocation, LibraryTrack } from '@/types/library'
+import type { Album, FileLocation, LibraryTrack } from '@/types/library'
 import { assertTrackInvariants } from '@/services/library/asserts'
 import { librarySaveService } from '@/services/library/LibrarySaveService'
-import { buildEntitiesForTrack } from '@/services/library/EntityGraph'
+import { buildEntitiesForTrack, createAlbumId } from '@/services/library/EntityGraph'
 import type { useLibraryStore } from '../store'
 import { recalcUpwards } from './counts'
 import { deleteTrackWithRevoke } from './helpers'
@@ -24,7 +24,15 @@ export function buildTrackWithLocation(track: LibraryTrack, pluginId: string): L
  * Обновляет сущность альбома при добавлении/изменении трека.
  */
 function syncAlbum(s: LibraryStore, track: LibraryTrack): LibraryTrack {
-  const { track: trackWithAlbum, album } = buildEntitiesForTrack(track)
+  let existingAlbum: Album | null = null
+  if (track.albumId) {
+    existingAlbum = s.albums[track.albumId] || null
+  } else if (track.album) {
+    const tempId = createAlbumId(track.album, track.artist)
+    if (tempId) existingAlbum = s.albums[tempId] || null
+  }
+
+  const { track: trackWithAlbum, album } = buildEntitiesForTrack(track, existingAlbum)
 
   if (album) {
     const existing = s.albums[album.id]
@@ -32,11 +40,9 @@ function syncAlbum(s: LibraryStore, track: LibraryTrack): LibraryTrack {
       if (!existing.trackIds.includes(trackWithAlbum.id)) {
         existing.trackIds.push(trackWithAlbum.id)
       }
-      // Если у альбома нет обложки, но у трека появилась — берем её
       if (!existing.coverUrl && album.coverUrl) {
         existing.coverUrl = album.coverUrl
       }
-      // Синхронизируем имя, если оно изменилось вручную
       existing.name = album.name
     } else {
       s.albums[album.id] = album

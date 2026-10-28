@@ -34,7 +34,6 @@ export interface AudioEvents {
 }
 
 const RETRY_DELAY_MS = 10_000
-const MAX_RETRIES = 3
 
 export function bindAudioEvents(
   refs: AudioEventsRefs,
@@ -47,9 +46,6 @@ export function bindAudioEvents(
   let retryTimer: ReturnType<typeof setTimeout> | null = null
   let retryTrackId: string | null = null
 
-  /** Счётчик ретраев на трек. Сбрасывается при успешном `play`. */
-  const retryCounts = new Map<string, number>()
-
   function cancelRetry(): void {
     if (retryTimer !== null) {
       clearTimeout(retryTimer)
@@ -58,25 +54,8 @@ export function bindAudioEvents(
     retryTrackId = null
   }
 
-  function bumpRetryCount(trackId: string): number {
-    const next = (retryCounts.get(trackId) ?? 0) + 1
-    retryCounts.set(trackId, next)
-    return next
-  }
-
-  function resetRetryCount(trackId: string): void {
-    retryCounts.delete(trackId)
-  }
-
   function scheduleRetry(track: Track): void {
     cancelRetry()
-
-    const attempt = bumpRetryCount(track.id)
-    if (attempt > MAX_RETRIES) {
-      toastService.error(`Не удалось воспроизвести «${track.title}» — попытки исчерпаны`)
-      return
-    }
-
     retryTrackId = track.id
     retryTimer = setTimeout(() => {
       retryTimer = null
@@ -97,6 +76,7 @@ export function bindAudioEvents(
 
     try {
       await apiClient.healthCheck(pluginId)
+      // Сессия жива, но файл не загрузился. Пробуем ретрай (например, сеть моргнула).
       callbacks.retryPlayback()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -105,13 +85,16 @@ export function bindAudioEvents(
       }
 
       if (err instanceof ServerError) {
+        // Сервер вернул 500. Скорее всего, файл битый или сервер лежит.
+        // Не ретраим бесконечно, а идем дальше.
         audioService.pause()
-        toastService.error('Ошибка сервера. Повторим позже.')
-        scheduleRetry(track)
+        toastService.error('Ошибка сервера. Пропускаем трек.')
+        setTimeout(() => callbacks.handleTrackEnd(), 500)
         return
       }
 
       if (err instanceof NetworkError) {
+        // Сеть пропала. Можно попробовать позже.
         audioService.pause()
         toastService.error('Проблема с сетью. Повторим позже.')
         scheduleRetry(track)
@@ -121,6 +104,7 @@ export function bindAudioEvents(
       console.error('[player] handleStreamError: unexpected', err)
       audioService.pause()
       toastService.error('Не удалось воспроизвести трек')
+      setTimeout(() => callbacks.handleTrackEnd(), 500)
     }
   }
 
@@ -146,11 +130,8 @@ export function bindAudioEvents(
       isPlaying.value = true
       callbacks.startTimeLoop()
       const track = currentTrack.value
-      if (track) {
-        resetRetryCount(track.id)
-        if (!isLiveStream(track.pluginId)) {
-          useHistoryStore().recordPlay(track)
-        }
+      if (track && !isLiveStream(track.pluginId)) {
+        useHistoryStore().recordPlay(track)
       }
       cancelRetry()
     }),
@@ -192,7 +173,6 @@ export function bindAudioEvents(
       unsubscribers.forEach((fn) => fn())
       unsubscribers.length = 0
       cancelRetry()
-      retryCounts.clear()
     },
   }
 }

@@ -1,5 +1,6 @@
 // src/plugins/local/index.ts
 
+import { toRaw } from 'vue'
 import type { LibrarySource, LoadOptions, PluginContext, ScanFolderOptions } from '../types'
 import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
 import { fileSystemService } from './FileSystemService'
@@ -8,7 +9,6 @@ import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack }
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
 import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
 import { folderIdFromPath } from '@/services/library/id'
-import { toRaw } from 'vue'
 
 const PLUGIN_ID = 'local'
 const CONNECTED_KEY = 'local-connected'
@@ -104,6 +104,7 @@ const localPlugin: LibrarySource = {
             fileLocation: 'local-only',
             coverUrl: cachedCover,
             metaSource: t.metaSource,
+            raw: t.raw ? { ...t.raw, coverUrl: t.raw.coverUrl || cachedCover } : undefined,
           }
         } catch (err) {
           console.warn(`[local-plugin] can't restore file for "${t.title}"`, err)
@@ -129,7 +130,7 @@ const localPlugin: LibrarySource = {
     const collected: CollectedLibrary = {
       folders: Object.values(newFolders),
       tracks: Object.values(newTracks),
-      albums: persisted.albums || [],
+      // albums УБРАНЫ
       rootFolderId: persisted.rootFolderId,
       rootFolderName: persisted.rootFolderName,
     }
@@ -264,7 +265,7 @@ function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
   return {
     folders,
     tracks,
-    albums: collected.albums ? JSON.parse(JSON.stringify(collected.albums)) : [],
+    // albums УБРАНЫ
     rootFolderId: collected.rootFolderId,
     rootFolderName: collected.rootFolderName,
     savedAt: Date.now(),
@@ -293,8 +294,10 @@ async function restoreCoversFromFolders(
         let assigned = false
         for (const trackId of folder.trackIds) {
           const track = tracks[trackId]
-          if (track && !track.coverUrl) {
-            track.coverUrl = coverUrl
+          if (track && !track.raw?.coverUrl) {
+            if (!track.raw)
+              track.raw = { title: track.title, artist: track.artist, album: track.album || '' }
+            track.raw.coverUrl = coverUrl
             assigned = true
           }
         }

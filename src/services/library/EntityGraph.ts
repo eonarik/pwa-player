@@ -23,7 +23,10 @@ export interface EntityGraphResult {
   album: Album | null
 }
 
-export function buildEntitiesForTrack(track: LibraryTrack): EntityGraphResult {
+export function buildEntitiesForTrack(
+  track: LibraryTrack,
+  existingAlbum?: Album | null, // <-- ДОБАВЛЕНО
+): EntityGraphResult {
   const albumName = track.album?.trim() || ''
   const albumId = createAlbumId(albumName, track.artist || '')
 
@@ -31,15 +34,19 @@ export function buildEntitiesForTrack(track: LibraryTrack): EntityGraphResult {
     return { track: { ...track, albumId: undefined }, album: null }
   }
 
-  // Берем обложку из raw (исходные метаданные)
-  const coverUrl = track.raw?.coverUrl
+  // Берем обложку: сначала из raw, потом из существующего альбома
+  const coverUrl = track.raw?.coverUrl || existingAlbum?.coverUrl
 
   const album: Album = {
     id: albumId,
     name: albumName,
     artist: track.artist || 'Unknown Artist',
     coverUrl: coverUrl,
-    trackIds: [track.id],
+    trackIds: existingAlbum ? [...existingAlbum.trackIds] : [track.id],
+  }
+
+  if (!album.trackIds.includes(track.id)) {
+    album.trackIds.push(track.id)
   }
 
   return {
