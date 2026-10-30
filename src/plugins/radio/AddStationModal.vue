@@ -1,48 +1,49 @@
 <!-- src/plugins/radio/AddStationModal.vue -->
+
 <script setup lang="ts">
-import { ref } from 'vue'
-import { toastService } from '@/services/ui/ToastService'
-import ModalLayout from '@/components/ui/ModalLayout.vue'
-import FormField from '@/components/ui/FormField.vue'
-import Input from '@/components/ui/Input.vue'
-import Button from '@/components/ui/Button.vue'
-import type { SavedStation } from './index'
+import { ref } from 'vue';
+import { toastService } from '@/services/ui/ToastService';
+import ModalLayout from '@/components/ui/ModalLayout.vue';
+import FormField from '@/components/ui/FormField.vue';
+import Input from '@/components/ui/Input.vue';
+import Button from '@/components/ui/Button.vue';
+import type { SavedStation } from './index';
 
 const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'add', station: SavedStation): void
-}>()
+  (e: 'close'): void;
+  (e: 'add', station: SavedStation): void;
+}>();
 
-const url = ref('')
-const name = ref('')
-const isSubmitting = ref(false)
+const url = ref('');
+const name = ref('');
+const isSubmitting = ref(false);
 
 async function submit() {
-  const cleanUrl = url.value.trim()
-  if (!cleanUrl) return
+  const cleanUrl = url.value.trim();
+  if (!cleanUrl) return;
 
-  let hostname = ''
+  let hostname = '';
   try {
-    const parsed = new URL(cleanUrl)
+    const parsed = new URL(cleanUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
-      toastService.error('Ссылка должна начинаться с http:// или https://')
-      return
+      toastService.error('Ссылка должна начинаться с http:// или https://');
+      return;
     }
-    hostname = parsed.hostname
+    hostname = parsed.hostname;
   } catch {
-    toastService.error('Некорректный URL')
-    return
+    toastService.error('Некорректный URL');
+    return;
   }
 
-  isSubmitting.value = true
+  isSubmitting.value = true;
   try {
-    const finalName = name.value.trim() || hostname || 'Неизвестная станция'
-    const favicon = `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
+    const finalName = name.value.trim() || hostname || 'Неизвестная станция';
+    const favicon = `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
 
-    emit('add', { id: cleanUrl, name: finalName, url: cleanUrl, favicon })
-    emit('close')
+    emit('add', { id: cleanUrl, name: finalName, url: cleanUrl, favicon });
+    emit('close');
   } finally {
-    isSubmitting.value = false
+    isSubmitting.value = false;
   }
 }
 </script>

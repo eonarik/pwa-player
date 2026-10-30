@@ -13,10 +13,13 @@
  * все данные в IDB удаляются перед первым чтением.
  *
  * История версий:
- * 1-3 — ранние версии (JWT, .settings.json, YANDEX_MUSIC_PATH)
+ * 1-3 — ранние версии (JWT, .settings.json)
  * 4 — OAuth-сессии, удаление JWT, app:/ как корень Яндекс.Диска
  * 5 — Мультиисточниковые треки (sources[]), отказ от снимков в плейлистах
+ * 6 — TrackSource как discriminated union, Album без trackIds,
+ *     History/Dislikes как Record<TrackId, timestamp>, metadataCandidates,
+ *     uuid для всех id
  */
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6;
 
-export const SCHEMA_VERSION_KEY = 'player:schemaVersion'
+export const SCHEMA_VERSION_KEY = 'player:schemaVersion';

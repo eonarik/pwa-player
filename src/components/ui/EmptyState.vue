@@ -1,12 +1,13 @@
 <!-- src/components/ui/EmptyState.vue -->
+
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    title: string
-    description?: string
+    title: string;
+    description?: string;
   }>(),
   {},
-)
+);
 </script>
 
 <template>

@@ -9,12 +9,12 @@
 export type TransferState =
   | { kind: 'idle' }
   | {
-      kind: 'downloading'
-      written: number
-      total: number
-      abort: AbortController
+      kind: 'downloading';
+      written: number;
+      total: number;
+      abort: AbortController;
     }
   | {
-      kind: 'deleting'
-      abort: AbortController
-    }
+      kind: 'deleting';
+      abort: AbortController;
+    };

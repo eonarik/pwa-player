@@ -1,139 +1,121 @@
 // src/services/persistence/MetadataPersistenceService.ts
 
-import { get, set, del } from 'idb-keyval'
+import { get, set, del } from 'idb-keyval';
 
-const METADATA_KEY = 'player:metadata'
-
-export interface OriginalMetadata {
-  artist: string
-  title: string
-  album: string
-  coverUrl: string | undefined
-}
+const METADATA_KEY = 'player:metadata';
 
 export interface MetadataCacheEntry {
-  trackId: string
-  artist: string | null
-  title: string | null
-  album: string | null
-  coverUrl: string | null
-  fetchedAt: number
-  similarity: number | null
-  original: OriginalMetadata | null
+  trackId: string;
+  artist: string | null;
+  title: string | null;
+  album: string | null;
+  coverUrl: string | null;
+  fetchedAt: number;
+  similarity: number | null;
+  provider: string;
 }
 
-const NOT_FOUND_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 дней
+const NOT_FOUND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class MetadataPersistenceService {
-  private static instance: MetadataPersistenceService | null = null
+  private static instance: MetadataPersistenceService | null = null;
 
-  private cache: Map<string, MetadataCacheEntry> = new Map()
-  private isLoaded = false
+  private cache: Map<string, MetadataCacheEntry> = new Map();
+  private isLoaded = false;
 
   static getInstance(): MetadataPersistenceService {
     if (!MetadataPersistenceService.instance) {
-      MetadataPersistenceService.instance = new MetadataPersistenceService()
+      MetadataPersistenceService.instance = new MetadataPersistenceService();
     }
-    return MetadataPersistenceService.instance
+    return MetadataPersistenceService.instance;
   }
 
   async load(): Promise<void> {
-    if (this.isLoaded) return
+    if (this.isLoaded) return;
     try {
-      const data = await get<Record<string, MetadataCacheEntry>>(METADATA_KEY)
+      const data = await get<Record<string, MetadataCacheEntry>>(METADATA_KEY);
       if (data) {
         for (const [trackId, entry] of Object.entries(data)) {
-          // Миграция: если original.coverUrlWasBlob === true, значит
-          // это blob — сбрасываем в undefined.
-          if (entry.original && 'coverUrlWasBlob' in entry.original) {
-            const old = entry.original as OriginalMetadata & { coverUrlWasBlob?: boolean }
-            if (old.coverUrlWasBlob) {
-              entry.original.coverUrl = undefined
-            }
-            delete (entry.original as { coverUrlWasBlob?: boolean }).coverUrlWasBlob
-          }
-          this.cache.set(trackId, entry)
+          this.cache.set(trackId, entry);
         }
       }
-      this.isLoaded = true
-      console.info(`[MetadataPersistence] loaded ${this.cache.size} entries`)
+      this.isLoaded = true;
+      console.info(`[MetadataPersistence] loaded ${this.cache.size} entries`);
     } catch (err) {
-      console.error('[MetadataPersistence] failed to load', err)
+      console.error('[MetadataPersistence] failed to load', err);
     }
   }
 
   get(trackId: string): MetadataCacheEntry | undefined {
-    const entry = this.cache.get(trackId)
-    if (!entry) return undefined
+    const entry = this.cache.get(trackId);
+    if (!entry) return undefined;
 
     if (entry.artist === null && Date.now() - entry.fetchedAt > NOT_FOUND_TTL_MS) {
-      this.cache.delete(trackId)
-      return undefined
+      this.cache.delete(trackId);
+      return undefined;
     }
 
-    return entry
+    return entry;
   }
 
   has(trackId: string): boolean {
-    return this.get(trackId) !== undefined
+    return this.get(trackId) !== undefined;
   }
 
   setInMemory(
     trackId: string,
     data: {
-      artist: string | null
-      title: string | null
-      album: string | null
-      coverUrl: string | null
-      similarity: number | null
-      original: OriginalMetadata | null
+      artist: string | null;
+      title: string | null;
+      album: string | null;
+      coverUrl: string | null;
+      similarity: number | null;
+      provider: string;
     },
   ): void {
     this.cache.set(trackId, {
       trackId,
       ...data,
       fetchedAt: Date.now(),
-    })
+    });
   }
 
   async flush(): Promise<void> {
-    await this.persist()
+    await this.persist();
   }
 
   async resetForTracks(trackIds: string[]): Promise<void> {
-    let changed = false
+    let changed = false;
     for (const trackId of trackIds) {
-      if (this.cache.delete(trackId)) changed = true
+      if (this.cache.delete(trackId)) changed = true;
     }
-    if (changed) {
-      await this.persist()
-    }
+    if (changed) await this.persist();
   }
 
   async clear(): Promise<void> {
-    this.cache.clear()
+    this.cache.clear();
     try {
-      await del(METADATA_KEY)
+      await del(METADATA_KEY);
     } catch (err) {
-      console.error('[MetadataPersistence] failed to clear', err)
+      console.error('[MetadataPersistence] failed to clear', err);
     }
   }
 
   size(): number {
-    return this.cache.size
+    return this.cache.size;
   }
 
   private async persist(): Promise<void> {
     try {
-      const obj: Record<string, MetadataCacheEntry> = {}
+      const obj: Record<string, MetadataCacheEntry> = {};
       for (const [trackId, entry] of this.cache.entries()) {
-        obj[trackId] = entry
+        obj[trackId] = entry;
       }
-      await set(METADATA_KEY, obj)
+      await set(METADATA_KEY, obj);
     } catch (err) {
-      console.error('[MetadataPersistence] failed to persist', err)
+      console.error('[MetadataPersistence] failed to persist', err);
     }
   }
 }
 
-export const metadataPersistenceService = MetadataPersistenceService.getInstance()
+export const metadataPersistenceService = MetadataPersistenceService.getInstance();

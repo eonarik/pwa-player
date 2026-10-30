@@ -1,8 +1,8 @@
 // src/plugins/yandexDisk/manifest.ts
 
-import diskIcon from '@/assets/yandex-disk.png'
-import type { PluginManifest } from '../types'
-import { PLUGIN_ID } from './constants'
+import diskIcon from '@/assets/yandex-disk.png';
+import type { PluginManifest } from '../types';
+import { PLUGIN_ID } from './constants';
 
 export const manifest: PluginManifest = {
   id: PLUGIN_ID,
@@ -17,7 +17,7 @@ export const manifest: PluginManifest = {
   options: {
     emptyStateMessage:
       'Музыка хранится в папке **«Приложения / CUEI media player»** на вашем Яндекс.Диске.\n' +
-      'Добавьте туда треки — и они появятся в плеере.\n\n' +
+      'Добавьте туда треки — и они появятся в плеере.' +
       'Папка создаётся автоматически при первом подключении.',
   },
-}
+};

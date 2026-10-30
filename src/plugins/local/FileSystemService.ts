@@ -1,218 +1,208 @@
 // src/plugins/local/FileSystemService.ts
 
-import { get, set, del } from 'idb-keyval'
-import type { PermissionMode } from './fsTypes'
-import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
-import { folderIdFromPath, trackIdFromPath } from '@/services/library/id'
-import { parseTrackMetadata } from '@/services/metadata/parseTrackMetadata'
-import { compareStrings } from '@/utils/sort'
-import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
-import { isAudioFile } from '@/shared/audioExtensions'
+import { get, set, del } from 'idb-keyval';
+import type { PluginSnapshot, PluginTrackPayload, PluginFolderPayload, TextFileRef } from '../types';
+import { newFolderId } from '@/types/ids';
+import type { FolderId } from '@/types/ids';
+import { guessMetadataFromFilename } from '@/utils/parseFilename';
+import { compareStrings } from '@/utils/sort';
+import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory';
+import { isAudioFile } from '@/shared/audioExtensions';
 
-const HANDLES_KEY = 'player:directoryHandles'
+const HANDLES_KEY = 'player:directoryHandles';
+
+export type PermissionMode = 'read' | 'readwrite';
 
 export class FileSystemService {
-  private static instance: FileSystemService | null = null
+  private static instance: FileSystemService | null = null;
 
   static getInstance(): FileSystemService {
     if (!FileSystemService.instance) {
-      FileSystemService.instance = new FileSystemService()
+      FileSystemService.instance = new FileSystemService();
     }
-    return FileSystemService.instance
+    return FileSystemService.instance;
   }
 
   get supported(): boolean {
-    return 'showDirectoryPicker' in window
+    return 'showDirectoryPicker' in window;
   }
 
   async getHandles(): Promise<FileSystemDirectoryHandle[]> {
     try {
-      const handles = await get<FileSystemDirectoryHandle[]>(HANDLES_KEY)
-      return handles ?? []
+      const handles = await get<FileSystemDirectoryHandle[]>(HANDLES_KEY);
+      return handles ?? [];
     } catch (err) {
-      console.error('[local-plugin] failed to get handles', err)
-      return []
+      console.error('[local-plugin] failed to get handles', err);
+      return [];
     }
   }
 
   async saveHandles(handles: FileSystemDirectoryHandle[]): Promise<void> {
     try {
-      await set(HANDLES_KEY, handles)
+      await set(HANDLES_KEY, handles);
     } catch (err) {
-      console.error('[local-plugin] failed to save handles', err)
+      console.error('[local-plugin] failed to save handles', err);
     }
   }
 
   async pickDirectory(): Promise<FileSystemDirectoryHandle | null> {
     if (!this.supported) {
-      throw new Error(
-        'File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.',
-      )
+      throw new Error('File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.');
     }
 
     try {
-      const handle = await window.showDirectoryPicker({ mode: 'read' })
-      return handle
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      return handle;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        return null
+        return null;
       }
-      throw err
+      throw err;
     }
   }
 
   async addHandle(handle: FileSystemDirectoryHandle): Promise<boolean> {
-    const handles = await this.getHandles()
-    const existing = handles.findIndex((h) => h.name === handle.name)
+    const handles = await this.getHandles();
+    const existing = handles.findIndex((h) => h.name === handle.name);
     if (existing !== -1) {
-      return false
+      return false;
     }
-    handles.push(handle)
-    await this.saveHandles(handles)
-    return true
+    handles.push(handle);
+    await this.saveHandles(handles);
+    return true;
   }
 
   async removeHandle(name: string): Promise<void> {
-    const handles = await this.getHandles()
-    const filtered = handles.filter((h) => h.name !== name)
-    await this.saveHandles(filtered)
+    const handles = await this.getHandles();
+    const filtered = handles.filter((h) => h.name !== name);
+    await this.saveHandles(filtered);
   }
 
   async clearHandles(): Promise<void> {
-    await del(HANDLES_KEY)
+    await del(HANDLES_KEY);
   }
 
-  async verifyPermission(
-    handle: FileSystemDirectoryHandle,
-    mode: PermissionMode = 'read',
-  ): Promise<boolean> {
-    const options: FileSystemHandlePermissionDescriptor = { mode }
+  async verifyPermission(handle: FileSystemDirectoryHandle, mode: PermissionMode = 'read'): Promise<boolean> {
+    const options: FileSystemHandlePermissionDescriptor = { mode };
 
     if ((await handle.queryPermission(options)) === 'granted') {
-      return true
+      return true;
     }
 
     try {
-      const result = await handle.requestPermission(options)
-      return result === 'granted'
+      const result = await handle.requestPermission(options);
+      return result === 'granted';
     } catch (err) {
-      console.warn('[local-plugin] permission request needs user gesture', err)
-      return false
+      console.warn('[local-plugin] permission request needs user gesture', err);
+      return false;
     }
   }
 
   async collectLibrary(
     rootHandle: FileSystemDirectoryHandle,
-    rootId: string,
+    rootFolderId: FolderId,
+    folderMap: Record<string, string>,
     onProgress?: (folders: number, tracks: number) => void,
-  ): Promise<CollectedLibrary> {
-    const folders: Folder[] = []
-    const tracks: LibraryTrack[] = []
+  ): Promise<{ snapshot: PluginSnapshot; newFolderMap: Record<string, string> }> {
+    const folders: PluginFolderPayload[] = [];
+    const tracks: PluginTrackPayload[] = [];
+    const newFolderMap: Record<string, string> = { ...folderMap };
 
     const walk = async (
       handle: FileSystemDirectoryHandle,
-      parentId: string | null,
+      parentId: FolderId | null,
       path: string,
-    ): Promise<Folder> => {
-      const id = folderIdFromPath(rootId, path)
+    ): Promise<FolderId> => {
+      const existingId = newFolderMap[path];
+      const folderId: FolderId = existingId ? (existingId as FolderId) : path === '' ? rootFolderId : newFolderId();
+      newFolderMap[path] = folderId;
 
-      const fileEntries: FileSystemFileHandle[] = []
-      const dirEntries: { handle: FileSystemDirectoryHandle; name: string }[] = []
+      const fileEntries: FileSystemFileHandle[] = [];
+      const dirEntries: { handle: FileSystemDirectoryHandle; name: string }[] = [];
 
       for await (const entry of handle.values()) {
         if (entry.kind === 'file') {
           if (isAudioFile(entry.name)) {
-            fileEntries.push(entry)
+            fileEntries.push(entry);
           }
         } else {
-          dirEntries.push({ handle: entry, name: entry.name })
+          dirEntries.push({ handle: entry, name: entry.name });
         }
       }
 
-      fileEntries.sort((a, b) => compareStrings(a.name, b.name))
-      dirEntries.sort((a, b) => compareStrings(a.name, b.name))
+      fileEntries.sort((a, b) => compareStrings(a.name, b.name));
+      dirEntries.sort((a, b) => compareStrings(a.name, b.name));
 
-      const coverFile = fileEntries.length > 0 ? await findCoverInDirectory(handle) : null
+      const coverFile = fileEntries.length > 0 ? await findCoverInDirectory(handle) : null;
 
-      const localTracks = await Promise.all(
-        fileEntries.map(async (fileHandle): Promise<LibraryTrack> => {
-          const file = await fileHandle.getFile()
-          const trackPath = path ? `${path}/${file.name}` : file.name
-          const trackId = trackIdFromPath(rootId, trackPath)
-
-          const parentFolder = path.split('/').filter(Boolean).pop()
-
-          const metadata = await parseTrackMetadata(file, { coverFile, parentFolder })
-          const hasRealTags = Boolean(metadata.artist)
-
-          const initialMeta = {
-            title: metadata.title,
-            artist: metadata.artist,
-            album: metadata.album,
-            coverUrl: metadata.coverUrl,
-          }
-
-          return {
-            id: trackId,
-            pluginId: rootId,
-            folderId: id,
-            filename: file.name,
-            path: trackPath,
-            handle: fileHandle,
-            directoryHandle: handle,
-            sources: [],
-            fileLocation: 'local-only',
-            metaSource: hasRealTags ? 'file' : 'filename',
-            ...initialMeta,
-            raw: { ...initialMeta },
-          }
-        }),
-      )
-
-      tracks.push(...localTracks)
-      const trackIds = localTracks.map((t) => t.id)
-
-      const childFolders = await Promise.all(
-        dirEntries.map((dir) => {
-          const childPath = path ? `${path}/${dir.name}` : dir.name
-          return walk(dir.handle, id, childPath)
-        }),
-      )
-
-      const childTotal = childFolders.reduce((sum, f) => sum + f.totalTrackCount, 0)
-
-      const folder: Folder = {
-        id,
-        name: handle.name,
+      folders.push({
+        id: folderId,
         parentId,
-        path,
-        handle,
-        childFolderIds: childFolders.map((f) => f.id),
-        trackIds,
-        totalTrackCount: trackIds.length + childTotal,
-        source: rootId,
-        scanState: 'scanned',
+        name: handle.name,
+        urlPath: path,
+      });
+
+      for (const fileHandle of fileEntries) {
+        const file = await fileHandle.getFile();
+        const parentFolder = path.split('/').filter(Boolean).pop();
+        const guessed = guessMetadataFromFilename(file.name, parentFolder);
+        const coverUrl = coverFile ? URL.createObjectURL(coverFile) : null;
+
+        tracks.push({
+          artist: guessed.artist,
+          title: guessed.title,
+          album: '',
+          coverUrl,
+          duration: undefined,
+          codec: undefined,
+          hasId3Tags: false,
+          source: {
+            pluginId: 'local',
+            priority: 10,
+            kind: 'local',
+            handle: fileHandle,
+            folderId,
+          },
+        });
       }
-      folders.push(folder)
 
-      onProgress?.(folders.length, tracks.length)
+      for (const dir of dirEntries) {
+        const childPath = path ? `${path}/${dir.name}` : dir.name;
+        await walk(dir.handle, folderId, childPath);
+      }
 
-      return folder
-    }
+      onProgress?.(folders.length, tracks.length);
 
-    const rootFolder = await walk(rootHandle, null, '')
+      return folderId;
+    };
+
+    await walk(rootHandle, null, '');
 
     return {
-      folders,
-      tracks,
-      rootFolderId: rootFolder.id,
-      rootFolderName: rootHandle.name,
+      snapshot: { folders, tracks },
+      newFolderMap,
+    };
+  }
+
+  async getTextFiles(folderHandle: FileSystemDirectoryHandle): Promise<TextFileRef[]> {
+    const result: TextFileRef[] = [];
+
+    for await (const entry of folderHandle.values()) {
+      if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.txt')) {
+        result.push({
+          name: entry.name,
+          remotePath: '',
+          path: entry.name,
+        });
+      }
     }
+
+    return result;
   }
 
   async forgetDirectory(): Promise<void> {
-    await this.clearHandles()
+    await this.clearHandles();
   }
 }
 
-export const fileSystemService = FileSystemService.getInstance()
+export const fileSystemService = FileSystemService.getInstance();

@@ -1,13 +1,14 @@
 <!-- src/components/ui/MarkdownText.vue -->
+
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getMarkdownRenderer } from '@/services/markdown'
+import { computed } from 'vue';
+import { getMarkdownRenderer } from '@/services/markdown';
 
 const props = defineProps<{
-  source: string
-}>()
+  source: string;
+}>();
 
-const html = computed(() => getMarkdownRenderer().render(props.source))
+const html = computed(() => getMarkdownRenderer().render(props.source));
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 // server/src/core/providers/yandex.js
 
-import { Strategy as OAuth2Strategy } from 'passport-oauth2'
-import { yandexResourceMeta } from '../../shared/yandexApi.js'
+import { Strategy as OAuth2Strategy } from 'passport-oauth2';
+import { yandexResourceMeta } from '../../shared/yandexApi.js';
 
 /**
  * Стратегия Яндекс.Диска на базе passport-oauth2.
@@ -24,27 +24,27 @@ export const yandexStrategy = new OAuth2Strategy(
     try {
       // Проверяем, что токен работает: запрашиваем метаданные app:/
       // (при первом запросе Яндекс создаст папку приложения, если её нет)
-      await yandexResourceMeta(accessToken, 'app:/')
+      await yandexResourceMeta(accessToken, 'app:/');
 
       return done(null, {
         accessToken,
         refreshToken,
         expiresAt: Date.now() + (params.expires_in ?? 0) * 1000,
-      })
+      });
     } catch (err) {
-      return done(err)
+      return done(err);
     }
   },
-)
+);
 
 /**
  * Сохраняем в сессии весь объект пользователя (токены + expiresAt).
  * Passport сохранит его в req.session.passport.user.
  */
 export function serializeUser(user, done) {
-  done(null, user)
+  done(null, user);
 }
 
 export function deserializeUser(obj, done) {
-  done(null, obj)
+  done(null, obj);
 }

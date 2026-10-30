@@ -1,96 +1,76 @@
 // src/plugins/yandexDisk/scanFolder.ts
 
-import type { PluginContext } from '../types'
-import type { Folder } from '@/types/library'
-import { mergeFolderContent } from './scan'
-import { mapWithConcurrency } from './concurrency'
-import type { IYandexService } from './types'
-
-const YANDEX_CONCURRENCY = 5
+import type { PluginContext, PluginSnapshot, ScanFolderOptions } from '../types';
+import type { FolderId } from '@/types/ids';
+import { scanAll } from './scan';
+import { folderStatusService } from '@/services/folders/FolderStatusService';
+import type { PluginStorage } from './storage';
+import type { IYandexService } from './types';
+import { makeProgress, registerFolders, markScanningParents, updateParentsStatus } from './helpers';
 
 export interface ScanFolderDeps {
-  context: PluginContext
-  sourceId: string
-  service: IYandexService
+  pluginId: string;
+  service: IYandexService;
+  storage: PluginStorage;
 }
 
-export async function scanFolderRecursive(
+export async function scanFolderImpl(
   deps: ScanFolderDeps,
-  folderId: string,
-  options: { recursive: boolean; removeMissing?: boolean },
-): Promise<boolean> {
-  const { context, sourceId, service } = deps
+  context: PluginContext,
+  folderId: FolderId,
+  options: ScanFolderOptions,
+): Promise<PluginSnapshot> {
+  const { pluginId, service, storage } = deps;
+  const pathMap = storage.getPathMap();
+  const remotePath = pathMap[folderId];
 
-  const folder = context.writer.getFolder(folderId)
-  if (!folder || !folder.remotePath) return false
+  if (!remotePath) {
+    throw new Error(`[${pluginId}] path for folder "${folderId}" not found`);
+  }
 
-  const currentState = folder.scanState ?? 'pending'
+  const cachedFolders = storage.getFoldersCache() ?? [];
 
-  if (currentState === 'scanning') return false
+  console.log(`[${pluginId}] Scanning folder: ${remotePath} (recursive: ${options.recursive})`);
 
-  const needScan = currentState !== 'scanned' || options.removeMissing === true
+  markScanningParents(folderId, cachedFolders);
 
-  if (needScan) {
-    context.writer.updateFolder(folderId, { scanState: 'scanning' })
-    try {
-      const response = await service.listResources(folder.remotePath)
-      mergeFolderContent(
-        context,
-        folder,
-        response._embedded?.items || response.items || [],
-        options.removeMissing === true,
-        sourceId,
-        service,
-      )
-    } catch (err) {
-      console.warn(`[${sourceId}] scan failed for "${folder.path}":`, err)
-      context.writer.updateFolder(folderId, { scanState: 'error' })
-      return false
+  try {
+    const baseProgress = makeProgress();
+    const progress = {
+      ...baseProgress,
+      onChunk: async (folders: PluginSnapshot['folders'], tracks: PluginSnapshot['tracks']) => {
+        // Сразу отдаем в UI
+        await context.writer.setLibrary({ folders, tracks }, pluginId);
+      },
+    };
+
+    const {
+      snapshot,
+      newFolderMap,
+      pathMap: newPaths,
+    } = await scanAll(pluginId, service, pathMap, folderId, remotePath, { recursive: options.recursive, progress });
+
+    storage.setPathMap({ ...pathMap, ...newFolderMap, ...newPaths });
+
+    const scannedSet = new Set<FolderId>();
+    if (options.recursive) {
+      for (const f of snapshot.folders) scannedSet.add(f.id);
+    } else {
+      scannedSet.add(folderId);
     }
-    context.writer.updateFolder(folderId, { scanState: 'scanned' })
+    registerFolders(snapshot.folders, scannedSet);
+
+    storage.setFoldersCache(storage.mergeFoldersCache(storage.getFoldersCache() ?? [], snapshot.folders));
+
+    // На случай, если нужно обновить оставшееся
+    await context.writer.setLibrary(snapshot, pluginId);
+
+    updateParentsStatus(folderId, storage.getFoldersCache() ?? []);
+
+    return snapshot;
+  } catch (err) {
+    folderStatusService.markError(folderId, 'Scan failed');
+    updateParentsStatus(folderId, cachedFolders);
+    throw err;
   }
-
-  if (!options.recursive) {
-    const updated = context.writer.getFolder(folderId)
-    return updated?.scanState === 'scanned' && (updated.childFolderIds.length ?? 0) === 0
-  }
-
-  const updated = context.writer.getFolder(folderId)
-  if (!updated) return false
-
-  const childFolders = updated.childFolderIds
-    .map((fid) => context.writer.getFolder(fid))
-    .filter((f): f is Folder => Boolean(f))
-
-  const isCancelled = (): boolean => Boolean(service.isCancelled?.())
-
-  const childReady = await mapWithConcurrency(
-    childFolders,
-    YANDEX_CONCURRENCY,
-    (child) => scanFolderRecursive(deps, child.id, options),
-    { shouldStop: isCancelled },
-  )
-
-  const childTrackTotal = childFolders.reduce((sum, child) => {
-    const c = context.writer.getFolder(child.id)
-    return sum + (c?.totalTrackCount ?? 0)
-  }, 0)
-
-  const childTextTotal = childFolders.reduce((sum, child) => {
-    const c = context.writer.getFolder(child.id)
-    return sum + (c?.totalTextFileCount ?? 0)
-  }, 0)
-
-  const final = context.writer.getFolder(folderId)
-  if (!final) return false
-
-  const allChildrenReady = childReady.every((r) => r === true)
-  const isReady = final.scanState === 'scanned' && allChildrenReady
-
-  context.writer.updateFolder(folderId, {
-    totalTrackCount: final.trackIds.length + childTrackTotal,
-    totalTextFileCount: (final.textFiles?.length ?? 0) + childTextTotal,
-  })
-
-  return isReady
 }

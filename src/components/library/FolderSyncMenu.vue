@@ -1,4 +1,5 @@
 <!-- src/components/library/FolderSyncMenu.vue -->
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import DropdownMenu from '@/components/ui/DropdownMenu.vue'
@@ -10,11 +11,14 @@ const props = defineProps<{
   isRefreshing: boolean
   isRefreshingFromDevice: boolean
   needsAttention?: boolean
+  /** true, если идет фоновое сканирование и его можно отменить */
+  hasBackgroundScan?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'refresh-cloud'): void
   (e: 'refresh-device'): void
+  (e: 'cancel-background-scan'): void
 }>()
 
 const onRefreshCloud = (close: () => void) => {
@@ -25,6 +29,11 @@ const onRefreshCloud = (close: () => void) => {
 const onRefreshDevice = (close: () => void) => {
   close()
   emit('refresh-device')
+}
+
+const onCancelScan = (close: () => void) => {
+  close()
+  emit('cancel-background-scan')
 }
 
 const label = computed(() => props.isRefreshing
@@ -55,7 +64,7 @@ const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDe
         class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
         @click="onRefreshCloud(close)">
         Обновить с облака
-        <span class="block text-[10px] text-fg-muted"> Синхронизировать треки с Яндекс.Диска </span>
+        <span class="block text-[10px] text-fg-muted"> Синхронизировать треки с Диска </span>
       </button>
 
       <button v-if="canRefreshFromDevice" type="button"
@@ -64,6 +73,15 @@ const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDe
         Обновить с устройства
         <span class="block text-[10px] text-fg-muted"> Найти новые и отсутствующие файлы </span>
       </button>
+
+      <div v-if="hasBackgroundScan" class="border-t border-hover-bg mt-1 pt-1">
+        <button type="button"
+          class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-red-500/10"
+          @click="onCancelScan(close)">
+          Отменить синхронизацию
+          <span class="block text-[10px] text-red-400/70"> Остановить фоновый скан </span>
+        </button>
+      </div>
     </template>
   </DropdownMenu>
 </template>

@@ -1,64 +1,55 @@
 // src/composables/useVirtualList.ts
 
-import {
-  computed,
-  onMounted,
-  onUnmounted,
-  ref,
-  unref,
-  watch,
-  type Ref,
-  type ComputedRef,
-} from 'vue'
+import { computed, onMounted, onUnmounted, ref, unref, watch, type Ref, type ComputedRef } from 'vue';
 
-type MaybeRef<T> = T | Ref<T> | ComputedRef<T>
+type MaybeRef<T> = T | Ref<T> | ComputedRef<T>;
 
 interface UseVirtualListOptions<T> {
   /** Исходный массив */
-  items: Ref<T[]>
+  items: Ref<T[]>;
   /**
    * Высота одного элемента в пикселях.
    * Может быть числом (если высота фиксирована) или ref/computed,
    * если высота измеряется динамически через useItemHeight.
    */
-  itemHeight: MaybeRef<number>
+  itemHeight: MaybeRef<number>;
   /** Сколько элементов рендерить сверху/снизу за пределами видимой области */
-  overscan?: number
+  overscan?: number;
   /** Ref на скролл-контейнер */
-  containerRef: Ref<HTMLElement | null>
+  containerRef: Ref<HTMLElement | null>;
 }
 
 export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
-  const { items, itemHeight, overscan = 5, containerRef } = options
+  const { items, itemHeight, overscan = 5, containerRef } = options;
 
   /** Высота видимой области */
-  const viewportHeight = ref(0)
+  const viewportHeight = ref(0);
   /** Текущий скролл */
-  const scrollTop = ref(0)
+  const scrollTop = ref(0);
 
   /** Актуальное значение высоты элемента (разворачиваем ref/computed) */
   const resolvedItemHeight = computed(() => {
-    const h = unref(itemHeight)
+    const h = unref(itemHeight);
     // Защита от нуля: пока ResizeObserver не сработал,
     // используем безопасный дефолт, чтобы не схлопнуть список
-    return h > 0 ? h : 62
-  })
+    return h > 0 ? h : 62;
+  });
 
   /** Общая высота всех элементов */
-  const totalHeight = computed(() => items.value.length * resolvedItemHeight.value)
+  const totalHeight = computed(() => items.value.length * resolvedItemHeight.value);
 
   /** Индекс первого видимого элемента */
   const startIndex = computed(() => {
-    const raw = Math.floor(scrollTop.value / resolvedItemHeight.value) - overscan
-    return Math.max(0, raw)
-  })
+    const raw = Math.floor(scrollTop.value / resolvedItemHeight.value) - overscan;
+    return Math.max(0, raw);
+  });
 
   /** Индекс последнего видимого элемента (не включительно) */
   const endIndex = computed(() => {
-    const visibleCount = Math.ceil(viewportHeight.value / resolvedItemHeight.value)
-    const raw = startIndex.value + visibleCount + overscan * 2
-    return Math.min(items.value.length, raw)
-  })
+    const visibleCount = Math.ceil(viewportHeight.value / resolvedItemHeight.value);
+    const raw = startIndex.value + visibleCount + overscan * 2;
+    return Math.min(items.value.length, raw);
+  });
 
   /** Видимый срез */
   const visibleItems = computed(() =>
@@ -66,58 +57,58 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
       item,
       index: startIndex.value + i,
     })),
-  )
+  );
 
   /** Смещение для transform — чтобы видимые элементы оказались на нужной позиции */
-  const offsetY = computed(() => startIndex.value * resolvedItemHeight.value)
+  const offsetY = computed(() => startIndex.value * resolvedItemHeight.value);
 
   // --- Обработка скролла -----------------------------------------------
 
-  let rafId: number | null = null
+  let rafId: number | null = null;
 
   function onScroll(): void {
-    if (rafId !== null) return
+    if (rafId !== null) return;
     rafId = requestAnimationFrame(() => {
-      rafId = null
+      rafId = null;
       if (containerRef.value) {
-        scrollTop.value = containerRef.value.scrollTop
+        scrollTop.value = containerRef.value.scrollTop;
       }
-    })
+    });
   }
 
   // --- Обработка resize ------------------------------------------------
 
-  let resizeObserver: ResizeObserver | null = null
-  let observedEl: HTMLElement | null = null
+  let resizeObserver: ResizeObserver | null = null;
+  let observedEl: HTMLElement | null = null;
 
   function updateViewportHeight(): void {
     if (containerRef.value) {
-      viewportHeight.value = containerRef.value.clientHeight
+      viewportHeight.value = containerRef.value.clientHeight;
     }
   }
 
   onMounted(() => {
-    updateViewportHeight()
-    observedEl = containerRef.value
+    updateViewportHeight();
+    observedEl = containerRef.value;
 
     if (observedEl) {
-      observedEl.addEventListener('scroll', onScroll, { passive: true })
-      resizeObserver = new ResizeObserver(updateViewportHeight)
-      resizeObserver.observe(observedEl)
+      observedEl.addEventListener('scroll', onScroll, { passive: true });
+      resizeObserver = new ResizeObserver(updateViewportHeight);
+      resizeObserver.observe(observedEl);
     }
-  })
+  });
 
   onUnmounted(() => {
     if (observedEl) {
-      observedEl.removeEventListener('scroll', onScroll)
+      observedEl.removeEventListener('scroll', onScroll);
     }
     if (resizeObserver) {
-      resizeObserver.disconnect()
+      resizeObserver.disconnect();
     }
     if (rafId !== null) {
-      cancelAnimationFrame(rafId)
+      cancelAnimationFrame(rafId);
     }
-  })
+  });
 
   // --- Реакция на изменение items --------------------------------------
 
@@ -125,10 +116,10 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
     () => items.value.length,
     () => {
       if (containerRef.value) {
-        scrollTop.value = containerRef.value.scrollTop
+        scrollTop.value = containerRef.value.scrollTop;
       }
     },
-  )
+  );
 
   return {
     totalHeight,
@@ -136,5 +127,5 @@ export function useVirtualList<T>(options: UseVirtualListOptions<T>) {
     offsetY,
     startIndex,
     endIndex,
-  }
+  };
 }

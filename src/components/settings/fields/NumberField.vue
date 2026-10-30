@@ -1,40 +1,41 @@
 <!-- src/components/settings/fields/NumberField.vue -->
+
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { PluginSettingsNumber } from '@/plugins/settingsTypes'
+import { ref, watch } from 'vue';
+import type { PluginSettingsNumber } from '@/plugins/settingsTypes';
 
 const props = defineProps<{
-  field: PluginSettingsNumber
-}>()
+  field: PluginSettingsNumber;
+}>();
 
 const emit = defineEmits<{
-  (e: 'change', id: string, value: number): void
-}>()
+  (e: 'change', id: string, value: number): void;
+}>();
 
-const local = ref(props.field.value)
+const local = ref(props.field.value);
 
 watch(
   () => props.field.value,
   (v) => {
-    local.value = v
+    local.value = v;
   },
-)
+);
 
 function commit() {
-  const v = Number(local.value)
+  const v = Number(local.value);
   if (!Number.isFinite(v)) {
-    local.value = props.field.value
-    return
+    local.value = props.field.value;
+    return;
   }
   if (props.field.min !== undefined && v < props.field.min) {
-    local.value = props.field.value
-    return
+    local.value = props.field.value;
+    return;
   }
   if (props.field.max !== undefined && v > props.field.max) {
-    local.value = props.field.value
-    return
+    local.value = props.field.value;
+    return;
   }
-  emit('change', props.field.id, v)
+  emit('change', props.field.id, v);
 }
 </script>
 

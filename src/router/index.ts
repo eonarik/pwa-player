@@ -1,19 +1,19 @@
 // src/router/index.ts
 
-import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '@/views/HomeView.vue'
-import FolderRoute from '@/views/FolderRoute.vue'
-import PlaylistsView from '@/views/PlaylistsView.vue'
-import PlaylistRoute from '@/views/PlaylistRoute.vue'
-import HistoryView from '@/views/HistoryView.vue'
-import QueueView from '@/views/QueueView.vue'
-import DislikesView from '@/views/DislikesView.vue'
-import ArtistView from '@/views/ArtistView.vue'
-import AlbumView from '@/views/AlbumView.vue'
-import SearchView from '@/views/SearchView.vue'
-import SettingsView from '@/views/SettingsView.vue'
-import AlbumsView from '@/views/AlbumsView.vue'
-import ArtistsView from '@/views/ArtistsView.vue'
+import { createRouter, createWebHistory } from 'vue-router';
+import HomeView from '@/views/HomeView.vue';
+import FolderRoute from '@/views/FolderRoute.vue';
+import PlaylistsView from '@/views/PlaylistsView.vue';
+import PlaylistRoute from '@/views/PlaylistRoute.vue';
+import HistoryView from '@/views/HistoryView.vue';
+import QueueView from '@/views/QueueView.vue';
+import DislikesView from '@/views/DislikesView.vue';
+import ArtistView from '@/views/ArtistView.vue';
+import AlbumView from '@/views/AlbumView.vue';
+import SearchView from '@/views/SearchView.vue';
+import SettingsView from '@/views/SettingsView.vue';
+import AlbumsView from '@/views/AlbumsView.vue';
+import ArtistsView from '@/views/ArtistsView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -33,16 +33,11 @@ const router = createRouter({
     { path: '/queue', name: 'queue', component: QueueView },
     { path: '/dislikes', name: 'dislikes', component: DislikesView },
     { path: '/artist/:artistName', name: 'artist', component: ArtistView, props: true },
-    {
-      path: '/artist/:artistName/:album',
-      name: 'album',
-      component: AlbumView,
-      props: true,
-    },
+    { path: '/artist/:artistName/:album', name: 'album', component: AlbumView, props: true },
     { path: '/artists', name: 'artists', component: ArtistsView },
     { path: '/albums', name: 'albums', component: AlbumsView },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
-})
+});
 
-export default router
+export default router;

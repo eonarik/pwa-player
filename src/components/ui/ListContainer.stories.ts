@@ -1,13 +1,15 @@
-import type { Meta, StoryObj } from '@storybook/vue3'
-import ListContainer from './ListContainer.vue'
+// src/components/ui/ListContainer.stories.ts
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import ListContainer from './ListContainer.vue';
 
 const meta: Meta<typeof ListContainer> = {
   title: 'UI/ListContainer',
   component: ListContainer,
-}
+};
 
-export default meta
-type Story = StoryObj<typeof ListContainer>
+export default meta;
+type Story = StoryObj<typeof ListContainer>;
 
 export const Default: Story = {
   render: () => ({
@@ -20,4 +22,4 @@ export const Default: Story = {
       </ListContainer>
     `,
   }),
-}
+};

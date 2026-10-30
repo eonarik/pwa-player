@@ -1,7 +1,8 @@
 // src/plugins/yandexSelf/manifest.ts
-import type { PluginManifest } from '../types'
-import { yandexSelfService } from './YandexSelfService'
-import { createLibraryWriter } from '@/stores/library'
+
+import type { PluginManifest } from '../types';
+import { yandexSelfService } from './YandexSelfService';
+import { createLibraryWriter } from '@/stores/library';
 
 export const manifest: PluginManifest = {
   id: 'yandex-self',
@@ -26,8 +27,7 @@ export const manifest: PluginManifest = {
             type: 'action',
             id: 'reset-context',
             label: 'Сменить контекст',
-            description:
-              'Сбросить текущий пароль и войти под другим. Библиотека этого плагина будет очищена.',
+            description: 'Сбросить текущий пароль и войти под другим. Библиотека этого плагина будет очищена.',
             variant: 'danger',
           },
         ],
@@ -38,23 +38,19 @@ export const manifest: PluginManifest = {
   // 2. Обрабатываем нажатие
   runSettingsAction: async (actionId: string) => {
     if (actionId === 'reset-context') {
-      if (
-        !window.confirm(
-          'Сбросить доступ? При следующем заходе потребуется ввести пароль (или контекст:пароль).',
-        )
-      ) {
-        return
+      if (!window.confirm('Сбросить доступ? При следующем заходе потребуется ввести пароль (или контекст:пароль).')) {
+        return;
       }
 
       // Сбрасываем токен в сервисе
-      yandexSelfService.logout()
+      yandexSelfService.logout();
 
       // Очищаем данные плагина в библиотеке
-      const writer = createLibraryWriter()
-      writer.removeBySource('yandex-self')
+      const writer = createLibraryWriter();
+      writer.removeBySource('yandex-self');
 
       // Перезагружаем страницу, чтобы HomeView заново инициализировал плагин
-      window.location.href = '/'
+      window.location.href = '/';
     }
   },
-}
+};

@@ -1,43 +1,44 @@
 <!-- src/components/catalog/CatalogLayout.vue -->
+
 <script setup lang="ts">
-import SearchInput from '@/components/ui/SearchInput.vue'
-import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import SectionTitle from '@/components/ui/SectionTitle.vue'
-import Icon from '@/components/ui/Icon.vue'
+import SearchInput from '@/components/ui/SearchInput.vue';
+import DropdownMenu from '@/components/ui/DropdownMenu.vue';
+import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Icon from '@/components/ui/Icon.vue';
 
 withDefaults(
   defineProps<{
-    title: string
-    backLabel: string
-    listTitle: string
-    searchQuery: string
-    showClear: boolean
-    isLoading: boolean
-    isStale: boolean
-    error: string
-    isEmpty: boolean
-    emptyLabel?: string
-    limitOptions?: number[]
-    currentLimit: number
-    currentPage: number
-    hasMore: boolean
-    showPagination: boolean
+    title: string;
+    backLabel: string;
+    listTitle: string;
+    searchQuery: string;
+    showClear: boolean;
+    isLoading: boolean;
+    isStale: boolean;
+    error: string;
+    isEmpty: boolean;
+    emptyLabel?: string;
+    limitOptions?: number[];
+    currentLimit: number;
+    currentPage: number;
+    hasMore: boolean;
+    showPagination: boolean;
   }>(),
   {
     emptyLabel: 'Ничего не найдено',
     limitOptions: () => [5, 10, 15, 20, 30],
     showPagination: true,
   },
-)
+);
 
 const emit = defineEmits<{
-  (e: 'update:searchQuery', value: string): void
-  (e: 'clear'): void
-  (e: 'back'): void
-  (e: 'update:currentLimit', value: number): void
-  (e: 'prev'): void
-  (e: 'next'): void
-}>()
+  (e: 'update:searchQuery', value: string): void;
+  (e: 'clear'): void;
+  (e: 'back'): void;
+  (e: 'update:currentLimit', value: number): void;
+  (e: 'prev'): void;
+  (e: 'next'): void;
+}>();
 </script>
 
 <template>
@@ -46,20 +47,29 @@ const emit = defineEmits<{
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-3">
         <div class="flex items-center justify-between">
           <h1 class="text-lg font-medium text-fg">{{ title }}</h1>
-          <button type="button"
+          <button
+            type="button"
             class="flex items-center gap-1 rounded-btn text-xs font-medium text-fg-muted transition hover:text-fg"
-            @click="emit('back')">
+            @click="emit('back')"
+          >
             <Icon name="arrow-left" w="w-4" h="h-4" />
             {{ backLabel }}
           </button>
         </div>
 
         <div class="flex items-center gap-2">
-          <SearchInput :model-value="searchQuery" always-open placeholder="Поиск..."
-            @update:model-value="(v: string) => emit('update:searchQuery', v)" />
-          <button v-if="showClear" type="button"
+          <SearchInput
+            :model-value="searchQuery"
+            always-open
+            placeholder="Поиск..."
+            @update:model-value="(v: string) => emit('update:searchQuery', v)"
+          />
+          <button
+            v-if="showClear"
+            type="button"
             class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg transition hover:bg-hover-bg"
-            @click="emit('clear')">
+            @click="emit('clear')"
+          >
             Сбросить
           </button>
         </div>
@@ -83,18 +93,30 @@ const emit = defineEmits<{
           <div class="flex items-center gap-2 shrink-0">
             <DropdownMenu :width="80" align="right">
               <template #trigger="{ toggle, setTriggerRef }">
-                <button :ref="setTriggerRef" type="button"
+                <button
+                  :ref="setTriggerRef"
+                  type="button"
                   class="flex items-center gap-1 rounded-btn bg-card-bg px-2 py-1.5 text-[10px] text-fg transition hover:bg-hover-bg"
-                  @click.stop="toggle">
+                  @click.stop="toggle"
+                >
                   {{ currentLimit }}
                   <Icon name="chevron-down" w="w-3" h="h-3" />
                 </button>
               </template>
               <template #default="{ close }">
-                <button v-for="num in limitOptions" :key="num" type="button"
+                <button
+                  v-for="num in limitOptions"
+                  :key="num"
+                  type="button"
                   class="block w-full px-3 py-2 text-left text-xs transition hover:bg-hover-bg"
                   :class="currentLimit === num ? 'text-active font-medium' : 'text-fg'"
-                  @click="() => { emit('update:currentLimit', num); close() }">
+                  @click="
+                    () => {
+                      emit('update:currentLimit', num);
+                      close();
+                    }
+                  "
+                >
                   {{ num }}
                 </button>
               </template>
@@ -118,17 +140,25 @@ const emit = defineEmits<{
           </div>
         </div>
 
-        <div v-if="showPagination && !isLoading && !error && !isEmpty"
-          class="shrink-0 border-t border-hover-bg pt-3 pb-2 flex items-center justify-between mt-auto">
-          <button type="button"
+        <div
+          v-if="showPagination && !isLoading && !error && !isEmpty"
+          class="shrink-0 border-t border-hover-bg pt-3 pb-2 flex items-center justify-between mt-auto"
+        >
+          <button
+            type="button"
             class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="currentPage === 1" @click="emit('prev')">
+            :disabled="currentPage === 1"
+            @click="emit('prev')"
+          >
             <Icon name="chevron-left" w="w-4" h="h-4" /> Назад
           </button>
           <span class="text-xs text-fg-muted">Страница {{ currentPage }}</span>
-          <button type="button"
+          <button
+            type="button"
             class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="!hasMore" @click="emit('next')">
+            :disabled="!hasMore"
+            @click="emit('next')"
+          >
             Вперед
             <Icon name="chevron-right" w="w-4" h="h-4" />
           </button>

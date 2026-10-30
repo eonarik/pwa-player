@@ -1,30 +1,31 @@
 <!-- src/views/settings/SettingsAbout.vue -->
+
 <script setup lang="ts">
-import { ref } from 'vue'
-import { pwaService } from '@/services/pwa/PwaService'
-import { toastService } from '@/services/ui/ToastService'
-import Button from '@/components/ui/Button.vue'
+import { ref } from 'vue';
+import { pwaService } from '@/services/pwa/PwaService';
+import { toastService } from '@/services/ui/ToastService';
+import Button from '@/components/ui/Button.vue';
 
-const appVersion = __APP_VERSION__
-const buildHash = __BUILD_HASH__
-const shortHash = buildHash.slice(0, 7)
+const appVersion = __APP_VERSION__;
+const buildHash = __BUILD_HASH__;
+const shortHash = buildHash.slice(0, 7);
 
-const isChecking = ref(false)
+const isChecking = ref(false);
 
 async function checkForUpdates(): Promise<void> {
-  if (isChecking.value) return
-  isChecking.value = true
+  if (isChecking.value) return;
+  isChecking.value = true;
   try {
     // Сбрасываем кулдаун, чтобы регистрация точно проверила обновление.
-    localStorage.removeItem('pwa:lastUpdateCheck')
-    await pwaService.checkForUpdates()
+    localStorage.removeItem('pwa:lastUpdateCheck');
+    await pwaService.checkForUpdates();
 
     if (!pwaService.needRefresh.value) {
-      toastService.info('У вас последняя версия')
+      toastService.info('У вас последняя версия');
     }
     // Если есть обновление — usePwaUpdate уже покажет тост.
   } finally {
-    isChecking.value = false
+    isChecking.value = false;
   }
 }
 </script>

@@ -9,4 +9,4 @@
  *
  * Менять нельзя без миграции (SCHEMA_VERSION + перезапись данных).
  */
-export const PLUGIN_ID = 'yandex'
+export const PLUGIN_ID = 'yandex';

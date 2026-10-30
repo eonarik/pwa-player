@@ -1,39 +1,39 @@
 <!-- src/components/library/TrackListPage.vue -->
+
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useLibraryStore } from '@/stores/library'
-import { usePlayerStore } from '@/stores/player'
-import { useUiSettingsStore } from '@/stores/uiSettings'
-import { getPluginName } from '@/plugins/lookup'
-import { pluginIdFromSource } from '@/plugins/registry'
-import { useLibrarySearch } from '@/composables/useLibrarySearch'
-import SearchInput from '@/components/ui/SearchInput.vue'
-import FileLocationFilter from './FileLocationFilter.vue'
-import type { FilterOption } from '@/types/filter'
-import TrackListItem from './TrackListItem.vue'
-import TrackActions from './TrackActions.vue'
-import BatchAddToPlaylistButton from './BatchAddToPlaylistButton.vue'
-import AlternatesButton from './AlternatesButton.vue' // <-- ДОБАВЛЕНО
-import Button from '@/components/ui/Button.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
-import ListContainer from '@/components/ui/ListContainer.vue'
-import Icon from '@/components/ui/Icon.vue'
-import type { LibraryTrack } from '@/types/library'
-import type { Track } from '@/types/track'
+import { computed, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useLibraryStore } from '@/stores/library';
+import { usePlayerStore } from '@/stores/player';
+import { useUiSettingsStore } from '@/stores/uiSettings';
+import { getPluginName } from '@/plugins/lookup';
+import { pluginIdFromSource } from '@/plugins/registry';
+import { useLibrarySearch } from '@/composables/useLibrarySearch';
+import SearchInput from '@/components/ui/SearchInput.vue';
+import FileLocationFilter from './FileLocationFilter.vue';
+import type { FilterOption } from '@/types/filter';
+import TrackListItem from './TrackListItem.vue';
+import TrackActions from './TrackActions.vue';
+import BatchAddToPlaylistButton from './BatchAddToPlaylistButton.vue';
+import MetadataCandidatesButton from './MetadataCandidatesButton.vue';
+import Button from '@/components/ui/Button.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import ListContainer from '@/components/ui/ListContainer.vue';
+import Icon from '@/components/ui/Icon.vue';
+import type { Track } from '@/types/track';
 
 const props = withDefaults(
   defineProps<{
-    title: string
-    subtitle?: string
-    tracks: Track[]
-    showSearch?: boolean
-    showFilter?: boolean
-    showPlayAll?: boolean
-    showBatchAdd?: boolean
-    preFilter?: (t: Track) => boolean
-    customSelect?: boolean
-    itemKey?: (track: Track, index: number) => string
+    title: string;
+    subtitle?: string;
+    tracks: Track[];
+    showSearch?: boolean;
+    showFilter?: boolean;
+    showPlayAll?: boolean;
+    showBatchAdd?: boolean;
+    preFilter?: (t: Track) => boolean;
+    customSelect?: boolean;
+    itemKey?: (track: Track, index: number) => string;
   }>(),
   {
     showSearch: true,
@@ -43,87 +43,88 @@ const props = withDefaults(
     customSelect: false,
     itemKey: (track: Track) => track.id,
   },
-)
+);
 
 const emit = defineEmits<{
-  (e: 'select-track', index: number): void
-  (e: 'select-search-track', trackId: string): void
-}>()
+  (e: 'select-track', index: number): void;
+  (e: 'select-search-track', trackId: string): void;
+}>();
 
-const library = useLibraryStore()
-const player = usePlayerStore()
-const uiSettings = useUiSettingsStore()
-const { currentTrack, isPlaying } = storeToRefs(player)
+const library = useLibraryStore();
+const player = usePlayerStore();
+const uiSettings = useUiSettingsStore();
+const { currentTrack, isPlaying } = storeToRefs(player);
 
-const sourceFilter = ref<string>('all')
+const sourceFilter = ref<string>('all');
 
-const baseTracks = computed<Track[]>(() => props.tracks)
+const baseTracks = computed<Track[]>(() => props.tracks);
 
 const preFilteredTracks = computed(() => {
-  if (!props.preFilter) return baseTracks.value
-  return baseTracks.value.filter(props.preFilter)
-})
+  if (!props.preFilter) return baseTracks.value;
+  return baseTracks.value.filter(props.preFilter);
+});
 
 const filterOptions = computed<FilterOption[]>(() => {
-  const plugins = new Set<string>()
+  const plugins = new Set<string>();
   for (const t of preFilteredTracks.value) {
-    plugins.add(pluginIdFromSource(t.pluginId))
+    const pid = t.pluginId;
+    if (pid) plugins.add(pluginIdFromSource(pid));
   }
   return Array.from(plugins).map((id) => ({
     id,
     label: getPluginName(id),
-  }))
-})
+  }));
+});
 
 const filteredTracks = computed(() => {
-  if (sourceFilter.value === 'all') return preFilteredTracks.value
-  return preFilteredTracks.value.filter(
-    (t) => pluginIdFromSource(t.pluginId) === sourceFilter.value,
-  )
-})
+  if (sourceFilter.value === 'all') return preFilteredTracks.value;
+  return preFilteredTracks.value.filter((t) => pluginIdFromSource(t.pluginId) === sourceFilter.value);
+});
 
-const searchableTracks = computed<LibraryTrack[]>(() => {
-  return filteredTracks.value.filter((t): t is LibraryTrack => Boolean(library.getTrack(t.id)))
-})
+const searchableTracks = computed<Track[]>(() => {
+  return filteredTracks.value.filter((t) => Boolean(library.getTrack(t.id)));
+});
 
-const { query: searchQuery, hasQuery, hasResults, result } = useLibrarySearch(
-  searchableTracks,
-  uiSettings.searchThreshold,
-)
+const {
+  query: searchQuery,
+  hasQuery,
+  hasResults,
+  result,
+} = useLibrarySearch(searchableTracks, uiSettings.searchThreshold);
 
 const currentQuery = computed({
   get: () => searchQuery.value,
   set: (v) => {
-    searchQuery.value = v
+    searchQuery.value = v;
   },
-})
+});
 
-const searchFlatTracks = computed<Track[]>(() => result.value.tracks)
+const searchFlatTracks = computed<Track[]>(() => result.value.tracks);
 
-const currentTrackId = computed(() => currentTrack.value?.id ?? null)
+const currentTrackId = computed(() => currentTrack.value?.id ?? null);
 
 function isCurrent(trackId: string) {
-  return currentTrackId.value === trackId
+  return currentTrackId.value === trackId;
 }
 
 function playAll() {
-  if (filteredTracks.value.length === 0) return
-  player.playAll(filteredTracks.value)
+  if (filteredTracks.value.length === 0) return;
+  player.playAll(filteredTracks.value);
 }
 
 function onSelect(index: number) {
-  emit('select-track', index)
+  emit('select-track', index);
   if (!props.customSelect) {
-    player.setQueue(filteredTracks.value, index)
+    player.setQueue(filteredTracks.value, index);
   }
 }
 
 function onSelectSearch(trackId: string) {
-  emit('select-search-track', trackId)
-  if (props.customSelect) return
-  const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId)
-  if (idx < 0) return
-  player.setQueue(searchFlatTracks.value, idx)
+  emit('select-search-track', trackId);
+  if (props.customSelect) return;
+  const idx = searchFlatTracks.value.findIndex((t) => t.id === trackId);
+  if (idx < 0) return;
+  player.setQueue(searchFlatTracks.value, idx);
 }
 </script>
 
@@ -137,20 +138,19 @@ function onSelectSearch(trackId: string) {
         </div>
 
         <div class="flex shrink-0 items-center gap-2">
-          <!-- <-- ДОБАВЛЕНО: Кнопка альтернатив -->
-          <AlternatesButton :tracks="filteredTracks" />
-
+          <MetadataCandidatesButton :tracks="filteredTracks" />
           <slot name="header-actions" />
         </div>
       </div>
     </div>
 
-    <div v-if="showSearch || showFilter || showPlayAll || showBatchAdd"
-      class="shrink-0 px-4 py-2 border-b border-hover-bg bg-bg">
+    <div
+      v-if="showSearch || showFilter || showPlayAll || showBatchAdd"
+      class="shrink-0 px-4 py-2 border-b border-hover-bg bg-bg"
+    >
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-3">
         <div class="flex items-center gap-3">
           <SearchInput v-if="showSearch" v-model="currentQuery" class="flex-1" />
-
           <div v-if="showPlayAll || showBatchAdd" class="flex shrink-0 items-center gap-2">
             <BatchAddToPlaylistButton v-if="showBatchAdd" :tracks="filteredTracks" />
             <Button v-if="showPlayAll && filteredTracks.length > 0" variant="primary" size="sm" @click="playAll">
@@ -158,7 +158,6 @@ function onSelectSearch(trackId: string) {
             </Button>
           </div>
         </div>
-
         <div v-if="showFilter && filterOptions.length > 1" class="flex items-center gap-2">
           <FileLocationFilter v-model="sourceFilter" :options="filterOptions" />
         </div>
@@ -188,12 +187,21 @@ function onSelectSearch(trackId: string) {
                 {{ group.artist }}
               </p>
               <ListContainer max-width="lg">
-                <TrackListItem v-for="track in group.tracks" :key="track.id" :track="track"
-                  :index="searchFlatTracks.findIndex((t) => t.id === track.id)" :is-current="isCurrent(track.id)"
-                  :is-playing="isPlaying" @select="() => onSelectSearch(track.id)">
+                <TrackListItem
+                  v-for="track in group.tracks"
+                  :key="track.id"
+                  :track="track"
+                  :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
+                  :is-current="isCurrent(track.id)"
+                  :is-playing="isPlaying"
+                  @select="() => onSelectSearch(track.id)"
+                >
                   <template #actions>
-                    <slot name="track-actions" :track="track"
-                      :index="searchFlatTracks.findIndex((t) => t.id === track.id)">
+                    <slot
+                      name="track-actions"
+                      :track="track"
+                      :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
+                    >
                       <TrackActions :track="track" />
                     </slot>
                   </template>
@@ -204,8 +212,15 @@ function onSelectSearch(trackId: string) {
         </template>
 
         <ListContainer v-else max-width="lg">
-          <TrackListItem v-for="(track, index) in filteredTracks" :key="itemKey(track, index)" :track="track"
-            :index="index" :is-current="isCurrent(track.id)" :is-playing="isPlaying" @select="() => onSelect(index)">
+          <TrackListItem
+            v-for="(track, index) in filteredTracks"
+            :key="itemKey(track, index)"
+            :track="track"
+            :index="index"
+            :is-current="isCurrent(track.id)"
+            :is-playing="isPlaying"
+            @select="() => onSelect(index)"
+          >
             <template #actions>
               <slot name="track-meta" :track="track" :index="index" />
               <slot name="track-actions" :track="track" :index="index">

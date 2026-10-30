@@ -1,4 +1,5 @@
 <!-- src/components/ui/PlayingIndicator.vue -->
+
 <template>
   <div class="playing-indicator absolute inset-0 flex items-center justify-center bg-bg/50">
     <span class="playing-indicator-inner flex gap-0.5">

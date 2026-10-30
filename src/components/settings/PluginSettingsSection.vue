@@ -1,33 +1,34 @@
 <!-- src/components/settings/PluginSettingsSection.vue -->
+
 <script setup lang="ts">
-import type { PluginSettingsField, PluginSettingsSection } from '@/plugins/settingsTypes'
-import ActionField from './fields/ActionField.vue'
-import TextField from './fields/TextField.vue'
-import NumberField from './fields/NumberField.vue'
-import ToggleField from './fields/ToggleField.vue'
-import FolderListField from './fields/FolderListField.vue'
-import SectionTitle from '@/components/ui/SectionTitle.vue'
+import type { PluginSettingsField, PluginSettingsSection } from '@/plugins/settingsTypes';
+import ActionField from './fields/ActionField.vue';
+import TextField from './fields/TextField.vue';
+import NumberField from './fields/NumberField.vue';
+import ToggleField from './fields/ToggleField.vue';
+import FolderListField from './fields/FolderListField.vue';
+import SectionTitle from '@/components/ui/SectionTitle.vue';
 
 defineProps<{
-  section: PluginSettingsSection
-  disabled?: boolean
-}>()
+  section: PluginSettingsSection;
+  disabled?: boolean;
+}>();
 
 const emit = defineEmits<{
-  (e: 'action', id: string, payload?: unknown): void
-  (e: 'change', id: string, value: unknown): void
-}>()
+  (e: 'action', id: string, payload?: unknown): void;
+  (e: 'change', id: string, value: unknown): void;
+}>();
 
 function onAction(id: string, payload?: unknown) {
-  emit('action', id, payload)
+  emit('action', id, payload);
 }
 
 function onChange(id: string, value: unknown) {
-  emit('change', id, value)
+  emit('change', id, value);
 }
 
 function fieldKey(field: PluginSettingsField): string {
-  return field.id
+  return field.id;
 }
 </script>
 
@@ -52,8 +53,12 @@ function fieldKey(field: PluginSettingsField): string {
 
         <ToggleField v-else-if="field.type === 'toggle'" :field="field" @change="onChange" />
 
-        <FolderListField v-else-if="field.type === 'folderList'" :field="field" :disabled="disabled"
-          @action="onAction" />
+        <FolderListField
+          v-else-if="field.type === 'folderList'"
+          :field="field"
+          :disabled="disabled"
+          @action="onAction"
+        />
       </template>
     </div>
   </div>

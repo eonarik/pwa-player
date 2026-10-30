@@ -8,19 +8,19 @@ export async function getFileFromPath(
   targetDir: FileSystemDirectoryHandle,
   relativePath: string,
 ): Promise<File | null> {
-  const segments = relativePath.split('/').filter(Boolean)
-  const fileName = segments.pop()
-  if (!fileName) return null
+  const segments = relativePath.split('/').filter(Boolean);
+  const fileName = segments.pop();
+  if (!fileName) return null;
 
   try {
-    let dir: FileSystemDirectoryHandle = targetDir
+    let dir: FileSystemDirectoryHandle = targetDir;
     for (const seg of segments) {
-      dir = await dir.getDirectoryHandle(seg)
+      dir = await dir.getDirectoryHandle(seg);
     }
-    const fileHandle = await dir.getFileHandle(fileName)
-    return await fileHandle.getFile()
+    const fileHandle = await dir.getFileHandle(fileName);
+    return await fileHandle.getFile();
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -32,17 +32,17 @@ export async function getFileHandleFromPath(
   targetDir: FileSystemDirectoryHandle,
   relativePath: string,
 ): Promise<FileSystemFileHandle | null> {
-  const segments = relativePath.split('/').filter(Boolean)
-  const fileName = segments.pop()
-  if (!fileName) return null
+  const segments = relativePath.split('/').filter(Boolean);
+  const fileName = segments.pop();
+  if (!fileName) return null;
 
   try {
-    let dir: FileSystemDirectoryHandle = targetDir
+    let dir: FileSystemDirectoryHandle = targetDir;
     for (const seg of segments) {
-      dir = await dir.getDirectoryHandle(seg)
+      dir = await dir.getDirectoryHandle(seg);
     }
-    return await dir.getFileHandle(fileName)
+    return await dir.getFileHandle(fileName);
   } catch {
-    return null
+    return null;
   }
 }

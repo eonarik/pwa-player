@@ -1,60 +1,51 @@
 <!-- src/views/HomeView.vue -->
+
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { usePluginsList } from '@/composables/usePluginsList'
-import { usePluginActions } from '@/composables/usePluginActions'
-import PluginCard from './home/PluginCard.vue'
-import type { PluginManifest } from '@/plugins/types'
+import { onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { usePluginsList } from '@/composables/usePluginsList';
+import { usePluginActions } from '@/composables/usePluginActions';
+import PluginCard from './home/PluginCard.vue';
+import type { PluginManifest } from '@/plugins/types';
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
-const {
-  plugins,
-  isOffline,
-  sessionStatus,
-  isChecking,
-  loadPlugins,
-} = usePluginsList()
+const { plugins, isOffline, sessionStatus, isChecking, loadPlugins } = usePluginsList();
 
-const {
-  isLoading,
-  isOpening,
-  openPlugin,
-  connectPlugin,
-  disconnectPlugin,
-} = usePluginActions({ onReload: loadPlugins })
+const { isLoading, isOpening, openPlugin, connectPlugin, disconnectPlugin } = usePluginActions({
+  onReload: loadPlugins,
+});
 
 async function onOpen(row: { manifest: PluginManifest }) {
-  await openPlugin(row, { localOnly: false })
+  await openPlugin(row, { localOnly: false });
 }
 
 async function onOpenLocal(row: { manifest: PluginManifest }) {
-  await openPlugin(row, { localOnly: true })
+  await openPlugin(row, { localOnly: true });
 }
 
 function onConnect(row: { manifest: PluginManifest }) {
-  void connectPlugin(row)
+  void connectPlugin(row);
 }
 
 function onDisconnect(row: { manifest: PluginManifest }) {
-  void disconnectPlugin(row)
+  void disconnectPlugin(row);
 }
 
 onMounted(async () => {
-  await loadPlugins()
+  await loadPlugins();
 
   if (route.query.auth === 'ok') {
-    await router.replace({ path: route.path })
-    const yandexManifest = plugins.value.find((p) => p.manifest.id === 'yandex')?.manifest
+    await router.replace({ path: route.path });
+    const yandexManifest = plugins.value.find((p) => p.manifest.id === 'yandex')?.manifest;
     if (yandexManifest) {
-      localStorage.setItem('yandex-connected', 'true')
-      localStorage.removeItem('yandex-disconnected')
-      onConnect({ manifest: yandexManifest })
+      localStorage.setItem('yandex-connected', 'true');
+      localStorage.removeItem('yandex-disconnected');
+      onConnect({ manifest: yandexManifest });
     }
   }
-})
+});
 </script>
 
 <template>
@@ -66,10 +57,20 @@ onMounted(async () => {
       <div v-if="plugins.length === 0" class="text-sm text-fg-muted">Плагины не найдены</div>
 
       <div v-else class="flex flex-col gap-2">
-        <PluginCard v-for="row in plugins" :key="row.manifest.id" :plugin="row" :is-offline="isOffline"
-          :is-opening="isOpening(row.manifest.id)" :is-checking="isChecking(row.manifest.id)"
-          :session-status="sessionStatus(row.manifest.id)" :is-busy="isLoading === row.manifest.id" @open="onOpen(row)"
-          @open-local="onOpenLocal(row)" @connect="onConnect(row)" @disconnect="onDisconnect(row)" />
+        <PluginCard
+          v-for="row in plugins"
+          :key="row.manifest.id"
+          :plugin="row"
+          :is-offline="isOffline"
+          :is-opening="isOpening(row.manifest.id)"
+          :is-checking="isChecking(row.manifest.id)"
+          :session-status="sessionStatus(row.manifest.id)"
+          :is-busy="isLoading === row.manifest.id"
+          @open="onOpen(row)"
+          @open-local="onOpenLocal(row)"
+          @connect="onConnect(row)"
+          @disconnect="onDisconnect(row)"
+        />
       </div>
     </div>
   </div>

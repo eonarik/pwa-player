@@ -1,99 +1,61 @@
 // src/services/library/selectors.ts
 
-import type { Track } from '@/types/track'
-import type { Folder, LibraryTrack } from '@/types/library'
-import type { Playability } from '@/types/playability'
+import type { Track } from '@/types/track';
+import type { Playability } from '@/types/playability';
+
+/**
+ * Есть ли у трека локальный источник (handle).
+ */
+export function hasLocalSource(track: Track | null | undefined): boolean {
+  if (!track) return false;
+  return track.sources.some((s) => s.kind === 'local');
+}
+
+/**
+ * Есть ли у трека облачный источник (remotePath).
+ */
+export function hasCloudSource(track: Track | null | undefined): boolean {
+  if (!track) return false;
+  return track.sources.some((s) => s.kind === 'cloud');
+}
+
+/**
+ * Есть ли у трека стриминговый источник (url).
+ */
+export function hasStreamingSource(track: Track | null | undefined): boolean {
+  if (!track) return false;
+  return track.sources.some((s) => s.kind === 'streaming');
+}
 
 export interface PlayabilityContext {
-  isPluginDisconnected: boolean
-  isDownloading: boolean
+  isPluginDisconnected: boolean;
+  isDownloading: boolean;
 }
 
 /**
  * Можно ли воспроизвести трек прямо сейчас.
  */
-export function getPlayability(
-  track: LibraryTrack | null | undefined,
-  ctx: PlayabilityContext,
-): Playability {
-  if (!track) return 'missing'
+export function getPlayability(track: Track | null | undefined, ctx: PlayabilityContext): Playability {
+  if (!track) return 'missing';
 
-  const location = track.fileLocation ?? 'remote-only'
+  if (ctx.isDownloading) return 'downloading';
 
-  if (ctx.isDownloading) return 'downloading'
+  if (track.sources.length === 0) return 'missing';
 
-  if (location === 'nowhere') return 'missing'
-
-  if (location === 'local-only' || location === 'both') {
-    return track.handle ? 'playable' : 'unavailable'
+  // local-source с handle → playable
+  if (track.sources.some((s) => s.kind === 'local' && s.handle)) {
+    return 'playable';
   }
 
-  // remote-only
-  const hasSources = Array.isArray(track.sources) && track.sources.length > 0
-  if (!hasSources) return 'missing'
-  if (ctx.isPluginDisconnected) return 'needs-reconnect'
-
-  return 'playable-streaming'
-}
-
-/**
- * Есть ли у трека локальная копия.
- */
-export function isLocalTrack(track: LibraryTrack | null | undefined): boolean {
-  if (!track) return false
-  const location = track.fileLocation ?? 'remote-only'
-  return location === 'local-only' || location === 'both'
-}
-
-/**
- * Есть ли трек в облаке.
- */
-export function isRemoteTrack(track: LibraryTrack | null | undefined): boolean {
-  if (!track) return false
-  const location = track.fileLocation ?? 'remote-only'
-  return location === 'remote-only' || location === 'both'
-}
-
-/**
- * Готово ли поддерево.
- */
-export function isSubtreeScanned(
-  folderId: string,
-  getFolder: (id: string) => Folder | null,
-): boolean {
-  const visited = new Set<string>()
-
-  const walk = (id: string): boolean => {
-    if (visited.has(id)) return true
-    visited.add(id)
-
-    const folder = getFolder(id)
-    if (!folder) return true
-
-    const state = folder.scanState ?? 'pending'
-    if (state !== 'scanned') return false
-
-    for (const childId of folder.childFolderIds) {
-      if (!walk(childId)) return false
-    }
-    return true
+  // cloud-source → нужна сессия
+  if (track.sources.some((s) => s.kind === 'cloud')) {
+    return ctx.isPluginDisconnected ? 'needs-reconnect' : 'playable-streaming';
   }
 
-  return walk(folderId)
-}
+  // streaming-source → playable-streaming
+  if (track.sources.some((s) => s.kind === 'streaming')) {
+    return 'playable-streaming';
+  }
 
-/**
- * Трек недоступен для воспроизведения:
- * - помечен как битый (`nowhere`);
- * - нет `handle` и нет ни одного `source`.
- */
-export function isTrackUnavailable(track: Track | LibraryTrack | null | undefined): boolean {
-  if (!track) return true
-
-  // Явная пометка "битый файл"
-  if ('fileLocation' in track && track.fileLocation === 'nowhere') return true
-
-  if (track.handle) return false
-  if (Array.isArray(track.sources) && track.sources.length > 0) return false
-  return true
+  return 'missing';
 }

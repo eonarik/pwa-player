@@ -1,4 +1,5 @@
 /* src/assets/theme-radio.css */
+
 [data-theme='radio'] {
   /* --- Палитра --- */
   --color-bg: #140e0a;
@@ -28,7 +29,7 @@
   --gradient-brass: linear-gradient(90deg, #8b6914 0%, #d4af37 50%, #fce68a 100%);
   --gradient-wood: linear-gradient(180deg, #2b1d14 0%, #140e0a 100%);
 
-  --font-radio: "Cormorant SC", serif;
+  --font-radio: 'Cormorant SC', serif;
 }
 
 /* --- Шрифты --- */
@@ -48,7 +49,13 @@
 [data-theme='radio'] body {
   background-color: var(--color-bg);
   background-image:
-    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.15) 0px, rgba(0, 0, 0, 0.15) 2px, transparent 2px, transparent 4px),
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
     linear-gradient(180deg, #1a110a 0%, #0a0705 100%);
 }
 
@@ -57,15 +64,11 @@
   position: relative;
 }
 [data-theme='radio'] #app::after {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse at center,
-    transparent 40%,
-    rgba(0, 0, 0, 0.15) 100%
-  );
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.15) 100%);
   z-index: 9999;
 }
 
@@ -80,8 +83,20 @@
 /* --- 4. Тканевая решётка --- */
 [data-theme='radio'] .radio-grille-bg {
   background-image:
-    repeating-linear-gradient(0deg, rgba(244, 236, 216, 0.03) 0px, rgba(244, 236, 216, 0.03) 1px, transparent 1px, transparent 3px),
-    repeating-linear-gradient(90deg, rgba(244, 236, 216, 0.03) 0px, rgba(244, 236, 216, 0.03) 1px, transparent 1px, transparent 3px);
+    repeating-linear-gradient(
+      0deg,
+      rgba(244, 236, 216, 0.03) 0px,
+      rgba(244, 236, 216, 0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(244, 236, 216, 0.03) 0px,
+      rgba(244, 236, 216, 0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    );
 }
 
 /* --- 5. Активный трек: латунная подсветка --- */
@@ -93,7 +108,9 @@
 
 /* --- 6. «Утопленные» карточки --- */
 [data-theme='radio'] .radio-inset {
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), inset 0 -1px 0 rgba(212, 175, 55, 0.1);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(212, 175, 55, 0.1);
 }
 
 /* --- 7. Магический глаз --- */
@@ -103,22 +120,33 @@
   justify-content: center;
   border-radius: 9999px;
   background-color: var(--color-playing);
-  box-shadow: 0 0 10px var(--color-playing), inset 0 0 4px rgba(0, 0, 0, 0.8);
+  box-shadow:
+    0 0 10px var(--color-playing),
+    inset 0 0 4px rgba(0, 0, 0, 0.8);
 }
 [data-theme='radio'] .radio-eye {
   animation: radio-eye-pulse 2s infinite alternate ease-in-out;
 }
 @keyframes radio-eye-pulse {
-  0% { opacity: 0.8; box-shadow: 0 0 8px var(--color-playing), inset 0 0 4px rgba(0, 0, 0, 0.8); }
-  100% { opacity: 1; box-shadow: 0 0 20px var(--color-playing), inset 0 0 2px rgba(0, 0, 0, 0.8); }
+  0% {
+    opacity: 0.8;
+    box-shadow:
+      0 0 8px var(--color-playing),
+      inset 0 0 4px rgba(0, 0, 0, 0.8);
+  }
+  100% {
+    opacity: 1;
+    box-shadow:
+      0 0 20px var(--color-playing),
+      inset 0 0 2px rgba(0, 0, 0, 0.8);
+  }
 }
 
 /* --- 8. Объемные иконки (гравюра) --- */
 [data-theme='radio'] .icon {
   stroke: url(#brass-gradient);
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2))
-          drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.8))
-          drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2)) drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.8))
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
   opacity: 1;
 }
 
@@ -129,8 +157,8 @@
   filter: drop-shadow(0 0 4px rgba(61, 220, 132, 0.6));
 }
 
-[data-theme='radio'] .text-red-400 > .icon[fill="currentColor"],
-[data-theme='radio'] .text-active > .icon[fill="currentColor"] {
+[data-theme='radio'] .text-red-400 > .icon[fill='currentColor'],
+[data-theme='radio'] .text-active > .icon[fill='currentColor'] {
   fill: #3ddc84;
 }
 
@@ -138,13 +166,17 @@
 [data-theme='radio'] footer {
   background: var(--gradient-wood);
   border-top: 2px solid #d4af37;
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.9), inset 0 2px 0 rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 -10px 30px rgba(0, 0, 0, 0.9),
+    inset 0 2px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Латунная кнопка Play/Pause */
 [data-theme='radio'] .player-play-pause-btn {
   background: radial-gradient(circle at 30% 30%, #fce68a, #8b6914);
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 4px 8px rgba(0,0,0,0.8);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.8);
   border: 1px solid #5c4208;
   color: #140e0a;
   border-radius: 9999px;
@@ -160,13 +192,21 @@
 }
 
 /* Свечение кнопки Play/Pause при воспроизведении */
-[data-theme='radio'] footer button[aria-label="Пауза"] {
+[data-theme='radio'] footer button[aria-label='Пауза'] {
   animation: radio-play-glow 2s infinite alternate ease-in-out;
 }
 
 @keyframes radio-play-glow {
-  0% { box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 0 10px rgba(212, 175, 55, 0.4); }
-  100% { box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 0 20px rgba(212, 175, 55, 0.8); }
+  0% {
+    box-shadow:
+      inset 0 2px 4px rgba(255, 255, 255, 0.5),
+      0 0 10px rgba(212, 175, 55, 0.4);
+  }
+  100% {
+    box-shadow:
+      inset 0 2px 4px rgba(255, 255, 255, 0.5),
+      0 0 20px rgba(212, 175, 55, 0.8);
+  }
 }
 
 /* Латунный прогресс-бар */
@@ -183,8 +223,6 @@
   box-shadow: 4px 0 15px rgba(0, 0, 0, 0.8);
 }
 
-
-
 [data-theme='radio'] header {
   background-image: repeating-linear-gradient(0deg, #1a110a 0px, #1a110a 2px, #22160d 4px);
   border-bottom: 2px solid #d4af37;
@@ -193,17 +231,23 @@
 
 /* --- 11. Шкалы с рисками (Тики) --- */
 [data-theme='radio'] .radio-scale {
-  background-image: repeating-linear-gradient(90deg, rgba(244, 236, 216, 0.2) 0px, rgba(244, 236, 216, 0.2) 1px, transparent 1px, transparent 8px);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(244, 236, 216, 0.2) 0px,
+    rgba(244, 236, 216, 0.2) 1px,
+    transparent 1px,
+    transparent 8px
+  );
   height: 22px;
   margin-bottom: 4px;
   opacity: 0.6;
 }
 
 /* --- 12. Объемные крутилки для громкости/остальных кнопок в футере --- */
-[data-theme='radio'] footer button:not([aria-label="Пауза"]):not([aria-label="Играть"]) {
+[data-theme='radio'] footer button:not([aria-label='Пауза']):not([aria-label='Играть']) {
   transition: all 0.2s;
 }
-[data-theme='radio'] footer button:not([aria-label="Пауза"]):not([aria-label="Играть"]):hover {
+[data-theme='radio'] footer button:not([aria-label='Пауза']):not([aria-label='Играть']):hover {
   color: var(--color-accent-hover);
   text-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
 }

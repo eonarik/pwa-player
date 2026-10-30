@@ -1,21 +1,18 @@
 // src/plugins/local/index.ts
 
-import { toRaw } from 'vue'
-import type { LibrarySource, LoadOptions, PluginContext, ScanFolderOptions } from '../types'
-import type { CollectedLibrary, Folder, LibraryTrack } from '@/types/library'
-import { fileSystemService } from './FileSystemService'
-import { localPersistenceService } from './persistence'
-import type { PersistedLocalFolder, PersistedLocalLibrary, PersistedLocalTrack } from './types'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
-import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
-import { folderIdFromPath } from '@/services/library/id'
+import { toRaw } from 'vue';
+import type { LibrarySource, PluginContext, LoadOptions } from '../types';
+import type { PluginSnapshot } from '../types';
+import type { FolderId } from '@/types/ids';
+import { newFolderId } from '@/types/ids';
+import { fileSystemService } from './FileSystemService';
+import { localPersistenceService } from './persistence';
+import { newTrackId, newTrackSourceId } from '@/types/ids';
 
-const PLUGIN_ID = 'local'
-const CONNECTED_KEY = 'local-connected'
-
-function rootIdFromHandle(handle: FileSystemDirectoryHandle): string {
-  return `${PLUGIN_ID}:${handle.name}`
-}
+const PLUGIN_ID = 'local';
+const CONNECTED_KEY = 'local-connected';
+const FOLDER_MAP_KEY = 'local:folderMap';
+const ROOT_FOLDER_ID_KEY = 'local:rootFolderId';
 
 const localPlugin: LibrarySource = {
   id: PLUGIN_ID,
@@ -23,296 +20,153 @@ const localPlugin: LibrarySource = {
   icon: '📁',
 
   isAvailable(): boolean {
-    return typeof window !== 'undefined' && 'showDirectoryPicker' in window
+    return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
   },
 
   isDisconnected(): boolean {
-    return localStorage.getItem(CONNECTED_KEY) !== 'true'
+    return localStorage.getItem(CONNECTED_KEY) !== 'true';
   },
 
   async connect(_context: PluginContext): Promise<void> {
     if (!fileSystemService.supported) {
-      throw new Error(
-        'File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.',
-      )
+      throw new Error('File System Access API не поддерживается. Используйте Chrome/Edge на десктопе.');
     }
-    const handle = await fileSystemService.pickDirectory()
-    if (!handle) throw new Error('cancelled')
-    await fileSystemService.addHandle(handle)
-    localStorage.setItem(CONNECTED_KEY, 'true')
+    const handle = await fileSystemService.pickDirectory();
+    if (!handle) throw new Error('cancelled');
+    await fileSystemService.addHandle(handle);
+    localStorage.setItem(CONNECTED_KEY, 'true');
   },
 
-  async load(context: PluginContext, _options?: LoadOptions): Promise<void> {
-    const handles = await fileSystemService.getHandles()
-    if (handles.length === 0) return
-    const collected = await collectAll(handles)
-    if (!collected) return
-    context.writer.setLibrary(collected, PLUGIN_ID)
-    await localPersistenceService.save(toPersisted(collected))
+  async load(context: PluginContext, _options?: LoadOptions): Promise<PluginSnapshot> {
+    const handles = await fileSystemService.getHandles();
+    if (handles.length === 0) {
+      return { folders: [], tracks: [] };
+    }
+
+    const folderMap = (await context.storage.get<Record<string, string>>(FOLDER_MAP_KEY)) ?? {};
+    const rootFolderId = (await context.storage.get<FolderId>(ROOT_FOLDER_ID_KEY)) ?? newFolderId();
+
+    const allFolders: PluginSnapshot['folders'] = [];
+    const allTracks: PluginSnapshot['tracks'] = [];
+    const newFolderMap: Record<string, string> = { ...folderMap };
+    let firstRoot = true;
+
+    for (const handle of handles) {
+      const granted = await fileSystemService.verifyPermission(handle, 'read');
+      if (!granted) continue;
+
+      const handleRootId = firstRoot ? rootFolderId : newFolderId();
+      firstRoot = false;
+
+      if (handles[0] && handle.name === handles[0].name) {
+        newFolderMap[''] = handleRootId;
+      } else {
+        newFolderMap[handle.name] = handleRootId;
+      }
+
+      const { snapshot, newFolderMap: updatedMap } = await fileSystemService.collectLibrary(
+        handle,
+        handleRootId,
+        newFolderMap,
+      );
+
+      allFolders.push(...snapshot.folders);
+      allTracks.push(...snapshot.tracks);
+      Object.assign(newFolderMap, updatedMap);
+    }
+
+    await context.storage.set(FOLDER_MAP_KEY, newFolderMap);
+    await context.storage.set(ROOT_FOLDER_ID_KEY, rootFolderId);
+
+    // Сохраняем в локальный кэш (для восстановления без диска)
+    // Используем structuredClone для глубокого снятия Proxy,
+    // так как JSON.stringify убивает FileSystemFileHandle
+    const safeFolders = structuredClone(toRaw(allFolders));
+    const safeTracks = structuredClone(toRaw(allTracks));
+
+    await localPersistenceService.save({
+      folders: safeFolders.map((f) => ({ ...f, pluginId: PLUGIN_ID })),
+      tracks: safeTracks.map((t) => ({
+        id: newTrackId(),
+        pluginId: PLUGIN_ID,
+        artist: t.artist,
+        title: t.title,
+        albumId: null,
+        coverUrl: t.coverUrl,
+        sources: [{ ...t.source, id: newTrackSourceId() }],
+        metadataCandidates: [],
+        raw: {
+          artist: t.artist,
+          title: t.title,
+          album: t.album,
+          coverUrl: t.coverUrl,
+        },
+        hasId3Tags: t.hasId3Tags,
+        duration: t.duration,
+        codec: t.codec,
+      })),
+      folderMap: newFolderMap,
+      rootFolderId,
+      rootFolderName: 'Локальная папка',
+      savedAt: Date.now(),
+    });
+
+    return { folders: allFolders, tracks: allTracks };
   },
 
-  async restoreFromCache(context: PluginContext): Promise<boolean> {
-    const persisted = await localPersistenceService.load()
-    if (!persisted || persisted.folders.length === 0) return false
+  async restoreFromCache(_context: PluginContext): Promise<PluginSnapshot | null> {
+    const persisted = await localPersistenceService.load();
+    if (!persisted || persisted.folders.length === 0) return null;
 
-    const newFolders: Record<string, Folder> = {}
-    for (const f of persisted.folders) {
-      newFolders[f.id] = {
-        id: f.id,
+    return {
+      folders: persisted.folders.map((f) => ({
+        id: f.id as FolderId,
+        parentId: f.parentId as FolderId | null,
         name: f.name,
-        parentId: f.parentId,
-        path: f.path,
-        handle: f.handle,
-        childFolderIds: [...f.childFolderIds],
-        trackIds: [...f.trackIds],
-        totalTrackCount: f.totalTrackCount,
-        source: f.source ?? PLUGIN_ID,
-        scanState: 'scanned',
-      }
-    }
-
-    const newTracks: Record<string, LibraryTrack> = {}
-    const failedTrackIds: string[] = []
-
-    await Promise.all(
-      persisted.tracks.map(async (t) => {
-        try {
-          if (!t.handle) throw new Error('no handle')
-
-          const folderId = t.folderId ?? ''
-          const folder = newFolders[folderId]
-          const cachedEntry = metadataPersistenceService.get(t.id)
-          const cachedCover = cachedEntry?.coverUrl ?? undefined
-
-          newTracks[t.id] = {
-            id: t.id,
-            pluginId: t.pluginId,
-            folderId: folderId,
-            title: t.title,
-            artist: t.artist,
-            album: t.album,
-            year: t.year,
-            trackNumber: t.trackNumber,
-            genre: t.genre,
-            duration: t.duration,
-            codec: t.codec,
-            filename: t.filename,
-            path: t.path,
-            handle: t.handle,
-            directoryHandle: folder?.handle,
-            sources: t.sources || [],
-            fileLocation: 'local-only',
-            coverUrl: cachedCover,
-            metaSource: t.metaSource,
-            raw: t.raw ? { ...t.raw, coverUrl: t.raw.coverUrl || cachedCover } : undefined,
-          }
-        } catch (err) {
-          console.warn(`[local-plugin] can't restore file for "${t.title}"`, err)
-          failedTrackIds.push(t.id)
+        urlPath: f.urlPath,
+      })),
+      tracks: persisted.tracks.map((t) => {
+        const firstSource = t.sources[0];
+        if (!firstSource || firstSource.kind !== 'local') {
+          throw new Error(`[local-plugin] invalid source for track "${t.title}"`);
         }
+        return {
+          artist: t.artist,
+          title: t.title,
+          album: t.raw?.album ?? '',
+          coverUrl: t.coverUrl,
+          duration: t.duration,
+          codec: t.codec,
+          hasId3Tags: t.hasId3Tags,
+          source: {
+            pluginId: PLUGIN_ID,
+            priority: 10,
+            kind: 'local',
+            handle: firstSource.handle,
+            folderId: firstSource.folderId,
+          },
+        };
       }),
-    )
-
-    if (persisted.tracks.length > 0 && Object.keys(newTracks).length === 0) {
-      console.warn('[local-plugin] all tracks failed to restore — permission lost')
-      return false
-    }
-
-    if (failedTrackIds.length > 0) {
-      const failedSet = new Set(failedTrackIds)
-      for (const folder of Object.values(newFolders)) {
-        folder.trackIds = folder.trackIds.filter((id) => !failedSet.has(id))
-      }
-    }
-
-    await restoreCoversFromFolders(newFolders, newTracks)
-
-    const collected: CollectedLibrary = {
-      folders: Object.values(newFolders),
-      tracks: Object.values(newTracks),
-      // albums УБРАНЫ
-      rootFolderId: persisted.rootFolderId,
-      rootFolderName: persisted.rootFolderName,
-    }
-    context.writer.setLibrary(collected, PLUGIN_ID)
-
-    return true
+    };
   },
 
-  async scanFolder(
-    _context: PluginContext,
-    _folderId: string,
-    _options: ScanFolderOptions,
-  ): Promise<boolean> {
-    return true
+  async scanFolder(_context: PluginContext, _folderId: FolderId, _options): Promise<PluginSnapshot> {
+    return { folders: [], tracks: [] };
   },
 
-  buildStreamUrl(track: LibraryTrack): string {
-    const source = track.sources?.[0]
-    if (source?.url) return source.url
-    throw new Error('[local-plugin] buildStreamUrl is not supported for local files')
+  buildStreamUrl(_source): string {
+    throw new Error('[local-plugin] buildStreamUrl is not supported (use handle.getFile())');
   },
 
   canDownload: false,
 
   async disconnect(context: PluginContext): Promise<void> {
-    localStorage.removeItem(CONNECTED_KEY)
-    context.writer.removeBySource(PLUGIN_ID)
-    await localPersistenceService.clear()
-    await fileSystemService.clearHandles()
-    await context.storage.clear()
+    localStorage.removeItem(CONNECTED_KEY);
+    context.writer.removeBySource(PLUGIN_ID);
+    await localPersistenceService.clear();
+    await fileSystemService.clearHandles();
+    await context.storage.clear();
   },
-}
+};
 
-async function collectAll(handles: FileSystemDirectoryHandle[]): Promise<CollectedLibrary | null> {
-  const containerId = folderIdFromPath(PLUGIN_ID, '')
-  const container: Folder = {
-    id: containerId,
-    name: 'Локальная папка',
-    parentId: null,
-    path: '',
-    childFolderIds: [],
-    trackIds: [],
-    totalTrackCount: 0,
-    source: PLUGIN_ID,
-    scanState: 'scanned',
-  }
-
-  const allFolders: Folder[] = [container]
-  const allTracks: LibraryTrack[] = []
-  let successCount = 0
-
-  for (const handle of handles) {
-    const granted = await fileSystemService.verifyPermission(handle, 'read')
-    if (!granted) {
-      console.warn(`[local-plugin] permission denied for "${handle.name}"`)
-      continue
-    }
-
-    const rootId = rootIdFromHandle(handle)
-
-    try {
-      const collected = await fileSystemService.collectLibrary(handle, rootId)
-
-      for (const folder of collected.folders) {
-        if (folder.parentId === null) {
-          folder.parentId = containerId
-          container.childFolderIds.push(folder.id)
-        }
-      }
-
-      allFolders.push(...collected.folders)
-      allTracks.push(...collected.tracks)
-      container.totalTrackCount += collected.tracks.length
-      successCount++
-    } catch (err) {
-      console.error(`[local-plugin] failed to scan "${handle.name}"`, err)
-    }
-  }
-
-  if (successCount === 0) return null
-
-  return {
-    folders: allFolders,
-    tracks: allTracks,
-    rootFolderId: containerId,
-    rootFolderName: 'Локальная папка',
-  }
-}
-
-function toPersisted(collected: CollectedLibrary): PersistedLocalLibrary {
-  const folders: PersistedLocalFolder[] = []
-  for (const folder of collected.folders) {
-    folders.push({
-      id: folder.id,
-      name: folder.name,
-      parentId: folder.parentId,
-      path: folder.path,
-      handle: folder.handle,
-      childFolderIds: [...folder.childFolderIds],
-      trackIds: [...folder.trackIds],
-      totalTrackCount: folder.totalTrackCount,
-      source: folder.source ?? PLUGIN_ID,
-    })
-  }
-
-  const tracks: PersistedLocalTrack[] = []
-  for (const track of collected.tracks) {
-    if (!track.handle) continue
-    const rawTrack = toRaw(track)
-
-    tracks.push({
-      id: rawTrack.id,
-      pluginId: rawTrack.pluginId,
-      folderId: rawTrack.folderId,
-      title: rawTrack.title,
-      artist: rawTrack.artist,
-      album: rawTrack.album,
-      year: rawTrack.year,
-      trackNumber: rawTrack.trackNumber,
-      genre: rawTrack.genre,
-      duration: rawTrack.duration,
-      codec: rawTrack.codec,
-      filename: rawTrack.filename,
-      path: rawTrack.path!,
-      handle: rawTrack.handle,
-      sources: rawTrack.sources ? JSON.parse(JSON.stringify(rawTrack.sources)) : [],
-      metaSource: rawTrack.metaSource,
-      raw: rawTrack.raw ? JSON.parse(JSON.stringify(rawTrack.raw)) : undefined,
-    })
-  }
-
-  return {
-    folders,
-    tracks,
-    // albums УБРАНЫ
-    rootFolderId: collected.rootFolderId,
-    rootFolderName: collected.rootFolderName,
-    savedAt: Date.now(),
-  }
-}
-
-async function restoreCoversFromFolders(
-  folders: Record<string, Folder>,
-  tracks: Record<string, LibraryTrack>,
-): Promise<void> {
-  const foldersWithTracks = Object.values(folders).filter((f) => f.trackIds.length > 0 && f.handle)
-  if (foldersWithTracks.length === 0) return
-
-  const CONCURRENCY = 6
-  let cursor = 0
-
-  const worker = async (): Promise<void> => {
-    while (cursor < foldersWithTracks.length) {
-      const folder = foldersWithTracks[cursor++]!
-      if (!folder.handle) continue
-      try {
-        const coverFile = await findCoverInDirectory(folder.handle)
-        if (!coverFile) continue
-
-        const coverUrl = URL.createObjectURL(coverFile)
-        let assigned = false
-        for (const trackId of folder.trackIds) {
-          const track = tracks[trackId]
-          if (track && !track.raw?.coverUrl) {
-            if (!track.raw)
-              track.raw = { title: track.title, artist: track.artist, album: track.album || '' }
-            track.raw.coverUrl = coverUrl
-            assigned = true
-          }
-        }
-        if (!assigned) {
-          URL.revokeObjectURL(coverUrl)
-        }
-      } catch (err) {
-        console.warn(`[local-plugin] can't restore cover for folder "${folder.name}"`, err)
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, foldersWithTracks.length) }, () => worker()),
-  )
-}
-
-export default localPlugin
+export default localPlugin;

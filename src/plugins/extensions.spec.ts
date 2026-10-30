@@ -1,25 +1,26 @@
 // src/plugins/extensions.spec.ts
+
 // oxlint-disable vitest/require-mock-type-parameters
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   loadExtensions,
   getAllSettingsSchemas,
   getExtensionRoutes,
   getExtensionMenuItems,
   clearExtensions,
-} from './extensions'
-import type { PluginManifest } from './types'
+} from './extensions';
+import type { PluginManifest } from './types';
 
-const plugins: PluginManifest[] = []
+const plugins: PluginManifest[] = [];
 
 vi.mock('./registry', () => ({
   getPlugins: () => plugins,
-}))
+}));
 
 vi.mock('./remoteLoader', () => ({
   loadRemotePlugins: async () => [],
-}))
+}));
 
 function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
   return {
@@ -31,16 +32,16 @@ function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     canDownload: false,
     entry: vi.fn(),
     ...overrides,
-  } as PluginManifest
+  } as PluginManifest;
 }
 
-const schema = { sections: [{ id: 's1', fields: [] }] }
+const schema = { sections: [{ id: 's1', fields: [] }] };
 
 describe('extensions', () => {
   beforeEach(() => {
-    plugins.length = 0
-    clearExtensions()
-  })
+    plugins.length = 0;
+    clearExtensions();
+  });
 
   it('manifest.getSettings без extension → попадает в настройки', async () => {
     plugins.push(
@@ -48,15 +49,15 @@ describe('extensions', () => {
         id: 'yandex-self',
         getSettings: async () => schema,
       }),
-    )
+    );
 
-    await loadExtensions()
+    await loadExtensions();
 
-    const settings = getAllSettingsSchemas()
-    expect(settings).toHaveLength(1)
-    expect(settings[0]!.manifest.id).toBe('yandex-self')
-    expect(settings[0]!.schema).toEqual(schema)
-  })
+    const settings = getAllSettingsSchemas();
+    expect(settings).toHaveLength(1);
+    expect(settings[0]!.manifest.id).toBe('yandex-self');
+    expect(settings[0]!.schema).toEqual(schema);
+  });
 
   it('extension.getSettings → попадает в настройки', async () => {
     plugins.push(
@@ -66,18 +67,18 @@ describe('extensions', () => {
           default: { getSettings: async () => schema },
         }),
       }),
-    )
+    );
 
-    await loadExtensions()
+    await loadExtensions();
 
-    const settings = getAllSettingsSchemas()
-    expect(settings).toHaveLength(1)
-    expect(settings[0]!.manifest.id).toBe('with-ext')
-  })
+    const settings = getAllSettingsSchemas();
+    expect(settings).toHaveLength(1);
+    expect(settings[0]!.manifest.id).toBe('with-ext');
+  });
 
   it('extension.getSettings приоритетнее manifest.getSettings', async () => {
-    const manifestSchema = { sections: [{ id: 'm', fields: [] }] }
-    const extSchema = { sections: [{ id: 'e', fields: [] }] }
+    const manifestSchema = { sections: [{ id: 'm', fields: [] }] };
+    const extSchema = { sections: [{ id: 'e', fields: [] }] };
 
     plugins.push(
       makeManifest({
@@ -87,13 +88,13 @@ describe('extensions', () => {
           default: { getSettings: async () => extSchema },
         }),
       }),
-    )
+    );
 
-    await loadExtensions()
+    await loadExtensions();
 
-    const settings = getAllSettingsSchemas()
-    expect(settings[0]!.schema).toEqual(extSchema)
-  })
+    const settings = getAllSettingsSchemas();
+    expect(settings[0]!.schema).toEqual(extSchema);
+  });
 
   it('extension с routes и menuItems', async () => {
     plugins.push(
@@ -106,12 +107,12 @@ describe('extensions', () => {
           },
         }),
       }),
-    )
+    );
 
-    await loadExtensions()
+    await loadExtensions();
 
-    expect(getExtensionMenuItems()).toHaveLength(1)
-    expect(getExtensionRoutes()).toHaveLength(1)
-    expect(getAllSettingsSchemas()).toHaveLength(0)
-  })
-})
+    expect(getExtensionMenuItems()).toHaveLength(1);
+    expect(getExtensionRoutes()).toHaveLength(1);
+    expect(getAllSettingsSchemas()).toHaveLength(0);
+  });
+});

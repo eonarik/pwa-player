@@ -1,70 +1,82 @@
 <!-- src/components/library/FolderBreadcrumbs.vue -->
-<script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useLibraryStore } from '@/stores/library'
-import IconButton from '@/components/ui/IconButton.vue'
-import type { Folder } from '@/types/library'
 
-const router = useRouter()
-const library = useLibraryStore()
-const { breadcrumbs, currentFolder } = storeToRefs(library)
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useLibraryStore } from '@/stores/library';
+import IconButton from '@/components/ui/IconButton.vue';
+import type { FolderRef } from '@/types/folder';
+
+const router = useRouter();
+const library = useLibraryStore();
+const { breadcrumbs, currentFolder } = storeToRefs(library);
 
 const isPluginRoot = computed(() => {
-  const folder = currentFolder.value
-  return folder !== null && folder.parentId === null
-})
+  const folder = currentFolder.value;
+  return folder !== null && folder.parentId === null;
+});
 
 function goUp() {
   if (!currentFolder.value) {
-    router.push({ name: 'home' })
-    return
+    router.push({ name: 'home' });
+    return;
   }
 
   if (isPluginRoot.value) {
-    router.push({ name: 'home' })
-    return
+    router.push({ name: 'home' });
+    return;
   }
 
-  const parentId = currentFolder.value.parentId
+  const parentId = currentFolder.value.parentId;
   if (!parentId) {
-    router.push({ name: 'home' })
-    return
+    router.push({ name: 'home' });
+    return;
   }
 
-  const parent = library.getFolder(parentId)
-  if (!parent || !parent.source) {
-    router.push({ name: 'home' })
-    return
+  const parent = library.getFolder(parentId);
+  if (!parent) {
+    router.push({ name: 'home' });
+    return;
   }
 
-  const segments = parent.path.split('/').filter(Boolean)
   router.push({
     name: 'folder',
-    params: { pluginId: parent.source, path: segments },
-  })
+    params: { pluginId: parent.pluginId, folderId: parent.id },
+  });
 }
 
-function goToFolder(crumb: Folder) {
-  if (!crumb.source) return
-  const segments = crumb.path.split('/').filter(Boolean)
+function goToFolder(crumb: FolderRef) {
   router.push({
     name: 'folder',
-    params: { pluginId: crumb.source, path: segments },
-  })
+    params: {
+      pluginId: crumb.pluginId,
+      path: crumb.urlPath ? crumb.urlPath.split('/') : [],
+    },
+  });
 }
 </script>
 
 <template>
   <nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Навигация по папкам">
-    <IconButton v-if="currentFolder" icon="arrow-left" variant="ghost" size="sm"
-      :label="isPluginRoot ? 'К источникам' : 'Назад'" @click="goUp" class="mr-1" />
+    <IconButton
+      v-if="currentFolder"
+      icon="arrow-left"
+      variant="ghost"
+      size="sm"
+      :label="isPluginRoot ? 'К источникам' : 'Назад'"
+      @click="goUp"
+      class="mr-1"
+    />
 
     <template v-for="(crumb, i) in breadcrumbs" :key="crumb.id">
-      <button type="button" class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
+      <button
+        type="button"
+        class="truncate rounded-btn px-1.5 py-0.5 transition hover:bg-hover-bg hover:text-fg"
         :class="i === breadcrumbs.length - 1 ? 'font-medium text-fg' : 'text-fg-muted'"
-        :title="crumb.path || crumb.name" @click="goToFolder(crumb)">
+        :title="crumb.name"
+        @click="goToFolder(crumb)"
+      >
         {{ crumb.name }}
       </button>
 

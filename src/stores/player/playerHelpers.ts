@@ -1,18 +1,18 @@
 // src/stores/player/playerHelpers.ts
 
-import type { Track } from '@/types/track'
+import type { Track } from '@/types/track';
 
 /**
  * Перемешивает массив (Fisher-Yates). Возвращает новый массив,
  * исходный не мутирует.
  */
 export function shuffleArray<T>(arr: T[]): T[] {
-  const result = [...arr]
+  const result = [...arr];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[result[i], result[j]] = [result[j]!, result[i]!]
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j]!, result[i]!];
   }
-  return result
+  return result;
 }
 
 /**
@@ -22,16 +22,12 @@ export function shuffleArray<T>(arr: T[]): T[] {
  * `shouldSkip` — единый предикат: дизлайки, недоступность и любые
  * будущие причины скипа композируются в одном месте.
  */
-export function findFirstPlayableIndex(
-  tracks: Track[],
-  from: number,
-  shouldSkip: (track: Track) => boolean,
-): number {
+export function findFirstPlayableIndex(tracks: Track[], from: number, shouldSkip: (track: Track) => boolean): number {
   for (let i = from; i < tracks.length; i++) {
-    const t = tracks[i]
-    if (t && !shouldSkip(t)) return i
+    const t = tracks[i];
+    if (t && !shouldSkip(t)) return i;
   }
-  return -1
+  return -1;
 }
 
 /**
@@ -46,8 +42,8 @@ export function findPlayableIndex(
   shouldSkip: (track: Track) => boolean,
 ): number {
   for (let i = from; i >= 0 && i < queue.length; i += dir) {
-    const track = queue[i]
-    if (track && !shouldSkip(track)) return i
+    const track = queue[i];
+    if (track && !shouldSkip(track)) return i;
   }
-  return -1
+  return -1;
 }

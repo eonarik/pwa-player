@@ -1,19 +1,21 @@
 <!-- src/views/folder/FolderHeader.vue -->
+
 <script setup lang="ts">
-import FolderBreadcrumbs from '@/components/library/FolderBreadcrumbs.vue'
-import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue'
-import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue'
-import { pluralize } from '@/utils/pluralize'
-import type { Folder, LibraryTrack } from '@/types/library'
+import FolderBreadcrumbs from '@/components/library/FolderBreadcrumbs.vue';
+import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue';
+import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue';
+import { pluralize } from '@/utils/pluralize';
+import type { FolderRef } from '@/types/folder';
+import type { Track } from '@/types/track';
 
 defineProps<{
-  currentFolder: Folder | null
-  subfoldersCount: number
-  tracksCount: number
-  filesCount: number
-  subtreeTracks: LibraryTrack[]
-  isScanning: boolean
-}>()
+  currentFolder: FolderRef | null;
+  subfoldersCount: number;
+  tracksCount: number;
+  filesCount: number;
+  subtreeTracks: Track[];
+  isScanning: boolean;
+}>();
 </script>
 
 <template>
@@ -23,21 +25,12 @@ defineProps<{
 
       <div class="flex items-center gap-2">
         <span v-if="currentFolder && !isScanning" class="shrink-0 text-xs text-fg-muted">
-          <template v-if="subfoldersCount > 0">
-            {{ pluralize(subfoldersCount, ['папка', 'папки', 'папок']) }}
-          </template>
+          <template v-if="subfoldersCount > 0">{{ pluralize(subfoldersCount, ['папка', 'папки', 'папок']) }}</template>
           <template v-if="subfoldersCount > 0 && tracksCount > 0"> · </template>
-          <template v-if="tracksCount > 0">
-            {{ pluralize(tracksCount, ['трек', 'трека', 'треков']) }}
-          </template>
+          <template v-if="tracksCount > 0">{{ pluralize(tracksCount, ['трек', 'трека', 'треков']) }}</template>
           <template v-if="filesCount > 0 && (subfoldersCount > 0 || tracksCount > 0)"> · </template>
-          <template v-if="filesCount > 0">
-            {{ pluralize(filesCount, ['файл', 'файла', 'файлов']) }}
-          </template>
-
-          <template v-if="subfoldersCount === 0 && tracksCount === 0 && filesCount === 0">
-            пусто
-          </template>
+          <template v-if="filesCount > 0">{{ pluralize(filesCount, ['файл', 'файла', 'файлов']) }}</template>
+          <template v-if="subfoldersCount === 0 && tracksCount === 0 && filesCount === 0">пусто</template>
         </span>
         <span v-else-if="isScanning" class="shrink-0 text-xs text-fg-muted">Сканирование…</span>
 

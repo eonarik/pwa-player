@@ -1,48 +1,48 @@
 // src/services/download/DownloadSpaceService.ts
 
-import { get, set, del } from 'idb-keyval'
-import { ref } from 'vue'
-import { queryPermission, requestPermission, type PermissionState } from './PermissionService'
-import { syncService } from './SyncService'
+import { get, set, del } from 'idb-keyval';
+import { ref } from 'vue';
+import { queryPermission, requestPermission, type PermissionState } from './PermissionService';
+import { syncService } from './SyncService';
 
-const SPACE_KEY = 'player:downloadSpace'
+const SPACE_KEY = 'player:downloadSpace';
 
-const PLUGIN_SUBDIR_PREFIX = 'cuei-'
+const PLUGIN_SUBDIR_PREFIX = 'cuei-';
 
 class DownloadSpaceService {
-  private static instance: DownloadSpaceService | null = null
+  private static instance: DownloadSpaceService | null = null;
 
-  private spaceHandle: FileSystemDirectoryHandle | null = null
+  private spaceHandle: FileSystemDirectoryHandle | null = null;
 
-  readonly hasSpace = ref(false)
-  readonly spaceName = ref<string | null>(null)
+  readonly hasSpace = ref(false);
+  readonly spaceName = ref<string | null>(null);
 
   /**
    * Требуется ли восстановление прав на папку.
    * true — если handle есть, но queryPermission !== 'granted'.
    */
-  readonly needsPermission = ref(false)
+  readonly needsPermission = ref(false);
 
   static getInstance(): DownloadSpaceService {
     if (!DownloadSpaceService.instance) {
-      DownloadSpaceService.instance = new DownloadSpaceService()
+      DownloadSpaceService.instance = new DownloadSpaceService();
     }
-    return DownloadSpaceService.instance
+    return DownloadSpaceService.instance;
   }
 
   // --- Загрузка из IDB -----------------------------------------------
 
   async load(): Promise<void> {
     try {
-      const saved = await get<FileSystemDirectoryHandle>(SPACE_KEY)
+      const saved = await get<FileSystemDirectoryHandle>(SPACE_KEY);
       if (saved) {
-        this.spaceHandle = saved
-        this.hasSpace.value = true
-        this.spaceName.value = saved.name
-        await this.refreshPermissionState()
+        this.spaceHandle = saved;
+        this.hasSpace.value = true;
+        this.spaceName.value = saved.name;
+        await this.refreshPermissionState();
       }
     } catch (err) {
-      console.error('[download-space] failed to load', err)
+      console.error('[download-space] failed to load', err);
     }
   }
 
@@ -50,37 +50,37 @@ class DownloadSpaceService {
 
   async pickSpace(): Promise<FileSystemDirectoryHandle | null> {
     try {
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
-      this.spaceHandle = handle
-      this.hasSpace.value = true
-      this.spaceName.value = handle.name
-      this.needsPermission.value = false
-      await set(SPACE_KEY, handle)
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      this.spaceHandle = handle;
+      this.hasSpace.value = true;
+      this.spaceName.value = handle.name;
+      this.needsPermission.value = false;
+      await set(SPACE_KEY, handle);
 
       // Запускаем сканирование в фоне
-      void syncService.syncAll()
+      void syncService.syncAll();
 
-      return handle
+      return handle;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        return null
+        return null;
       }
-      throw err
+      throw err;
     }
   }
 
   // --- Доступ --------------------------------------------------------
 
   getSpace(): FileSystemDirectoryHandle | null {
-    return this.spaceHandle
+    return this.spaceHandle;
   }
 
   async getPluginDir(pluginId: string): Promise<FileSystemDirectoryHandle> {
     if (!this.spaceHandle) {
-      throw new Error('[download-space] space not selected')
+      throw new Error('[download-space] space not selected');
     }
-    const subdirName = `${PLUGIN_SUBDIR_PREFIX}${pluginId}`
-    return this.spaceHandle.getDirectoryHandle(subdirName, { create: true })
+    const subdirName = `${PLUGIN_SUBDIR_PREFIX}${pluginId}`;
+    return this.spaceHandle.getDirectoryHandle(subdirName, { create: true });
   }
 
   /**
@@ -88,13 +88,13 @@ class DownloadSpaceService {
    * Не создаёт пустую папку — используется для проверки «есть ли файлы».
    */
   async getPluginDirIfExists(pluginId: string): Promise<FileSystemDirectoryHandle | null> {
-    if (!this.spaceHandle) return null
-    const subdirName = `${PLUGIN_SUBDIR_PREFIX}${pluginId}`
+    if (!this.spaceHandle) return null;
+    const subdirName = `${PLUGIN_SUBDIR_PREFIX}${pluginId}`;
     try {
-      return await this.spaceHandle.getDirectoryHandle(subdirName)
+      return await this.spaceHandle.getDirectoryHandle(subdirName);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'NotFoundError') return null
-      throw err
+      if (err instanceof DOMException && err.name === 'NotFoundError') return null;
+      throw err;
     }
   }
 
@@ -106,11 +106,11 @@ class DownloadSpaceService {
    */
   async refreshPermissionState(): Promise<void> {
     if (!this.spaceHandle) {
-      this.needsPermission.value = false
-      return
+      this.needsPermission.value = false;
+      return;
     }
-    const state = await queryPermission(this.spaceHandle, 'readwrite')
-    this.needsPermission.value = state !== 'granted'
+    const state = await queryPermission(this.spaceHandle, 'readwrite');
+    this.needsPermission.value = state !== 'granted';
   }
 
   /**
@@ -121,22 +121,22 @@ class DownloadSpaceService {
    * Если denied — не сбрасывает handle, но возвращает 'denied'.
    */
   async requestAccess(): Promise<PermissionState> {
-    if (!this.spaceHandle) return 'denied'
+    if (!this.spaceHandle) return 'denied';
 
-    const state = await requestPermission(this.spaceHandle, 'readwrite')
-    this.needsPermission.value = state !== 'granted'
-    return state
+    const state = await requestPermission(this.spaceHandle, 'readwrite');
+    this.needsPermission.value = state !== 'granted';
+    return state;
   }
 
   // --- Очистка -------------------------------------------------------
 
   async clear(): Promise<void> {
-    this.spaceHandle = null
-    this.hasSpace.value = false
-    this.spaceName.value = null
-    this.needsPermission.value = false
-    await del(SPACE_KEY)
+    this.spaceHandle = null;
+    this.hasSpace.value = false;
+    this.spaceName.value = null;
+    this.needsPermission.value = false;
+    await del(SPACE_KEY);
   }
 }
 
-export const downloadSpaceService = DownloadSpaceService.getInstance()
+export const downloadSpaceService = DownloadSpaceService.getInstance();

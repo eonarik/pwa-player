@@ -1,18 +1,19 @@
 <!-- src/components/ui/ProgressBar.vue -->
+
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    value: number
-    max?: number
-    size?: 'sm' | 'md'
+    value: number;
+    max?: number;
+    size?: 'sm' | 'md';
   }>(),
   { max: 100, size: 'md' },
-)
+);
 
 const HEIGHT_MAP = {
   sm: 'h-1',
   md: 'h-1.5',
-}
+};
 </script>
 
 <template>

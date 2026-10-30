@@ -1,0 +1,49 @@
+# Зависимости
+node_modules
+.yarn
+.pnp.*
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Билд
+dist
+dist-ssr
+coverage
+.output
+.vite
+storybook-static
+
+# Отчёты и тесты
+playwright-report
+test-results
+blob-report
+.sessions
+
+# Мусор
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# Файлы, которые prettier не трогает
+.env*
+!.env.example
+
+# Бинарные/медиа
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.ico
+*.svg
+*.mp3
+*.flac
+*.wav
+*.ogg
+*.m4a
+*.aac
+
+# Server
+server/node_modules
+server/.sessions

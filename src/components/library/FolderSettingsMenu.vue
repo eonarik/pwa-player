@@ -1,13 +1,14 @@
 <!-- src/components/library/FolderSettingsMenu.vue -->
-<script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import { useUiSettingsStore } from '@/stores/uiSettings'
-import DropdownMenu from '@/components/ui/DropdownMenu.vue'
-import Checkbox from '@/components/ui/Checkbox.vue'
-import IconButton from '@/components/ui/IconButton.vue'
 
-const uiSettings = useUiSettingsStore()
-const { showSource, showFiles, autoFetchMetadata, autoDownloadTracks } = storeToRefs(uiSettings)
+<script setup lang="ts">
+import { storeToRefs } from 'pinia';
+import { useUiSettingsStore } from '@/stores/uiSettings';
+import DropdownMenu from '@/components/ui/DropdownMenu.vue';
+import Checkbox from '@/components/ui/Checkbox.vue';
+import IconButton from '@/components/ui/IconButton.vue';
+
+const uiSettings = useUiSettingsStore();
+const { showSource, showFiles, autoFetchMetadata, autoDownloadTracks } = storeToRefs(uiSettings);
 </script>
 
 <template>

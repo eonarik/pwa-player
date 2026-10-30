@@ -1,3 +1,5 @@
+<!-- index.html -->
+
 <!doctype html>
 <html lang="ru">
   <head>
@@ -13,14 +15,20 @@
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@400..700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
     />
     <link
       href="https://fonts.googleapis.com/css2?family=Tektur:wght@400..900&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
     />
     <link
       href="https://fonts.googleapis.com/css2?family=Pacifico&family=Gabriela:wght@400;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
     />
     <title>CUEI Media Player</title>
 
@@ -133,19 +141,34 @@
 
     <div id="app">
       <div class="app-boot-loader" id="app-boot-loader">
-        <div class="app-boot-loader__spinner"></div>
+        <div class="app-boot-loader__spinner" id="app-boot-spinner"></div>
         <div class="app-boot-loader__text" id="app-boot-loader-text">Загружаем плеер…</div>
+        <!-- Добавим скрытую кнопку ошибки -->
+        <div id="app-boot-error" style="display: none; flex-direction: column; align-items: center; gap: 12px">
+          <p style="color: #f87171; font-size: 14px">Что-то пошло не так при загрузке.</p>
+          <button
+            onclick="window.location.reload()"
+            style="
+              background: #768bbe;
+              color: #fff;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
+            Перезагрузить
+          </button>
+        </div>
       </div>
 
-      <div class="app-build-info" id="app-build-info">
-        Version: %APP_VERSION% <br />Hash build: %BUILD_HASH%
-      </div>
+      <div class="app-build-info" id="app-build-info">Version: %APP_VERSION% <br />Hash build: %BUILD_HASH%</div>
     </div>
 
     <script>
       // Смена успокаивающих фраз, пока грузится бандл.
       // Список должен совпадать с AppLoader.vue.
-      ;(function () {
+      (function () {
         var phrases = [
           'Настраиваем плеер…',
           'Достаём пластинки…',
@@ -155,28 +178,42 @@
           'Прогреваем лампы…',
           'Загружаем библиотеку…',
           'Крутим диски…',
-        ]
+        ];
 
-        var textEl = document.getElementById('app-boot-loader-text')
-        if (!textEl) return
+        var textEl = document.getElementById('app-boot-loader-text');
+        if (!textEl) return;
 
-        textEl.textContent = phrases[Math.floor(Math.random() * phrases.length)]
+        textEl.textContent = phrases[Math.floor(Math.random() * phrases.length)];
 
-        var current = textEl.textContent
+        var current = textEl.textContent;
         setInterval(function () {
-          if (document.getElementById('app-boot-loader') === null) return
-          var next = current
+          if (document.getElementById('app-boot-loader') === null) return;
+          var next = current;
           while (next === current) {
-            next = phrases[Math.floor(Math.random() * phrases.length)]
+            next = phrases[Math.floor(Math.random() * phrases.length)];
           }
-          current = next
-          textEl.style.opacity = '0'
+          current = next;
+          textEl.style.opacity = '0';
           setTimeout(function () {
-            textEl.textContent = next
-            textEl.style.opacity = '1'
-          }, 300)
-        }, 5000)
-      })()
+            textEl.textContent = next;
+            textEl.style.opacity = '1';
+          }, 300);
+        }, 5000);
+
+        // Failsafe: если через 15 секунд лоадер всё еще виден — показываем ошибку
+        setTimeout(function () {
+          var loader = document.getElementById('app-boot-loader');
+          var spinner = document.getElementById('app-boot-spinner');
+          var textEl = document.getElementById('app-boot-loader-text');
+          var errorEl = document.getElementById('app-boot-error');
+
+          if (loader && loader.style.display !== 'none' && !loader.classList.contains('hidden')) {
+            if (spinner) spinner.style.display = 'none';
+            if (textEl) textEl.style.display = 'none';
+            if (errorEl) errorEl.style.display = 'flex';
+          }
+        }, 15000);
+      })();
     </script>
     <script type="module" src="/src/main.ts"></script>
   </body>

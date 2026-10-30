@@ -14,20 +14,20 @@ export function normalizeClientPath(clientPath) {
   const stripped = clientPath
     .replace(/^disk:/, '')
     .replace(/^\/+/, '')
-    .replace(/\/+$/, '')
-  if (stripped === '') return ''
+    .replace(/\/+$/, '');
+  if (stripped === '') return '';
 
-  const parts = stripped.split('/')
-  const stack = []
+  const parts = stripped.split('/');
+  const stack = [];
 
   for (const part of parts) {
-    if (part === '' || part === '.') continue
+    if (part === '' || part === '.') continue;
     if (part === '..') {
-      if (stack.length > 0) stack.pop()
-      continue
+      if (stack.length > 0) stack.pop();
+      continue;
     }
-    stack.push(part)
+    stack.push(part);
   }
 
-  return stack.join('/')
+  return stack.join('/');
 }

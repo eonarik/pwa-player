@@ -1,16 +1,17 @@
 <!-- src/components/ui/FormField.vue -->
+
 <script setup lang="ts">
-import Label from './Label.vue'
+import Label from './Label.vue';
 
 withDefaults(
   defineProps<{
-    label?: string
-    hint?: string
-    error?: string
-    id?: string
+    label?: string;
+    hint?: string;
+    error?: string;
+    id?: string;
   }>(),
   {},
-)
+);
 </script>
 
 <template>

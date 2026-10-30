@@ -1,205 +1,204 @@
 // src/stores/library/store.ts
 
-import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
-import type { Folder, LibraryTrack, Album } from '@/types/library'
-import { virtualTracksService } from '@/services/persistence/VirtualTracksService'
-import { albumService } from '@/services/persistence/AlbumService'
-import { librarySaveService } from '@/services/library/LibrarySaveService'
-import { sortService } from '@/services/sort/SortService'
-import { isSubtreeScanned as isSubtreeScannedPure } from '@/services/library/selectors'
-import { subtreeCache, clearSubtreeCache } from './subtreeCache'
-import { createVirtualTracks } from './virtualTracks'
-import { createAlbums } from './albums'
-import { createResolveTrack } from './resolveTrack'
-import { createAlternateActions } from './actions'
+import { defineStore } from 'pinia';
+import { computed, ref, watch, toRaw } from 'vue';
+import { get, set } from 'idb-keyval';
+import type { Track } from '@/types/track';
+import type { Album } from '@/types/album';
+import type { FolderRef } from '@/types/folder';
+import type { AlbumId, FolderId, TrackId } from '@/types/ids';
+import { sortService } from '@/services/sort/SortService';
+import { albumService } from '@/services/persistence/AlbumService';
+
+const LIBRARY_KEY = 'player:library';
+
+// Утилита для глубокого снятия Proxy (нужна для structuredClone)
+function deepToRaw<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return obj;
+  if (Array.isArray(obj)) return obj.map(deepToRaw) as unknown as T;
+  // Не трогаем системные объекты (FileSystemFileHandle, Blob и т.д.)
+  if (typeof window !== 'undefined' && (obj instanceof FileSystemFileHandle || obj instanceof Blob)) {
+    return obj;
+  }
+
+  const raw = toRaw(obj);
+  const result: Record<string, unknown> = {};
+  for (const key in raw) {
+    result[key] = deepToRaw(raw[key]);
+  }
+  return result as T;
+}
 
 export const useLibraryStore = defineStore('library', () => {
-  const folders = ref<Record<string, Folder>>({})
-  const tracks = ref<Record<string, LibraryTrack>>({})
-  const albums = ref<Record<string, Album>>({})
-  const virtualTracks = ref<Record<string, LibraryTrack>>({})
-  const currentFolderId = ref<string | null>(null)
+  const tracks = ref<Record<TrackId, Track>>({});
+  const albums = ref<Record<AlbumId, Album>>({});
+  const folders = ref<Record<FolderId, FolderRef>>({});
+  const currentFolderId = ref<FolderId | null>(null);
 
-  // Автосохранение альбомов
-  watch(albums, () => void albumService.saveAll(albums.value), { deep: true })
+  // --- Сохранение в IndexedDB (с дебаунсом) ---
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // --- Computed ---
-  const hasLibrary = computed(() => Object.keys(folders.value).length > 0)
+  watch(
+    [tracks, folders],
+    () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        try {
+          const rawData = {
+            tracks: deepToRaw(tracks.value),
+            folders: deepToRaw(folders.value),
+          };
+          await set(LIBRARY_KEY, rawData);
+        } catch (err) {
+          console.warn('[library] failed to persist library', err);
+        }
+      }, 1000);
+    },
+    { deep: true },
+  );
 
-  const currentFolder = computed<Folder | null>(() => {
-    if (!currentFolderId.value) return null
-    return folders.value[currentFolderId.value] ?? null
-  })
+  watch(albums, () => void albumService.saveAll(albums.value), { deep: true });
 
-  const currentSubfolders = computed<Folder[]>(() => {
-    const folder = currentFolder.value
-    if (!folder) return []
-    const list = folder.childFolderIds
-      .map((id) => folders.value[id])
-      .filter((f): f is Folder => Boolean(f))
-    return sortService.sortByName(list)
-  })
-
-  const currentTracks = computed<LibraryTrack[]>(() => {
-    const folder = currentFolder.value
-    if (!folder) return []
-    const seen = new Set<string>()
-    const list: LibraryTrack[] = []
-    for (const id of folder.trackIds) {
-      if (seen.has(id)) continue
-      seen.add(id)
-      const track = tracks.value[id]
-      if (track) list.push(track)
+  // ... (computed properties tracksByAlbumId, tracksByFolderId и т.д. остаются без изменений)
+  const tracksByAlbumId = computed<Record<AlbumId, TrackId[]>>(() => {
+    const index: Record<AlbumId, TrackId[]> = {} as Record<AlbumId, TrackId[]>;
+    for (const track of Object.values(tracks.value)) {
+      if (!track.albumId) continue;
+      const list = index[track.albumId] ?? [];
+      list.push(track.id);
+      index[track.albumId] = list;
     }
-    return sortService.sort(list)
-  })
+    return index;
+  });
 
-  const breadcrumbs = computed<Folder[]>(() => {
-    const crumbs: Folder[] = []
-    let folder = currentFolder.value
-    const visited = new Set<string>()
-    while (folder && !visited.has(folder.id)) {
-      visited.add(folder.id)
-      crumbs.unshift(folder)
-      folder = folder.parentId ? (folders.value[folder.parentId] ?? null) : null
-    }
-    return crumbs
-  })
-
-  const canGoUp = computed(() => {
-    const folder = currentFolder.value
-    return Boolean(folder && folder.parentId)
-  })
-
-  // --- Хелперы (Composables) ---
-  const { addVirtualTrack, removeVirtualTrack, restoreVirtualTracks, clearVirtualTracks } =
-    createVirtualTracks({
-      tracks,
-      virtualTracks,
-      albums,
-    })
-
-  const { restoreAlbums, cleanupOrphanAlbums, clearAlbums } = createAlbums({
-    albums,
-  })
-
-  const { resolveOrCreateTrack } = createResolveTrack({
-    tracks,
-    albums,
-    virtualTracks,
-  })
-
-  const { confirmAlternate, dismissAlternate } = createAlternateActions({
-    tracks,
-  })
-
-  // --- Функции ---
-  function setCurrentFolder(folderId: string): void {
-    if (!folders.value[folderId]) return
-    currentFolderId.value = folderId
-  }
-
-  function isSubtreeScanned(folderId: string): boolean {
-    const cached = subtreeCache.get(folderId)
-    if (cached !== undefined) return cached
-    const result = isSubtreeScannedPure(folderId, (id) => folders.value[id] ?? null)
-    subtreeCache.set(folderId, result)
-    return result
-  }
-
-  function getAllTracksInFolderRecursive(folderId: string): LibraryTrack[] {
-    const folder = folders.value[folderId]
-    if (!folder) return []
-    const result: LibraryTrack[] = []
-    const visited = new Set<string>()
-    const seenTracks = new Set<string>()
-
-    const walk = (id: string): void => {
-      if (visited.has(id)) return
-      visited.add(id)
-      const f = folders.value[id]
-      if (!f) return
-      for (const trackId of f.trackIds) {
-        if (seenTracks.has(trackId)) continue
-        seenTracks.add(trackId)
-        const track = tracks.value[trackId]
-        if (track) result.push(track)
+  const tracksByFolderId = computed<Record<FolderId, TrackId[]>>(() => {
+    const index: Record<FolderId, TrackId[]> = {} as Record<FolderId, TrackId[]>;
+    for (const track of Object.values(tracks.value)) {
+      for (const source of track.sources) {
+        if (source.kind === 'local' || source.kind === 'cloud') {
+          const list = index[source.folderId] ?? [];
+          list.push(track.id);
+          index[source.folderId] = list;
+        }
       }
-      for (const childId of f.childFolderIds) walk(childId)
     }
+    return index;
+  });
 
-    walk(folderId)
-    return result
+  const currentFolder = computed<FolderRef | null>(() => {
+    if (!currentFolderId.value) return null;
+    return folders.value[currentFolderId.value] ?? null;
+  });
+
+  const currentSubfolders = computed<FolderRef[]>(() => {
+    const folder = currentFolder.value;
+    if (!folder) return [];
+    const list = Object.values(folders.value).filter((f) => f.parentId === folder.id);
+    return sortService.sortByName(list);
+  });
+
+  const currentTracks = computed<Track[]>(() => {
+    const folder = currentFolder.value;
+    if (!folder) return [];
+    const ids = tracksByFolderId.value[folder.id] ?? [];
+    const seen = new Set<TrackId>();
+    const list: Track[] = [];
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const track = tracks.value[id];
+      if (track) list.push(track);
+    }
+    return sortService.sort(list);
+  });
+
+  const breadcrumbs = computed<FolderRef[]>(() => {
+    const crumbs: FolderRef[] = [];
+    let folder = currentFolder.value;
+    const visited = new Set<FolderId>();
+    while (folder && !visited.has(folder.id)) {
+      visited.add(folder.id);
+      crumbs.unshift(folder);
+      folder = folder.parentId ? (folders.value[folder.parentId] ?? null) : null;
+    }
+    return crumbs;
+  });
+
+  const hasLibrary = computed(() => Object.keys(tracks.value).length > 0 || Object.keys(folders.value).length > 0);
+
+  // --- Actions ---
+  function setCurrentFolder(id: FolderId): void {
+    if (!folders.value[id]) return;
+    currentFolderId.value = id;
+  }
+
+  function getTrack(id: TrackId): Track | null {
+    return tracks.value[id] ?? null;
+  }
+
+  function getAlbum(id: AlbumId): Album | null {
+    return albums.value[id] ?? null;
+  }
+
+  function getFolder(id: FolderId): FolderRef | null {
+    return folders.value[id] ?? null;
   }
 
   function clear(): void {
-    for (const track of Object.values(tracks.value)) {
-      if (track.raw?.coverUrl?.startsWith('blob:')) URL.revokeObjectURL(track.raw.coverUrl)
+    tracks.value = {};
+    albums.value = {};
+    folders.value = {};
+    currentFolderId.value = null;
+    void albumService.clear();
+    void set(LIBRARY_KEY, { tracks: {}, folders: {} });
+  }
+
+  async function restore(): Promise<void> {
+    const savedAlbums = await albumService.loadAll();
+    albums.value = savedAlbums;
+
+    try {
+      const saved = await get<{ tracks: Record<TrackId, Track>; folders: Record<FolderId, FolderRef> }>(LIBRARY_KEY);
+      if (saved) {
+        tracks.value = saved.tracks || {};
+        folders.value = saved.folders || {};
+      }
+    } catch (err) {
+      console.error('[library] failed to restore library from IDB', err);
     }
-    folders.value = {}
-    tracks.value = {}
-    currentFolderId.value = null
-    clearSubtreeCache()
-    clearVirtualTracks()
-    clearAlbums()
   }
 
-  function getTrack(id: string): LibraryTrack | null {
-    return tracks.value[id] ?? null
-  }
-
-  function getFolder(id: string): Folder | null {
-    return folders.value[id] ?? null
-  }
-
-  function getAlbum(id: string): Album | null {
-    return albums.value[id] ?? null
-  }
-
-  function updateTrackMetadata(
-    trackId: string,
-    patch: Partial<Pick<LibraryTrack, 'artist' | 'title' | 'album' | 'metaSource' | 'hasId3Tags'>>,
-  ): void {
-    const track = tracks.value[trackId]
-    if (!track) return
-    tracks.value[trackId] = { ...track, ...patch }
-
-    if (track.isVirtual) {
-      virtualTracks.value[trackId] = tracks.value[trackId]
-      void virtualTracksService.saveAll(virtualTracks.value)
+  function cleanupOrphanAlbums(): void {
+    const orphanIds: AlbumId[] = [];
+    for (const [id, album] of Object.entries(albums.value)) {
+      if (!tracksByAlbumId.value[album.id]) {
+        orphanIds.push(id as AlbumId);
+      }
     }
-    if (track.pluginId) librarySaveService.scheduleSave(track.pluginId)
+    for (const id of orphanIds) {
+      delete albums.value[id];
+    }
   }
 
   return {
-    folders,
     tracks,
     albums,
-    virtualTracks,
+    folders,
     currentFolderId,
-    hasLibrary,
+    tracksByAlbumId,
+    tracksByFolderId,
     currentFolder,
     currentSubfolders,
     currentTracks,
     breadcrumbs,
-    canGoUp,
-
-    addVirtualTrack,
-    removeVirtualTrack,
-    restoreVirtualTracks,
-    restoreAlbums,
-    cleanupOrphanAlbums,
-    resolveOrCreateTrack,
-    confirmAlternate,
-    dismissAlternate,
+    hasLibrary,
     setCurrentFolder,
-    isSubtreeScanned,
-    getAllTracksInFolderRecursive,
-    clear,
     getTrack,
-    getFolder,
     getAlbum,
-    updateTrackMetadata,
-  }
-})
+    getFolder,
+    clear,
+    restore,
+    cleanupOrphanAlbums,
+  };
+});

@@ -1,93 +1,77 @@
 // src/plugins/yandexDisk/types.ts
 
-import type { ScanState, TextFileRef, Album } from '@/types/library'
-import type { PersistedTrack } from '@/services/persistence/types'
-
-export type PersistedYandexTrack = PersistedTrack
+import type { FolderId } from '@/types/ids';
+import type { PluginContext, PluginSnapshot, ScanFolderOptions } from '../types';
 
 export interface YandexResourceItem {
-  path: string
-  name: string
-  type: 'dir' | 'file'
-  size?: number
-  mime_type?: string
-  media_type?: string
-  created?: string
-  modified?: string
-  isAudio?: boolean
+  path: string;
+  name: string;
+  type: 'dir' | 'file';
+  size?: number;
+  mime_type?: string;
+  media_type?: string;
+  created?: string;
+  modified?: string;
+  isAudio?: boolean;
 }
 
 export interface YandexResourcesResponse {
-  path: string
-  total: number
-  items: YandexResourceItem[]
+  path: string;
+  total: number;
+  items: YandexResourceItem[];
   _embedded?: {
-    items: YandexResourceItem[]
-  }
+    items: YandexResourceItem[];
+  };
 }
 
 export interface YandexTextResponse {
-  content: string
-  modified: string | null
-  size: number | null
+  content: string;
+  modified: string | null;
+  size: number | null;
 }
 
 export interface YandexWriteResponse {
-  ok: boolean
-  modified: string | null
+  ok: boolean;
+  modified: string | null;
 }
 
 export interface YandexDownloadResponse {
-  relativePath: string
-  size: number
+  relativePath: string;
+  size: number;
 }
 
 export interface IYandexService {
-  ping?(): Promise<boolean>
-
-  /**
-   * Авторизация. Сервис сам показывает модалку и спрашивает пароль.
-   * Возвращает true при успехе, false при отмене.
-   */
-  login?(): Promise<boolean>
-
-  logout?(): void
-  isDisconnected?(): boolean
-  setDisconnected?(val: boolean): void
-  isCancelled?(): boolean
-  setCancelled?(val: boolean): void
-  checkSession?(): Promise<'ok' | 'expired' | 'unavailable'>
-  listResources(path: string): Promise<YandexResourcesResponse>
-  buildDownloadUrl(path: string): string
-  readTextFile(remotePath: string): Promise<YandexTextResponse | null>
-  writeTextFile(remotePath: string, content: string): Promise<YandexWriteResponse>
+  ping?(): Promise<boolean>;
+  login?(): Promise<boolean>;
+  logout?(): void;
+  isDisconnected?(): boolean;
+  setDisconnected?(val: boolean): void;
+  isCancelled?(): boolean;
+  setCancelled?(val: boolean): void;
+  checkSession?(): Promise<'ok' | 'expired' | 'unavailable'>;
+  listResources(path: string): Promise<YandexResourcesResponse>;
+  buildDownloadUrl(path: string): string;
+  readTextFile(remotePath: string): Promise<YandexTextResponse | null>;
+  writeTextFile(remotePath: string, content: string): Promise<YandexWriteResponse>;
 }
 
 export interface PersistedYandexFolder {
-  id: string
-  name: string
-  parentId: string | null
-  path: string
-  remotePath: string
-  childFolderIds: string[]
-  trackIds: string[]
-  totalTrackCount: number
-  totalTextFileCount?: number
-  scanState?: ScanState
-  textFiles?: TextFileRef[]
-
-  /**
-   * @deprecated Только для чтения старых кешей. Не пишется с 0.11.0.
-   */
-  scanStatus?: 'scanned' | 'scanning'
+  id: FolderId;
+  pluginId: string;
+  name: string;
+  parentId: FolderId | null;
+  remotePath: string;
 }
 
 export interface PersistedYandexLibrary {
-  folders: PersistedYandexFolder[]
-  tracks: PersistedYandexTrack[]
-  albums?: Album[]
-  rootFolderId: string
-  rootFolderName: string
-  rootPath: string
-  savedAt: number
+  folders: PersistedYandexFolder[];
+  tracks: import('@/types/track').Track[];
+  folderMap: Record<string, string>; // remotePath → folderId
+  savedAt: number;
 }
+
+export type ScanFolderImpl = (
+  context: PluginContext,
+  folderId: FolderId,
+  options: ScanFolderOptions,
+) => Promise<PluginSnapshot>;

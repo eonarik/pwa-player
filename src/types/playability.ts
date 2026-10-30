@@ -3,19 +3,16 @@
 /**
  * Можно ли воспроизвести трек прямо сейчас.
  *
- * Вычисляется из `fileLocation` + `source` + `plugin.isDisconnected`,
- * не хранится в `track`. См. `getPlayability`.
+ * Вычисляется из Track.sources. Не хранится в Track.
  */
 export type Playability =
-  /** Файл на устройстве, `source` — File. */
+  /** Есть хотя бы один local-source с handle. */
   | 'playable'
-  /** В облаке, сессия жива, `source` — URL. */
+  /** Есть cloud-source, сессия плагина жива. */
   | 'playable-streaming'
-  /** В облаке, но сессия истекла. Нужен reconnect. */
+  /** Есть cloud-source, но сессия истекла. Нужен reconnect. */
   | 'needs-reconnect'
-  /** Локальный трек, но `source` не File (битое состояние). */
-  | 'unavailable'
-  /** Идёт скачивание — пока не играется. */
+  /** Идёт скачивание. */
   | 'downloading'
-  /** Трек-призрак: нет ни в облаке, ни локально. */
-  | 'missing'
+  /** Нет ни одного источника. */
+  | 'missing';

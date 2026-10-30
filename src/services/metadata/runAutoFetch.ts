@@ -1,63 +1,78 @@
 // src/services/metadata/runAutoFetch.ts
 
-import { isStreamingPlugin } from '@/plugins/registry'
-import { trackMetadataService } from './TrackMetadataService'
-import { metadataService } from './MetadataService'
-import { useLibraryStore } from '@/stores/library'
-import { useUiSettingsStore } from '@/stores/uiSettings'
-import { UNKNOWN_ARTIST_PLACEHOLDER } from './constants'
-import type { LibraryTrack } from '@/types/library'
+import { isStreamingPlugin, loadPlugin, pluginIdFromSource } from '@/plugins/registry';
+import { trackMetadataService } from './TrackMetadataService';
+import { metadataService } from './MetadataService';
+import { useLibraryStore } from '@/stores/library';
+import { useUiSettingsStore } from '@/stores/uiSettings';
+import type { Track } from '@/types/track';
 
 /**
- * Ищет метаданные для трека в фоне (iTunes + Deezer).
- *
- * Не запускается:
- * - если выключен `autoFetchMetadata` в настройках;
- * - для стриминговых плагинов (Звук) — у них уже есть данные из API;
- * - если в файле есть ID3-теги;
- * - если метаданные уже `auto`, `file`, `manual` или `unknown`;
- * - если у трека уже есть исполнитель, альбом и обложка (нет смысла перезаписывать).
+ * Ищет метаданные для трека в фоне.
+ * Сначала пробует СберЗвук (если включено в настройках плагина),
+ * затем iTunes и Deezer.
  */
-export async function runAutoFetch(libTrack: LibraryTrack): Promise<void> {
-  const uiSettings = useUiSettingsStore()
-  if (!uiSettings.autoFetchMetadata) return
+export async function runAutoFetch(track: Track): Promise<void> {
+  const uiSettings = useUiSettingsStore();
+  if (!uiSettings.autoFetchMetadata) return;
 
-  // Стриминговые плагины не ищут метаданные — у них всё уже есть из API.
-  if (isStreamingPlugin(libTrack.pluginId)) return
+  // Стриминговые плагины (СберЗвук, Радио) не нуждаются в автопоиске для своих треков
+  const pluginIds = new Set(track.sources.map((s) => pluginIdFromSource(s.pluginId)));
+  for (const pid of pluginIds) {
+    if (isStreamingPlugin(pid)) return;
+  }
 
-  if (libTrack.hasId3Tags) return
+  if (track.hasId3Tags) return;
 
-  const canAutoFetch =
-    libTrack.metaSource !== 'auto' &&
-    libTrack.metaSource !== 'manual' &&
-    libTrack.metaSource !== 'unknown' &&
-    libTrack.metaSource !== 'file'
+  const library = useLibraryStore();
+  const album = track.albumId ? library.getAlbum(track.albumId) : null;
 
-  if (!canAutoFetch) return
+  const hasArtist = track.artist.trim().length > 0;
+  const hasAlbum = (album?.name?.trim().length ?? 0) > 0;
+  const hasCover = Boolean(album?.coverUrl || track.coverUrl);
 
-  // Проверяем, есть ли уже все нужные данные (артист, альбом, обложка)
-  const artist = libTrack.artist?.trim() ?? ''
-  const album = libTrack.album?.trim() ?? ''
-  const hasArtist = artist.length > 0 && artist !== UNKNOWN_ARTIST_PLACEHOLDER
-  const hasAlbum = album.length > 0 && album !== UNKNOWN_ARTIST_PLACEHOLDER
-  const hasCover = Boolean(libTrack.raw?.coverUrl || libTrack.coverUrl)
+  if (hasArtist && hasAlbum && hasCover) return;
 
-  // Если всё уже заполнено, нет смысла искать
-  if (hasArtist && hasAlbum && hasCover) return
+  // not-found (TTL не истёк) — не ищем
+  const entry = metadataService.getEntry(track.id);
+  if (entry && entry.artist === null) return;
 
+  // 1. ПЫТАЕМСЯ НАЙТИ В СБЕРЗВУКЕ (если плагин включен)
+  const zvukEnabled = localStorage.getItem('zvuk:fetchMetadata') !== 'false';
+  if (zvukEnabled) {
+    try {
+      const zvukPlugin = await loadPlugin('zvuk');
+      if (zvukPlugin.fetchMetadata) {
+        const zvukData = await zvukPlugin.fetchMetadata(track.artist, track.title);
+        if (zvukData) {
+          console.info(`[auto-fetch] Found metadata in Zvuk for "${track.title}"`);
+          metadataService.applyRemote(track.id, {
+            artist: zvukData.artist,
+            title: zvukData.title,
+            album: zvukData.album,
+            coverUrl: zvukData.coverUrl,
+            source: 'zvuk',
+            similarity: zvukData.similarity,
+            confident: zvukData.confident,
+          });
+          return; // Нашли в Звуке — выходим, iTunes не тревожим
+        }
+      }
+    } catch (err) {
+      console.warn('[auto-fetch] zvuk failed', err);
+    }
+  }
+
+  // 2. ЕСЛИ В ЗВУКЕ НЕ НАШЛИ — ИДЕМ В ITUNES/DEEZER
   try {
-    const result = await trackMetadataService.fetch(
-      libTrack.artist ?? '',
-      libTrack.title,
-      uiSettings.metadataThreshold,
-    )
+    const result = await trackMetadataService.fetch(track.artist, track.title, uiSettings.metadataThreshold);
 
     if (result.status === 'found') {
-      metadataService.applyRemote(libTrack.id, result.data)
+      metadataService.applyRemote(track.id, result.data);
     } else if (result.status === 'not-found') {
-      useLibraryStore().updateTrackMetadata(libTrack.id, { metaSource: 'unknown' })
+      metadataService.markNotFound(track.id);
     }
   } catch (err) {
-    console.warn('[auto-fetch] failed', err)
+    console.warn('[auto-fetch] failed', err);
   }
 }

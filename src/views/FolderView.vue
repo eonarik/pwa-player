@@ -1,22 +1,27 @@
 <!-- src/views/FolderView.vue -->
+
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useUiSettingsStore } from '@/stores/uiSettings'
 import { getPluginManifest } from '@/plugins/lookup'
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry'
+import { createPluginContext } from '@/plugins/context'
 import { sortService } from '@/services/sort/SortService'
-import { useMetadataSearch } from '@/composables/useMetadataSearch'
 import { useLibrarySearch } from '@/composables/useLibrarySearch'
 import { useFolderSync } from '@/composables/useFolderSync'
+import { folderStatusService } from '@/services/folders/FolderStatusService'
+import { toastService } from '@/services/ui/ToastService'
 import FolderHeader from './folder/FolderHeader.vue'
 import FolderFilters from './folder/FolderFilters.vue'
 import FolderContent from './folder/FolderContent.vue'
-import MetadataIssuesModal from '@/components/library/MetadataIssuesModal.vue'
+import FileLocationFilter from '@/components/library/FileLocationFilter.vue'
 import TextEditorModal from '@/components/library/TextEditorModal.vue'
-import type { LibraryTrack, TextFileRef } from '@/types/library'
-import FileLocationFilter from "@/components/library/FileLocationFilter.vue"
+import type { Track } from '@/types/track'
+import type { TextFileRef } from '@/plugins/types'
+import type { FolderId } from '@/types/ids'
 
 const library = useLibraryStore()
 const player = usePlayerStore()
@@ -31,41 +36,50 @@ const tracks = computed(() => currentTracks.value)
 type SourceFilter = 'all' | 'local' | 'cloud'
 const sourceFilter = ref<SourceFilter>('all')
 
-// Фильтрация треков
 const filteredTracks = computed(() => {
   if (sourceFilter.value === 'all') return tracks.value
   return tracks.value.filter((t) => {
-    const loc = t.fileLocation ?? 'remote-only'
-    if (sourceFilter.value === 'local') {
-      return loc === 'local-only' || loc === 'both'
-    }
-    return loc === 'remote-only' || loc === 'both'
+    const hasLocal = t.sources.some((s) => s.kind === 'local')
+    const hasCloud = t.sources.some((s) => s.kind === 'cloud')
+    if (sourceFilter.value === 'local') return hasLocal
+    return hasCloud
   })
 })
 
-// Показываем фильтр только если в списке реально есть разные типы локаций
 const hasMixedLocations = computed(() => {
   if (filteredTracks.value.length === 0) return false
-  const locations = new Set(filteredTracks.value.map((t) => t.fileLocation ?? 'remote-only'))
-  return locations.size > 1
+  const kinds = new Set<string>()
+  for (const t of filteredTracks.value) for (const s of t.sources) kinds.add(s.kind)
+  return kinds.has('local') && kinds.has('cloud')
 })
 
 const hasTracks = computed(() => filteredTracks.value.length > 0)
 const hasFolders = computed(() => currentSubfolders.value.length > 0)
 
-const isScanning = computed(() => currentFolder.value?.scanState === 'scanning')
+const textFiles = ref<TextFileRef[]>([])
 
-const subtreeTracks = computed<LibraryTrack[]>(() => {
+async function refreshTextFiles() {
   const folder = currentFolder.value
-  if (!folder) return []
-  return library.getAllTracksInFolderRecursive(folder.id)
-})
+  if (!folder || !showFiles.value) {
+    textFiles.value = []
+    return
+  }
+  try {
+    const plugin = await loadPlugin(pluginIdFromSource(folder.pluginId))
+    if (plugin.getTextFiles) {
+      const files = await plugin.getTextFiles(createPluginContext(folder.pluginId), folder.id)
+      textFiles.value = sortService.sortByName(files)
+    } else {
+      textFiles.value = []
+    }
+  } catch {
+    textFiles.value = []
+  }
+}
 
-const textFiles = computed<TextFileRef[]>(() => {
-  if (!showFiles.value) return []
-  const files = currentFolder.value?.textFiles ?? []
-  return sortService.sortByName(files)
-})
+watch([currentFolder, showFiles], () => {
+  void refreshTextFiles()
+}, { immediate: true })
 
 const hasTextFiles = computed(() => textFiles.value.length > 0)
 const openedFile = ref<TextFileRef | null>(null)
@@ -78,19 +92,25 @@ function closeFile(): void {
   openedFile.value = null
 }
 
+const subtreeTracks = computed<Track[]>(() => {
+  const folder = currentFolder.value
+  if (!folder) return []
+  const ids = library.tracksByFolderId[folder.id] ?? []
+  return ids.map((id) => library.getTrack(id)).filter((t): t is Track => Boolean(t))
+})
+
 const { query, hasQuery, hasResults, result } = useLibrarySearch(
   subtreeTracks,
   uiSettings.searchThreshold,
 )
 
-const searchFlatTracks = computed<LibraryTrack[]>(() => {
+const searchFlatTracks = computed<Track[]>(() => {
   if (sourceFilter.value === 'all') return result.value.tracks
   return result.value.tracks.filter((t) => {
-    const loc = t.fileLocation ?? 'remote-only'
-    if (sourceFilter.value === 'local') {
-      return loc === 'local-only' || loc === 'both'
-    }
-    return loc === 'remote-only' || loc === 'both'
+    const hasLocal = t.sources.some((s) => s.kind === 'local')
+    const hasCloud = t.sources.some((s) => s.kind === 'cloud')
+    if (sourceFilter.value === 'local') return hasLocal
+    return hasCloud
   })
 })
 
@@ -106,29 +126,6 @@ function playSearchAll(): void {
 }
 
 const {
-  isLoading: isMetadataLoading,
-  progress: metadataProgress,
-  stats: metadataStats,
-  hasUnchecked: metadataHasUnchecked,
-  issues: metadataIssues,
-  search: metadataSearch,
-  cancel: metadataCancel,
-  reset: metadataReset,
-  dismissIssues: metadataDismissIssues,
-} = useMetadataSearch(subtreeTracks)
-
-const showMetadataIssues = ref(false)
-
-function openMetadataIssues(): void {
-  showMetadataIssues.value = true
-}
-
-function closeMetadataIssues(): void {
-  showMetadataIssues.value = false
-  metadataDismissIssues()
-}
-
-const {
   canRefresh,
   canRefreshFromDevice,
   isRefreshing,
@@ -139,35 +136,73 @@ const {
 } = useFolderSync(currentFolder)
 
 function onSelectTrack(index: number): void {
-  if (isScanning.value) return
   player.setQueue(filteredTracks.value, index)
 }
 
 const emptyStateMessage = computed(() => {
   const folder = currentFolder.value
-  if (!folder || !folder.source) return null
+  if (!folder) return null
   if (folder.parentId !== null) return null
-  return getPluginManifest(folder.source)?.options?.emptyStateMessage ?? null
+  return getPluginManifest(folder.pluginId)?.options?.emptyStateMessage ?? null
 })
+
+// --- Статусы и отмена фонового скана ---------------------------------
+
+const isCurrentFolderScanning = computed(() => {
+  const folder = currentFolder.value
+  if (!folder) return false
+  return folderStatusService.isScanning(folder.id)
+})
+
+const hasBackgroundScan = computed(() => {
+  const folder = currentFolder.value
+  if (!folder) return false
+
+  const walk = (id: FolderId): boolean => {
+    if (folderStatusService.needsScan(id) || folderStatusService.isScanning(id)) return true
+    return Object.values(library.folders)
+      .filter((f) => f.parentId === id)
+      .some((f) => walk(f.id))
+  }
+  return walk(folder.id)
+})
+
+async function cancelBackgroundScan(): Promise<void> {
+  const folder = currentFolder.value
+  if (!folder) return
+
+  try {
+    const plugin = await loadPlugin(pluginIdFromSource(folder.pluginId))
+    if (plugin.cancelBackgroundScan) {
+      plugin.cancelBackgroundScan()
+      toastService.info('Фоновая синхронизация отменена')
+    }
+  } catch (err) {
+    console.error('[FolderView] failed to cancel background scan', err)
+    toastService.error('Не удалось отменить синхронизацию')
+  }
+}
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <FolderHeader :current-folder="currentFolder" :subfolders-count="currentSubfolders.length"
       :tracks-count="filteredTracks.length" :files-count="textFiles.length" :subtree-tracks="subtreeTracks"
-      :is-scanning="isScanning" />
+      :is-scanning="isCurrentFolderScanning || isRefreshing" />
 
-    <FolderFilters v-model:query="query" :needs-attention="needsAttention" :metadata-loading="isMetadataLoading"
-      :metadata-progress="metadataProgress" :metadata-stats="metadataStats"
-      :metadata-has-unchecked="metadataHasUnchecked" :metadata-issues-count="metadataIssues.length"
-      :can-refresh="canRefresh" :can-refresh-from-device="canRefreshFromDevice" :is-refreshing="isRefreshing"
-      :is-refreshing-from-device="isRefreshingFromDevice" :tracks="filteredTracks" @metadata-search="metadataSearch"
-      @metadata-cancel="metadataCancel" @metadata-reset="metadataReset" @open-issues="openMetadataIssues"
-      @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice" />
+    <FolderFilters v-model:query="query" :needs-attention="needsAttention" :metadata-loading="false"
+      :metadata-progress="{ done: 0, total: 0 }" :metadata-stats="{ found: 0, checked: 0, total: 0 }"
+      :metadata-has-unchecked="false" :metadata-issues-count="0" :can-refresh="canRefresh"
+      :can-refresh-from-device="canRefreshFromDevice" :is-refreshing="isRefreshing"
+      :is-refreshing-from-device="isRefreshingFromDevice" :tracks="filteredTracks"
+      :has-background-scan="hasBackgroundScan"
+      @metadata-search="() => { }" @metadata-cancel="() => { }" @metadata-reset="() => { }"
+      @open-issues="() => { }" @refresh-cloud="refreshFromCloud" @refresh-device="refreshFromDevice"
+      @cancel-background-scan="cancelBackgroundScan" />
 
     <FolderContent :has-folders="hasFolders" :has-text-files="hasTextFiles" :has-tracks="hasTracks"
       :text-files="textFiles" :tracks="filteredTracks" :empty-state-message="emptyStateMessage"
-      :current-folder-id="currentFolder?.id ?? null" :is-scanning="isScanning" :has-query="hasQuery"
+      :current-folder-id="currentFolder?.id ?? null" :is-scanning="isRefreshing" :has-query="hasQuery"
       :has-results="hasResults" :search-flat-tracks="searchFlatTracks" :groups="result.groups" :is-playing="isPlaying"
       :current-track-id="currentTrack?.id ?? null" @select-track="onSelectTrack"
       @select-search-track="onSelectSearchTrack" @open-file="openFile" @play-search-all="playSearchAll">
@@ -176,8 +211,7 @@ const emptyStateMessage = computed(() => {
       </template>
     </FolderContent>
 
-    <MetadataIssuesModal v-if="showMetadataIssues" :issues="metadataIssues" @close="closeMetadataIssues" />
-
-    <TextEditorModal v-if="openedFile" :file="openedFile" :plugin-id="currentFolder?.source" @close="closeFile" />
+    <TextEditorModal v-if="openedFile && currentFolder" :file="openedFile" :plugin-id="currentFolder.pluginId"
+      @close="closeFile" />
   </div>
 </template>

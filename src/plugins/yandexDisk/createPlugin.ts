@@ -1,51 +1,68 @@
 // src/plugins/yandexDisk/createPlugin.ts
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type {
-  LibrarySource,
-  PluginContext,
-  ScanFolderOptions,
-  ScanResult,
-  DownloadTrackOptions,
-  DownloadedTrackInfo,
-  LoadOptions,
-} from '../types'
-import type { LibraryTrack, CollectedLibrary } from '@/types/library'
-import { folderIdFromPath } from '@/services/library/id'
-import { yandexPersistenceService } from './persistence'
-import { backgroundScan, currentLibraryFromWriter, loadRootContent, refreshSubtree } from './scan'
-import { fromPersisted, toPersisted, enrichWithLocalFiles } from './persist'
-import { authService } from '@/services/auth/AuthService'
-import type { IYandexService } from './types'
-import { scanFolderRecursive } from './scanFolder'
-import { downloadTrackToDir, removeDownloadedFromDir } from './download'
-import {
-  scanDownloadDirForSource,
-  createLocalTrackFromFile,
-  restoreLibraryFromFiles,
-  mergeLocalIntoLibrary,
-} from './sync'
+import type { LibrarySource, PluginContext, PluginSnapshot, ScanFolderOptions } from '../types';
+import type { Track, TrackSource } from '@/types/track';
+import type { FolderId } from '@/types/ids';
+import { downloadTrackToDir, removeDownloadedFromDir } from './download';
+import { createPluginStorage } from './storage';
+import { authService } from '@/services/auth/AuthService';
+import { folderStatusService } from '@/services/folders/FolderStatusService';
+import { loadImpl } from './load';
+import { scanFolderImpl } from './scanFolder';
+import { ScanQueue } from './ScanQueue';
+import type { IYandexService } from './types';
 
 export interface YandexPluginOptions {
-  id: string
-  name: string
-  icon: string
-  service: IYandexService
+  id: string;
+  name: string;
+  icon: string;
+  service: IYandexService;
 }
 
-export function createYandexPlugin({
-  id,
-  name,
-  icon,
-  service,
-}: YandexPluginOptions): LibrarySource {
-  let cancelled = false
-  service.isCancelled = () => cancelled
+interface ServiceWithSetConnected extends IYandexService {
+  setConnected?(val: boolean): void;
+}
+
+function hasSetConnected(service: IYandexService): service is ServiceWithSetConnected {
+  return typeof (service as ServiceWithSetConnected).setConnected === 'function';
+}
+
+export function createYandexPlugin({ id, name, icon, service }: YandexPluginOptions): LibrarySource {
+  let cancelled = false;
+  service.isCancelled = () => cancelled;
   service.setCancelled = (val: boolean) => {
-    cancelled = val
+    cancelled = val;
+  };
+
+  const storage = createPluginStorage(id);
+  const isCancelled = () => cancelled;
+
+  // Очередь фонового сканирования
+  let scanQueue: ScanQueue | null = null;
+
+  function getOrCreateQueue(context: PluginContext): ScanQueue {
+    if (!scanQueue) {
+      scanQueue = new ScanQueue({
+        pluginId: id,
+        service,
+        storage,
+        context,
+        onLibraryUpdate: async (snapshot) => {
+          await context.writer.setLibrary(snapshot, id);
+        },
+      });
+    }
+    return scanQueue;
   }
 
-  return {
+  const scanFolderBound = async (context: PluginContext, folderId: FolderId, options: ScanFolderOptions) => {
+    if (scanQueue) {
+      scanQueue.dequeue(folderId);
+    }
+    return scanFolderImpl({ pluginId: id, service, storage }, context, folderId, options);
+  };
+
+  const plugin: LibrarySource = {
     id,
     name,
     icon,
@@ -54,196 +71,132 @@ export function createYandexPlugin({
     isDisconnected: () => service.isDisconnected?.() ?? false,
 
     async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
-      if (!service.checkSession) return 'ok'
-      return service.checkSession()
+      if (!service.checkSession) return 'ok';
+      return service.checkSession();
     },
 
     markDisconnected(): void {
-      service.setDisconnected?.(true)
+      service.setDisconnected?.(true);
     },
 
     async connect(): Promise<void> {
-      if (service.setDisconnected) service.setDisconnected(false)
-      if (service.setCancelled) service.setCancelled(false)
+      if (service.setDisconnected) service.setDisconnected(false);
+      if (service.setCancelled) service.setCancelled(false);
 
-      // Если сервис умеет логиниться сам (через модалку), пусть логинится.
-      // Мы не знаем, как он это делает.
       if (service.login) {
-        const ok = await service.login()
-        if (!ok) throw new Error('cancelled')
-        return
+        const ok = await service.login();
+        if (!ok) throw new Error('cancelled');
+        return;
       }
 
-      // Для OAuth (yandex)
-      const alive = service.ping ? await service.ping() : true
-      if (!alive) throw new Error('Сервер недоступен')
+      const alive = service.ping ? await service.ping() : true;
+      if (!alive) throw new Error('Сервер недоступен');
 
-      const me = await authService.me()
+      const me = await authService.me();
       if (me.authenticated) {
-        if ('setConnected' in service && typeof (service as any).setConnected === 'function') {
-          ;(service as any).setConnected(true)
+        if (hasSetConnected(service) && service.setConnected) {
+          service.setConnected(true);
         }
-        return
+        return;
       }
 
-      authService.startOAuth()
-      throw new Error('redirect')
+      authService.startOAuth();
+      throw new Error('redirect');
     },
 
-    async load(context: PluginContext, options?: LoadOptions): Promise<void> {
-      const forceRefresh = options?.forceRefresh ?? false
-
-      if (!forceRefresh) {
-        const restored = await this.restoreFromCache!(context)
-        if (restored) {
-          if (!service.isDisconnected || !service.isDisconnected()) {
-            void backgroundScan(context, id, service)
-          }
-          return
-        }
-      }
-
-      const targetDir = await context.getDownloadDir()
-      if (targetDir) {
-        try {
-          await mergeLocalIntoLibrary({ sourceId: id }, context, targetDir)
-        } catch (err) {
-          console.warn(`[${id}] load: mergeLocalIntoLibrary failed`, err)
-        }
-      }
-
-      const rootFolderId = folderIdFromPath(id, '')
-      const { folders, tracks } = await loadRootContent(id, rootFolderId, service)
-
-      const rootCollected: CollectedLibrary = {
-        folders,
-        tracks,
-        rootFolderId,
-        rootFolderName: name,
-      }
-
-      context.writer.setLibrary(rootCollected, id)
-
-      if (targetDir) {
-        try {
-          await mergeLocalIntoLibrary({ sourceId: id }, context, targetDir)
-        } catch (err) {
-          console.warn(`[${id}] load: mergeLocalIntoLibrary (post) failed`, err)
-        }
-      }
-
-      await yandexPersistenceService.save(id, toPersisted(currentLibraryFromWriter(context, id)))
-      void backgroundScan(context, id, service)
+    load(context, options) {
+      return loadImpl(
+        {
+          pluginId: id,
+          service,
+          storage,
+          isCancelled,
+          scanFolderImpl: scanFolderBound,
+          onPendingFolders: (folders) => {
+            const queue = getOrCreateQueue(context);
+            for (const f of folders) {
+              folderStatusService.register(f.id, 'pending');
+              queue.enqueue(f.id);
+            }
+          },
+        },
+        options,
+      );
     },
 
-    async restoreFromCache(context: PluginContext): Promise<boolean> {
-      const cached = await yandexPersistenceService.load(id)
-      if (!cached || !yandexPersistenceService.isFresh(cached)) return false
-
-      const collected = fromPersisted(cached, service)
-      const targetDir = await context.getDownloadDir()
-      if (targetDir) {
-        await enrichWithLocalFiles(collected.tracks, targetDir, service)
-      }
-      context.writer.setLibrary(collected, id)
-
-      if (!service.isDisconnected || !service.isDisconnected()) {
-        void backgroundScan(context, id, service)
-      }
-      return true
+    async restoreFromCache(_context: PluginContext): Promise<PluginSnapshot | null> {
+      return null;
     },
 
-    async restoreFromLocalFiles(context: PluginContext): Promise<boolean> {
-      const targetDir = await context.getDownloadDir()
-      if (!targetDir) return false
-      return restoreLibraryFromFiles({ sourceId: id }, context, targetDir)
+    async restoreFromLocalFiles(_context: PluginContext): Promise<PluginSnapshot | null> {
+      return null;
     },
 
-    async mergeLocalIntoLibrary(context: PluginContext): Promise<void> {
-      const targetDir = await context.getDownloadDir()
-      if (!targetDir) return
-      await mergeLocalIntoLibrary({ sourceId: id }, context, targetDir)
+    async mergeLocalIntoLibrary(_context: PluginContext): Promise<PluginSnapshot | null> {
+      return null;
     },
 
-    async scanFolder(
-      context: PluginContext,
-      folderId: string,
-      options: ScanFolderOptions,
-    ): Promise<boolean> {
-      return scanFolderRecursive({ context, sourceId: id, service }, folderId, options)
+    scanFolder: scanFolderBound,
+
+    buildStreamUrl(source: TrackSource): string {
+      if (source.kind !== 'cloud') throw new Error(`[${id}] source must be cloud`);
+      return service.buildDownloadUrl(source.remotePath);
     },
 
-    async refreshFolder(context: PluginContext, folderId: string): Promise<void> {
-      const folder = context.writer.getFolder(folderId)
-      if (!folder || !folder.remotePath) return
-      await refreshSubtree(context, folder, id, service)
-      await yandexPersistenceService.save(id, toPersisted(currentLibraryFromWriter(context, id)))
+    buildDownloadUrl(track: Track, source: TrackSource): string {
+      if (source.kind !== 'cloud') throw new Error(`[${id}] source must be cloud`);
+      return service.buildDownloadUrl(source.remotePath);
     },
 
-    buildStreamUrl(track: LibraryTrack): string {
-      const source = track.sources?.[0]
-      if (source?.url) return source.url
-      throw new Error(`[${id}] track has no stream url`)
-    },
-
-    buildDownloadUrl(track: LibraryTrack): string {
-      if (!track.remotePath) {
-        throw new Error(`[${id}] track "${track.id}" has no remotePath`)
-      }
-      return service.buildDownloadUrl(track.remotePath)
-    },
-
-    async downloadTrack(
-      context: PluginContext,
-      track: LibraryTrack,
-      options: DownloadTrackOptions,
-    ): Promise<DownloadedTrackInfo> {
+    async downloadTrack(context, track, source, options) {
       return downloadTrackToDir(
-        { buildDownloadUrl: (t) => this.buildDownloadUrl!(t) },
+        { buildDownloadUrl: (t, s) => plugin.buildDownloadUrl!(t, s) },
         context,
         track,
+        source,
         options,
-      )
+      );
     },
 
-    async removeDownloaded(
-      context: PluginContext,
-      track: LibraryTrack,
-      targetDir: FileSystemDirectoryHandle,
-    ): Promise<void> {
-      await removeDownloadedFromDir(context, track, targetDir)
-      context.writer.updateTrackHandle(track.id, undefined)
-      context.writer.updateTrackFileLocation(track.id, 'remote-only')
-      const nextSource = track.remotePath ? service.buildDownloadUrl(track.remotePath) : ''
-      context.writer.updateTrackSource(track.id, nextSource)
+    async removeDownloaded(context, track, source, targetDir) {
+      await removeDownloadedFromDir(context, track, source, targetDir);
     },
 
-    async scanDownloadDir(
-      context: PluginContext,
-      targetDir: FileSystemDirectoryHandle,
-    ): Promise<ScanResult> {
-      return scanDownloadDirForSource({ sourceId: id }, context, targetDir)
+    async scanDownloadDir() {
+      return { downloaded: new Map(), onlyLocal: [], missing: [] };
     },
 
-    async createLocalTrack(
-      context: PluginContext,
-      relativePath: string,
-      filename: string,
-    ): Promise<LibraryTrack | null> {
-      return createLocalTrackFromFile({ sourceId: id }, context, relativePath, filename)
+    async createLocalTrack() {
+      return null;
     },
 
-    async saveCache(context: PluginContext): Promise<void> {
-      const collected = currentLibraryFromWriter(context, id)
-      await yandexPersistenceService.save(id, toPersisted(collected))
+    async saveCache(_context: PluginContext): Promise<void> {},
+
+    cancelBackgroundScan(): void {
+      if (scanQueue) {
+        scanQueue.cancelAll();
+      }
     },
 
     async disconnect(context: PluginContext): Promise<void> {
-      if (service.setCancelled) service.setCancelled(true)
-      if (service.setDisconnected) service.setDisconnected(true)
+      if (scanQueue) {
+        scanQueue.cancelAll();
+        scanQueue = null;
+      }
+      if (service.setCancelled) service.setCancelled(true);
+      if (service.setDisconnected) service.setDisconnected(true);
+      context.writer.removeBySource(id);
 
-      context.writer.removeBySource(id)
-      if (service.logout) service.logout()
+      const cached = storage.getFoldersCache();
+      if (cached) {
+        folderStatusService.forgetMany(cached.map((f) => f.id));
+      }
+
+      storage.clear();
+
+      if (service.logout) service.logout();
     },
-  }
+  };
+
+  return plugin;
 }

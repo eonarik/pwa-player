@@ -1,6 +1,6 @@
 // src/services/markdown/simpleRenderer.ts
 
-import type { MarkdownRenderer } from './types'
+import type { MarkdownRenderer } from './types';
 
 function escapeHtml(text: string): string {
   return text
@@ -8,7 +8,7 @@ function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -22,37 +22,37 @@ function escapeHtml(text: string): string {
  * Порядок: escape → code → links → bold → italic → br.
  */
 function render(source: string): string {
-  let html = escapeHtml(source)
+  let html = escapeHtml(source);
 
   // code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
   // links (с проверкой схемы)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text: string, url: string) => {
-    if (!/^(https?:|mailto:|\/)/.test(url)) return text
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
-  })
+    if (!/^(https?:|mailto:|\/)/.test(url)) return text;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+  });
 
   // bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
   // italic
-  html = html.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
-  html = html.replace(/(^|[^_])_([^_]+)_/g, '$1<em>$2</em>')
+  html = html.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+  html = html.replace(/(^|[^_])_([^_]+)_/g, '$1<em>$2</em>');
 
   // newlines
-  html = html.replace(/\n/g, '<br>')
+  html = html.replace(/\n/g, '<br>');
 
-  return html
+  return html;
 }
 
 export const simpleRenderer: MarkdownRenderer = {
   render(source) {
-    if (!source) return null
+    if (!source) return null;
     try {
-      return render(source)
+      return render(source);
     } catch {
-      return null
+      return null;
     }
   },
-}
+};

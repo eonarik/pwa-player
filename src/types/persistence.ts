@@ -1,39 +1,25 @@
 // src/types/persistence.ts
 
-import type { FileLocation, RawMetadata, MetadataSource } from './library'
+import type { Track } from './track';
 
 /**
- * Единый тип для сохранения трека в IndexedDB.
- * Покрывает плеер, локальные папки и Яндекс.Диск.
+ * Для персистентности сохраняем Track как есть.
+ * FileSystemFileHandle в sources[].handle — idb-keyval умеет.
  */
-export interface PersistedTrack {
-  id: string
-  pluginId: string
-  title: string
-  artist: string
-  album: string
+export type PersistedTrack = Track;
 
-  // Метаданные
-  year?: number
-  trackNumber?: number
-  genre?: string
-  duration?: number
-  codec?: string
-  coverUrl?: string
-  metaSource?: MetadataSource
-  hasId3Tags?: boolean
-  raw?: RawMetadata
+export interface PersistedState {
+  tracks: PersistedTrack[];
+  currentIndex: number;
+  volume: number;
+  muted: boolean;
+  repeatMode: 'off' | 'one' | 'all';
+  shuffle: boolean;
+  savedAt: number;
+}
 
-  // Локация и пути
-  filename: string
-  path?: string
-  remotePath?: string
-  fileLocation?: FileLocation
-
-  // Файловые хэндлы
-  handle?: FileSystemFileHandle
-  directoryHandle?: FileSystemDirectoryHandle
-
-  // Стриминг
-  source?: string
+export interface PersistedPlayback {
+  currentTime: number;
+  trackId: string | null;
+  savedAt: number;
 }

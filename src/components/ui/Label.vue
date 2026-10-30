@@ -1,12 +1,13 @@
 <!-- src/components/ui/Label.vue -->
+
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    text?: string
-    for?: string
+    text?: string;
+    for?: string;
   }>(),
   {},
-)
+);
 </script>
 
 <template>

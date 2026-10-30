@@ -1,5 +1,6 @@
 // src/plugins/demo/extension.ts
-import type { PluginExtension } from '../types'
+
+import type { PluginExtension } from '../types';
 
 export default {
   menuItems: [
@@ -17,4 +18,4 @@ export default {
       component: () => import('./DemoView.vue'),
     },
   ],
-} satisfies PluginExtension
+} satisfies PluginExtension;

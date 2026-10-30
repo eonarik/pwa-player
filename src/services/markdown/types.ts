@@ -10,5 +10,5 @@ export interface MarkdownRenderer {
    * Рендерит Markdown в безопасный HTML.
    * Если рендер невозможен — возвращает null (компонент покажет fallback).
    */
-  render(source: string): string | null
+  render(source: string): string | null;
 }

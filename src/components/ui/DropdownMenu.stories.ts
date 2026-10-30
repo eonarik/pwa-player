@@ -1,6 +1,7 @@
 // src/components/ui/DropdownMenu.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import DropdownMenu from './DropdownMenu.vue'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import DropdownMenu from './DropdownMenu.vue';
 
 const meta: Meta<typeof DropdownMenu> = {
   title: 'UI/DropdownMenu',
@@ -9,10 +10,10 @@ const meta: Meta<typeof DropdownMenu> = {
     width: { control: 'number' },
     align: { control: 'select', options: ['left', 'right'] },
   },
-}
+};
 
-export default meta
-type Story = StoryObj<typeof DropdownMenu>
+export default meta;
+type Story = StoryObj<typeof DropdownMenu>;
 
 export const Default: Story = {
   args: { width: 256, align: 'right' },
@@ -37,4 +38,4 @@ export const Default: Story = {
       </div>
     `,
   }),
-}
+};

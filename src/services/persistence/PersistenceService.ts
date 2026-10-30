@@ -1,152 +1,131 @@
 // src/services/persistence/PersistenceService.ts
 
-import { get, set, del } from 'idb-keyval'
-import { toRaw } from 'vue'
-import type { PersistedPlayback, PersistedState, PersistedTrack } from './types'
-import type { Track } from '@/types/track'
-import type { FileLocation } from '@/types/library'
+import { get, set, del } from 'idb-keyval';
+import type { PersistedPlayback, PersistedState, PersistedTrack } from './types';
+import type { Track } from '@/types/track';
 
-const STATE_KEY = 'player:state'
-const PLAYBACK_KEY = 'player:playback'
+const STATE_KEY = 'player:state';
+const PLAYBACK_KEY = 'player:playback';
 
-const STATE_DEBOUNCE_MS = 1000
-const PLAYBACK_DEBOUNCE_MS = 2000
+const STATE_DEBOUNCE_MS = 1000;
+const PLAYBACK_DEBOUNCE_MS = 2000;
 
 export class PersistenceService {
-  private static instance: PersistenceService | null = null
+  private static instance: PersistenceService | null = null;
 
-  private stateTimer: ReturnType<typeof setTimeout> | null = null
-  private pendingState: PersistedState | null = null
+  private stateTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingState: PersistedState | null = null;
 
-  private playbackTimer: ReturnType<typeof setTimeout> | null = null
-  private pendingPlayback: PersistedPlayback | null = null
+  private playbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingPlayback: PersistedPlayback | null = null;
 
   static getInstance(): PersistenceService {
     if (!PersistenceService.instance) {
-      PersistenceService.instance = new PersistenceService()
+      PersistenceService.instance = new PersistenceService();
     }
-    return PersistenceService.instance
+    return PersistenceService.instance;
   }
 
   scheduleSaveState(state: PersistedState): void {
-    this.pendingState = state
-    if (this.stateTimer !== null) return
+    this.pendingState = state;
+    if (this.stateTimer !== null) return;
 
     this.stateTimer = setTimeout(async () => {
-      this.stateTimer = null
-      const toSave = this.pendingState
-      this.pendingState = null
-      if (!toSave) return
+      this.stateTimer = null;
+      const toSave = this.pendingState;
+      this.pendingState = null;
+      if (!toSave) return;
       try {
-        await set(STATE_KEY, toSave)
+        await set(STATE_KEY, toSave);
       } catch (err) {
-        console.error('[PersistenceService] failed to save state', err)
+        console.error('[PersistenceService] failed to save state', err);
       }
-    }, STATE_DEBOUNCE_MS)
+    }, STATE_DEBOUNCE_MS);
   }
 
   async saveStateNow(state: PersistedState): Promise<void> {
     if (this.stateTimer !== null) {
-      clearTimeout(this.stateTimer)
-      this.stateTimer = null
+      clearTimeout(this.stateTimer);
+      this.stateTimer = null;
     }
-    this.pendingState = null
+    this.pendingState = null;
     try {
-      await set(STATE_KEY, state)
+      await set(STATE_KEY, state);
     } catch (err) {
-      console.error('[PersistenceService] failed to save state (now)', err)
+      console.error('[PersistenceService] failed to save state (now)', err);
     }
   }
 
   async loadState(): Promise<PersistedState | null> {
     try {
-      const state = await get<PersistedState>(STATE_KEY)
-      return state ?? null
+      const state = await get<PersistedState>(STATE_KEY);
+      return state ?? null;
     } catch (err) {
-      console.error('[PersistenceService] failed to load state', err)
-      return null
+      console.error('[PersistenceService] failed to load state', err);
+      return null;
     }
   }
 
   scheduleSavePlayback(playback: PersistedPlayback): void {
-    this.pendingPlayback = playback
-    if (this.playbackTimer !== null) return
+    this.pendingPlayback = playback;
+    if (this.playbackTimer !== null) return;
 
     this.playbackTimer = setTimeout(async () => {
-      this.playbackTimer = null
-      const toSave = this.pendingPlayback
-      this.pendingPlayback = null
-      if (!toSave) return
+      this.playbackTimer = null;
+      const toSave = this.pendingPlayback;
+      this.pendingPlayback = null;
+      if (!toSave) return;
       try {
-        await set(PLAYBACK_KEY, toSave)
+        await set(PLAYBACK_KEY, toSave);
       } catch (err) {
-        console.error('[PersistenceService] failed to save playback', err)
+        console.error('[PersistenceService] failed to save playback', err);
       }
-    }, PLAYBACK_DEBOUNCE_MS)
+    }, PLAYBACK_DEBOUNCE_MS);
   }
 
   async savePlaybackNow(playback: PersistedPlayback): Promise<void> {
     if (this.playbackTimer !== null) {
-      clearTimeout(this.playbackTimer)
-      this.playbackTimer = null
+      clearTimeout(this.playbackTimer);
+      this.playbackTimer = null;
     }
-    this.pendingPlayback = null
+    this.pendingPlayback = null;
     try {
-      await set(PLAYBACK_KEY, playback)
+      await set(PLAYBACK_KEY, playback);
     } catch (err) {
-      console.error('[PersistenceService] failed to save playback (now)', err)
+      console.error('[PersistenceService] failed to save playback (now)', err);
     }
   }
 
   async loadPlayback(): Promise<PersistedPlayback | null> {
     try {
-      const playback = await get<PersistedPlayback>(PLAYBACK_KEY)
-      return playback ?? null
+      const playback = await get<PersistedPlayback>(PLAYBACK_KEY);
+      return playback ?? null;
     } catch (err) {
-      console.error('[PersistenceService] failed to load playback', err)
-      return null
+      console.error('[PersistenceService] failed to load playback', err);
+      return null;
     }
   }
 
   async clear(): Promise<void> {
-    await this.clearState()
-    await this.clearPlayback()
+    await this.clearState();
+    await this.clearPlayback();
   }
 
   async clearState(): Promise<void> {
-    await del(STATE_KEY)
+    await del(STATE_KEY);
   }
 
   async clearPlayback(): Promise<void> {
-    await del(PLAYBACK_KEY)
+    await del(PLAYBACK_KEY);
   }
 
+  /**
+   * Для обратной совместимости с вызывающим кодом (playerPersistence.ts).
+   * Возвращает Track как есть (idb-keyval умеет хранить FileSystemFileHandle).
+   */
   toPersisted(track: Track): PersistedTrack {
-    const raw = toRaw(track)
-    const handle = raw.handle ? toRaw(raw.handle) : undefined
-    const fileLocation = (raw as { fileLocation?: FileLocation }).fileLocation
-
-    return {
-      id: raw.id,
-      pluginId: raw.pluginId,
-      title: raw.title,
-      artist: raw.artist,
-      album: raw.album,
-      year: raw.year,
-      trackNumber: raw.trackNumber,
-      genre: raw.genre,
-      duration: raw.duration,
-      codec: raw.codec,
-      filename: raw.filename,
-      path: raw.path,
-      handle,
-      directoryHandle: raw.directoryHandle ? toRaw(raw.directoryHandle) : undefined,
-      sources: raw.sources ? JSON.parse(JSON.stringify(raw.sources)) : [],
-      raw: raw.raw ? JSON.parse(JSON.stringify(raw.raw)) : undefined,
-      fileLocation,
-      coverUrl: raw.coverUrl?.startsWith('http') ? raw.coverUrl : undefined,
-    }
+    return track;
   }
 }
 
-export const persistenceService = PersistenceService.getInstance()
+export const persistenceService = PersistenceService.getInstance();

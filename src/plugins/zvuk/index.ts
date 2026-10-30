@@ -1,10 +1,11 @@
 // src/plugins/zvuk/index.ts
-import type { LibrarySource, PluginContext } from '../types'
-import type { LibraryTrack } from '@/types/library'
+
+import type { LibrarySource, PluginContext, PluginSnapshot } from '../types';
+import type { TrackSource } from '@/types/track';
 
 const zvukPlugin: LibrarySource = {
   id: 'zvuk',
-  name: 'Звук',
+  name: 'СберЗвук',
   icon: '🎵',
   canDownload: false,
   isAvailable: () => true,
@@ -13,23 +14,44 @@ const zvukPlugin: LibrarySource = {
     // Stateless
   },
 
-  async load(_context: PluginContext): Promise<void> {
-    // Stateless
+  async load(_context: PluginContext): Promise<PluginSnapshot> {
+    return { folders: [], tracks: [] };
   },
 
-  async restoreFromCache(_context: PluginContext): Promise<boolean> {
-    return false
+  async restoreFromCache(_context: PluginContext): Promise<PluginSnapshot | null> {
+    return null;
   },
 
-  buildStreamUrl(track: LibraryTrack): string {
-    const source = track.sources?.[0]
-    if (source?.url) return source.url
-    return ''
+  buildStreamUrl(source: TrackSource): string {
+    if (source.kind !== 'streaming') {
+      throw new Error('[zvuk] buildStreamUrl: source must be streaming');
+    }
+    return source.url;
   },
 
   async disconnect(_context: PluginContext): Promise<void> {
     // Stateless
   },
-}
 
-export default zvukPlugin
+  // --- НОВЫЙ МЕТОД ---
+  async fetchMetadata(artist: string, title: string) {
+    try {
+      const params = new URLSearchParams();
+      if (artist) params.set('artist', artist);
+      params.set('title', title);
+
+      const res = await fetch(`/api/zvuk/metadata?${params.toString()}`);
+      if (!res.ok) return null;
+
+      const data = await res.json();
+
+      // data имеет тип { artist, title, album, coverUrl, source, similarity, confident }
+      return data;
+    } catch (err) {
+      console.warn('[zvuk] failed to fetch metadata', err);
+      return null;
+    }
+  },
+};
+
+export default zvukPlugin;

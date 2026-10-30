@@ -1,60 +1,56 @@
 // src/plugins/yandexDisk/download.ts
 
-import type { PluginContext, DownloadTrackOptions, DownloadedTrackInfo } from '../types'
-import type { LibraryTrack } from '@/types/library'
-import { downloadUrlToFile } from '@/services/download/downloadUrlToFile'
+import type { PluginContext, DownloadTrackOptions, DownloadedTrackInfo } from '../types';
+import type { Track, TrackSource } from '@/types/track';
+import { downloadUrlToFile } from '@/services/download/downloadUrlToFile';
 
 export interface DownloadDeps {
-  /** Функция, возвращающая URL для скачивания трека (buildDownloadUrl из LibrarySource) */
-  buildDownloadUrl: (track: LibraryTrack) => string
+  buildDownloadUrl: (track: Track, source: TrackSource) => string;
 }
 
-/**
- * Скачивает трек в папку, указанную в `options.targetDir`.
- * Использует `buildDownloadUrl` для получения подписанной ссылки.
- *
- * Возвращает `{ relativePath, size, handle }` — путь внутри `targetDir`,
- * размер скачанного файла и его `FileSystemFileHandle` (для последующего
- * `writer.updateTrackHandle`).
- */
 export async function downloadTrackToDir(
   deps: DownloadDeps,
   _context: PluginContext,
-  track: LibraryTrack,
+  track: Track,
+  source: TrackSource,
   options: DownloadTrackOptions,
 ): Promise<DownloadedTrackInfo> {
-  const url = deps.buildDownloadUrl(track)
-  // Фоллбек: path -> filename -> title
-  const relativePath = track.path ?? track.filename ?? `${track.title}.mp3`
+  const url = deps.buildDownloadUrl(track, source);
+  if (source.kind !== 'cloud') {
+    throw new Error(`[yandex] downloadTrack: source must be cloud, got "${source.kind}"`);
+  }
+
+  const cleanRemote = source.remotePath.replace(/^disk:/, '').replace(/^\/+/, '');
+  const relativePath = cleanRemote || track.title;
 
   const result = await downloadUrlToFile(url, {
     targetDir: options.targetDir,
     relativePath,
     onProgress: options.onProgress,
     signal: options.signal,
-  })
-  return { relativePath, size: result.size, handle: result.handle }
+  });
+  return { relativePath, size: result.size, handle: result.handle };
 }
 
-/**
- * Удаляет скачанный трек из папки. Тихий no-op, если файла нет.
- */
 export async function removeDownloadedFromDir(
   _context: PluginContext,
-  track: LibraryTrack,
+  _track: Track,
+  source: TrackSource,
   targetDir: FileSystemDirectoryHandle,
 ): Promise<void> {
-  const relativePath = track.path ?? track.filename ?? `${track.title}.mp3`
-  const segments = relativePath.split('/').filter(Boolean)
-  const fileName = segments.pop()
-  if (!fileName) return
+  if (source.kind !== 'local') return;
+  if (!source.relativePath) return;
+
+  const segments = source.relativePath.split('/').filter(Boolean);
+  const fileName = segments.pop();
+  if (!fileName) return;
 
   try {
-    let dir = targetDir
-    for (const seg of segments) dir = await dir.getDirectoryHandle(seg)
-    await dir.removeEntry(fileName)
+    let dir = targetDir;
+    for (const seg of segments) dir = await dir.getDirectoryHandle(seg);
+    await dir.removeEntry(fileName);
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'NotFoundError') return
-    throw err
+    if (err instanceof DOMException && err.name === 'NotFoundError') return;
+    throw err;
   }
 }

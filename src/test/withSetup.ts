@@ -1,6 +1,6 @@
 // src/test/withSetup.ts
 
-import { createApp, type App } from 'vue'
+import { createApp, type App } from 'vue';
 
 /**
  * Вызывает composable в контексте setup-функции компонента.
@@ -12,24 +12,24 @@ import { createApp, type App } from 'vue'
  *   unmount()
  */
 export function withSetup<T>(composable: () => T): {
-  result: T
-  app: App
-  unmount: () => void
+  result: T;
+  app: App;
+  unmount: () => void;
 } {
-  let result!: T
+  let result!: T;
 
   const app = createApp({
     setup() {
-      result = composable()
-      return () => null // рендерим пустоту
+      result = composable();
+      return () => null; // рендерим пустоту
     },
-  })
+  });
 
-  app.mount(document.createElement('div'))
+  app.mount(document.createElement('div'));
 
   return {
     result,
     app,
     unmount: () => app.unmount(),
-  }
+  };
 }

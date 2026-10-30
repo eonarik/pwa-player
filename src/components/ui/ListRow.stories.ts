@@ -1,6 +1,7 @@
 // src/components/ui/ListRow.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import ListRow from './ListRow.vue'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import ListRow from './ListRow.vue';
 
 const meta: Meta<typeof ListRow> = {
   title: 'UI/ListRow',
@@ -10,10 +11,10 @@ const meta: Meta<typeof ListRow> = {
     disliked: { control: 'boolean' },
     downloaded: { control: 'boolean' },
   },
-}
+};
 
-export default meta
-type Story = StoryObj<typeof ListRow>
+export default meta;
+type Story = StoryObj<typeof ListRow>;
 
 export const Default: Story = {
   args: { active: false, disliked: false, downloaded: false },
@@ -39,14 +40,14 @@ export const Default: Story = {
       </div>
     `,
   }),
-}
+};
 
 export const Active: Story = {
   args: { active: true },
   render: Default.render,
-}
+};
 
 export const Downloaded: Story = {
   args: { downloaded: true },
   render: Default.render,
-}
+};

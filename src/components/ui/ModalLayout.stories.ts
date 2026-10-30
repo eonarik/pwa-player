@@ -1,25 +1,26 @@
 // src/components/ui/ModalLayout.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import ModalLayout from './ModalLayout.vue'
-import Button from './Button.vue'
-import Input from './Input.vue'
-import { ref } from 'vue'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import ModalLayout from './ModalLayout.vue';
+import Button from './Button.vue';
+import Input from './Input.vue';
+import { ref } from 'vue';
 
 const meta: Meta<typeof ModalLayout> = {
   title: 'UI/ModalLayout',
   component: ModalLayout,
-}
+};
 
-export default meta
-type Story = StoryObj<typeof ModalLayout>
+export default meta;
+type Story = StoryObj<typeof ModalLayout>;
 
 export const Default: Story = {
   args: { title: 'Редактировать метаданные', maxWidth: 'md' },
   render: (args) => ({
     components: { ModalLayout, Button, Input },
     setup() {
-      const name = ref('')
-      return { args, name }
+      const name = ref('');
+      return { args, name };
     },
     template: `
       <ModalLayout v-bind="args" @close="() => {}">
@@ -35,4 +36,4 @@ export const Default: Story = {
       </ModalLayout>
     `,
   }),
-}
+};

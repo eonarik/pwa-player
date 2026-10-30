@@ -12,29 +12,29 @@
  * 5. Если разделителя нет - трек не трогаем (всё в title)
  */
 export function parseArtistAndTitle(input) {
-  const clean = input.trim()
+  const clean = input.trim();
 
   // 1. Длинное тире (en-dash, em-dash) или подчеркивание с/без пробелов
-  const longDashMatch = clean.match(/^(.+?)\s*(?:[–—]|(?:_\s*[-–—]\s*_)|(?:\s+_\s+))\s*(.+)$/)
+  const longDashMatch = clean.match(/^(.+?)\s*(?:[–—]|(?:_\s*[-–—]\s*_)|(?:\s+_\s+))\s*(.+)$/);
   if (longDashMatch) {
-    const [, left, right] = longDashMatch
+    const [, left, right] = longDashMatch;
     if (left && right) {
       return {
         artist: left.trim(),
         title: right.trim(),
-      }
+      };
     }
   }
 
   // 2. Дефис с обязательными пробелами вокруг
-  const hyphenMatch = clean.match(/^(.+?)\s+-\s+(.+)$/)
+  const hyphenMatch = clean.match(/^(.+?)\s+-\s+(.+)$/);
   if (hyphenMatch) {
-    const [, left, right] = hyphenMatch
+    const [, left, right] = hyphenMatch;
     if (left && right) {
       return {
         artist: left.trim(),
         title: right.trim(),
-      }
+      };
     }
   }
 
@@ -42,5 +42,5 @@ export function parseArtistAndTitle(input) {
   return {
     artist: '',
     title: clean,
-  }
+  };
 }

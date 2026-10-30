@@ -1,16 +1,18 @@
-import type { Meta, StoryObj } from '@storybook/vue3'
-import Toolbar from './Toolbar.vue'
-import IconButton from './IconButton.vue'
-import IconSettings from '@/components/icons/IconSettings.vue'
-import IconRefresh from '@/components/icons/IconRefresh.vue'
+// src/components/ui/Toolbar.stories.ts
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import Toolbar from './Toolbar.vue';
+import IconButton from './IconButton.vue';
+import IconSettings from '@/components/icons/IconSettings.vue';
+import IconRefresh from '@/components/icons/IconRefresh.vue';
 
 const meta: Meta<typeof Toolbar> = {
   title: 'UI/Toolbar',
   component: Toolbar,
-}
+};
 
-export default meta
-type Story = StoryObj<typeof Toolbar>
+export default meta;
+type Story = StoryObj<typeof Toolbar>;
 
 export const Default: Story = {
   render: () => ({
@@ -22,4 +24,4 @@ export const Default: Story = {
       </Toolbar>
     `,
   }),
-}
+};

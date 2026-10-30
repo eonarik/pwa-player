@@ -1,57 +1,28 @@
 // src/types/library.ts
 
-import type { Track } from './track'
+import type { Track } from './track';
+import type { Album } from './album';
+import type { FolderRef } from './folder';
+import type { TrackId, AlbumId, FolderId } from './ids';
 
-export type FileLocation = 'nowhere' | 'remote-only' | 'local-only' | 'both'
-export type ScanState = 'pending' | 'scanning' | 'scanned' | 'error'
-export type MetadataSource = 'manual' | 'file' | 'auto' | 'filename' | 'unknown'
-
-export interface TextFileRef {
-  name: string
-  remotePath: string
-  path: string
+export interface LibraryState {
+  tracks: Record<TrackId, Track>;
+  albums: Record<AlbumId, Album>;
+  folders: Record<FolderId, FolderRef>;
 }
 
-export interface Folder {
-  id: string
-  name: string
-  parentId: string | null
-  path: string
-  handle?: FileSystemDirectoryHandle
-  childFolderIds: string[]
-  trackIds: string[]
-  totalTrackCount: number
-  totalTextFileCount?: number
-  source?: string
-  remotePath?: string
-  scanState?: ScanState
-  textFiles?: TextFileRef[]
-}
-
-export interface RawMetadata {
-  title: string
-  artist: string
-  album: string
-  coverUrl?: string
-  hasId3Tags?: boolean
-}
-
-export interface Album {
-  id: string
-  name: string
-  artist: string
-  coverUrl?: string
-  trackIds: string[]
-}
-
-export interface LibraryTrack extends Track {
-  folderId: string
-}
-
-export interface CollectedLibrary {
-  folders: Folder[]
-  tracks: LibraryTrack[]
-  albums?: Album[]
-  rootFolderId: string
-  rootFolderName: string
-}
+// Реэкспорт для обратной совместимости импортов
+export type {
+  Track,
+  TrackSource,
+  TrackSourceKind,
+  LocalTrackSource,
+  CloudTrackSource,
+  StreamingTrackSource,
+} from './track';
+export type { Album } from './album';
+export type { FolderRef } from './folder';
+export type { RawMetadata, MetadataCandidate } from './metadata';
+export type { Playlist, HistoryCollection, DislikesCollection, CollectionsState } from './collection';
+export type { PluginTrackPayload, PluginFolderPayload, PluginSnapshot } from './plugin';
+export type { TrackId, AlbumId, FolderId, TrackSourceId, MetadataCandidateId, PlaylistId } from './ids';

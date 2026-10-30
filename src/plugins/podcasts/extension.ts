@@ -1,6 +1,6 @@
 // src/plugins/podcasts/extension.ts
 
-import type { PluginExtension } from '../types'
+import type { PluginExtension } from '../types';
 
 export default {
   routes: [
@@ -21,4 +21,4 @@ export default {
       props: true,
     },
   ],
-} satisfies PluginExtension
+} satisfies PluginExtension;

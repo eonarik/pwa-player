@@ -1,20 +1,20 @@
 // .storybook/preview.ts
-import type { Preview } from '@storybook/vue3'
-import { setup } from '@storybook/vue3'
-import { createPinia } from 'pinia'
+import type { Preview } from '@storybook/vue3';
+import { setup } from '@storybook/vue3';
+import { createPinia } from 'pinia';
 
 // Импорт стилей и директив проекта
-import '../src/assets/main.css'
-import { themeService } from '../src/services/ui/ThemeService'
-import { tooltip } from '../src/directives/tooltip'
+import '../src/assets/main.css';
+import { themeService } from '../src/services/ui/ThemeService';
+import { tooltip } from '../src/directives/tooltip';
 
 // Инициализация глобальных сервисов
-themeService.load()
+themeService.load();
 
 setup((app) => {
-  app.use(createPinia())
-  app.directive('tooltip', tooltip)
-})
+  app.use(createPinia());
+  app.directive('tooltip', tooltip);
+});
 
 const preview: Preview = {
   parameters: {
@@ -35,13 +35,13 @@ const preview: Preview = {
   decorators: [
     (story, context) => {
       // Переключение темы через глобальный параметр `theme`
-      const theme = context.globals.theme || 'default'
-      document.documentElement.setAttribute('data-theme', theme)
+      const theme = context.globals.theme || 'default';
+      document.documentElement.setAttribute('data-theme', theme);
 
       return {
         components: { story },
         template: '<div class="bg-bg min-h-screen text-fg p-4"><story /></div>',
-      }
+      };
     },
   ],
   globalTypes: {
@@ -60,6 +60,6 @@ const preview: Preview = {
       },
     },
   },
-}
+};
 
-export default preview
+export default preview;

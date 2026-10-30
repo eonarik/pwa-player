@@ -1,117 +1,109 @@
 <!-- src/plugins/zvuk/ZvukView.vue -->
+
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
-import { usePlayerStore } from '@/stores/player'
-import { zvukService, type ZvukTrack, type ZvukSearchType } from './ZvukService'
-import SearchInput from '@/components/ui/SearchInput.vue'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import TrackRow from '@/components/library/TrackRow.vue'
-import TrackActions from '@/components/library/TrackActions.vue'
-import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue'
-import Icon from '@/components/ui/Icon.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
-import Spinner from '@/components/ui/Spinner.vue'
-import type { Track } from '@/types/track'
+import { ref, computed, onUnmounted } from 'vue';
+import { usePlayerStore } from '@/stores/player';
+import { zvukService, type ZvukTrack, type ZvukSearchType } from './ZvukService';
+import SearchInput from '@/components/ui/SearchInput.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import TrackRow from '@/components/library/TrackRow.vue';
+import TrackActions from '@/components/library/TrackActions.vue';
+import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue';
+import Icon from '@/components/ui/Icon.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import Spinner from '@/components/ui/Spinner.vue';
+import { newTrackId, newTrackSourceId } from '@/types/ids';
+import type { Track } from '@/types/track';
 
-const player = usePlayerStore()
+const player = usePlayerStore();
 
-const query = ref('')
-const searchTypes = ref<ZvukSearchType[]>(['artists']) // По умолчанию ищем в артистах
-const tracks = ref<ZvukTrack[]>([])
-const isLoading = ref(false)
-const error = ref('')
+const query = ref('');
+const searchTypes = ref<ZvukSearchType[]>(['artists']);
+const tracks = ref<ZvukTrack[]>([]);
+const isLoading = ref(false);
+const error = ref('');
 
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function toggleType(type: ZvukSearchType) {
   if (searchTypes.value.includes(type)) {
-    if (searchTypes.value.length > 1) {
-      searchTypes.value = searchTypes.value.filter(t => t !== type)
-    }
+    if (searchTypes.value.length > 1) searchTypes.value = searchTypes.value.filter((t) => t !== type);
   } else {
-    searchTypes.value = [...searchTypes.value, type]
+    searchTypes.value = [...searchTypes.value, type];
   }
-  if (query.value.trim()) void doSearch()
+  if (query.value.trim()) void doSearch();
 }
 
 function onSearchInput(value: string) {
-  query.value = value
-
-  if (searchTimeout) clearTimeout(searchTimeout)
-
+  query.value = value;
+  if (searchTimeout) clearTimeout(searchTimeout);
   if (!value.trim()) {
-    tracks.value = []
-    error.value = ''
-    return
+    tracks.value = [];
+    error.value = '';
+    return;
   }
-
-  searchTimeout = setTimeout(() => void doSearch(), 1000)
+  searchTimeout = setTimeout(() => void doSearch(), 1000);
 }
 
 async function doSearch() {
-  const q = query.value.trim()
-  if (!q) return
-
-  isLoading.value = true
-  error.value = ''
-
+  const q = query.value.trim();
+  if (!q) return;
+  isLoading.value = true;
+  error.value = '';
   try {
-    const fetched = await zvukService.search(q, searchTypes.value)
-    if (query.value.trim() !== q) return
-
-    // API Звука иногда возвращает null в массиве (битые треки) — отфильтровываем
-    tracks.value = (fetched.tracks || []).filter((t): t is ZvukTrack => t != null)
-
-    if (tracks.value.length === 0) {
-      error.value = 'Ничего не найдено'
-    }
+    const fetched = await zvukService.search(q, searchTypes.value);
+    if (query.value.trim() !== q) return;
+    tracks.value = (fetched.tracks || []).filter((t): t is ZvukTrack => t != null);
+    if (tracks.value.length === 0) error.value = 'Ничего не найдено';
   } catch (err) {
-    if (query.value.trim() !== q) return
-    error.value = err instanceof Error ? err.message : 'Ошибка поиска'
+    if (query.value.trim() !== q) return;
+    error.value = err instanceof Error ? err.message : 'Ошибка поиска';
   } finally {
-    if (query.value.trim() === q) isLoading.value = false
+    if (query.value.trim() === q) isLoading.value = false;
   }
 }
 
 onUnmounted(() => {
-  if (searchTimeout) clearTimeout(searchTimeout)
-})
+  if (searchTimeout) clearTimeout(searchTimeout);
+});
 
-// Конвертация
 function toPlayableTrack(zvukTrack: ZvukTrack): Track {
-  const coverUrl = zvukTrack.release?.image?.src?.replace('{size}', '400') || undefined
-  const artist = zvukTrack.artists?.map(a => a.title).join(', ') || 'Звук'
-  const id = `zvuk:${zvukTrack.id}`
-
+  const coverUrl = zvukTrack.release?.image?.src?.replace('{size}', '400') ?? null;
+  const artist = zvukTrack.artists?.map((a) => a.title).join(', ') || 'Звук';
   return {
-    id,
+    id: newTrackId(),
     pluginId: 'zvuk',
+    artist,
     title: zvukTrack.title,
-    artist: artist,
-    album: zvukTrack.release?.title || '',
+    albumId: null,
+    coverUrl,
+    sources: [
+      {
+        id: newTrackSourceId(),
+        pluginId: 'zvuk',
+        priority: 30,
+        kind: 'streaming',
+        url: zvukService.getStreamUrl(zvukTrack.id),
+      },
+    ],
+    metadataCandidates: [],
+    raw: null,
+    hasId3Tags: false,
     duration: zvukTrack.duration,
-    filename: '',
-    sources: [{
-      id,
-      pluginId: 'zvuk',
-      url: zvukService.getStreamUrl(zvukTrack.id),
-      priority: 30, // zvuk приоритет 30
-    }],
-    coverUrl: coverUrl,
-  }
+  };
 }
 
-const playableTracks = computed(() => tracks.value.map(toPlayableTrack))
+const playableTracks = computed(() => tracks.value.map(toPlayableTrack));
 
 function playTrack(index: number) {
-  // Кладем в очередь ВСЕ найденные треки, начинаем с index
-  player.setQueue(playableTracks.value, index)
+  player.setQueue(playableTracks.value, index);
 }
 
-const currentTrackId = computed(() => player.currentTrack?.id ?? null)
-
 function isCurrent(track: ZvukTrack): boolean {
-  return currentTrackId.value === `zvuk:${track.id}`
+  const t = player.currentTrack;
+  if (!t) return false;
+  const artist = track.artists?.map((a) => a.title).join(', ') || 'Звук';
+  return t.title === track.title && t.artist === artist;
 }
 </script>
 
@@ -125,21 +117,32 @@ function isCurrent(track: ZvukTrack): boolean {
       <div class="mx-auto w-full max-w-3xl flex flex-col gap-3">
         <SearchInput :model-value="query" always-open placeholder="Что ищем?" @update:model-value="onSearchInput" />
 
-        <!-- Чекбоксы -->
         <div class="flex items-center gap-4 text-sm">
           <label class="flex items-center gap-2 cursor-pointer text-fg">
-            <input type="checkbox" :checked="searchTypes.includes('tracks')" class="accent-active"
-              @change="toggleType('tracks')" />
+            <input
+              type="checkbox"
+              :checked="searchTypes.includes('tracks')"
+              class="accent-active"
+              @change="toggleType('tracks')"
+            />
             Искать в треках
           </label>
           <label class="flex items-center gap-2 cursor-pointer text-fg">
-            <input type="checkbox" :checked="searchTypes.includes('artists')" class="accent-active"
-              @change="toggleType('artists')" />
+            <input
+              type="checkbox"
+              :checked="searchTypes.includes('artists')"
+              class="accent-active"
+              @change="toggleType('artists')"
+            />
             Искать в артистах
           </label>
           <label class="flex items-center gap-2 cursor-pointer text-fg">
-            <input type="checkbox" :checked="searchTypes.includes('releases')" class="accent-active"
-              @change="toggleType('releases')" />
+            <input
+              type="checkbox"
+              :checked="searchTypes.includes('releases')"
+              class="accent-active"
+              @change="toggleType('releases')"
+            />
             Искать в альбомах
           </label>
         </div>
@@ -165,8 +168,15 @@ function isCurrent(track: ZvukTrack): boolean {
         </EmptyState>
 
         <div v-else class="flex flex-col gap-0.5">
-          <TrackRow v-for="(track, index) in tracks" :key="track.id" :track="toPlayableTrack(track)" :index="index"
-            :is-current="isCurrent(track)" :is-playing="player.isPlaying" @select="() => playTrack(index)">
+          <TrackRow
+            v-for="(track, index) in tracks"
+            :key="track.id"
+            :track="toPlayableTrack(track)"
+            :index="index"
+            :is-current="isCurrent(track)"
+            :is-playing="player.isPlaying"
+            @select="() => playTrack(index)"
+          >
             <template #actions>
               <TrackActions :track="toPlayableTrack(track)" />
             </template>

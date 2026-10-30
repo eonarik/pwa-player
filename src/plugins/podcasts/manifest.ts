@@ -1,8 +1,8 @@
 // src/plugins/podcasts/manifest.ts
 
-import type { PluginManifest } from '../types'
-import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants'
-import { getSubscriptions, clearAll } from './PodcastStorage'
+import type { PluginManifest } from '../types';
+import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants';
+import { getSubscriptions, clearAll } from './PodcastStorage';
 
 export const manifest: PluginManifest = {
   id: PLUGIN_ID,
@@ -19,6 +19,6 @@ export const manifest: PluginManifest = {
   extension: () => import('./extension'),
   hasCustomData: async () => (await getSubscriptions()).length > 0,
   clearData: async () => {
-    await clearAll()
+    await clearAll();
   },
-}
+};

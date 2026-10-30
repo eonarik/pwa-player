@@ -1,9 +1,10 @@
 <!-- src/components/ui/Divider.vue -->
+
 <script setup lang="ts">
 defineProps<{
-  vertical?: boolean
-  withMargin?: boolean
-}>()
+  vertical?: boolean;
+  withMargin?: boolean;
+}>();
 </script>
 
 <template>

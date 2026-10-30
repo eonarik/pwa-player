@@ -1,27 +1,28 @@
 <!-- src/components/settings/fields/TextField.vue -->
+
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { PluginSettingsText } from '@/plugins/settingsTypes'
+import { ref, watch } from 'vue';
+import type { PluginSettingsText } from '@/plugins/settingsTypes';
 
 const props = defineProps<{
-  field: PluginSettingsText
-}>()
+  field: PluginSettingsText;
+}>();
 
 const emit = defineEmits<{
-  (e: 'change', id: string, value: string): void
-}>()
+  (e: 'change', id: string, value: string): void;
+}>();
 
-const local = ref(props.field.value)
+const local = ref(props.field.value);
 
 watch(
   () => props.field.value,
   (v) => {
-    local.value = v
+    local.value = v;
   },
-)
+);
 
 function commit() {
-  emit('change', props.field.id, local.value)
+  emit('change', props.field.id, local.value);
 }
 </script>
 

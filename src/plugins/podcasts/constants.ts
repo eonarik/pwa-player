@@ -1,17 +1,17 @@
 // src/plugins/podcasts/constants.ts
 
-export const PLUGIN_ID = 'podcasts'
-export const PLUGIN_NAME = 'Подкасты'
-export const PLUGIN_ICON = '🎙️'
+export const PLUGIN_ID = 'podcasts';
+export const PLUGIN_NAME = 'Подкасты';
+export const PLUGIN_ICON = '🎙️';
 
 export interface PodcastCountry {
-  code: string
-  label: string
+  code: string;
+  label: string;
 }
 
 export interface PodcastGenre {
-  id: string
-  label: string
+  id: string;
+  label: string;
 }
 
 export const PODCAST_COUNTRIES: PodcastCountry[] = [
@@ -20,7 +20,7 @@ export const PODCAST_COUNTRIES: PodcastCountry[] = [
   { code: 'gb', label: 'Великобритания' },
   { code: 'de', label: 'Германия' },
   { code: 'fr', label: 'Франция' },
-]
+];
 
 export const PODCAST_GENRES: PodcastGenre[] = [
   { id: '', label: 'Все жанры' },
@@ -52,4 +52,4 @@ export const PODCAST_GENRES: PodcastGenre[] = [
   { id: '1493', label: 'Предпринимательство' },
   { id: '1482', label: 'Книги' },
   { id: '1511', label: 'Государство' },
-]
+];

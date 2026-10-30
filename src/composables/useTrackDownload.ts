@@ -1,79 +1,79 @@
 // src/composables/useTrackDownload.ts
 
-import { computed, type Ref } from 'vue'
-import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
-import { toastService } from '@/services/ui/ToastService'
-import { isLocalTrack } from '@/services/library/selectors'
-import type { LibraryTrack } from '@/types/library'
+import { computed, type Ref } from 'vue';
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
+import { toastService } from '@/services/ui/ToastService';
+import { hasLocalSource } from '@/services/library/selectors';
+import type { Track } from '@/types/track';
 
-export function useTrackDownload(track: Ref<LibraryTrack | null | undefined>) {
-  const trackId = computed(() => track.value?.id ?? '')
+export function useTrackDownload(track: Ref<Track | null | undefined>) {
+  const trackId = computed(() => track.value?.id ?? '');
 
   const isDownloading = computed(() => {
-    void downloadOrchestrator.version.value
-    return trackId.value ? downloadOrchestrator.isDownloading(trackId.value) : false
-  })
+    void downloadOrchestrator.version.value;
+    return trackId.value ? downloadOrchestrator.isDownloading(trackId.value) : false;
+  });
 
   const progress = computed(() => {
-    void downloadOrchestrator.version.value
-    if (!trackId.value) return null
-    return downloadOrchestrator.getProgress(trackId.value)
-  })
+    void downloadOrchestrator.version.value;
+    if (!trackId.value) return null;
+    return downloadOrchestrator.getProgress(trackId.value);
+  });
 
   const progressRatio = computed<number | null>(() => {
-    const p = progress.value
-    if (!p || p.total <= 0) return null
-    return Math.min(1, p.written / p.total)
-  })
+    const p = progress.value;
+    if (!p || p.total <= 0) return null;
+    return Math.min(1, p.written / p.total);
+  });
 
   async function ensureSpace(): Promise<boolean> {
     if (downloadSpaceService.needsPermission.value) {
-      const state = await downloadSpaceService.requestAccess()
+      const state = await downloadSpaceService.requestAccess();
       if (state !== 'granted') {
-        toastService.error('Нет доступа к папке скачивания')
-        return false
+        toastService.error('Нет доступа к папке скачивания');
+        return false;
       }
-      return true
+      return true;
     }
-    if (downloadSpaceService.hasSpace.value) return true
-    const handle = await downloadSpaceService.pickSpace()
+    if (downloadSpaceService.hasSpace.value) return true;
+    const handle = await downloadSpaceService.pickSpace();
     if (!handle) {
-      toastService.info('Папка для скачивания не выбрана')
-      return false
+      toastService.info('Папка для скачивания не выбрана');
+      return false;
     }
-    return true
+    return true;
   }
 
   async function download(): Promise<void> {
-    const t = track.value
-    if (!t) return
+    const t = track.value;
+    if (!t) return;
     try {
-      const ok = await ensureSpace()
-      if (!ok) return
-      await downloadOrchestrator.downloadTrack(t)
+      const ok = await ensureSpace();
+      if (!ok) return;
+      await downloadOrchestrator.downloadTrack(t);
     } catch (err) {
-      console.error('[download] failed', err)
-      toastService.error(err instanceof Error ? err.message : 'Не удалось скачать трек')
+      console.error('[download] failed', err);
+      toastService.error(err instanceof Error ? err.message : 'Не удалось скачать трек');
     }
   }
 
   function cancel(): void {
-    if (trackId.value) downloadOrchestrator.cancel(trackId.value)
+    if (trackId.value) downloadOrchestrator.cancel(trackId.value);
   }
 
   async function remove(): Promise<void> {
-    const t = track.value
-    if (!t) return
+    const t = track.value;
+    if (!t) return;
     try {
-      await downloadOrchestrator.removeDownloaded(t)
+      await downloadOrchestrator.removeDownloaded(t);
     } catch (err) {
-      console.error('[download] failed to remove', err)
-      toastService.error(err instanceof Error ? err.message : 'Не удалось удалить трек')
+      console.error('[download] failed to remove', err);
+      toastService.error(err instanceof Error ? err.message : 'Не удалось удалить трек');
     }
   }
 
-  const canRemove = computed(() => isLocalTrack(track.value))
+  const canRemove = computed(() => hasLocalSource(track.value));
 
   return {
     isDownloading,
@@ -83,5 +83,5 @@ export function useTrackDownload(track: Ref<LibraryTrack | null | undefined>) {
     download,
     cancel,
     remove,
-  }
+  };
 }

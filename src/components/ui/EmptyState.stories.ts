@@ -1,15 +1,16 @@
 // src/components/ui/EmptyState.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import EmptyState from './EmptyState.vue'
-import Button from './Button.vue'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import EmptyState from './EmptyState.vue';
+import Button from './Button.vue';
 
 const meta: Meta<typeof EmptyState> = {
   title: 'UI/EmptyState',
   component: EmptyState,
-}
+};
 
-export default meta
-type Story = StoryObj<typeof EmptyState>
+export default meta;
+type Story = StoryObj<typeof EmptyState>;
 
 export const Default: Story = {
   args: {
@@ -28,4 +29,4 @@ export const Default: Story = {
       </div>
     `,
   }),
-}
+};

@@ -1,56 +1,45 @@
 // src/services/library/EntityGraph.ts
 
-import type { Album, LibraryTrack } from '@/types/library'
+import type { Album } from '@/types/album';
+import { newAlbumId } from '@/types/ids';
 
-export function createAlbumId(albumName: string, artist: string): string | undefined {
-  const cleanAlbum = albumName.trim()
-  if (!cleanAlbum) return undefined
+export function findAlbumByName(albums: Album[], name: string, artist: string): Album | null {
+  const normName = name.trim().toLowerCase();
+  const normArtist = artist.trim().toLowerCase();
+  if (!normName) return null;
 
-  const normalizedAlbum = cleanAlbum
-    .toLowerCase()
-    .replace(/[^a-z0-9а-яё]/gi, '-')
-    .replace(/-+/g, '-')
-  const normalizedArtist = (artist || 'unknown')
-    .toLowerCase()
-    .replace(/[^a-z0-9а-яё]/gi, '-')
-    .replace(/-+/g, '-')
-
-  return `album:${normalizedArtist}:${normalizedAlbum}`
+  return (
+    albums.find((a) => a.name.trim().toLowerCase() === normName && a.artist.trim().toLowerCase() === normArtist) ?? null
+  );
 }
 
-export interface EntityGraphResult {
-  track: LibraryTrack
-  album: Album | null
-}
+export function resolveAlbumByName(
+  name: string,
+  artist: string,
+  coverUrl: string | null,
+  existingAlbums: Album[],
+): { album: Album; isNew: boolean } | null {
+  const cleanName = name.trim();
+  if (!cleanName) return null;
 
-export function buildEntitiesForTrack(
-  track: LibraryTrack,
-  existingAlbum?: Album | null, // <-- ДОБАВЛЕНО
-): EntityGraphResult {
-  const albumName = track.album?.trim() || ''
-  const albumId = createAlbumId(albumName, track.artist || '')
-
-  if (!albumId) {
-    return { track: { ...track, albumId: undefined }, album: null }
-  }
-
-  // Берем обложку: сначала из raw, потом из существующего альбома
-  const coverUrl = track.raw?.coverUrl || existingAlbum?.coverUrl
-
-  const album: Album = {
-    id: albumId,
-    name: albumName,
-    artist: track.artist || 'Unknown Artist',
-    coverUrl: coverUrl,
-    trackIds: existingAlbum ? [...existingAlbum.trackIds] : [track.id],
-  }
-
-  if (!album.trackIds.includes(track.id)) {
-    album.trackIds.push(track.id)
+  const existing = findAlbumByName(existingAlbums, cleanName, artist);
+  if (existing) {
+    if (!existing.coverUrl && coverUrl) {
+      return {
+        album: { ...existing, coverUrl },
+        isNew: false,
+      };
+    }
+    return { album: existing, isNew: false };
   }
 
   return {
-    track: { ...track, albumId },
-    album,
-  }
+    album: {
+      id: newAlbumId(),
+      name: cleanName,
+      artist: artist || 'Unknown Artist',
+      coverUrl,
+    },
+    isNew: true,
+  };
 }

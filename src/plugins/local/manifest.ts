@@ -1,7 +1,7 @@
 // src/plugins/local/manifest.ts
 
-import type { PluginManifest } from '../types'
-import { getLocalSettingsSchema, runLocalSettingsAction } from './settings'
+import type { PluginManifest } from '../types';
+import { getLocalSettingsSchema, runLocalSettingsAction } from './settings';
 
 export const manifest: PluginManifest = {
   id: 'local',
@@ -15,4 +15,4 @@ export const manifest: PluginManifest = {
   entry: () => import('./index'),
   getSettings: getLocalSettingsSchema,
   runSettingsAction: runLocalSettingsAction,
-}
+};

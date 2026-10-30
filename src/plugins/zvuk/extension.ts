@@ -1,5 +1,6 @@
 // src/plugins/zvuk/extension.ts
-import type { PluginExtension } from '../types'
+
+import type { PluginExtension } from '../types';
 
 export default {
   routes: [
@@ -9,4 +10,4 @@ export default {
       component: () => import('./ZvukView.vue'),
     },
   ],
-} satisfies PluginExtension
+} satisfies PluginExtension;

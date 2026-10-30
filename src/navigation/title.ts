@@ -1,8 +1,8 @@
 // src/navigation/title.ts
 
-import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { NO_ALBUM_LABEL, NO_ALBUM_SLUG } from '@/utils/artists'
-import { MENU_ITEMS } from './menu'
+import type { RouteLocationNormalizedLoaded } from 'vue-router';
+import { NO_ALBUM_LABEL, NO_ALBUM_SLUG } from '@/utils/artists';
+import { MENU_ITEMS } from './menu';
 
 /**
  * Возвращает заголовок страницы для FullPlayer.
@@ -20,28 +20,28 @@ import { MENU_ITEMS } from './menu'
  * оставался чистым и не тащил Pinia-сторы.
  */
 export interface PageTitleContext {
-  folderName: string | null
-  playlistName: string | null
+  folderName: string | null;
+  playlistName: string | null;
 }
 
 export function getPageTitle(route: RouteLocationNormalizedLoaded, ctx: PageTitleContext): string {
-  const menuItem = MENU_ITEMS.find((item) => item.route === route.name)
-  if (menuItem) return menuItem.label
+  const menuItem = MENU_ITEMS.find((item) => item.route === route.name);
+  if (menuItem) return menuItem.label;
 
   switch (route.name) {
     case 'folder':
-      return ctx.folderName ?? 'Папка'
+      return ctx.folderName ?? 'Папка';
     case 'playlist':
-      return ctx.playlistName ?? 'Плейлист'
+      return ctx.playlistName ?? 'Плейлист';
     case 'artist':
-      return String(route.params.artistName ?? 'Артист')
+      return String(route.params.artistName ?? 'Артист');
     case 'album': {
-      const artistName = String(route.params.artistName ?? '')
-      const album = String(route.params.album ?? '')
-      if (album === NO_ALBUM_SLUG) return `${artistName} — ${NO_ALBUM_LABEL}`
-      return `${artistName} — ${album}`
+      const artistName = String(route.params.artistName ?? '');
+      const album = String(route.params.album ?? '');
+      if (album === NO_ALBUM_SLUG) return `${artistName} — ${NO_ALBUM_LABEL}`;
+      return `${artistName} — ${album}`;
     }
     default:
-      return 'Плеер'
+      return 'Плеер';
   }
 }

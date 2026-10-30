@@ -1,7 +1,8 @@
 // src/plugins/radio/manifest.ts
-import type { PluginManifest } from '../types'
-import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants'
-import { getSavedStations } from './index'
+
+import type { PluginManifest } from '../types';
+import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants';
+import { getSavedStations } from './index';
 
 export const manifest: PluginManifest = {
   id: PLUGIN_ID,
@@ -18,20 +19,20 @@ export const manifest: PluginManifest = {
   extension: () => import('./extension'),
   hasCustomData: () => getSavedStations().length > 0,
   clearData: () => {
-    localStorage.removeItem('radio:saved-stations')
+    localStorage.removeItem('radio:saved-stations');
 
-    localStorage.removeItem('radio:topLimit')
-    localStorage.removeItem('radio:topOrder')
-    localStorage.removeItem('radio:topCountry')
-    localStorage.removeItem('radio:topTags')
-    localStorage.removeItem('radio:topHidden')
-    localStorage.removeItem('radio:searchQuery')
+    localStorage.removeItem('radio:topLimit');
+    localStorage.removeItem('radio:topOrder');
+    localStorage.removeItem('radio:topCountry');
+    localStorage.removeItem('radio:topTags');
+    localStorage.removeItem('radio:topHidden');
+    localStorage.removeItem('radio:searchQuery');
 
-    localStorage.removeItem('radio:cache:countries')
-    localStorage.removeItem('radio:cache:top')
-    localStorage.removeItem('radio:cache:search')
+    localStorage.removeItem('radio:cache:countries');
+    localStorage.removeItem('radio:cache:top');
+    localStorage.removeItem('radio:cache:search');
     for (const key of Object.keys(localStorage)) {
-      if (key.startsWith('radio:cache:tags')) localStorage.removeItem(key)
+      if (key.startsWith('radio:cache:tags')) localStorage.removeItem(key);
     }
   },
 
@@ -56,12 +57,12 @@ export const manifest: PluginManifest = {
 
   runSettingsAction: async (actionId: string) => {
     if (actionId === 'clear-cache') {
-      const { radioBrowserClient } = await import('./RadioBrowserClient')
-      const { radioService } = await import('./RadioService')
-      const { toastService } = await import('@/services/ui/ToastService')
-      radioBrowserClient.clearCache()
-      radioService.clearCache()
-      toastService.success('Кеш радио очищен')
+      const { radioBrowserClient } = await import('./RadioBrowserClient');
+      const { radioService } = await import('./RadioService');
+      const { toastService } = await import('@/services/ui/ToastService');
+      radioBrowserClient.clearCache();
+      radioService.clearCache();
+      toastService.success('Кеш радио очищен');
     }
   },
-}
+};

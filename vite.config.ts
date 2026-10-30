@@ -1,31 +1,31 @@
 // vite.config.ts
 
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { defineConfig } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
-import vueJsx from '@vitejs/plugin-vue-jsx'
+import vueJsx from '@vitejs/plugin-vue-jsx';
 
-import vue from '@vitejs/plugin-vue'
-import tailwindcss from '@tailwindcss/vite'
+import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 
-import pkg from './package.json' with { type: 'json' }
+import pkg from './package.json' with { type: 'json' };
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const appVersion = pkg.version
-const buildHash = process.env.GIT_HASH ?? 'dev'
-const shortHash = buildHash.slice(0, 7)
+const appVersion = pkg.version;
+const buildHash = process.env.GIT_HASH ?? 'dev';
+const shortHash = buildHash.slice(0, 7);
 
 function injectVersion() {
   return {
     name: 'inject-version',
     transformIndexHtml(html: string) {
-      return html.replaceAll('%APP_VERSION%', appVersion).replaceAll('%BUILD_HASH%', shortHash)
+      return html.replaceAll('%APP_VERSION%', appVersion).replaceAll('%BUILD_HASH%', shortHash);
     },
-  }
+  };
 }
 
 export default defineConfig({
@@ -96,4 +96,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

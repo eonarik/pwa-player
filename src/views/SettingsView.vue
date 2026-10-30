@@ -1,48 +1,49 @@
 <!-- src/views/SettingsView.vue -->
+
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import SettingsGeneral from './settings/SettingsGeneral.vue'
-import SettingsPlugins from './settings/SettingsPlugins.vue'
-import SettingsData from './settings/SettingsData.vue'
-import SettingsAbout from './settings/SettingsAbout.vue'
+import { ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import SettingsGeneral from './settings/SettingsGeneral.vue';
+import SettingsPlugins from './settings/SettingsPlugins.vue';
+import SettingsData from './settings/SettingsData.vue';
+import SettingsAbout from './settings/SettingsAbout.vue';
 
-type Tab = 'general' | 'plugins' | 'data' | 'about'
+type Tab = 'general' | 'plugins' | 'data' | 'about';
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'general', label: 'Общие' },
   { id: 'plugins', label: 'Плагины' },
   { id: 'data', label: 'Данные' },
   { id: 'about', label: 'О приложении' },
-]
+];
 
 // Читаем таб из хэша при загрузке
 const getInitialTab = (): Tab => {
-  const hash = route.hash.replace('#', '')
-  if (TABS.some((t) => t.id === hash)) return hash as Tab
-  return 'general'
-}
+  const hash = route.hash.replace('#', '');
+  if (TABS.some((t) => t.id === hash)) return hash as Tab;
+  return 'general';
+};
 
-const activeTab = ref<Tab>(getInitialTab())
+const activeTab = ref<Tab>(getInitialTab());
 
 // При смене таба обновляем хэш в URL
 watch(activeTab, (tab) => {
-  router.replace({ hash: `#${tab}` })
-})
+  router.replace({ hash: `#${tab}` });
+});
 
 // Если пользователь нажал "назад" и хэш изменился — переключаем таб
 watch(
   () => route.hash,
   (hash) => {
-    const tab = hash.replace('#', '')
+    const tab = hash.replace('#', '');
     if (TABS.some((t) => t.id === tab) && tab !== activeTab.value) {
-      activeTab.value = tab as Tab
+      activeTab.value = tab as Tab;
     }
-  }
-)
+  },
+);
 </script>
 
 <template>
@@ -54,9 +55,14 @@ watch(
       </div>
 
       <div class="mx-auto flex w-full max-w-2xl gap-1 overflow-x-auto pb-1">
-        <button v-for="tab in TABS" :key="tab.id" type="button"
-          class="rounded-btn px-3 py-1.5 text-sm font-medium transition" :class="activeTab === tab.id ? 'bg-card-bg text-fg' : 'text-fg-muted hover:text-fg'
-            " @click="activeTab = tab.id">
+        <button
+          v-for="tab in TABS"
+          :key="tab.id"
+          type="button"
+          class="rounded-btn px-3 py-1.5 text-sm font-medium transition"
+          :class="activeTab === tab.id ? 'bg-card-bg text-fg' : 'text-fg-muted hover:text-fg'"
+          @click="activeTab = tab.id"
+        >
           {{ tab.label }}
         </button>
       </div>

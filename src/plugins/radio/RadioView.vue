@@ -1,123 +1,122 @@
 <!-- src/plugins/radio/RadioView.vue -->
+
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { usePlayerStore } from '@/stores/player'
-import { toastService } from '@/services/ui/ToastService'
-import { PLUGIN_ID } from './constants'
-import {
-  getSavedStations,
-  addSavedStation,
-  removeSavedStation,
-  type SavedStation,
-} from './index'
-import RadioSavedList from './RadioSavedList.vue'
-import RadioCatalog from './RadioCatalog.vue'
-import AddStationModal from './AddStationModal.vue'
-import Button from '@/components/ui/Button.vue'
-import Icon from '@/components/ui/Icon.vue'
-import type { Track } from '@/types/track'
+import { ref, computed, onMounted } from 'vue';
+import { usePlayerStore } from '@/stores/player';
+import { toastService } from '@/services/ui/ToastService';
+import { PLUGIN_ID } from './constants';
+import { getSavedStations, addSavedStation, removeSavedStation, type SavedStation } from './index';
+import RadioSavedList from './RadioSavedList.vue';
+import RadioCatalog from './RadioCatalog.vue';
+import AddStationModal from './AddStationModal.vue';
+import Button from '@/components/ui/Button.vue';
+import Icon from '@/components/ui/Icon.vue';
+import { newTrackId, newTrackSourceId } from '@/types/ids';
+import type { Track } from '@/types/track';
 
-const player = usePlayerStore()
+const player = usePlayerStore();
 
-type ViewMode = 'saved' | 'catalog'
-const viewMode = ref<ViewMode>('saved')
-const isAddModalOpen = ref(false)
+type ViewMode = 'saved' | 'catalog';
+const viewMode = ref<ViewMode>('saved');
+const isAddModalOpen = ref(false);
 
-const savedStations = ref<SavedStation[]>(getSavedStations())
+const savedStations = ref<SavedStation[]>(getSavedStations());
 
-const savedStationIds = computed(() => new Set(savedStations.value.map((s) => s.id)))
-
-const currentTrackId = computed(() => player.currentTrack?.id ?? null)
+const savedStationIds = computed(() => new Set(savedStations.value.map((s) => s.id)));
+const currentTrackTitle = computed(() => player.currentTrack?.title ?? null);
 
 function refreshSaved(): void {
-  savedStations.value = getSavedStations()
+  savedStations.value = getSavedStations();
 }
 
 function openCatalog(): void {
-  viewMode.value = 'catalog'
+  viewMode.value = 'catalog';
 }
 
 function closeCatalog(): void {
-  viewMode.value = 'saved'
+  viewMode.value = 'saved';
+  refreshSaved(); // Обновляем на всякий случай при возврате
 }
 
 function onAdd(station: SavedStation): void {
   if (savedStationIds.value.has(station.id)) {
-    toastService.error(`Станция «${station.name}» уже добавлена`)
-    return
+    toastService.error(`Станция «${station.name}» уже добавлена`);
+    return;
   }
-
-  const ok = addSavedStation(station)
+  const ok = addSavedStation(station);
   if (!ok) {
-    toastService.error('Не удалось сохранить станцию')
-    return
+    toastService.error('Не удалось сохранить станцию');
+    return;
   }
-
-  refreshSaved()
-  toastService.success(`Станция «${station.name}» добавлена`)
+  refreshSaved();
+  toastService.success(`Станция «${station.name}» добавлена`);
 }
 
 function onAddByUrl(station: SavedStation): void {
-  onAdd(station)
+  onAdd(station);
 }
 
 function onPlay(station: SavedStation): void {
-  playStation(station)
+  playStation(station);
 }
 
 function onRemove(station: SavedStation): void {
-  removeSavedStation(station.id)
-  refreshSaved()
-  toastService.info(`Станция «${station.name}» удалена`)
+  removeSavedStation(station.id);
+  refreshSaved();
+  toastService.info(`Станция «${station.name}» удалена`);
 
-  if (player.currentTrack?.id === `radio:${station.id}`) {
-    player.stop()
+  if (player.currentTrack?.title === station.name && player.currentTrack?.pluginId === PLUGIN_ID) {
+    player.stop();
   }
 }
 
 function onRemoveFromSavedList(station: SavedStation): void {
-  const confirmed = window.confirm(`Удалить станцию «${station.name}»?`)
-  if (!confirmed) return
-  onRemove(station)
+  const confirmed = window.confirm(`Удалить станцию «${station.name}»?`);
+  if (!confirmed) return;
+  onRemove(station);
 }
 
-/**
- * Проксируем только HLS-манифесты: `<audio>` не умеет .m3u8, а CORS
- * у сторонних станций почти всегда закрыт. Остальные потоки отдаём как есть —
- * если CORS-политика станции не пускает, это её проблема.
- */
 function proxyRadioUrl(url: string): string {
   if (url.includes('.m3u8')) {
-    return `/api/hls-proxy?url=${encodeURIComponent(url)}`
+    return `/api/hls-proxy?url=${encodeURIComponent(url)}`;
   }
-  return url
+  return url;
 }
 
 function playStation(station: SavedStation): void {
-  if (player.currentTrack?.id === `radio:${station.id}`) {
-    player.toggle()
-    return
+  if (player.currentTrack?.title === station.name && player.currentTrack?.pluginId === PLUGIN_ID) {
+    player.toggle();
+    return;
   }
 
-  const id = `radio:${station.id}`
+  const id = newTrackId();
   const track: Track = {
     id,
     pluginId: PLUGIN_ID,
-    title: station.name,
     artist: '',
-    album: '',
-    duration: 0,
-    filename: '',
-    sources: [{ id, pluginId: PLUGIN_ID, url: proxyRadioUrl(station.url), priority: 20 }],
-    coverUrl: station.favicon || undefined,
-  }
+    title: station.name,
+    albumId: null,
+    coverUrl: station.favicon || null,
+    sources: [
+      {
+        id: newTrackSourceId(),
+        pluginId: PLUGIN_ID,
+        priority: 20,
+        kind: 'streaming',
+        url: proxyRadioUrl(station.url),
+      },
+    ],
+    metadataCandidates: [],
+    raw: null,
+    hasId3Tags: false,
+  };
 
-  player.setQueue([track], 0)
+  player.setQueue([track], 0);
 }
 
 onMounted(() => {
-  refreshSaved()
-})
+  refreshSaved();
+});
 </script>
 
 <template>
@@ -133,13 +132,26 @@ onMounted(() => {
         </div>
       </div>
 
-      <RadioSavedList :stations="savedStations" :current-track-id="currentTrackId" :is-playing="player.isPlaying"
-        @play="playStation" @remove="onRemoveFromSavedList" @add-by-url="isAddModalOpen = true" />
+      <RadioSavedList
+        :stations="savedStations"
+        :current-track-title="currentTrackTitle"
+        :is-playing="player.isPlaying"
+        @play="playStation"
+        @remove="onRemoveFromSavedList"
+        @add-by-url="isAddModalOpen = true"
+      />
     </template>
 
-    <RadioCatalog v-else-if="viewMode === 'catalog'" :saved-station-ids="savedStationIds"
-      :current-track-id="currentTrackId" :is-playing="player.isPlaying" @add="onAdd" @play="onPlay" @remove="onRemove"
-      @back="closeCatalog" />
+    <RadioCatalog
+      v-else-if="viewMode === 'catalog'"
+      :saved-station-ids="savedStationIds"
+      :current-track-title="currentTrackTitle"
+      :is-playing="player.isPlaying"
+      @add="onAdd"
+      @play="onPlay"
+      @remove="onRemove"
+      @back="closeCatalog"
+    />
 
     <AddStationModal v-if="isAddModalOpen" @close="isAddModalOpen = false" @add="onAddByUrl" />
   </div>

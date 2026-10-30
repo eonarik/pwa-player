@@ -1,73 +1,41 @@
 // src/services/persistence/restore.ts
 
-import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory'
-import type { PersistedTrack } from './types'
-import type { Track } from '@/types/track'
+import type { Track } from '@/types/track';
+import type { PersistedTrack } from './types';
 
 export async function restoreTrack(persisted: PersistedTrack): Promise<Track | null> {
-  const base: Omit<Track, 'sources'> = {
+  return {
     id: persisted.id,
     pluginId: persisted.pluginId,
-    title: persisted.title,
     artist: persisted.artist,
-    album: persisted.album,
-    year: persisted.year,
-    trackNumber: persisted.trackNumber,
-    genre: persisted.genre,
+    title: persisted.title,
+    albumId: persisted.albumId,
+    coverUrl: persisted.coverUrl,
+    sources: persisted.sources,
+    metadataCandidates: persisted.metadataCandidates ?? [],
+    raw: persisted.raw ?? null,
+    hasId3Tags: persisted.hasId3Tags ?? false,
     duration: persisted.duration,
     codec: persisted.codec,
-    filename: persisted.filename,
-    path: persisted.path,
-    handle: persisted.handle,
-    directoryHandle: persisted.directoryHandle,
-    coverUrl: persisted.coverUrl,
-    raw: persisted.raw,
-  }
-
-  return {
-    ...base,
-    sources: persisted.sources || [],
-  }
+    trackNumber: persisted.trackNumber,
+    year: persisted.year,
+    genre: persisted.genre,
+  };
 }
 
-async function restoreBaseTracks(persisted: PersistedTrack[], concurrency = 8): Promise<Track[]> {
-  const results: Track[] = Array.from({ length: persisted.length })
-  let cursor = 0
+export async function restoreTracks(persisted: PersistedTrack[], concurrency = 8): Promise<Track[]> {
+  const results: Track[] = Array.from({ length: persisted.length });
+  let cursor = 0;
 
   const worker = async (): Promise<void> => {
     while (cursor < persisted.length) {
-      const index = cursor++
-      const track = await restoreTrack(persisted[index]!)
-      if (track) results[index] = track
+      const index = cursor++;
+      const track = await restoreTrack(persisted[index]!);
+      if (track) results[index] = track;
     }
-  }
+  };
 
-  await Promise.all(Array.from({ length: Math.min(concurrency, persisted.length) }, () => worker()))
+  await Promise.all(Array.from({ length: Math.min(concurrency, persisted.length) }, () => worker()));
 
-  return results.filter(Boolean)
-}
-
-export async function restoreTracks(
-  persisted: PersistedTrack[],
-  concurrency = 8,
-): Promise<Track[]> {
-  const tracks = await restoreBaseTracks(persisted, concurrency)
-
-  const coverCache = new Map<FileSystemDirectoryHandle, string | null>()
-
-  for (const track of tracks) {
-    if (!track.directoryHandle) continue
-
-    if (!coverCache.has(track.directoryHandle)) {
-      const coverFile = await findCoverInDirectory(track.directoryHandle)
-      coverCache.set(track.directoryHandle, coverFile ? URL.createObjectURL(coverFile) : null)
-    }
-
-    const coverUrl = coverCache.get(track.directoryHandle)
-    if (coverUrl) {
-      track.coverUrl = coverUrl
-    }
-  }
-
-  return tracks
+  return results.filter(Boolean);
 }

@@ -1,5 +1,5 @@
 // .storybook/main.ts
-import type { StorybookConfig } from '@storybook/vue3-vite'
+import type { StorybookConfig } from '@storybook/vue3-vite';
 
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
@@ -19,8 +19,8 @@ const config: StorybookConfig = {
           '@': new URL('../src', import.meta.url).pathname,
         },
       },
-    }
+    };
   },
-}
+};
 
-export default config
+export default config;

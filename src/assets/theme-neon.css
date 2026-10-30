@@ -26,9 +26,8 @@
   --radius-card: 0.5rem;
   --radius-modal: 0.75rem;
 
-  --font-neon: "Tektur", sans-serif;
+  --font-neon: 'Tektur', sans-serif;
 }
-
 
 /* --- Шрифты --- */
 [data-theme='neon'] body,
@@ -81,13 +80,17 @@
   background: rgba(13, 15, 26, 0.8);
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(0, 240, 255, 0.3);
-  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 -5px 20px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Кнопка Play/Pause (неоновая сфера) */
 [data-theme='neon'] .player-play-pause-btn {
   background: radial-gradient(circle at 30% 30%, #7df9ff, #00f0ff, #ff007f);
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.6), inset 0 2px 4px rgba(255,255,255,0.8);
+  box-shadow:
+    0 0 15px rgba(0, 240, 255, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8);
   border: none;
   color: #050508;
   border-radius: 50%;
@@ -116,7 +119,9 @@
 /* --- Неоновый "глаз" --- */
 [data-theme='neon'] .radio-eye {
   background-color: var(--color-playing);
-  box-shadow: 0 0 15px var(--color-playing), 0 0 30px var(--color-playing);
+  box-shadow:
+    0 0 15px var(--color-playing),
+    0 0 30px var(--color-playing);
 }
 
 /* --- Неоновые иконки (используем глобальные градиенты) --- */
@@ -131,8 +136,8 @@
   stroke: url(#magenta-gradient);
   filter: drop-shadow(0 0 8px rgba(255, 0, 127, 0.8));
 }
-[data-theme='neon'] .text-red-400 > .icon[fill="currentColor"],
-[data-theme='neon'] .text-active > .icon[fill="currentColor"] {
+[data-theme='neon'] .text-red-400 > .icon[fill='currentColor'],
+[data-theme='neon'] .text-active > .icon[fill='currentColor'] {
   fill: url(#magenta-gradient);
 }
 

@@ -1,6 +1,6 @@
 // src/services/download/PermissionService.ts
 
-export type PermissionState = 'granted' | 'prompt' | 'denied'
+export type PermissionState = 'granted' | 'prompt' | 'denied';
 
 /**
  * Проверяет права на чтение/запись папки.
@@ -11,10 +11,10 @@ export async function queryPermission(
   mode: 'read' | 'readwrite' = 'readwrite',
 ): Promise<PermissionState> {
   try {
-    return (await handle.queryPermission({ mode })) as PermissionState
+    return (await handle.queryPermission({ mode })) as PermissionState;
   } catch (err) {
-    console.warn('[permission] queryPermission failed', err)
-    return 'prompt'
+    console.warn('[permission] queryPermission failed', err);
+    return 'prompt';
   }
 }
 
@@ -28,10 +28,10 @@ export async function requestPermission(
   mode: 'read' | 'readwrite' = 'readwrite',
 ): Promise<PermissionState> {
   try {
-    return (await handle.requestPermission({ mode })) as PermissionState
+    return (await handle.requestPermission({ mode })) as PermissionState;
   } catch (err) {
-    console.warn('[permission] requestPermission failed', err)
-    return 'denied'
+    console.warn('[permission] requestPermission failed', err);
+    return 'denied';
   }
 }
 
@@ -43,5 +43,5 @@ export async function hasPermission(
   handle: FileSystemDirectoryHandle,
   mode: 'read' | 'readwrite' = 'readwrite',
 ): Promise<boolean> {
-  return (await queryPermission(handle, mode)) === 'granted'
+  return (await queryPermission(handle, mode)) === 'granted';
 }

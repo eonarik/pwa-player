@@ -1,16 +1,17 @@
 <!-- src/components/library/FileListItem.vue -->
+
 <script setup lang="ts">
-import ListRow from '@/components/ui/ListRow.vue'
-import Icon from '@/components/ui/Icon.vue'
-import type { TextFileRef } from '@/types/library'
+import ListRow from '@/components/ui/ListRow.vue';
+import Icon from '@/components/ui/Icon.vue';
+import type { TextFileRef } from '@/plugins/types';
 
 defineProps<{
-  file: TextFileRef
-}>()
+  file: TextFileRef;
+}>();
 
 const emit = defineEmits<{
-  (e: 'open'): void
-}>()
+  (e: 'open'): void;
+}>();
 </script>
 
 <template>

@@ -1,5 +1,6 @@
 // src/plugins/demo/manifest.ts
-import type { PluginManifest } from '../types'
+
+import type { PluginManifest } from '../types';
 
 export const manifest: PluginManifest = {
   id: 'demo',
@@ -15,4 +16,4 @@ export const manifest: PluginManifest = {
 
   // Вот тут наше расширение
   extension: () => import('./extension'),
-}
+};

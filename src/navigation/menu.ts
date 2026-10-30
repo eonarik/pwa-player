@@ -1,18 +1,18 @@
 // src/navigation/menu.ts
 
-import type { IconName } from '@/components/icons'
+import type { IconName } from '@/components/icons';
 
 export interface MenuItem {
   /** route.name для router.push / RouterLink */
-  route?: string
+  route?: string;
   /** Отображаемое имя */
-  label: string
+  label: string;
   /** Имя иконки из реестра */
-  icon: IconName
+  icon: IconName;
   /** Показывать бейдж с числом треков в очереди */
-  queueBadge?: boolean
+  queueBadge?: boolean;
   /** Если задано — пункт открывает модалку, а не роут */
-  modal?: 'feedback'
+  modal?: 'feedback';
 }
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -26,4 +26,4 @@ export const MENU_ITEMS: MenuItem[] = [
   { route: 'dislikes', label: 'Дизлайки', icon: 'eye-off' },
   { route: 'settings', label: 'Настройки', icon: 'settings' },
   { label: 'Обратная связь', icon: 'feedback', modal: 'feedback' },
-]
+];

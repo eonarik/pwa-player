@@ -1,79 +1,75 @@
 // src/composables/useBatchDownload.ts
 
-import { computed, type Ref } from 'vue'
-import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator'
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService'
-import { pluginCanDownload } from '@/plugins/registry'
-import { toastService } from '@/services/ui/ToastService'
-import type { LibraryTrack, FileLocation } from '@/types/library'
+import { computed, type Ref } from 'vue';
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
+import { pluginCanDownload } from '@/plugins/registry';
+import { toastService } from '@/services/ui/ToastService';
+import { hasLocalSource } from '@/services/library/selectors';
+import type { Track } from '@/types/track';
 
-function getFileLocation(t: LibraryTrack): FileLocation {
-  return t.fileLocation ?? 'remote-only'
-}
-
-export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
-  const isDownloading = computed(() => downloadOrchestrator.isBatchDownloading.value)
-  const progress = computed(() => downloadOrchestrator.batchProgress.value)
+export function useBatchDownload(tracks: Ref<Track[]>) {
+  const isDownloading = computed(() => downloadOrchestrator.isBatchDownloading.value);
+  const progress = computed(() => downloadOrchestrator.batchProgress.value);
 
   const downloadableTracks = computed(() =>
-    tracks.value.filter((t) => pluginCanDownload(t.pluginId)),
-  )
+    tracks.value.filter((t) => {
+      const pluginId = t.sources[0]?.pluginId;
+      return pluginId ? pluginCanDownload(pluginId) : false;
+    }),
+  );
 
-  const hasDownloadable = computed(() => downloadableTracks.value.length > 0)
+  const hasDownloadable = computed(() => downloadableTracks.value.length > 0);
 
-  const pendingCount = computed(
-    () => downloadableTracks.value.filter((t) => getFileLocation(t) === 'remote-only').length,
-  )
+  const pendingCount = computed(() => downloadableTracks.value.filter((t) => !hasLocalSource(t)).length);
 
   async function ensureSpace(): Promise<boolean> {
     if (downloadSpaceService.needsPermission.value) {
-      const state = await downloadSpaceService.requestAccess()
+      const state = await downloadSpaceService.requestAccess();
       if (state !== 'granted') {
-        toastService.error('Нет доступа к папке скачивания')
-        return false
+        toastService.error('Нет доступа к папке скачивания');
+        return false;
       }
-      return true
+      return true;
     }
-
-    if (downloadSpaceService.hasSpace.value) return true
-
-    const handle = await downloadSpaceService.pickSpace()
+    if (downloadSpaceService.hasSpace.value) return true;
+    const handle = await downloadSpaceService.pickSpace();
     if (!handle) {
-      toastService.info('Папка для скачивания не выбрана')
-      return false
+      toastService.info('Папка для скачивания не выбрана');
+      return false;
     }
-    return true
+    return true;
   }
 
   async function download(): Promise<void> {
-    if (downloadableTracks.value.length === 0) return
+    if (downloadableTracks.value.length === 0) return;
 
     try {
-      const ok = await ensureSpace()
-      if (!ok) return
+      const ok = await ensureSpace();
+      if (!ok) return;
 
-      const result = await downloadOrchestrator.downloadMany(downloadableTracks.value)
+      const result = await downloadOrchestrator.downloadMany(downloadableTracks.value);
 
       if (result.aborted) {
-        toastService.info(`Отменено. Скачано: ${result.succeeded}, пропущено: ${result.skipped}`)
-        return
+        toastService.info(`Отменено. Скачано: ${result.succeeded}, пропущено: ${result.skipped}`);
+        return;
       }
 
       if (result.failed > 0) {
-        toastService.error(`Скачано: ${result.succeeded}, ошибок: ${result.failed}`)
+        toastService.error(`Скачано: ${result.succeeded}, ошибок: ${result.failed}`);
       } else if (result.succeeded > 0) {
-        toastService.success(`Скачано: ${result.succeeded}`)
+        toastService.success(`Скачано: ${result.succeeded}`);
       } else if (result.skipped > 0) {
-        toastService.info(`Все ${result.skipped} треков уже скачаны`)
+        toastService.info(`Все ${result.skipped} треков уже скачаны`);
       }
     } catch (err) {
-      console.error('[download] batch failed', err)
-      toastService.error(err instanceof Error ? err.message : 'Не удалось скачать')
+      console.error('[download] batch failed', err);
+      toastService.error(err instanceof Error ? err.message : 'Не удалось скачать');
     }
   }
 
   function cancel(): void {
-    downloadOrchestrator.cancelBatch()
+    downloadOrchestrator.cancelBatch();
   }
 
   return {
@@ -83,5 +79,5 @@ export function useBatchDownload(tracks: Ref<LibraryTrack[]>) {
     pendingCount,
     download,
     cancel,
-  }
+  };
 }

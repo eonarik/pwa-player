@@ -1,14 +1,15 @@
 <!-- src/components/settings/fields/ToggleField.vue -->
+
 <script setup lang="ts">
-import type { PluginSettingsToggle } from '@/plugins/settingsTypes'
+import type { PluginSettingsToggle } from '@/plugins/settingsTypes';
 
 defineProps<{
-  field: PluginSettingsToggle
-}>()
+  field: PluginSettingsToggle;
+}>();
 
 const emit = defineEmits<{
-  (e: 'change', id: string, value: boolean): void
-}>()
+  (e: 'change', id: string, value: boolean): void;
+}>();
 </script>
 
 <template>

@@ -1,13 +1,14 @@
 <!-- src/components/ui/Toolbar.vue -->
+
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: 'default' | 'border'
+    variant?: 'default' | 'border';
   }>(),
   {
     variant: 'default',
   },
-)
+);
 </script>
 
 <template>

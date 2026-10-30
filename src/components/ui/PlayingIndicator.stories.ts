@@ -1,15 +1,16 @@
 // src/components/ui/PlayingIndicator.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import PlayingIndicator from './PlayingIndicator.vue'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import PlayingIndicator from './PlayingIndicator.vue';
 
 const meta: Meta<typeof PlayingIndicator> = {
   title: 'UI/PlayingIndicator',
   component: PlayingIndicator,
   argTypes: {},
-}
+};
 
-export default meta
-type Story = StoryObj<typeof PlayingIndicator>
+export default meta;
+type Story = StoryObj<typeof PlayingIndicator>;
 
 export const Bars: Story = {
   args: {},
@@ -22,4 +23,4 @@ export const Bars: Story = {
       </div>
     `,
   }),
-}
+};

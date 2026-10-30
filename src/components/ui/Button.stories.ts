@@ -1,6 +1,7 @@
 // src/components/ui/Button.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import Button from './Button.vue'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import Button from './Button.vue';
 
 const meta: Meta<typeof Button> = {
   title: 'UI/Button',
@@ -16,11 +17,11 @@ const meta: Meta<typeof Button> = {
     },
     disabled: { control: 'boolean' },
   },
-}
+};
 
-export default meta
+export default meta;
 
-type Story = StoryObj<typeof Button>
+type Story = StoryObj<typeof Button>;
 
 export const Primary: Story = {
   args: { variant: 'primary', size: 'md' },
@@ -29,7 +30,7 @@ export const Primary: Story = {
     setup: () => ({ args }),
     template: '<Button v-bind="args">Открыть</Button>',
   }),
-}
+};
 
 export const Secondary: Story = {
   args: { variant: 'secondary' },
@@ -38,7 +39,7 @@ export const Secondary: Story = {
     setup: () => ({ args }),
     template: '<Button v-bind="args">Отмена</Button>',
   }),
-}
+};
 
 export const Danger: Story = {
   args: { variant: 'danger' },
@@ -47,7 +48,7 @@ export const Danger: Story = {
     setup: () => ({ args }),
     template: '<Button v-bind="args">Удалить</Button>',
   }),
-}
+};
 
 export const Disabled: Story = {
   args: { variant: 'primary', disabled: true },
@@ -56,4 +57,4 @@ export const Disabled: Story = {
     setup: () => ({ args }),
     template: '<Button v-bind="args">Недоступно</Button>',
   }),
-}
+};

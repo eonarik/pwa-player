@@ -1,20 +1,20 @@
 // server/src/plugins/zvuk/sberzvuk-api.js
 
-import axios from 'axios'
-import { QUERIES } from './graphql-queries.js'
+import axios from 'axios';
+import { QUERIES } from './graphql-queries.js';
 
-export var Quality
-;(function (Quality) {
-  Quality[(Quality['High'] = 0)] = 'High'
-  Quality[(Quality['Middle'] = 1)] = 'Middle'
-})(Quality || (Quality = {}))
+export var Quality;
+(function (Quality) {
+  Quality[(Quality['High'] = 0)] = 'High';
+  Quality[(Quality['Middle'] = 1)] = 'Middle';
+})(Quality || (Quality = {}));
 
 export class ZvukAPI {
   constructor(token, axiosOptions = {}) {
     if (typeof token !== 'string' || token.length === 0) {
-      throw new Error('A token is required but not provided!')
+      throw new Error('A token is required but not provided!');
     }
-    this.token = token
+    this.token = token;
     this.client = axios.create({
       ...axiosOptions,
       headers: {
@@ -28,7 +28,7 @@ export class ZvukAPI {
         'X-Auth-Token': this.token,
         ...axiosOptions.headers,
       },
-    })
+    });
   }
 
   async quickSearch(query, limit = 10) {
@@ -36,74 +36,66 @@ export class ZvukAPI {
       query,
       limit,
       tracks: true,
-    }
+    };
 
-    const data = await this.execute('getSearchAll', variables)
-    return data?.search?.tracks?.items || []
+    const data = await this.execute('getSearchAll', variables);
+    return data?.search?.tracks?.items || [];
   }
 
   async getStreamURL(trackId, quality) {
-    const ids = Array.isArray(trackId) ? trackId : [trackId]
-    const data = await this.execute('getStream', { ids })
+    const ids = Array.isArray(trackId) ? trackId : [trackId];
+    const data = await this.execute('getStream', { ids });
 
     return data.mediaContents.map((param) => {
-      const stream = param.stream
+      const stream = param.stream;
       if (quality === Quality.High) {
         if (!stream.high) {
-          throw new ReferenceError(
-            "The high quality of the track is missing! Perhaps you don't have a subscription?",
-          )
+          throw new ReferenceError("The high quality of the track is missing! Perhaps you don't have a subscription?");
         }
-        return stream.high
+        return stream.high;
       } else if (quality === Quality.Middle) {
-        return stream.mid
+        return stream.mid;
       } else {
-        return stream.high ?? stream.mid
+        return stream.high ?? stream.mid;
       }
-    })
+    });
   }
 
   async getTrack(id, withArtists = false, withAlbum = false) {
-    const ids = Array.isArray(id) ? id : [id]
+    const ids = Array.isArray(id) ? id : [id];
     const data = await this.execute('getFullTrack', {
       withReleases: withAlbum,
       withArtists: withArtists,
       ids,
-    })
-    return data.getTracks
+    });
+    return data.getTracks;
   }
 
   async execute(operationName, variables) {
-    const query = QUERIES[operationName]
-    if (!query) throw new Error(`Unknown operation: ${operationName}`)
+    const query = QUERIES[operationName];
+    if (!query) throw new Error(`Unknown operation: ${operationName}`);
 
-    const cleanQuery = query.replace(/\s+/g, ' ').trim()
+    const cleanQuery = query.replace(/\s+/g, ' ').trim();
 
-    const url = 'https://zvuk.com/api/v1/graphql'
+    const url = 'https://zvuk.com/api/v1/graphql';
 
     try {
       const response = await this.client.post(url, {
         operationName,
         variables,
         query: cleanQuery,
-      })
+      });
 
       if (response.data.errors) {
-        console.error(
-          `[zvuk] GraphQL Error for ${operationName}:`,
-          JSON.stringify(response.data.errors, null, 2),
-        )
-        throw new Error(response.data.errors[0].message)
+        console.error(`[zvuk] GraphQL Error for ${operationName}:`, JSON.stringify(response.data.errors, null, 2));
+        throw new Error(response.data.errors[0].message);
       }
-      return response.data.data
+      return response.data.data;
     } catch (err) {
       if (err.response?.data?.errors) {
-        console.error(
-          `[zvuk] GraphQL Error Response:`,
-          JSON.stringify(err.response.data.errors, null, 2),
-        )
+        console.error(`[zvuk] GraphQL Error Response:`, JSON.stringify(err.response.data.errors, null, 2));
       }
-      throw err
+      throw err;
     }
   }
 
@@ -114,7 +106,7 @@ export class ZvukAPI {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         Accept: 'application/json, text/plain, */*',
       },
-    })
-    return response.data.result.token
+    });
+    return response.data.result.token;
   }
 }

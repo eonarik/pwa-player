@@ -1,11 +1,12 @@
-<!-- src/components/icons/IconEyeOff.vue -->
+<!-- src/components/icons/IconThumbsDown.vue -->
+
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    filled?: boolean
+    filled?: boolean;
   }>(),
   { filled: false },
-)
+);
 </script>
 
 <template>

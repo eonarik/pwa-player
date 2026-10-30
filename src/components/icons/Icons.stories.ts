@@ -1,18 +1,19 @@
 // src/components/icons/Icons.stories.ts
-import type { Meta, StoryObj } from '@storybook/vue3'
-import { ICONS } from './index'
+
+import type { Meta, StoryObj } from '@storybook/vue3';
+import { ICONS } from './index';
 
 const meta: Meta = {
   title: 'Icons/All',
-}
+};
 
-export default meta
-type Story = StoryObj
+export default meta;
+type Story = StoryObj;
 
 export const Grid: Story = {
   render: () => ({
     setup() {
-      return { ICONS }
+      return { ICONS };
     },
     template: `
       <div class="grid grid-cols-6 gap-4 p-4">
@@ -23,4 +24,4 @@ export const Grid: Story = {
       </div>
     `,
   }),
-}
+};

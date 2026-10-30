@@ -60,11 +60,9 @@ const EN_TO_RU: Record<string, string> = {
   B: 'И',
   N: 'Т',
   M: 'Ь',
-}
+};
 
-const RU_TO_EN: Record<string, string> = Object.fromEntries(
-  Object.entries(EN_TO_RU).map(([en, ru]) => [ru, en]),
-)
+const RU_TO_EN: Record<string, string> = Object.fromEntries(Object.entries(EN_TO_RU).map(([en, ru]) => [ru, en]));
 
 const UMLAUTS: Record<string, string> = {
   ä: 'a',
@@ -95,7 +93,7 @@ const UMLAUTS: Record<string, string> = {
   ç: 'c',
   ý: 'y',
   ÿ: 'y',
-}
+};
 
 /**
  * Таблица транслитерации RU → EN (BGN/PCGN, упрощённая).
@@ -135,33 +133,33 @@ const TRANSLIT_RU_TO_EN: Record<string, string> = {
   э: 'e',
   ю: 'yu',
   я: 'ya',
-}
+};
 
 /** Конвертирует текст из QWERTY в ЙЦУКЕН (по позиции клавиш). */
 export function toRussianLayout(text: string): string {
   return Array.from(text)
     .map((char) => EN_TO_RU[char] ?? char)
-    .join('')
+    .join('');
 }
 
 /** Конвертирует текст из ЙЦУКЕН в QWERTY. */
 export function toEnglishLayout(text: string): string {
   return Array.from(text)
     .map((char) => RU_TO_EN[char] ?? char)
-    .join('')
+    .join('');
 }
 
 /** Убирает умлауты и диакритику (ä → a, é → e, ñ → n). */
 export function normalizeUmlauts(text: string): string {
   return Array.from(text)
     .map((char) => {
-      const lower = char.toLowerCase()
-      const replacement = UMLAUTS[lower]
-      if (replacement === undefined) return char
+      const lower = char.toLowerCase();
+      const replacement = UMLAUTS[lower];
+      if (replacement === undefined) return char;
       // Сохраняем регистр: если исходный символ заглавный — заглавная и замена
-      return char !== lower ? replacement.toUpperCase() : replacement
+      return char !== lower ? replacement.toUpperCase() : replacement;
     })
-    .join('')
+    .join('');
 }
 
 /**
@@ -171,7 +169,7 @@ export function normalizeUmlauts(text: string): string {
 export function transliterate(text: string): string {
   return Array.from(text.toLowerCase())
     .map((char) => TRANSLIT_RU_TO_EN[char] ?? char)
-    .join('')
+    .join('');
 }
 
 /**
@@ -183,13 +181,13 @@ export function transliterate(text: string): string {
  * - транслит RU → EN
  */
 export function layoutVariants(text: string): string[] {
-  const normalized = text.toLowerCase()
+  const normalized = text.toLowerCase();
   const variants = new Set<string>([
     normalized,
     normalizeUmlauts(normalized),
     toRussianLayout(normalized),
     toEnglishLayout(normalized),
     transliterate(normalized),
-  ])
-  return Array.from(variants)
+  ]);
+  return Array.from(variants);
 }

@@ -1,28 +1,29 @@
 <!-- src/components/ui/FeedbackModal.vue -->
+
 <script setup lang="ts">
-import { ref } from 'vue'
-import { toastService } from '@/services/ui/ToastService'
-import ModalLayout from './ModalLayout.vue'
-import Button from './Button.vue'
-import FormField from './FormField.vue'
-import Input from './Input.vue'
-import Textarea from './Textarea.vue'
+import { ref } from 'vue';
+import { toastService } from '@/services/ui/ToastService';
+import ModalLayout from './ModalLayout.vue';
+import Button from './Button.vue';
+import FormField from './FormField.vue';
+import Input from './Input.vue';
+import Textarea from './Textarea.vue';
 
 const emit = defineEmits<{
-  (e: 'close'): void
-}>()
+  (e: 'close'): void;
+}>();
 
-const message = ref('')
-const email = ref('')
-const isSending = ref(false)
-const MAX_LENGTH = 5000
+const message = ref('');
+const email = ref('');
+const isSending = ref(false);
+const MAX_LENGTH = 5000;
 
 async function submit() {
-  if (isSending.value) return
-  const text = message.value.trim()
-  if (!text) return
+  if (isSending.value) return;
+  const text = message.value.trim();
+  if (!text) return;
 
-  isSending.value = true
+  isSending.value = true;
   try {
     const res = await fetch('/api/feedback', {
       method: 'POST',
@@ -32,26 +33,26 @@ async function submit() {
         message: text,
         email: email.value.trim() || undefined,
       }),
-    })
+    });
 
     if (res.status === 429) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string }
-      toastService.error(data.error ?? 'Слишком часто. Подождите минуту.')
-      return
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      toastService.error(data.error ?? 'Слишком часто. Подождите минуту.');
+      return;
     }
     if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string }
-      toastService.error(data.error ?? 'Не удалось отправить')
-      return
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      toastService.error(data.error ?? 'Не удалось отправить');
+      return;
     }
 
-    toastService.success('Сообщение отправлено')
-    emit('close')
+    toastService.success('Сообщение отправлено');
+    emit('close');
   } catch (err) {
-    console.error('[feedback] send failed', err)
-    toastService.error('Не удалось отправить')
+    console.error('[feedback] send failed', err);
+    toastService.error('Не удалось отправить');
   } finally {
-    isSending.value = false
+    isSending.value = false;
   }
 }
 </script>
@@ -65,9 +66,7 @@ async function submit() {
 
       <FormField label="Сообщение">
         <Textarea v-model="message" :maxlength="MAX_LENGTH" :rows="6" placeholder="Ваше сообщение…" resize />
-        <p class="text-right text-[10px] tabular-nums text-fg-subtle mt-1">
-          {{ message.length }} / {{ MAX_LENGTH }}
-        </p>
+        <p class="text-right text-[10px] tabular-nums text-fg-subtle mt-1">{{ message.length }} / {{ MAX_LENGTH }}</p>
       </FormField>
 
       <FormField label="Email для ответа (необязательно)">

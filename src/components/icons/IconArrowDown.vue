@@ -1,4 +1,5 @@
 <!-- src/components/icons/IconArrowDown.vue -->
+
 <template>
   <svg
     viewBox="0 0 24 24"

@@ -1,4 +1,5 @@
 <!-- src/components/icons/IconFile.vue -->
+
 <template>
   <svg
     viewBox="0 0 24 24"

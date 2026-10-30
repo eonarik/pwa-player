@@ -6,7 +6,8 @@
     "vitest.config.*",
     "cypress.config.*",
     "playwright.config.*",
-    "eslint.config.*"
+    "eslint.config.*",
+    "e2e/**/*.ts"
   ],
   "compilerOptions": {
     // Most tools use transpilation instead of Node.js's native type-stripping.
@@ -14,6 +15,7 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "noImplicitAny": false,
 
     // Include Node.js types and avoid accidentally including other `@types/*` packages.
     "types": ["node"],

@@ -1,57 +1,57 @@
 // src/services/ui/ToastService.ts
 
-import { ref } from 'vue'
+import { ref } from 'vue';
 
-export type ToastType = 'info' | 'success' | 'error'
+export type ToastType = 'info' | 'success' | 'error';
 
 export interface ToastAction {
-  label: string
-  onAction: () => void
+  label: string;
+  onAction: () => void;
 }
 
 export interface Toast {
-  id: string
-  message: string
-  type: ToastType
+  id: string;
+  message: string;
+  type: ToastType;
   /** Автоскрытие через N мс. 0 = не скрывать */
-  duration: number
+  duration: number;
   /** Кнопка действия (опционально) */
-  action?: ToastAction
-  createdAt: number
+  action?: ToastAction;
+  createdAt: number;
 }
 
-const DEFAULT_DURATION = 4000
-const MAX_TOASTS = 5
+const DEFAULT_DURATION = 4000;
+const MAX_TOASTS = 5;
 
 class ToastService {
-  private static instance: ToastService | null = null
+  private static instance: ToastService | null = null;
 
-  readonly toasts = ref<Toast[]>([])
+  readonly toasts = ref<Toast[]>([]);
 
   static getInstance(): ToastService {
     if (!ToastService.instance) {
-      ToastService.instance = new ToastService()
+      ToastService.instance = new ToastService();
     }
-    return ToastService.instance
+    return ToastService.instance;
   }
 
   show(message: string, type: ToastType = 'info', duration = DEFAULT_DURATION): string {
-    const id = crypto.randomUUID()
+    const id = crypto.randomUUID();
     const toast: Toast = {
       id,
       message,
       type,
       duration,
       createdAt: Date.now(),
-    }
+    };
 
-    this.toasts.value = [...this.toasts.value, toast].slice(-MAX_TOASTS)
+    this.toasts.value = [...this.toasts.value, toast].slice(-MAX_TOASTS);
 
     if (duration > 0) {
-      setTimeout(() => this.dismiss(id), duration)
+      setTimeout(() => this.dismiss(id), duration);
     }
 
-    return id
+    return id;
   }
 
   /**
@@ -59,7 +59,7 @@ class ToastService {
    * Обычно с кнопкой действия (например, «Перезагрузить»).
    */
   showPersistent(message: string, type: ToastType = 'info', action?: ToastAction): string {
-    const id = crypto.randomUUID()
+    const id = crypto.randomUUID();
     const toast: Toast = {
       id,
       message,
@@ -67,31 +67,31 @@ class ToastService {
       duration: 0,
       action,
       createdAt: Date.now(),
-    }
+    };
 
-    this.toasts.value = [...this.toasts.value, toast].slice(-MAX_TOASTS)
-    return id
+    this.toasts.value = [...this.toasts.value, toast].slice(-MAX_TOASTS);
+    return id;
   }
 
   success(message: string, duration?: number): string {
-    return this.show(message, 'success', duration)
+    return this.show(message, 'success', duration);
   }
 
   error(message: string, duration?: number): string {
-    return this.show(message, 'error', duration ?? 6000)
+    return this.show(message, 'error', duration ?? 6000);
   }
 
   info(message: string, duration?: number): string {
-    return this.show(message, 'info', duration)
+    return this.show(message, 'info', duration);
   }
 
   dismiss(id: string): void {
-    this.toasts.value = this.toasts.value.filter((t) => t.id !== id)
+    this.toasts.value = this.toasts.value.filter((t) => t.id !== id);
   }
 
   clear(): void {
-    this.toasts.value = []
+    this.toasts.value = [];
   }
 }
 
-export const toastService = ToastService.getInstance()
+export const toastService = ToastService.getInstance();

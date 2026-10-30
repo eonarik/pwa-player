@@ -1,6 +1,6 @@
 // src/test/audioMockState.ts
 
-import type { MockAudio } from './mockAudio'
+import type { MockAudio } from './mockAudio';
 
 /**
  * Разделяемое состояние мока Audio для тестов.
@@ -12,8 +12,8 @@ export const audioMockState = {
   urlCounter: 0,
 
   reset() {
-    this.instances.length = 0
-    this.revokedUrls.length = 0
-    this.urlCounter = 0
+    this.instances.length = 0;
+    this.revokedUrls.length = 0;
+    this.urlCounter = 0;
   },
-}
+};

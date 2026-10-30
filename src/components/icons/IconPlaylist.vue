@@ -1,4 +1,5 @@
 <!-- src/components/icons/IconPlaylist.vue -->
+
 <template>
   <svg
     viewBox="0 0 24 24"

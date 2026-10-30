@@ -1,143 +1,140 @@
 <!-- src/views/settings/SettingsData.vue -->
+
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useHistoryStore } from '@/stores/history'
-import { useDislikesStore } from '@/stores/dislikes'
-import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService'
-import { schemaService } from '@/services/persistence/SchemaService'
-import { backupService, type BackupDomain } from '@/services/backup/BackupService'
-import { toastService } from '@/services/ui/ToastService'
-import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService'
-import { downloadTextFile } from '@/utils/downloadFile'
-import { get as idbGet, del as idbDel } from 'idb-keyval'
-import { createStore } from 'idb-keyval'
-import SectionTitle from '@/components/ui/SectionTitle.vue'
-import Checkbox from '@/components/ui/Checkbox.vue'
-import Button from '@/components/ui/Button.vue'
-import SettingsActionRow from '@/components/ui/SettingsActionRow.vue'
+import { ref, computed } from 'vue';
+import { useHistoryStore } from '@/stores/history';
+import { useDislikesStore } from '@/stores/dislikes';
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService';
+import { schemaService } from '@/services/persistence/SchemaService';
+import { backupService, type BackupDomain } from '@/services/backup/BackupService';
+import { toastService } from '@/services/ui/ToastService';
+import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService';
+import { downloadTextFile } from '@/utils/downloadFile';
+import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Checkbox from '@/components/ui/Checkbox.vue';
+import Button from '@/components/ui/Button.vue';
+import SettingsActionRow from '@/components/ui/SettingsActionRow.vue';
+import { folderStatusService } from '@/services/folders/FolderStatusService';
 
-const history = useHistoryStore()
-const dislikes = useDislikesStore()
+const history = useHistoryStore();
+const dislikes = useDislikesStore();
 
-const fileInputRef = ref<HTMLInputElement | null>(null)
-const isExporting = ref(false)
-const isImporting = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const isExporting = ref(false);
+const isImporting = ref(false);
 
-const checkMedia = ref(true)
-const checkSources = ref(true)
-const checkSettings = ref(true)
+const checkMedia = ref(true);
+const checkSources = ref(true);
+const checkSettings = ref(true);
 
 const selectedDomains = computed<BackupDomain[]>(() => {
-  const list: BackupDomain[] = []
-  if (checkMedia.value) list.push('media')
-  if (checkSources.value) list.push('sources')
-  if (checkSettings.value) list.push('settings')
-  return list
-})
+  const list: BackupDomain[] = [];
+  if (checkMedia.value) list.push('media');
+  if (checkSources.value) list.push('sources');
+  if (checkSettings.value) list.push('settings');
+  return list;
+});
 
 // --- Очистка --------------------------------------------------------
 
 function clearHistory(): void {
-  if (!window.confirm('Очистить историю воспроизведения?')) return
-  history.clear()
-  toastService.success('История очищена')
+  if (!window.confirm('Очистить историю воспроизведения?')) return;
+  history.clear();
+  toastService.success('История очищена');
 }
 
 function clearDislikes(): void {
-  if (!window.confirm('Очистить список дизлайков?')) return
-  dislikes.clear()
-  toastService.success('Дизлайки очищены')
+  if (!window.confirm('Очистить список дизлайков?')) return;
+  dislikes.clear();
+  toastService.success('Дизлайки очищены');
 }
 
 function clearMetadataCache(): void {
-  if (!window.confirm('Очистить кэш метаданных?')) return
-  void metadataPersistenceService.clear()
-  toastService.success('Кэш метаданных очищен')
+  if (!window.confirm('Очистить кэш метаданных?')) return;
+  void metadataPersistenceService.clear();
+  toastService.success('Кэш метаданных очищен');
 }
 
 async function resetAll(): Promise<void> {
-  if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return
+  if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return;
 
-  // 1. Чистим токены Яндекса
-  yandexSelfService.logout()
-
-  // 2. Чистим IndexedDB (основное хранилище)
-  await schemaService.clearAll()
-
-  // 3. Чистим хранилище плагинов (cuei-plugins)
   try {
-    const pluginsStore = createStore('cuei-plugins', 'keyval')
-    const keys = await idbGet<IDBValidKey[]>('keys', pluginsStore)
-    if (keys && Array.isArray(keys)) {
-      for (const key of keys) {
-        await idbDel(key, pluginsStore)
-      }
-    }
+    // 0. Чистим статусы папок (in-memory + localStorage)
+    folderStatusService.clear();
+
+    // 1. Отключаем Яндекс ID
+    yandexSelfService.logout();
+
+    // 2. Чистим localStorage и sessionStorage
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 3. Пытаемся удалить основные базы IDB
+    await schemaService.clearAll();
+
+    // 4. Удаляем базу плагинов асинхронно, не блокируя UI
+    indexedDB.deleteDatabase('cuei-plugins');
   } catch (err) {
-    // Если базы cuei-plugins еще нет (например, плагины не активировались),
-    // idb-keyval выкинет NotFoundError. Это нормально — просто игнорируем.
-    console.warn('[resetAll] cuei-plugins store not found or empty', err)
+    console.error('[resetAll] failed to clear data', err);
+  } finally {
+    toastService.success('Данные сброшены. Перезагрузка...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   }
-
-  // 4. Чистим localStorage и sessionStorage
-  localStorage.clear()
-  sessionStorage.clear()
-
-  // 5. Перезагружаем страницу
-  location.reload()
 }
 
 // --- Экспорт / импорт -----------------------------------------------
 
 async function exportBackup(): Promise<void> {
-  if (isExporting.value) return
+  if (isExporting.value) return;
   if (selectedDomains.value.length === 0) {
-    toastService.error('Выберите, что скачать')
-    return
+    toastService.error('Выберите, что скачать');
+    return;
   }
-  isExporting.value = true
+  isExporting.value = true;
   try {
-    const backup = await backupService.exportAll(selectedDomains.value)
-    const filename = `cuei-backup-${backup.exportedAt.slice(0, 10)}.json`
-    downloadTextFile(filename, JSON.stringify(backup, null, 2), 'application/json')
-    toastService.success('Бэкап скачан')
+    const backup = await backupService.exportAll(selectedDomains.value);
+    const filename = `cuei-backup-${backup.exportedAt.slice(0, 10)}.json`;
+    downloadTextFile(filename, JSON.stringify(backup, null, 2), 'application/json');
+    toastService.success('Бэкап скачан');
   } catch (err) {
-    console.error('[settings] export failed', err)
-    toastService.error('Не удалось создать бэкап')
+    console.error('[settings] export failed', err);
+    toastService.error('Не удалось создать бэкап');
   } finally {
-    isExporting.value = false
+    isExporting.value = false;
   }
 }
 
 function triggerImport(): void {
   if (selectedDomains.value.length === 0) {
-    toastService.error('Выберите, что импортировать')
-    return
+    toastService.error('Выберите, что импортировать');
+    return;
   }
-  fileInputRef.value?.click()
+  fileInputRef.value?.click();
 }
 
 async function onFileSelected(e: Event): Promise<void> {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
 
   if (!window.confirm('Импорт перезапишет выбранные разделы. Продолжить?')) {
-    target.value = ''
-    return
+    target.value = '';
+    return;
   }
 
-  isImporting.value = true
+  isImporting.value = true;
   try {
-    const text = await file.text()
-    const parsed = JSON.parse(text)
-    await backupService.importAll(parsed, selectedDomains.value)
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    await backupService.importAll(parsed, selectedDomains.value);
   } catch (err) {
-    console.error('[settings] import failed', err)
-    toastService.error(err instanceof Error ? err.message : 'Не удалось импортировать бэкап')
+    console.error('[settings] import failed', err);
+    toastService.error(err instanceof Error ? err.message : 'Не удалось импортировать бэкап');
   } finally {
-    isImporting.value = false
-    target.value = ''
+    isImporting.value = false;
+    target.value = '';
   }
 }
 </script>
@@ -160,13 +157,21 @@ async function onFileSelected(e: Event): Promise<void> {
           </div>
 
           <div class="mt-2 flex flex-col gap-2 sm:flex-row">
-            <Button variant="secondary" class="flex-1" :disabled="isExporting || selectedDomains.length === 0"
-              @click="exportBackup">
+            <Button
+              variant="secondary"
+              class="flex-1"
+              :disabled="isExporting || selectedDomains.length === 0"
+              @click="exportBackup"
+            >
               {{ isExporting ? 'Скачивание…' : 'Скачать бэкап' }}
             </Button>
 
-            <Button variant="primary" class="flex-1" :disabled="isImporting || selectedDomains.length === 0"
-              @click="triggerImport">
+            <Button
+              variant="primary"
+              class="flex-1"
+              :disabled="isImporting || selectedDomains.length === 0"
+              @click="triggerImport"
+            >
               {{ isImporting ? 'Импорт…' : 'Импортировать бэкап' }}
             </Button>
           </div>
@@ -179,18 +184,28 @@ async function onFileSelected(e: Event): Promise<void> {
     <section>
       <SectionTitle text="Очистка" />
       <div class="flex flex-col gap-2">
-        <SettingsActionRow title="Очистить историю" description="Удалить все записи о воспроизведении"
-          @click="clearHistory" />
+        <SettingsActionRow
+          title="Очистить историю"
+          description="Удалить все записи о воспроизведении"
+          @click="clearHistory"
+        />
         <SettingsActionRow title="Очистить дизлайки" description="Удалить все скрытые треки" @click="clearDislikes" />
-        <SettingsActionRow title="Очистить кэш метаданных" description="Найденные обложки и метаданные будут забыты"
-          @click="clearMetadataCache" />
+        <SettingsActionRow
+          title="Очистить кэш метаданных"
+          description="Найденные обложки и метаданные будут забыты"
+          @click="clearMetadataCache"
+        />
       </div>
     </section>
 
     <section>
       <SectionTitle text="Опасная зона" />
-      <SettingsActionRow variant="danger" title="Сбросить все данные"
-        description="Библиотека, плейлисты, история, настройки. Необратимо." @click="resetAll" />
+      <SettingsActionRow
+        variant="danger"
+        title="Сбросить все данные"
+        description="Библиотека, плейлисты, история, настройки. Необратимо."
+        @click="resetAll"
+      />
     </section>
   </div>
 </template>
