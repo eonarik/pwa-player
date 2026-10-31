@@ -1,25 +1,58 @@
 <!-- src/views/AlbumsView.vue -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
+import { useCollectionView } from '@/composables/useCollectionView';
 import { pluralize } from '@/utils/pluralize';
 import { compareStrings } from '@/utils/sort';
 import { toastService } from '@/services/ui/ToastService';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
+import CoverImage from '@/components/ui/CoverImage.vue';
+import VirtualGrid from '@/components/ui/VirtualGrid.vue';
+import AlphabetIndex from '@/components/ui/AlphabetIndex.vue';
+import ViewToggle from '@/components/ui/ViewToggle.vue';
+import SearchInput from '@/components/ui/SearchInput.vue';
 import type { Album } from '@/types/album';
 
+const router = useRouter();
 const library = useLibraryStore();
 const player = usePlayerStore();
 
+const query = computed({
+  get: () => searchQuery.value,
+  set: (v) => (searchQuery.value = v),
+});
+const searchQuery = ref('');
+
 const allAlbums = computed(() => {
-  return Object.values(library.albums).sort((a, b) => compareStrings(a.name, b.name));
+  return Object.values(library.albums)
+    .filter(
+      (a) =>
+        !searchQuery.value ||
+        a.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        a.artist.toLowerCase().includes(searchQuery.value.toLowerCase()),
+    )
+    .sort((a, b) => compareStrings(a.name, b.name));
 });
 
-function playAlbum(albumId: string) {
+const { viewMode, gridRef, setItems, sections, letters, onLetterSelect } = useCollectionView<Album>({
+  storageKey: 'albums:viewMode',
+  getGroupKey: (album) => {
+    const artist = album.artist || 'Неизвестный исполнитель';
+    return artist.charAt(0).toUpperCase();
+  },
+  sortItems: (a, b) => compareStrings(a.name, b.name),
+});
+
+watch(allAlbums, (val) => setItems(val), { immediate: true });
+
+function playAlbum(albumId: string, e: Event) {
+  e.stopPropagation();
   const ids = library.tracksByAlbumId[albumId as never] ?? [];
   const tracks = ids
     .map((id) => library.getTrack(id))
@@ -39,7 +72,8 @@ function isAlbumEmpty(album: Album): boolean {
   return !ids || ids.length === 0;
 }
 
-function deleteAlbum(album: Album) {
+function deleteAlbum(album: Album, e: Event) {
+  e.stopPropagation();
   if (!isAlbumEmpty(album)) return;
 
   const confirmed = window.confirm(`Удалить пустой альбом «${album.name}»?`);
@@ -49,81 +83,98 @@ function deleteAlbum(album: Album) {
   writer.removeAlbum(album.id);
   toastService.success(`Альбом «${album.name}» удалён`);
 }
+
+function goToAlbum(album: Album) {
+  router.push({ name: 'album', params: { artistName: album.artist, album: album.id } });
+}
 </script>
 
 <template>
-  <div class="flex h-full flex-col overflow-hidden">
+  <div class="flex h-full flex-col overflow-hidden relative">
     <PageHeader
       title="Альбомы"
       :subtitle="pluralize(allAlbums.length, ['альбом', 'альбома', 'альбомов'])"
-      max-width="lg"
-    />
+      max-width="md"
+    >
+      <div class="flex items-center gap-3">
+        <SearchInput v-model="query" always-open placeholder="Поиск..." class="w-48" />
+        <ViewToggle v-model="viewMode" />
+      </div>
+    </PageHeader>
 
-    <div class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-5xl py-4">
-        <EmptyState v-if="allAlbums.length === 0" title="Альбомов пока нет">
-          <template #icon>
-            <Icon name="playlist" w="w-10" h="h-10" />
-          </template>
-        </EmptyState>
+    <div class="flex-1 relative overflow-hidden">
+      <EmptyState v-if="allAlbums.length === 0" title="Альбомов пока нет">
+        <template #icon>
+          <Icon name="playlist" w="w-10" h="h-10" />
+        </template>
+      </EmptyState>
 
-        <div
-          v-else
-          class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-5 lg:grid-cols-5 lg:gap-6 px-4"
-        >
-          <div v-for="album in allAlbums" :key="album.id" class="group relative">
-            <div class="relative aspect-square overflow-hidden bg-card-bg">
-              <img
-                v-if="album.coverUrl"
+      <VirtualGrid
+        v-else
+        ref="gridRef"
+        :sections="sections"
+        :mode="viewMode"
+        :min-column-width="150"
+        :aspect-ratio="1.2"
+        :forced-columns="4"
+        :section-gap="16"
+        max-width="md"
+        class="h-full"
+      >
+        <template #item="{ item: album, mode }">
+          <div
+            class="group relative flex cursor-pointer rounded-btn transition"
+            :class="[
+              mode === 'list' ? 'flex-row items-center gap-3 p-1 hover:bg-hover-bg' : 'flex-col hover:opacity-90',
+            ]"
+            @click="goToAlbum(album)"
+          >
+            <div
+              class="relative overflow-hidden bg-card-bg"
+              :class="mode === 'list' ? 'h-9 w-9 shrink-0 rounded-btn' : 'aspect-square w-full rounded-card'"
+            >
+              <CoverImage
                 :src="album.coverUrl"
                 :alt="album.name"
-                class="h-full w-full object-cover transition group-hover:scale-105"
-                loading="lazy"
+                fallback-icon-class="w-8 h-8"
+                class="transition group-hover:scale-105"
               />
-              <div v-else class="flex h-full w-full items-center justify-center">
-                <Icon name="playlist" w="w-12" h="h-12" class="text-fg-subtle" />
-              </div>
-
-              <!-- Играть (только если не пуст) -->
+              <!-- Play/Delete buttons (только в grid) -->
               <button
-                v-if="!isAlbumEmpty(album)"
                 type="button"
-                class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
-                :aria-label="`Играть альбом ${album.name}`"
-                @click.prevent.stop="playAlbum(album.id)"
+                class="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
+                :class="mode === 'list' ? 'hidden' : ''"
+                @click="(e) => playAlbum(album.id, e)"
               >
-                <Icon name="play" w="w-5" h="h-5" class="translate-x-[1px]" />
+                <Icon name="play" w="w-4" h="w-4" class="translate-x-[1px]" />
               </button>
-
-              <!-- Удалить (только пустой) -->
               <button
                 v-if="isAlbumEmpty(album)"
                 type="button"
                 class="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg/80 text-red-400 opacity-100 shadow-lg transition hover:bg-red-500/20 md:opacity-0 md:group-hover:opacity-100"
-                :aria-label="`Удалить пустой альбом ${album.name}`"
-                :title="`Удалить пустой альбом «${album.name}»`"
-                @click.prevent.stop="deleteAlbum(album)"
+                :class="mode === 'list' ? 'hidden' : ''"
+                @click="(e) => deleteAlbum(album, e)"
               >
                 <Icon name="trash" w="w-4" h="h-4" />
               </button>
             </div>
 
-            <div class="mt-2 min-w-0">
-              <!-- album: album.id (было album.name.toLowerCase().replace(...)) -->
-              <RouterLink
-                :to="{ name: 'album', params: { artistName: album.artist, album: album.id } }"
-                class="line-clamp-2 text-sm font-medium text-fg transition hover:text-active"
+            <div class="min-w-0 w-full" :class="mode === 'list' ? 'flex-1 text-left' : 'mt-2 text-left'">
+              <p
+                class="text-sm font-medium leading-[1.2] text-fg break-words transition hover:text-active"
                 :title="album.name"
               >
                 {{ album.name }}
-              </RouterLink>
-              <p class="line-clamp-2 text-xs text-fg-muted" :title="album.artist">
+              </p>
+              <p class="text-xs leading-[1.2] text-fg-muted break-words mt-0.5" :title="album.artist">
                 {{ album.artist }}
               </p>
             </div>
           </div>
-        </div>
-      </div>
+        </template>
+      </VirtualGrid>
+
+      <AlphabetIndex v-if="allAlbums.length > 0" :letters="letters" @select="onLetterSelect" />
     </div>
   </div>
 </template>

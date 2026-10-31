@@ -12,6 +12,7 @@ import IconRepeat from './IconRepeat.vue';
 import IconVolume from './IconVolume.vue';
 import IconVolumeMute from './IconVolumeMute.vue';
 import IconList from './IconList.vue';
+import IconListPlay from './IconListPlay.vue';
 import IconSettings from './IconSettings.vue';
 import IconRefresh from './IconRefresh.vue';
 import IconDownload from './IconDownload.vue';
@@ -47,6 +48,7 @@ import IconMenu from './IconMenu.vue';
 import IconFeedback from './IconFeedback.vue';
 import IconAlertTriangle from './IconAlertTriangle.vue';
 import IconWarning from './IconWarning.vue';
+import IconGrid from './IconGrid.vue';
 
 export const ICONS: Record<string, Component> = {
   x: IconX,
@@ -59,6 +61,7 @@ export const ICONS: Record<string, Component> = {
   volume: IconVolume,
   'volume-mute': IconVolumeMute,
   list: IconList,
+  'list-play': IconListPlay,
   settings: IconSettings,
   refresh: IconRefresh,
   download: IconDownload,
@@ -94,6 +97,7 @@ export const ICONS: Record<string, Component> = {
   feedback: IconFeedback,
   'alert-triangle': IconAlertTriangle,
   warning: IconWarning,
+  grid: IconGrid,
 };
 
 export type IconName = keyof typeof ICONS;

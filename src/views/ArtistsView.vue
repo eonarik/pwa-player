@@ -1,21 +1,24 @@
 <!-- src/views/ArtistsView.vue -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLibraryStore } from '@/stores/library';
 import { useUiSettingsStore } from '@/stores/uiSettings';
+import { useCollectionView } from '@/composables/useCollectionView';
 import { pluralize } from '@/utils/pluralize';
 import { compareStrings } from '@/utils/sort';
 import { fuzzyMatch } from '@/utils/fuzzyMatch';
 import { layoutVariants } from '@/utils/layout';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
-import ListContainer from '@/components/ui/ListContainer.vue';
-import ListRow from '@/components/ui/ListRow.vue';
 import Icon from '@/components/ui/Icon.vue';
+import CoverImage from '@/components/ui/CoverImage.vue';
 import Checkbox from '@/components/ui/Checkbox.vue';
 import SearchInput from '@/components/ui/SearchInput.vue';
+import VirtualGrid from '@/components/ui/VirtualGrid.vue';
+import AlphabetIndex from '@/components/ui/AlphabetIndex.vue';
+import ViewToggle from '@/components/ui/ViewToggle.vue';
 import type { Track } from '@/types/track';
 
 const router = useRouter();
@@ -113,13 +116,21 @@ const filteredArtists = computed(() => {
   return list;
 });
 
+const { viewMode, setItems, sections, letters, onLetterSelect } = useCollectionView<ArtistGroup>({
+  storageKey: 'artists:viewMode',
+  getGroupKey: (artist) => artist.name.charAt(0).toUpperCase(),
+  sortItems: (a, b) => compareStrings(a.name, b.name),
+});
+
+watch(filteredArtists, (val) => setItems(val), { immediate: true });
+
 function openArtist(artist: ArtistGroup) {
   router.push({ name: 'artist', params: { artistName: artist.name } });
 }
 </script>
 
 <template>
-  <div class="flex h-full flex-col overflow-hidden">
+  <div class="flex h-full flex-col overflow-hidden relative">
     <PageHeader
       title="Исполнители"
       :subtitle="pluralize(filteredArtists.length, ['исполнитель', 'исполнителя', 'исполнителей'])"
@@ -129,55 +140,67 @@ function openArtist(artist: ArtistGroup) {
         <div class="bg-card-bg px-3 py-1.5 rounded-btn shrink-0">
           <Checkbox v-model="onlyWithAlbums" label="Только с альбомами" />
         </div>
+        <ViewToggle v-model="viewMode" />
       </div>
     </PageHeader>
 
-    <div class="flex-1 overflow-y-auto">
-      <div class="mx-auto w-full max-w-3xl p-2">
-        <EmptyState
-          v-if="filteredArtists.length === 0"
-          :title="query ? 'Ничего не найдено' : 'Исполнителей не найдено'"
-        >
-          <template #icon>
-            <Icon :name="query ? 'search' : 'artist'" w="w-10" h="h-10" />
-          </template>
-        </EmptyState>
+    <div class="flex-1 relative overflow-hidden">
+      <EmptyState v-if="filteredArtists.length === 0" :title="query ? 'Ничего не найдено' : 'Исполнителей не найдено'">
+        <template #icon>
+          <Icon :name="query ? 'search' : 'artist'" w="w-10" h="h-10" />
+        </template>
+      </EmptyState>
 
-        <ListContainer v-else max-width="lg">
-          <ListRow v-for="artist in filteredArtists" :key="artist.key" @click="openArtist(artist)">
-            <template #leading>
-              <div
-                class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card-bg"
-              >
-                <img
-                  v-if="artist.coverUrl"
-                  :src="artist.coverUrl"
-                  :alt="artist.name"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                />
-                <Icon v-else name="artist" w="w-5" h="h-5" class="text-fg-muted" />
-              </div>
-            </template>
-            <template #title>
-              <p class="truncate text-sm font-medium">{{ artist.name }}</p>
-            </template>
-            <template #subtitle>
-              <p class="truncate text-xs text-fg-muted">
+      <VirtualGrid
+        v-else
+        ref="gridRef"
+        :sections="sections"
+        :mode="viewMode"
+        :min-column-width="150"
+        :aspect-ratio="1.2"
+        :forced-columns="4"
+        :section-gap="16"
+        max-width="md"
+        class="h-full"
+      >
+        <template #item="{ item: artist, mode }">
+          <div
+            class="group cursor-pointer rounded-btn transition"
+            :class="[
+              mode === 'list'
+                ? 'flex flex-row items-center gap-3 p-1 hover:bg-hover-bg'
+                : 'flex flex-col items-center hover:opacity-90',
+            ]"
+            @click="openArtist(artist)"
+          >
+            <div
+              class="relative flex shrink-0 items-center justify-center overflow-hidden bg-card-bg"
+              :class="mode === 'list' ? 'h-9 w-9 rounded-full' : 'w-full aspect-square rounded-full'"
+            >
+              <CoverImage
+                :src="artist.coverUrl"
+                :alt="artist.name"
+                fallback-icon-class="w-8 h-8"
+                class="transition group-hover:scale-105"
+              />
+            </div>
+
+            <div class="min-w-0 w-full" :class="mode === 'list' ? 'flex-1 text-left' : 'mt-2 text-center'">
+              <p class="text-sm font-medium leading-[1.2] text-fg break-words" :title="artist.name">
+                {{ artist.name }}
+              </p>
+              <p class="text-xs leading-[1.2] text-fg-muted mt-0.5">
                 {{ pluralize(artist.tracks.length, ['трек', 'трека', 'треков']) }}
                 <template v-if="artist.albumsCount > 0">
-                  · {{ pluralize(artist.albumsCount, ['альбом', 'альбома', 'альбомов']) }}</template
-                >
+                  · {{ pluralize(artist.albumsCount, ['альбом', 'альбома', 'альбомов']) }}
+                </template>
               </p>
-            </template>
-            <template #trailing>
-              <div class="shrink-0 text-fg-subtle transition hover:text-fg" aria-hidden="true">
-                <Icon name="chevron-right" w="w-4" h="h-4" />
-              </div>
-            </template>
-          </ListRow>
-        </ListContainer>
-      </div>
+            </div>
+          </div>
+        </template>
+      </VirtualGrid>
+
+      <AlphabetIndex v-if="!query" :letters="letters" @select="onLetterSelect" />
     </div>
   </div>
 </template>

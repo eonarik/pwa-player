@@ -65,7 +65,7 @@ function itemKey(track: Track, index: number): string {
     <template #empty>
       <EmptyState title="Очередь пуста" description="Запустите трек или папку — они появятся здесь">
         <template #icon>
-          <Icon name="list" w="w-10" h="w-10" />
+          <Icon name="list-play" w="w-10" h="w-10" />
         </template>
       </EmptyState>
     </template>

@@ -2,14 +2,11 @@
 
 import type { Track } from '@/types/track';
 
-/**
- * Для персистентности плеера мы сохраняем Track как есть.
- * (FileSystemFileHandle в sources[].handle — idb-keyval умеет.)
- */
 export type PersistedTrack = Track;
 
 export interface PersistedState {
   tracks: PersistedTrack[];
+  originalTracks?: PersistedTrack[];
   currentIndex: number;
   volume: number;
   muted: boolean;

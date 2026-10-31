@@ -15,6 +15,7 @@ import { createPlayerActions } from './actions';
 
 export const usePlayerStore = defineStore('player', () => {
   const queue = ref<Track[]>([]);
+  const originalQueue = ref<Track[]>([]); // Добавлено для фикса шафла
   const currentIndex = ref(-1);
   const isPlaying = ref(false);
   const duration = ref(0);
@@ -32,6 +33,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   const persistence = createPlayerPersistence({
     queue,
+    originalQueue,
     currentIndex,
     currentTime,
     volume,
@@ -46,6 +48,7 @@ export const usePlayerStore = defineStore('player', () => {
   const actions = createPlayerActions(
     {
       queue,
+      originalQueue,
       currentIndex,
       currentTrack,
       isPlaying,
@@ -110,6 +113,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (!restored) return false;
 
     queue.value = restored.tracks;
+    originalQueue.value = restored.originalTracks || restored.tracks;
     currentIndex.value = restored.currentIndex;
     currentTrack.value = restored.tracks[restored.currentIndex] ?? null;
     volume.value = restored.volume;
@@ -120,7 +124,6 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.setVolume(restored.volume);
     audioService.setMuted(restored.muted);
 
-    // Явно указываем (t: number)
     await applyRestoredPlayback(restored.tracks, restored.currentIndex, (t: number) => {
       currentTime.value = Math.round(t * 10) / 10;
     });
@@ -130,15 +133,23 @@ export const usePlayerStore = defineStore('player', () => {
 
   function updateTrackInQueue(trackId: TrackId): void {
     const idx = queue.value.findIndex((t) => t.id === trackId);
-    if (idx === -1) return;
+    if (idx !== -1) {
+      const libTrack = useLibraryStore().getTrack(trackId);
+      if (libTrack) {
+        queue.value[idx] = { ...queue.value[idx]!, ...libTrack };
+        if (currentIndex.value === idx) {
+          currentTrack.value = queue.value[idx]!;
+        }
+      }
+    }
 
-    const libTrack = useLibraryStore().getTrack(trackId);
-    if (!libTrack) return;
-
-    queue.value[idx] = { ...queue.value[idx]!, ...libTrack };
-
-    if (currentIndex.value === idx) {
-      currentTrack.value = queue.value[idx]!;
+    // Обновляем и originalQueue, чтобы при выключении шафла данные были актуальны
+    const origIdx = originalQueue.value.findIndex((t) => t.id === trackId);
+    if (origIdx !== -1) {
+      const libTrack = useLibraryStore().getTrack(trackId);
+      if (libTrack) {
+        originalQueue.value[origIdx] = { ...originalQueue.value[origIdx]!, ...libTrack };
+      }
     }
   }
 
@@ -150,6 +161,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     queue,
+    originalQueue,
     currentIndex,
     currentTrack,
     isPlaying,

@@ -8,6 +8,7 @@ import type { Track } from '@/types/track';
 
 export interface PlayerPersistenceRefs {
   queue: Ref<Track[]>;
+  originalQueue: Ref<Track[]>;
   currentIndex: Ref<number>;
   currentTime: Ref<number>;
   volume: Ref<number>;
@@ -17,7 +18,6 @@ export interface PlayerPersistenceRefs {
   currentTrack: Ref<Track | null>;
 }
 
-// Утилита для глубокого снятия Proxy
 function deepToRaw<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
   if (obj instanceof Date) return obj;
@@ -43,14 +43,15 @@ export interface PlayerPersistence {
 }
 
 export function createPlayerPersistence(refs: PlayerPersistenceRefs): PlayerPersistence {
-  const { queue, currentIndex, currentTime, volume, muted, repeatMode, shuffle, currentTrack } = refs;
+  const { queue, originalQueue, currentIndex, currentTime, volume, muted, repeatMode, shuffle, currentTrack } = refs;
 
   function buildState(): PersistedState {
-    // Используем deepToRaw, чтобы structuredClone не падал на Proxy
     const safeTracks = deepToRaw(queue.value);
+    const safeOriginalTracks = deepToRaw(originalQueue.value);
 
     return {
       tracks: safeTracks,
+      originalTracks: safeOriginalTracks,
       currentIndex: currentIndex.value,
       volume: volume.value,
       muted: muted.value,

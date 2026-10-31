@@ -208,7 +208,7 @@ watch(
               :class="repeatMode !== 'off' ? 'text-active' : ''"
               @click="player.cycleRepeat()"
             />
-            <IconButton icon="list" variant="ghost" :to="{ name: 'queue' }" label="Очередь" @click="emit('close')" />
+            <IconButton icon="list-play" variant="ghost" :to="{ name: 'queue' }" label="Очередь" @click="emit('close')" />
           </div>
         </div>
 

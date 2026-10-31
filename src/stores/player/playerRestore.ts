@@ -9,6 +9,7 @@ import type { Track } from '@/types/track';
 
 export interface RestoredPlayerState {
   tracks: Track[];
+  originalTracks: Track[];
   currentIndex: number;
   volume: number;
   muted: boolean;
@@ -23,6 +24,7 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
   const tracks = await restoreTracks(state.tracks);
   if (tracks.length === 0) return null;
 
+  const originalTracks = state.originalTracks ? await restoreTracks(state.originalTracks) : tracks;
   const library = useLibraryStore();
 
   for (const track of tracks) {
@@ -33,11 +35,17 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
     }
   }
 
-  // ФИЛЬТРУЕМ МЕРТВЫЕ ТРЕКИ (без источников)
+  for (const track of originalTracks) {
+    const libTrack = library.getTrack(track.id);
+    if (!libTrack) continue;
+    if (track.sources.length === 0 && libTrack.sources.length > 0) {
+      track.sources = libTrack.sources;
+    }
+  }
+
   const validTracks = tracks.filter((t) => t.sources.length > 0);
   if (validTracks.length === 0) return null;
 
-  // Корректируем индекс
   let newIndex = state.currentIndex;
   if (newIndex >= validTracks.length) {
     newIndex = validTracks.length - 1;
@@ -45,6 +53,7 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
 
   return {
     tracks: validTracks,
+    originalTracks: originalTracks.filter((t) => t.sources.length > 0),
     currentIndex: newIndex,
     volume: state.volume,
     muted: state.muted,

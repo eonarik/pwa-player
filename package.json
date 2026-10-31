@@ -1,6 +1,6 @@
 {
   "name": "cuei-player",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -24,6 +24,8 @@
   "dependencies": {
     "@module-federation/enhanced": "^2.9.2",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/vue-virtual": "^3.13.50",
+    "@vueuse/core": "^15.0.0",
     "buffer": "^6.0.3",
     "hls.js": "^1.7.3",
     "idb-keyval": "^6.3.0",

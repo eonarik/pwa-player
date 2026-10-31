@@ -196,7 +196,7 @@ function onVolumeInput(e: Event) {
       </div>
 
       <div class="flex items-center justify-end gap-1 pr-6">
-        <IconButton icon="list" variant="ghost" :to="{ name: 'queue' }" label="Очередь" />
+        <IconButton icon="list-play" variant="ghost" :to="{ name: 'queue' }" label="Очередь" />
 
         <div class="group/vol relative flex items-center">
           <IconButton
