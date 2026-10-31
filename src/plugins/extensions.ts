@@ -10,27 +10,12 @@ interface LoadedExtension {
   pluginId: string;
   menuItems: PluginMenuItem[];
   routes: RouteRecordRaw[];
-  settingsSchema: PluginSettingsSchema | null;
+  getSettings: (() => PluginSettingsSchema | Promise<PluginSettingsSchema>) | null;
   runSettingsAction: ((id: string, payload?: unknown) => void | Promise<void>) | null;
   collectionActions: PluginCollectionAction[];
 }
 
 let extensions: LoadedExtension[] = [];
-
-async function loadSettingsSchema(
-  manifest: PluginManifest,
-  extensionGetSettings: (() => PluginSettingsSchema | Promise<PluginSettingsSchema>) | null,
-): Promise<PluginSettingsSchema | null> {
-  const getter = extensionGetSettings ?? manifest.getSettings;
-  if (!getter) return null;
-
-  try {
-    return await getter();
-  } catch (err) {
-    console.error(`[extensions] failed to load settings for ${manifest.id}`, err);
-    return null;
-  }
-}
 
 export async function loadExtensions(): Promise<void> {
   extensions = [];
@@ -56,18 +41,20 @@ export async function loadExtensions(): Promise<void> {
       }
     }
 
-    const settingsSchema = await loadSettingsSchema(manifest, ext?.getSettings ?? null);
+    // Приоритет: extension.getSettings -> manifest.getSettings
+    const getter = ext?.getSettings ?? manifest.getSettings;
 
-    if (!ext && !settingsSchema) continue;
-
-    extensions.push({
-      pluginId: manifest.id,
-      menuItems: ext?.menuItems ?? [],
-      routes: ext?.routes ?? [],
-      settingsSchema,
-      runSettingsAction: manifest.runSettingsAction ?? null,
-      collectionActions: ext?.collectionActions ?? [],
-    });
+    // Если есть расширение или геттер настроек — сохраняем
+    if (ext || getter) {
+      extensions.push({
+        pluginId: manifest.id,
+        menuItems: ext?.menuItems ?? [],
+        routes: ext?.routes ?? [],
+        getSettings: getter ?? null,
+        runSettingsAction: manifest.runSettingsAction ?? null,
+        collectionActions: ext?.collectionActions ?? [],
+      });
+    }
   }
 }
 
@@ -86,28 +73,19 @@ export function getCollectionActions(): PluginCollectionAction[] {
   return extensions.flatMap((e) => e.collectionActions);
 }
 
-/** Все схемы настроек от плагинов */
-export function getExtensionSettings(): Array<{
-  pluginId: string;
-  schema: PluginSettingsSchema;
-  runAction: LoadedExtension['runSettingsAction'];
-}> {
-  return extensions
-    .filter((e) => e.settingsSchema !== null)
-    .map((e) => ({
-      pluginId: e.pluginId,
-      schema: e.settingsSchema!,
-      runAction: e.runSettingsAction,
-    }));
-}
-
+/**
+ * Все схемы настроек от плагинов.
+ *
+ * ВАЖНО: перезапрашивает `getSettings()` каждый раз, чтобы подтянуть
+ * актуальные данные (например, список добавленных локальных папок).
+ */
 export interface PluginSettingsEntry {
   manifest: PluginManifest;
   schema: PluginSettingsSchema;
   runAction: ((id: string, payload?: unknown) => void | Promise<void>) | null;
 }
 
-export function getAllSettingsSchemas(): PluginSettingsEntry[] {
+export async function getAllSettingsSchemas(): Promise<PluginSettingsEntry[]> {
   const result: PluginSettingsEntry[] = [];
 
   for (const manifest of getPlugins()) {
@@ -116,14 +94,18 @@ export function getAllSettingsSchemas(): PluginSettingsEntry[] {
     }
 
     const ext = extensions.find((e) => e.pluginId === manifest.id);
-    const schema = ext?.settingsSchema ?? null;
-    if (!schema) continue;
+    if (!ext?.getSettings) continue;
 
-    result.push({
-      manifest,
-      schema,
-      runAction: ext?.runSettingsAction ?? manifest.runSettingsAction ?? null,
-    });
+    try {
+      const schema = await ext.getSettings();
+      result.push({
+        manifest,
+        schema,
+        runAction: ext.runSettingsAction,
+      });
+    } catch (err) {
+      console.error(`[extensions] failed to load settings for ${manifest.id}`, err);
+    }
   }
 
   return result;

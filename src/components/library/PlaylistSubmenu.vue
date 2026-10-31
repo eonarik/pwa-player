@@ -4,6 +4,7 @@
 import { ref, computed, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaylistsStore } from '@/stores/playlists';
+import { toastService } from '@/services/ui/ToastService';
 import { FAVORITES_PLAYLIST_ID } from '@/types/collection';
 import type { PlaylistId } from '@/types/ids';
 import Icon from '@/components/ui/Icon.vue';
@@ -36,19 +37,57 @@ watch(
 
 const userPlaylists = computed(() => playlists.sortedPlaylists.filter((p) => p.id !== FAVORITES_PLAYLIST_ID));
 
-function closeMenu() {
-  emit('close');
+function isTrackInPlaylist(playlistId: PlaylistId): boolean {
+  if (props.tracks.length === 0) return false;
+  const playlist = playlists.getPlaylist(playlistId);
+  if (!playlist) return false;
+
+  if (props.tracks.length === 1) {
+    return playlist.trackIds.includes(props.tracks[0]!.id);
+  }
+
+  return props.tracks.every((t) => playlist.trackIds.includes(t.id));
 }
 
-async function addToPlaylist(playlistId: PlaylistId) {
+async function togglePlaylist(playlistId: PlaylistId) {
   if (props.tracks.length === 0) return;
-  await playlists.addTracksToPlaylist(playlistId, props.tracks);
-  closeMenu();
+
+  const playlist = playlists.getPlaylist(playlistId);
+  if (!playlist) return;
+
+  const isInPlaylist = isTrackInPlaylist(playlistId);
+
+  if (isInPlaylist) {
+    // Удаляем
+    if (props.tracks.length === 1) {
+      playlists.removeTrackFromPlaylist(playlistId, props.tracks[0]!.id);
+      toastService.success(`Удалено из «${playlist.name}»`);
+    } else {
+      // Если добавляли пачку, и они все там — удаляем все
+      for (const track of props.tracks) {
+        playlists.removeTrackFromPlaylist(playlistId, track.id);
+      }
+      toastService.success(`Удалено ${props.tracks.length} треков из «${playlist.name}»`);
+    }
+  } else {
+    // Добавляем
+    const addedCount = await playlists.addTracksToPlaylist(playlistId, props.tracks);
+    if (addedCount > 0) {
+      if (props.tracks.length === 1) {
+        toastService.success(`Добавлено в «${playlist.name}»`);
+      } else {
+        toastService.success(`Добавлено треков: ${addedCount} в «${playlist.name}»`);
+      }
+    } else {
+      toastService.info('Все выбранные треки уже в этом плейлисте');
+    }
+  }
+  // Меню не закрываем
 }
 
 function goToPlaylist(playlistId: PlaylistId, e: Event) {
   e.stopPropagation();
-  closeMenu();
+  emit('close');
   router.push({ name: 'playlist', params: { id: playlistId } });
 }
 
@@ -59,14 +98,19 @@ async function startCreate() {
   inputRef.value?.focus();
 }
 
-function confirmCreate() {
+async function confirmCreate() {
   const name = newPlaylistName.value.trim();
   if (!name) return;
   const id = playlists.createPlaylist(name);
   if (props.tracks.length > 0) {
-    void playlists.addTracksToPlaylist(id, props.tracks);
+    await playlists.addTracksToPlaylist(id, props.tracks);
   }
-  closeMenu();
+
+  const playlist = playlists.getPlaylist(id);
+  if (playlist) toastService.success(`Создан плейлист «${playlist.name}»`);
+
+  isCreatingNew.value = false;
+  newPlaylistName.value = '';
 }
 
 function cancelCreate() {
@@ -92,12 +136,22 @@ function cancelCreate() {
         <div v-for="p in userPlaylists" :key="p.id" class="group flex items-center">
           <button
             type="button"
-            class="block flex-1 truncate px-6 py-2 text-left text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
-            v-tooltip="`Добавить трек в ${p.name}`"
-            @click="addToPlaylist(p.id)"
+            class="flex flex-1 items-center gap-2 truncate px-4 py-2 text-left text-sm transition"
+            :class="
+              isTrackInPlaylist(p.id)
+                ? 'text-active hover:bg-hover-bg'
+                : 'text-fg-muted hover:bg-hover-bg hover:text-fg'
+            "
+            v-tooltip="isTrackInPlaylist(p.id) ? `Удалить из ${p.name}` : `Добавить в ${p.name}`"
+            @click="togglePlaylist(p.id)"
           >
-            {{ p.name }}
+            <!-- Галочка слева -->
+            <div class="flex w-4 shrink-0 items-center justify-center">
+              <Icon v-if="isTrackInPlaylist(p.id)" name="check" w="w-3.5" h="h-3.5" />
+            </div>
+            <span class="truncate">{{ p.name }}</span>
           </button>
+
           <button
             type="button"
             class="px-3 py-2 text-fg-subtle hover:text-active opacity-0 group-hover:opacity-100 transition"
@@ -116,7 +170,7 @@ function cancelCreate() {
       <button
         v-if="!isCreatingNew"
         type="button"
-        class="block w-full px-6 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
+        class="block w-full px-4 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
         @click="startCreate"
       >
         + Создать новый

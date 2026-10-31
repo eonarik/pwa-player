@@ -12,8 +12,8 @@ import type { PluginManifest } from '@/plugins/types';
 const pluginSchemas = ref<PluginSettingsEntry[]>([]);
 const isPluginActionRunning = ref(false);
 
-function loadPluginSchemas(): void {
-  pluginSchemas.value = getAllSettingsSchemas();
+async function loadPluginSchemas(): Promise<void> {
+  pluginSchemas.value = await getAllSettingsSchemas();
 }
 
 async function onPluginAction(
@@ -33,7 +33,7 @@ async function onPluginAction(
     toastService.error('Не удалось выполнить действие');
   } finally {
     isPluginActionRunning.value = false;
-    loadPluginSchemas();
+    await loadPluginSchemas();
   }
 }
 
@@ -67,8 +67,8 @@ function handleActivation(): void {
   <div class="flex flex-col gap-6">
     <section v-if="pluginSchemas.length > 0">
       <div class="flex flex-col gap-6">
-        <div v-for="p in pluginSchemas" :key="p.manifest.id" class="flex flex-col gap-2">
-          <div class="flex items-center px-4 gap-2">
+        <div v-for="p in pluginSchemas" :key="p.manifest.id" class="flex flex-col">
+          <div class="flex items-center px-4 mb-3 gap-2">
             <!-- Если иконка - это путь к файлу или URL, рендерим img -->
             <img
               v-if="p.manifest.icon.startsWith('/') || p.manifest.icon.startsWith('http')"

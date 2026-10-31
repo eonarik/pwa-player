@@ -167,12 +167,12 @@ async function onFileSelected(e: Event): Promise<void> {
             </Button>
 
             <Button
-              variant="primary"
+              variant="secondary"
               class="flex-1"
               :disabled="isImporting || selectedDomains.length === 0"
               @click="triggerImport"
             >
-              {{ isImporting ? 'Импорт…' : 'Импортировать бэкап' }}
+              {{ isImporting ? 'Импорт…' : 'Загрузить бэкап' }}
             </Button>
           </div>
         </div>

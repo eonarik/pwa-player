@@ -3,27 +3,27 @@
 import type { IconName } from '@/components/icons';
 
 export interface MenuItem {
-  /** route.name для router.push / RouterLink */
   route?: string;
-  /** Отображаемое имя */
   label: string;
-  /** Имя иконки из реестра */
   icon: IconName;
-  /** Показывать бейдж с числом треков в очереди */
   queueBadge?: boolean;
-  /** Если задано — пункт открывает модалку, а не роут */
   modal?: 'feedback';
+  params?: Record<string, string>;
 }
 
 export const MENU_ITEMS: MenuItem[] = [
   { route: 'home', label: 'Главная', icon: 'home' },
-  { route: 'search', label: 'Поиск', icon: 'search' },
   { route: 'artists', label: 'Исполнители', icon: 'artist' },
   { route: 'albums', label: 'Альбомы', icon: 'album' },
-  { route: 'playlists', label: 'Плейлисты', icon: 'playlist' },
   { route: 'history', label: 'История', icon: 'history' },
-  { route: 'queue', label: 'Очередь', icon: 'list', queueBadge: true },
+  { route: 'queue', label: 'Очередь', icon: 'list-play', queueBadge: true },
   { route: 'dislikes', label: 'Дизлайки', icon: 'eye-off' },
-  { route: 'settings', label: 'Настройки', icon: 'settings' },
   { label: 'Обратная связь', icon: 'feedback', modal: 'feedback' },
+];
+
+export const TOP_BAR_ITEMS: MenuItem[] = [
+  { route: 'search', label: 'Поиск', icon: 'search' },
+  { route: 'playlists', label: 'Плейлисты', icon: 'playlist' },
+  { route: 'playlist', label: 'Избранное', icon: 'heart', params: { id: 'playlist:favorites' } },
+  { route: 'settings', label: 'Настройки', icon: 'settings' },
 ];

@@ -28,7 +28,7 @@ function statusClass(status: string): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col">
     <div v-if="field.folders.length === 0" class="bg-card-bg px-4 py-3 text-xs text-fg-muted">Папок нет.</div>
 
     <div

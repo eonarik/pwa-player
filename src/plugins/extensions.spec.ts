@@ -53,7 +53,8 @@ describe('extensions', () => {
 
     await loadExtensions();
 
-    const settings = getAllSettingsSchemas();
+    // ДОБАВЛЕН await
+    const settings = await getAllSettingsSchemas();
     expect(settings).toHaveLength(1);
     expect(settings[0]!.manifest.id).toBe('yandex-self');
     expect(settings[0]!.schema).toEqual(schema);
@@ -71,7 +72,8 @@ describe('extensions', () => {
 
     await loadExtensions();
 
-    const settings = getAllSettingsSchemas();
+    // ДОБАВЛЕН await
+    const settings = await getAllSettingsSchemas();
     expect(settings).toHaveLength(1);
     expect(settings[0]!.manifest.id).toBe('with-ext');
   });
@@ -92,7 +94,8 @@ describe('extensions', () => {
 
     await loadExtensions();
 
-    const settings = getAllSettingsSchemas();
+    // ДОБАВЛЕН await
+    const settings = await getAllSettingsSchemas();
     expect(settings[0]!.schema).toEqual(extSchema);
   });
 
@@ -113,6 +116,9 @@ describe('extensions', () => {
 
     expect(getExtensionMenuItems()).toHaveLength(1);
     expect(getExtensionRoutes()).toHaveLength(1);
-    expect(getAllSettingsSchemas()).toHaveLength(0);
+
+    // ДОБАВЛЕН await
+    const settings = await getAllSettingsSchemas();
+    expect(settings).toHaveLength(0);
   });
 });

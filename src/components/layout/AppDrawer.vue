@@ -32,13 +32,7 @@ const allMenuItems = computed<MenuItem[]>(() => {
     icon: item.icon,
   }));
 
-  const settingsIndex = MENU_ITEMS.findIndex((item) => item.route === 'settings');
-
-  if (settingsIndex === -1) {
-    return [...MENU_ITEMS, ...extItems];
-  }
-
-  return [...MENU_ITEMS.slice(0, settingsIndex), ...extItems, ...MENU_ITEMS.slice(settingsIndex)];
+  return [...MENU_ITEMS, ...extItems];
 });
 </script>
 

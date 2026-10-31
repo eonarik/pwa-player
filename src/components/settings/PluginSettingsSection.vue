@@ -33,7 +33,7 @@ function fieldKey(field: PluginSettingsField): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col">
     <!-- Заголовок секции через SectionTitle -->
     <SectionTitle v-if="section.title" :text="section.title" />
 
@@ -43,7 +43,7 @@ function fieldKey(field: PluginSettingsField): string {
     </p>
 
     <!-- Поля -->
-    <div class="flex flex-col gap-2">
+    <div class="flex flex-col">
       <template v-for="field in section.fields" :key="fieldKey(field)">
         <ActionField v-if="field.type === 'action'" :field="field" :disabled="disabled" @action="onAction" />
 
