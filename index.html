@@ -200,7 +200,7 @@
           }, 300);
         }, 5000);
 
-        // Failsafe: если через 15 секунд лоадер всё еще виден — показываем ошибку
+        // Failsafe: если через 10 секунд лоадер всё ещё виден — показываем ошибку
         setTimeout(function () {
           var loader = document.getElementById('app-boot-loader');
           var spinner = document.getElementById('app-boot-spinner');
@@ -212,7 +212,7 @@
             if (textEl) textEl.style.display = 'none';
             if (errorEl) errorEl.style.display = 'flex';
           }
-        }, 15000);
+        }, 10000);
       })();
     </script>
     <script type="module" src="/src/main.ts"></script>

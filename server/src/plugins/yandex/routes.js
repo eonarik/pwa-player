@@ -1,4 +1,5 @@
 // server/src/plugins/yandex/routes.js
+
 import { Router } from 'express';
 import { requireSession } from '../../core/index.js';
 import { YandexApiError } from '../../shared/errors.js';

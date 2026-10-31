@@ -28,15 +28,24 @@ export async function restorePlayerState(): Promise<RestoredPlayerState | null> 
   for (const track of tracks) {
     const libTrack = library.getTrack(track.id);
     if (!libTrack) continue;
-    // Если в библиотеке больше источников — обогащаем ими
     if (track.sources.length === 0 && libTrack.sources.length > 0) {
       track.sources = libTrack.sources;
     }
   }
 
+  // ФИЛЬТРУЕМ МЕРТВЫЕ ТРЕКИ (без источников)
+  const validTracks = tracks.filter((t) => t.sources.length > 0);
+  if (validTracks.length === 0) return null;
+
+  // Корректируем индекс
+  let newIndex = state.currentIndex;
+  if (newIndex >= validTracks.length) {
+    newIndex = validTracks.length - 1;
+  }
+
   return {
-    tracks,
-    currentIndex: state.currentIndex,
+    tracks: validTracks,
+    currentIndex: newIndex,
     volume: state.volume,
     muted: state.muted,
     repeatMode: state.repeatMode,

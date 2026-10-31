@@ -1,4 +1,4 @@
-// server/test-zvuk.js
+// server/src/plugins/zvuk/test-zvuk.js
 
 import 'dotenv/config';
 import { searchMetadataStrict } from './service.js';
@@ -8,11 +8,12 @@ import { getArtistSearchVariants } from '../../shared/aliases.js';
 // ==========================================
 // НАСТРОЙКИ ДЛЯ ТЕСТА (МЕНЯЙ ТОЛЬКО ЗДЕСЬ)
 // ==========================================
-const ARTIST = '#####';
-const TITLE = 'Пусто';
+const ARTIST = 'The Hatters';
+const TITLE = 'Танцы';
 // ==========================================
 
 const USER_TOKEN = process.env.ZVUK_TOKEN;
+console.log('TOKEN from script:', USER_TOKEN?.slice(0, 8), '...', USER_TOKEN?.length);
 
 async function test() {
   if (!USER_TOKEN) {

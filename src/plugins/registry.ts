@@ -1,7 +1,7 @@
 // src/plugins/registry.ts
 
 import { ref } from 'vue';
-import { logger } from '@/utils/logger'; // <--- ИМПОРТ
+import { logger } from '@/utils/logger';
 import type { LibrarySource, PluginManifest } from './types';
 
 const manifestModules = import.meta.glob<{ manifest: PluginManifest }>('./*/manifest.ts', {

@@ -1,7 +1,7 @@
 <!-- src/components/library/AlbumSelect.vue -->
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useLibraryStore } from '@/stores/library';
 import Icon from '@/components/ui/Icon.vue';
 import CoverImage from '@/components/ui/CoverImage.vue';
@@ -30,26 +30,17 @@ const allAlbums = computed(() => {
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 });
 
-// Фильтрация по артисту и поисковому запросу
 const filteredAlbums = computed(() => {
   let result = allAlbums.value;
 
-  // 1. Фильтр по артисту (если задан)
   const artistQuery = (props.artistFilter || '').trim().toLowerCase();
   if (artistQuery) {
-    // Сначала показываем альбомы этого артиста, потом остальные
     const matchingArtist = result.filter((a) => a.artist.trim().toLowerCase() === artistQuery);
-    const others = result.filter((a) => a.artist.trim().toLowerCase() !== artistQuery);
-
-    // Если есть альбомы этого артиста, показываем только их (или их + остальные)
     if (matchingArtist.length > 0) {
       result = matchingArtist;
-    } else {
-      result = others; // если у артиста нет альбомов, показываем все (на случай если артист в альбоме написан иначе)
     }
   }
 
-  // 2. Поиск по названию
   const q = searchQuery.value.trim().toLowerCase();
   if (q) {
     result = result.filter((a) => a.name.toLowerCase().includes(q));
@@ -88,13 +79,22 @@ function toggleDropdown() {
   }
 }
 
-function selectAlbum(album: Album | null) {
-  if (album) {
-    emit('update:modelValue', album.name);
-  } else {
-    emit('update:modelValue', '');
-  }
+function closeDropdown() {
   isOpen.value = false;
+  window.removeEventListener('scroll', updatePosition, true);
+  window.removeEventListener('resize', updatePosition);
+}
+
+function selectAlbum(album: Album | null) {
+  emit('update:modelValue', album ? album.name : '');
+  closeDropdown();
+}
+
+function onInputChange(e: Event) {
+  const value = (e.target as HTMLInputElement).value;
+  emit('update:modelValue', value);
+  // Синхронизируем фильтр в дропдауне
+  searchQuery.value = value;
 }
 
 function onDocumentClick(e: MouseEvent) {
@@ -105,7 +105,7 @@ function onDocumentClick(e: MouseEvent) {
     dropdownRef.value &&
     !dropdownRef.value.contains(target)
   ) {
-    isOpen.value = false;
+    closeDropdown();
   }
 }
 
@@ -118,35 +118,58 @@ onUnmounted(() => {
   window.removeEventListener('scroll', updatePosition, true);
   window.removeEventListener('resize', updatePosition);
 });
+
+// Если modelValue меняется извне (например, выбран кандидат из «Найденных вариантов»),
+// синхронизируем searchQuery.
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (!isOpen.value) searchQuery.value = v || '';
+  },
+);
+
+// Фокус в input при открытии
+const inputRef = ref<HTMLInputElement | null>(null);
+watch(isOpen, async (v) => {
+  if (v) {
+    await nextTick();
+    inputRef.value?.focus();
+  }
+});
 </script>
 
 <template>
-  <div ref="wrapperRef" class="relative w-full">
-    <!-- Выбранный альбом (кнопка) -->
-    <button
-      type="button"
-      class="flex w-full items-center gap-3 rounded-btn bg-card-bg p-2 text-left transition hover:bg-hover-bg focus:outline-none"
-      @click="toggleDropdown"
-    >
+  <div ref="wrapperRef" class="relative flex flex-col gap-2 w-full">
+    <!-- 1. Ручной ввод -->
+    <div class="flex items-center gap-2">
       <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-bg">
         <CoverImage :src="displayCover" alt="Cover" fallback-icon-class="h-5 w-5" />
       </div>
-      <div class="min-w-0 flex-1">
-        <p class="truncate text-sm text-fg" :class="!modelValue ? 'text-fg-muted' : ''">
-          {{ modelValue || 'Без альбома' }}
-        </p>
-        <p v-if="selectedAlbum?.artist" class="truncate text-xs text-fg-muted">{{ selectedAlbum.artist }}</p>
-      </div>
-      <Icon
-        name="chevron-down"
-        w="w-4"
-        h="h-4"
-        class="shrink-0 text-fg-muted transition"
-        :class="isOpen ? 'rotate-180' : ''"
+      <input
+        ref="inputRef"
+        type="text"
+        :value="modelValue"
+        placeholder="Укажите альбом вручную или выберите из списка"
+        class="min-w-0 flex-1 rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle transition focus:bg-hover-bg focus:outline-none"
+        @input="onInputChange"
       />
-    </button>
+      <button
+        type="button"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-card-bg text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+        :aria-label="isOpen ? 'Скрыть список' : 'Выбрать из существующих'"
+        v-tooltip="isOpen ? 'Скрыть список' : 'Выбрать из существующих'"
+        @click="toggleDropdown"
+      >
+        <Icon name="chevron-down" w="w-4" h="h-4" class="transition" :class="isOpen ? 'rotate-180' : ''" />
+      </button>
+    </div>
 
-    <!-- Выпадающий список -->
+    <!-- Подсказка, если есть совпадение с существующим (и это не точное совпадение) -->
+    <p v-if="selectedAlbum && modelValue !== selectedAlbum.name" class="text-[10px] text-fg-subtle px-1">
+      Существующий альбом: {{ selectedAlbum.name }}
+    </p>
+
+    <!-- 2. Дропдаун существующих -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-150 ease-out"
@@ -167,7 +190,7 @@ onUnmounted(() => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Поиск альбома..."
+              placeholder="Поиск среди существующих..."
               class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none"
             />
           </div>
@@ -206,7 +229,9 @@ onUnmounted(() => {
               </div>
             </button>
 
-            <p v-if="filteredAlbums.length === 0" class="p-3 text-center text-xs text-fg-muted">Альбомы не найдены</p>
+            <p v-if="filteredAlbums.length === 0" class="p-3 text-center text-xs text-fg-muted">
+              Нет существующих альбомов{{ searchQuery ? ' по запросу' : '' }}
+            </p>
           </div>
         </div>
       </Transition>

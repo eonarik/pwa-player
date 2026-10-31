@@ -1,4 +1,4 @@
-// e2e/01-bootstrap.spec.ts
+// e2e/core/01-bootstrap.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { waitForAppBootstrap, setupPageLogs } from '../helpers/test-utils';

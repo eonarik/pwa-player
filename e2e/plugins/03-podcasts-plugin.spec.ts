@@ -1,4 +1,4 @@
-// e2e/04-podcasts-plugin.spec.ts
+// e2e/plugins/03-podcasts-plugin.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { mockAllApis } from '../mocks/api';

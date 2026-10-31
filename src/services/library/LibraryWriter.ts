@@ -54,4 +54,10 @@ export interface LibraryWriter {
 
   // --- Служебные ---
   removeBySource(sourceId: string): void;
+
+  /**
+   * Синхронизация `folder.trackIds` ↔ `source.folderId`.
+   * Вызывается после массовых операций (removeBySource, disconnect).
+   */
+  reconcileFolderTrackIds(): void;
 }

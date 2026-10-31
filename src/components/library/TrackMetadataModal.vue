@@ -1,7 +1,7 @@
 <!-- src/components/library/TrackMetadataModal.vue -->
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { metadataService } from '@/services/metadata/MetadataService';
@@ -62,20 +62,55 @@ function selectCandidate(index: number) {
   title.value = c.title;
   album.value = c.album;
   selectedCandidateIndex.value = index;
-  isDropdownOpen.value = false;
+  closeDropdown();
 }
 
+// --- Дропдаун «Найденные варианты» (Teleport + fixed) ---
+
 const isDropdownOpen = ref(false);
+const triggerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
+const dropdownStyle = ref<{ top: string; left: string; width: string }>({ top: '0px', left: '0px', width: '0px' });
+
+function updateDropdownPosition() {
+  if (!triggerRef.value) return;
+  const rect = triggerRef.value.getBoundingClientRect();
+  const width = rect.width;
+  let left = rect.left;
+  const maxLeft = window.innerWidth - width - 8;
+  if (left > maxLeft) left = Math.max(8, maxLeft);
+
+  dropdownStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    left: `${left}px`,
+    width: `${width}px`,
+  };
+}
 
 function toggleDropdown() {
   isDropdownOpen.value = !isDropdownOpen.value;
+  if (isDropdownOpen.value) {
+    void nextTick(updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
+    window.addEventListener('resize', updateDropdownPosition);
+  } else {
+    window.removeEventListener('scroll', updateDropdownPosition, true);
+    window.removeEventListener('resize', updateDropdownPosition);
+  }
+}
+
+function closeDropdown() {
+  if (!isDropdownOpen.value) return;
+  isDropdownOpen.value = false;
+  window.removeEventListener('scroll', updateDropdownPosition, true);
+  window.removeEventListener('resize', updateDropdownPosition);
 }
 
 function handleClickOutside(e: MouseEvent) {
-  if (dropdownRef.value && !dropdownRef.value.contains(e.target as Node)) {
-    isDropdownOpen.value = false;
-  }
+  const target = e.target as Node;
+  if (triggerRef.value && triggerRef.value.contains(target)) return;
+  if (dropdownRef.value && dropdownRef.value.contains(target)) return;
+  closeDropdown();
 }
 
 const selectedCandidateLabel = computed(() => {
@@ -84,6 +119,17 @@ const selectedCandidateLabel = computed(() => {
   return c ? `${c.artist} — ${c.title}` : 'Выберите вариант...';
 });
 
+function candidateAlbumLabel(c: MetadataCandidate): string {
+  const albumName = (c.album || '').trim();
+  return albumName ? `Альбом: ${albumName}` : 'Альбом: —';
+}
+
+function candidateSourceLabel(c: MetadataCandidate): string {
+  const provider = (c.provider || '').trim() || 'unknown';
+  const percent = Math.round((c.similarity ?? 0) * 100);
+  return `Источник: ${provider} — ${percent}%`;
+}
+
 onMounted(() => {
   void loadCandidates();
   document.addEventListener('mousedown', handleClickOutside);
@@ -91,6 +137,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleClickOutside);
+  window.removeEventListener('scroll', updateDropdownPosition, true);
+  window.removeEventListener('resize', updateDropdownPosition);
 });
 
 const { tracks: allLibraryTracks } = storeToRefs(library);
@@ -109,7 +157,7 @@ const isDirty = computed(() => {
   return artist.value !== initialArtist || title.value !== initialTitle || album.value !== initialAlbum;
 });
 
-function save() {
+async function save() {
   const newArtist = artist.value.trim();
   const newTitle = title.value.trim();
   const newAlbum = album.value.trim();
@@ -119,11 +167,28 @@ function save() {
     return;
   }
 
+  // Если выбран кандидат — применяем через applyCandidate
+  // (сохраняет provider/extMetadata; провайдер сам решит, что делать).
+  if (selectedCandidateIndex.value !== null) {
+    const candidate = candidates.value[selectedCandidateIndex.value];
+    if (candidate) {
+      await metadataService.applyCandidate(props.track.id, {
+        ...candidate,
+        artist: newArtist,
+        title: newTitle,
+        album: newAlbum,
+      });
+      toastService.success('Метаданные обновлены');
+      modalService.confirm();
+      return;
+    }
+  }
+
   metadataService.updateManual(props.track.id, {
     artist: newArtist,
     title: newTitle,
     album: newAlbum,
-    coverUrl: undefined, // Обложка теперь живет в альбоме
+    coverUrl: undefined,
   });
 
   toastService.success('Метаданные обновлены');
@@ -147,6 +212,12 @@ function handleBeforeUnload(e: BeforeUnloadEvent) {
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
+    if (isDropdownOpen.value) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeDropdown();
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     cancel();
@@ -167,35 +238,16 @@ onUnmounted(() => {
 <template>
   <ModalLayout title="Редактировать метаданные" max-width="md" :disable-backdrop-close="true" @close="cancel">
     <form class="flex flex-col gap-4" @submit.prevent="save">
-      <!-- Название -->
-      <FormField label="Название">
-        <Input v-model="title" type="text" placeholder="Введите название..." />
-      </FormField>
-
-      <!-- Артист -->
-      <FormField label="Артист">
-        <AutocompleteInput
-          v-model="artist"
-          :suggestions="allArtists"
-          placeholder="Введите артиста..."
-          id="track-artist"
-        />
-      </FormField>
-
-      <!-- Альбом (с обложкой) -->
-      <div class="flex flex-col gap-1">
-        <label class="text-xs text-fg-muted">Альбом</label>
-        <AlbumSelect v-model="album" :artist-filter="artist" />
-      </div>
-
-      <!-- Найденные варианты -->
-      <div v-if="isLoadingCandidates">
+      <!-- 1. Найденные варианты (первыми, чтобы было удобно) -->
+      <div v-if="isLoadingCandidates" class="flex flex-col gap-1">
+        <label class="text-xs text-fg-muted">Найденные варианты</label>
         <Spinner size="sm" text="Поиск вариантов в интернете…" />
       </div>
 
-      <div v-else-if="candidates.length > 0" class="flex flex-col gap-1 relative" ref="dropdownRef">
+      <div v-else-if="candidates.length > 0" class="relative flex flex-col gap-1">
         <label class="text-xs text-fg-muted">Найденные варианты</label>
         <button
+          ref="triggerRef"
           type="button"
           class="flex w-full items-center justify-between rounded-btn bg-card-bg px-3 py-2 text-sm text-fg transition hover:bg-hover-bg"
           @click="toggleDropdown"
@@ -205,36 +257,61 @@ onUnmounted(() => {
             name="chevron-down"
             w="w-4"
             h="h-4"
-            class="shrink-0 text-fg-muted ml-2 transition"
+            class="ml-2 shrink-0 text-fg-muted transition"
             :class="isDropdownOpen ? 'rotate-180' : ''"
           />
         </button>
-        <div
-          v-if="isDropdownOpen"
-          class="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-btn bg-bg-elevated shadow-lg border border-hover-bg"
-        >
-          <button
-            v-for="(c, i) in candidates"
-            :key="i"
-            type="button"
-            class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-hover-bg"
-            :class="selectedCandidateIndex === i ? 'bg-active/10' : ''"
-            @click="selectCandidate(i)"
+
+        <Teleport to="body">
+          <div
+            v-if="isDropdownOpen"
+            ref="dropdownRef"
+            class="fixed z-[300] max-h-60 overflow-y-auto rounded-btn border border-hover-bg bg-bg-elevated shadow-lg"
+            :style="dropdownStyle"
           >
-            <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-card-bg">
-              <CoverImage :src="c.coverUrl" :alt="c.title" fallback-icon-class="h-4 w-4" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <span
-                class="block truncate"
-                :class="selectedCandidateIndex === i ? 'text-active font-medium' : 'text-fg'"
-              >
-                {{ c.artist }} — {{ c.title }}
-              </span>
-              <span class="block truncate text-xs text-fg-muted">{{ c.album }}</span>
-            </div>
-          </button>
-        </div>
+            <button
+              v-for="(c, i) in candidates"
+              :key="i"
+              type="button"
+              class="flex w-full items-start gap-3 px-3 py-2 text-left text-sm transition hover:bg-hover-bg"
+              :class="selectedCandidateIndex === i ? 'bg-active/10' : ''"
+              @click="selectCandidate(i)"
+            >
+              <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-card-bg">
+                <CoverImage :src="c.coverUrl" :alt="c.title" fallback-icon-class="h-4 w-4" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <span
+                  class="block truncate"
+                  :class="selectedCandidateIndex === i ? 'text-active font-medium' : 'text-fg'"
+                >
+                  {{ c.artist }} — {{ c.title }}
+                </span>
+                <span class="block truncate text-xs text-fg-muted">{{ candidateAlbumLabel(c) }}</span>
+                <span class="block truncate text-[10px] text-fg-subtle">{{ candidateSourceLabel(c) }}</span>
+              </div>
+            </button>
+          </div>
+        </Teleport>
+      </div>
+
+      <!-- 2. Ручное редактирование -->
+      <FormField label="Название">
+        <Input v-model="title" type="text" placeholder="Введите название..." />
+      </FormField>
+
+      <FormField label="Артист">
+        <AutocompleteInput
+          v-model="artist"
+          :suggestions="allArtists"
+          placeholder="Введите артиста..."
+          id="track-artist"
+        />
+      </FormField>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs text-fg-muted">Альбом</label>
+        <AlbumSelect v-model="album" :artist-filter="artist" />
       </div>
     </form>
 

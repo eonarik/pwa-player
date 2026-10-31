@@ -1,4 +1,4 @@
-// e2e/07-yandex-folder-statuses.spec.ts
+// e2e/plugins/05-yandex-folder-statuses.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { setupPageLogs, waitForAppBootstrap, getIDBValue } from '../helpers/test-utils';

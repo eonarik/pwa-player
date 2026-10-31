@@ -81,7 +81,7 @@ function onVolumeInput(e: Event) {
     <div class="absolute -top-1 z-[1] radio-scale w-full max-w-full"></div>
 
     <!-- === Мобильная версия === -->
-    <div class="grid grid-cols-[1fr_auto] items-stretch md:hidden">
+    <div data-testid="player-info-container-mobile" class="grid grid-cols-[1fr_auto] items-stretch md:hidden">
       <button
         type="button"
         data-player-open
@@ -126,7 +126,10 @@ function onVolumeInput(e: Event) {
     </div>
 
     <!-- === Десктопная версия === -->
-    <div class="hidden w-full items-stretch md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+    <div
+      data-testid="player-info-container-desktop"
+      class="hidden w-full items-stretch md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+    >
       <div class="flex min-w-0 items-center gap-3">
         <button
           type="button"

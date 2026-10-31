@@ -24,7 +24,6 @@ export const usePlayerStore = defineStore('player', () => {
   const repeatMode = ref<'off' | 'one' | 'all'>('off');
   const shuffle = ref(false);
 
-  // Счетчик запусков трека для триггера автопоиска
   const playbackVersion = ref(0);
 
   const currentTrack = shallowRef<Track | null>(null);
@@ -121,7 +120,8 @@ export const usePlayerStore = defineStore('player', () => {
     audioService.setVolume(restored.volume);
     audioService.setMuted(restored.muted);
 
-    await applyRestoredPlayback(restored.tracks, restored.currentIndex, (t) => {
+    // Явно указываем (t: number)
+    await applyRestoredPlayback(restored.tracks, restored.currentIndex, (t: number) => {
       currentTime.value = Math.round(t * 10) / 10;
     });
 

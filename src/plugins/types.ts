@@ -17,10 +17,49 @@ export interface PluginMenuItem {
   routeName: string;
 }
 
+export interface CollectionActionProgress {
+  done: number;
+  total: number;
+  found?: number;
+}
+
+export interface CollectionActionContext {
+  /** Обновить прогресс (n/total) и показать его на кнопке. */
+  setProgress: (progress: CollectionActionProgress | null) => void;
+}
+
+/**
+ * Действие над коллекцией треков (плейлист, история, дизлайки, папка, альбом).
+ *
+ * Используется для того, чтобы плагин мог добавить кнопку в шапку списка
+ * (например, «Найти в Звуке» для недоступных треков). Ядро рендерит кнопку
+ * и вызывает `run`, ничего не зная о специфике.
+ */
+export interface PluginCollectionAction {
+  id: string;
+  label: string;
+  icon?: IconName;
+  /** Текст всплывающей подсказки. Если пусто — берётся `label`. */
+  tooltip?: string;
+  /**
+   * Показывать ли действие. Вызывается с треками текущего представления
+   * (уже отфильтрованными по поиску и фильтру источника).
+   */
+  shouldShow: (tracks: Track[]) => boolean | Promise<boolean>;
+  /**
+   * Выполнить действие. Плагин сам отвечает за ошибки, но прогресс
+   * должен репортить через `ctx.setProgress`, чтобы ядро отрисовало
+   * его на кнопке (а не плодило тосты).
+   */
+  run: (tracks: Track[], ctx: CollectionActionContext) => void | Promise<void>;
+}
+
 export interface PluginExtension {
   menuItems?: PluginMenuItem[];
   routes?: RouteRecordRaw[];
   getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
+  /** Действия над коллекциями, рендерятся в шапке `TrackListPage`. */
+  collectionActions?: PluginCollectionAction[];
 }
 
 export interface PluginManifestOptions {
@@ -85,6 +124,17 @@ export interface TextFileRef {
   path: string;
 }
 
+export interface FetchedMetadata {
+  artist: string;
+  title: string;
+  album: string;
+  coverUrl: string | null;
+  source: string;
+  similarity: number;
+  confident: boolean;
+  extMetadata?: Record<string, unknown>;
+}
+
 export interface LibrarySource {
   readonly id: string;
   readonly name: string;
@@ -132,10 +182,6 @@ export interface LibrarySource {
 
   disconnect(context: PluginContext): Promise<void>;
 
-  /**
-   * Отменяет фоновое сканирование (если оно есть).
-   * Все pending и scanning папки помечаются как error.
-   */
   cancelBackgroundScan?(): void;
 
   getTextFiles?(context: PluginContext, folderId: FolderId): Promise<TextFileRef[]>;
@@ -144,18 +190,10 @@ export interface LibrarySource {
     context: PluginContext,
     remotePath: string,
   ): Promise<{ content: string; modified: string | null } | null>;
-  fetchMetadata?(
-    artist: string,
-    title: string,
-  ): Promise<{
-    artist: string;
-    title: string;
-    album: string;
-    coverUrl: string | null;
-    source: string;
-    similarity: number;
-    confident: boolean;
-  } | null>;
+
+  fetchMetadata?(artist: string, title: string): Promise<FetchedMetadata | null>;
+
+  applyCandidate?(trackId: TrackId, extMetadata: Record<string, unknown>): void | Promise<void>;
 }
 
 export interface PluginContext {

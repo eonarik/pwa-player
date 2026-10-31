@@ -1,7 +1,7 @@
 <!-- src/views/PlaylistsView.vue -->
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, unref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { usePlaylistsStore } from '@/stores/playlists';
@@ -21,6 +21,9 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import IconHeart from '@/components/icons/IconHeart.vue';
 import ListContainer from '@/components/ui/ListContainer.vue';
+import { useHistoryStore } from '@/stores/history';
+import { useDislikesStore } from '@/stores/dislikes';
+import { usePlayerStore } from '@/stores/player';
 
 const router = useRouter();
 const playlists = usePlaylistsStore();
@@ -55,11 +58,23 @@ function confirmCreate() {
   router.push({ name: 'playlist', params: { id } });
 }
 
+const history = useHistoryStore();
+const dislikes = useDislikesStore();
+const player = usePlayerStore();
+
 function deletePlaylist(playlist: Playlist) {
   if (playlist.id === FAVORITES_PLAYLIST_ID) return;
   const confirmed = window.confirm(`Удалить плейлист «${playlist.name}»?`);
   if (!confirmed) return;
+
   playlists.deletePlaylist(playlist.id);
+
+  library.cleanupOrphanTracks(
+    unref(playlists.playlists) ?? {},
+    unref(history.history) ?? { playedAt: {} },
+    unref(dislikes.dislikes) ?? { dislikedAt: {} },
+    unref(player.queue) ?? [],
+  );
 }
 
 function formatDate(ts: number): string {
@@ -218,6 +233,7 @@ async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrac
             type="button"
             class="group flex items-center gap-3 px-3 py-2 text-left text-fg transition hover:bg-hover-bg"
             @click="openPlaylist(playlist)"
+            :data-testid="`playlist-row-${playlist.id}`"
           >
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn bg-card-bg">
               <IconHeart v-if="playlist.id === FAVORITES_PLAYLIST_ID" :filled="true" class="icon h-5 w-5 text-active" />

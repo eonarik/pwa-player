@@ -1,7 +1,7 @@
 // src/plugins/extensions.ts
 
 import { getPlugins, isPluginActivated } from './registry';
-import type { PluginMenuItem, PluginManifest } from './types';
+import type { PluginMenuItem, PluginManifest, PluginCollectionAction } from './types';
 import type { RouteRecordRaw } from 'vue-router';
 import type { PluginSettingsSchema } from './settingsTypes';
 import { loadRemotePlugins } from './remoteLoader';
@@ -12,6 +12,7 @@ interface LoadedExtension {
   routes: RouteRecordRaw[];
   settingsSchema: PluginSettingsSchema | null;
   runSettingsAction: ((id: string, payload?: unknown) => void | Promise<void>) | null;
+  collectionActions: PluginCollectionAction[];
 }
 
 let extensions: LoadedExtension[] = [];
@@ -20,7 +21,6 @@ async function loadSettingsSchema(
   manifest: PluginManifest,
   extensionGetSettings: (() => PluginSettingsSchema | Promise<PluginSettingsSchema>) | null,
 ): Promise<PluginSettingsSchema | null> {
-  // Приоритет: extension.getSettings → manifest.getSettings
   const getter = extensionGetSettings ?? manifest.getSettings;
   if (!getter) return null;
 
@@ -40,12 +40,11 @@ export async function loadExtensions(): Promise<void> {
   const allPlugins = [...localPlugins, ...remotePlugins];
 
   for (const manifest of allPlugins) {
-    // Расширение может отсутствовать — тогда плагин не даёт меню/роутов,
-    // но может давать настройки через manifest.getSettings.
     let ext: {
       menuItems?: PluginMenuItem[];
       routes?: RouteRecordRaw[];
       getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
+      collectionActions?: PluginCollectionAction[];
     } | null = null;
 
     if (manifest.extension) {
@@ -59,7 +58,6 @@ export async function loadExtensions(): Promise<void> {
 
     const settingsSchema = await loadSettingsSchema(manifest, ext?.getSettings ?? null);
 
-    // Плагин без расширения и без настроек — пропускаем.
     if (!ext && !settingsSchema) continue;
 
     extensions.push({
@@ -68,6 +66,7 @@ export async function loadExtensions(): Promise<void> {
       routes: ext?.routes ?? [],
       settingsSchema,
       runSettingsAction: manifest.runSettingsAction ?? null,
+      collectionActions: ext?.collectionActions ?? [],
     });
   }
 }
@@ -80,6 +79,11 @@ export function getExtensionMenuItems(): PluginMenuItem[] {
 /** Все роуты для добавления в Vue Router */
 export function getExtensionRoutes(): RouteRecordRaw[] {
   return extensions.flatMap((e) => e.routes);
+}
+
+/** Все действия над коллекциями (кнопки в шапке списков) */
+export function getCollectionActions(): PluginCollectionAction[] {
+  return extensions.flatMap((e) => e.collectionActions);
 }
 
 /** Все схемы настроек от плагинов */
@@ -97,17 +101,6 @@ export function getExtensionSettings(): Array<{
     }));
 }
 
-/**
- * Все схемы настроек с манифестом плагина — для рендера
- * `PluginSettingsSection` в `SettingsPlugins.vue`.
- *
- * Объединяет:
- * - `manifest.getSettings` (если задан в манифесте)
- * - `extension.getSettings` (если задан в расширении)
- *
- * Приоритет: `extension.getSettings` → `manifest.getSettings`
- * (расширение может переопределить схему).
- */
 export interface PluginSettingsEntry {
   manifest: PluginManifest;
   schema: PluginSettingsSchema;

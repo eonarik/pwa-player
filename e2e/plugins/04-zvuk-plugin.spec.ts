@@ -1,4 +1,4 @@
-// e2e/05-zvuk-plugin.spec.ts
+// e2e/plugins/04-zvuk-plugin.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { mockAllApis } from '../mocks/api';

@@ -1,13 +1,15 @@
 <!-- src/components/library/TrackListPage.vue -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { getPluginName } from '@/plugins/lookup';
 import { pluginIdFromSource } from '@/plugins/registry';
+import { getCollectionActions } from '@/plugins/extensions';
+import type { PluginCollectionAction, CollectionActionProgress } from '@/plugins/types';
 import { useLibrarySearch } from '@/composables/useLibrarySearch';
 import SearchInput from '@/components/ui/SearchInput.vue';
 import FileLocationFilter from './FileLocationFilter.vue';
@@ -68,7 +70,9 @@ const filterOptions = computed<FilterOption[]>(() => {
   const plugins = new Set<string>();
   for (const t of preFilteredTracks.value) {
     const pid = t.pluginId;
-    if (pid) plugins.add(pluginIdFromSource(pid));
+    if (pid && pid !== 'imported') {
+      plugins.add(pluginIdFromSource(pid));
+    }
   }
   return Array.from(plugins).map((id) => ({
     id,
@@ -78,7 +82,11 @@ const filterOptions = computed<FilterOption[]>(() => {
 
 const filteredTracks = computed(() => {
   if (sourceFilter.value === 'all') return preFilteredTracks.value;
-  return preFilteredTracks.value.filter((t) => pluginIdFromSource(t.pluginId) === sourceFilter.value);
+  return preFilteredTracks.value.filter((t) => {
+    const pid = pluginIdFromSource(t.pluginId);
+    if (pid === 'imported') return false;
+    return pid === sourceFilter.value;
+  });
 });
 
 const searchableTracks = computed<Track[]>(() => {
@@ -126,6 +134,70 @@ function onSelectSearch(trackId: string) {
   if (idx < 0) return;
   player.setQueue(searchFlatTracks.value, idx);
 }
+
+// --- Collection actions ---
+
+const allCollectionActions = getCollectionActions();
+const visibleCollectionActions = ref<PluginCollectionAction[]>([]);
+const actionProgress = ref<Record<string, CollectionActionProgress | null>>({});
+let actionCheckId = 0;
+
+async function refreshVisibleActions(tracks: Track[]): Promise<void> {
+  const id = ++actionCheckId;
+  const result: PluginCollectionAction[] = [];
+
+  for (const action of allCollectionActions) {
+    try {
+      const ok = await action.shouldShow(tracks);
+      if (ok) result.push(action);
+    } catch (err) {
+      console.warn(`[collectionActions] shouldShow failed for "${action.id}"`, err);
+    }
+  }
+
+  if (id === actionCheckId) {
+    visibleCollectionActions.value = result;
+  }
+}
+
+watch(
+  filteredTracks,
+  (tracks) => {
+    void refreshVisibleActions(tracks);
+  },
+  { immediate: true },
+);
+
+async function runAction(action: PluginCollectionAction): Promise<void> {
+  if (actionProgress.value[action.id]) return; // уже выполняется
+
+  const ctx = {
+    setProgress: (p: CollectionActionProgress | null) => {
+      actionProgress.value = { ...actionProgress.value, [action.id]: p };
+    },
+  };
+
+  try {
+    await action.run(filteredTracks.value, ctx);
+  } catch (err) {
+    console.error(`[collectionActions] run failed for "${action.id}"`, err);
+  } finally {
+    actionProgress.value = { ...actionProgress.value, [action.id]: null };
+  }
+}
+
+function actionLabel(action: PluginCollectionAction): string {
+  const progress = actionProgress.value[action.id];
+  if (progress) {
+    const foundPart = typeof progress.found === 'number' ? ` · найдено ${progress.found}` : '';
+    return `${action.label}: ${progress.done}/${progress.total}${foundPart}`;
+  }
+  return action.label;
+}
+
+function isActionBusy(action: PluginCollectionAction): boolean {
+  return Boolean(actionProgress.value[action.id]);
+}
 </script>
 
 <template>
@@ -138,6 +210,21 @@ function onSelectSearch(trackId: string) {
         </div>
 
         <div class="flex shrink-0 items-center gap-2">
+          <!-- Кнопки от плагинов -->
+          <button
+            v-for="action in visibleCollectionActions"
+            :key="action.id"
+            type="button"
+            class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-60"
+            :title="action.tooltip ?? action.label"
+            :disabled="isActionBusy(action)"
+            @click="runAction(action)"
+          >
+            <Icon v-if="action.icon && !isActionBusy(action)" :name="action.icon" w="w-3.5" h="h-3.5" />
+            <Icon v-else-if="isActionBusy(action)" name="spinner" w="w-3.5" h="h-3.5" class="animate-spin" />
+            {{ actionLabel(action) }}
+          </button>
+
           <MetadataCandidatesButton :tracks="filteredTracks" />
           <slot name="header-actions" />
         </div>

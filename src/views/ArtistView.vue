@@ -5,7 +5,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
-import { filterTracksByArtist, NO_ALBUM_LABEL } from '@/utils/artists';
+import { filterTracksByArtist, NO_ALBUM_LABEL, NO_ALBUM_SLUG } from '@/utils/artists';
 import { pluralize } from '@/utils/pluralize';
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import type { Track } from '@/types/track';
+import type { AlbumId } from '@/types/ids';
 
 const route = useRoute();
 const library = useLibraryStore();
@@ -23,7 +24,7 @@ const artistName = computed(() => String(route.params.artistName ?? ''));
 const artistTracks = computed<Track[]>(() => filterTracksByArtist(Object.values(library.tracks), artistName.value));
 
 interface AlbumGroupUI {
-  albumId: string | null;
+  albumId: AlbumId | null;
   name: string;
   slug: string;
   tracks: Track[];
@@ -48,11 +49,13 @@ const albums = computed<AlbumGroupUI[]>(() => {
       return a.title.localeCompare(b.title, 'ru');
     });
 
-    const album = albumId ? library.getAlbum(albumId as never) : null;
+    const album = albumId ? library.getAlbum(albumId as AlbumId) : null;
     groups.push({
-      albumId: albumId || null,
+      albumId: (albumId as AlbumId) || null,
       name: album?.name ?? NO_ALBUM_LABEL,
-      slug: albumId || 'no-album',
+      // Используем albumId как slug в URL (стабильный UUID).
+      // Для «Без альбома» — NO_ALBUM_SLUG.
+      slug: albumId || NO_ALBUM_SLUG,
       tracks: sorted,
       coverUrl: album?.coverUrl ?? undefined,
     });

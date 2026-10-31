@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { searchAll, getStreamUrl, searchMetadataStrict } from './service.js';
+import { RateLimitError } from './sberzvuk-api.js';
 import { Readable } from 'stream';
 
 export const zvukRoutes = Router();
@@ -18,6 +19,9 @@ zvukRoutes.get('/search', async (req, res) => {
     const data = await searchAll(query, types, userToken);
     res.json(data);
   } catch (err) {
+    if (err instanceof RateLimitError) {
+      return res.status(429).json({ error: 'Zvuk rate limit' });
+    }
     console.error('[zvuk] search error:', err);
     res.status(500).json({ error: err.message });
   }
@@ -33,6 +37,9 @@ zvukRoutes.get('/metadata', async (req, res) => {
     const result = await searchMetadataStrict(artist, title, userToken);
     res.json(result);
   } catch (err) {
+    if (err instanceof RateLimitError) {
+      return res.status(429).json({ error: 'Zvuk rate limit' });
+    }
     console.error('[zvuk] metadata search error:', err);
     res.status(500).json({ error: err.message });
   }
@@ -65,6 +72,9 @@ zvukRoutes.get('/stream', async (req, res) => {
 
     Readable.fromWeb(upstream.body).pipe(res);
   } catch (err) {
+    if (err instanceof RateLimitError) {
+      return res.status(429).json({ error: 'Zvuk rate limit' });
+    }
     console.error('[zvuk] stream error:', err);
     if (!res.headersSent) {
       res.status(500).json({ error: err.message });

@@ -2,7 +2,6 @@
 
 import type { LibraryWriter } from '@/services/library/LibraryWriter';
 import type { Album } from '@/types/album';
-import type { TrackId } from '@/types/ids';
 import type { PluginSnapshot } from '@/types/plugin';
 import { useLibraryStore } from '../store';
 import { mergeMany, applyMany } from '@/services/library/TrackMerger';
@@ -67,7 +66,6 @@ export function createLibraryWriter(): LibraryWriter {
       removeAlbum(store(), id);
     },
 
-    // --- РЕАЛИЗАЦИЯ ДОБАВЛЕНИЯ ПАПОК ---
     addFolders(folders, sourceId) {
       setFolders(store(), folders, sourceId);
     },
@@ -134,23 +132,26 @@ export function createLibraryWriter(): LibraryWriter {
 
       removeFoldersBySource(s, sourceId);
 
-      const tracksToRemove: TrackId[] = [];
+      // Чистим sources, но НЕ удаляем треки (они могут быть в плейлистах/истории/etc.)
       for (const track of Object.values(s.tracks)) {
         const remainingSources = track.sources.filter((src) => !matchesSource(src.pluginId, sourceId));
-        if (remainingSources.length === 0) {
-          tracksToRemove.push(track.id);
-        } else if (remainingSources.length !== track.sources.length) {
+
+        if (remainingSources.length !== track.sources.length) {
           updateTrackSources(s, track.id, remainingSources);
         }
       }
 
-      for (const id of tracksToRemove) {
-        removeTrack(s, id);
-      }
+      // Синхронизируем folder.trackIds ↔ sources.
+      // После чистки sources у некоторых треков папок не осталось — их trackIds тоже.
+      s.reconcileFolderTrackIds();
     },
 
     removeFolderRef(id) {
       removeFolderRef(store(), id);
+    },
+
+    reconcileFolderTrackIds() {
+      store().reconcileFolderTrackIds();
     },
   };
 

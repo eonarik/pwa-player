@@ -15,9 +15,7 @@ import type { Track, TrackSource } from '@/types/track';
 export async function resolveTrackSource(track: Track, source: TrackSource): Promise<string | File> {
   if (source.kind === 'local') {
     try {
-      console.log('[resolveTrackSource] Getting file from handle:', source.handle.name);
       const file = await source.handle.getFile();
-      console.log('[resolveTrackSource] Got file:', file.name, file.size);
       return file;
     } catch (err) {
       console.error('[resolveTrackSource] Failed to get file:', err);

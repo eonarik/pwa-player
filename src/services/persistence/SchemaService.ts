@@ -1,9 +1,7 @@
 // src/services/persistence/SchemaService.ts
 
-import { get, set, clear, createStore } from 'idb-keyval';
+import { get, set, clear } from 'idb-keyval';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './schema';
-
-const store = createStore('keyval-store', 'keyval');
 
 export class SchemaService {
   private static instance: SchemaService | null = null;
@@ -15,24 +13,11 @@ export class SchemaService {
     return SchemaService.instance;
   }
 
-  /**
-   * Принудительно инициализирует базу cuei-plugins и store 'init'.
-   * Это предотвращает ошибку NotFoundError при первом сохранении данных плагина.
-   */
-  async initPluginStores(): Promise<void> {
-    try {
-      const pluginStore = createStore('cuei-plugins', 'init');
-      await set('init', true, pluginStore);
-    } catch (err) {
-      console.warn('[SchemaService] failed to init plugins store', err);
-    }
-  }
-
   async ensureCompatible(): Promise<boolean> {
     let savedVersion: number | undefined;
 
     try {
-      savedVersion = await get<number>(SCHEMA_VERSION_KEY, store);
+      savedVersion = await get<number>(SCHEMA_VERSION_KEY);
     } catch (err) {
       console.warn('[SchemaService] failed to read schema version', err);
     }
@@ -54,15 +39,15 @@ export class SchemaService {
 
   async clearAll(): Promise<void> {
     try {
-      await clear(store); // Чистим main store
+      await clear();
     } catch (err) {
-      console.warn('[SchemaService] failed to clear main store', err);
+      console.warn('[SchemaService] failed to clear store', err);
     }
   }
 
   private async writeVersion(): Promise<void> {
     try {
-      await set(SCHEMA_VERSION_KEY, SCHEMA_VERSION, store);
+      await set(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
     } catch (err) {
       console.error('[SchemaService] failed to write schema version', err);
     }

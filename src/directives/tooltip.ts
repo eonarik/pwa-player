@@ -9,7 +9,7 @@ interface TooltipState {
   visible: boolean;
   top: number;
   left: number;
-  activeEl: HTMLElement | null; // ← Добавили: кто сейчас владеет тултипом
+  activeEl: HTMLElement | null;
 }
 
 const state = reactive<TooltipState>({
@@ -85,7 +85,7 @@ export const tooltip: Directive<HTMLElement, string | null | undefined> = {
       const text = (el as any)._tooltipText;
       if (!text) return;
 
-      state.activeEl = el; // ← Запоминаем, что тултип принадлежит этому элементу
+      state.activeEl = el;
       state.text = text;
       state.visible = true;
       position();

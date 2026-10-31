@@ -20,6 +20,8 @@ export default defineConfigWithVueTs(
     '**/dist-ssr/**',
     '**/coverage/**',
     '**/.storybook/**', // Storybook
+    '**/test-results/**', // Playwright artifacts (traces, screenshots, videos)
+    '**/playwright-report/**', // Playwright HTML report
     'vite.config.ts', // Конфиг Vite
     'vitest.config.ts', // Конфиг Vitest
     'vitest.setup.ts', // Сетап Vitest

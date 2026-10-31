@@ -1,15 +1,16 @@
 <!-- src/views/AlbumsView.vue -->
 
-<!-- AlbumsView.vue -->
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useLibraryStore } from '@/stores/library';
+import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
 import { pluralize } from '@/utils/pluralize';
 import { compareStrings } from '@/utils/sort';
+import { toastService } from '@/services/ui/ToastService';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
+import type { Album } from '@/types/album';
 
 const library = useLibraryStore();
 const player = usePlayerStore();
@@ -31,6 +32,22 @@ function playAlbum(albumId: string) {
     });
   if (tracks.length === 0) return;
   player.setQueue(tracks, 0);
+}
+
+function isAlbumEmpty(album: Album): boolean {
+  const ids = library.tracksByAlbumId[album.id];
+  return !ids || ids.length === 0;
+}
+
+function deleteAlbum(album: Album) {
+  if (!isAlbumEmpty(album)) return;
+
+  const confirmed = window.confirm(`Удалить пустой альбом «${album.name}»?`);
+  if (!confirmed) return;
+
+  const writer = createLibraryWriter();
+  writer.removeAlbum(album.id);
+  toastService.success(`Альбом «${album.name}» удалён`);
 }
 </script>
 
@@ -67,7 +84,9 @@ function playAlbum(albumId: string) {
                 <Icon name="playlist" w="w-12" h="h-12" class="text-fg-subtle" />
               </div>
 
+              <!-- Играть (только если не пуст) -->
               <button
+                v-if="!isAlbumEmpty(album)"
                 type="button"
                 class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"
                 :aria-label="`Играть альбом ${album.name}`"
@@ -75,14 +94,24 @@ function playAlbum(albumId: string) {
               >
                 <Icon name="play" w="w-5" h="h-5" class="translate-x-[1px]" />
               </button>
+
+              <!-- Удалить (только пустой) -->
+              <button
+                v-if="isAlbumEmpty(album)"
+                type="button"
+                class="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg/80 text-red-400 opacity-100 shadow-lg transition hover:bg-red-500/20 md:opacity-0 md:group-hover:opacity-100"
+                :aria-label="`Удалить пустой альбом ${album.name}`"
+                :title="`Удалить пустой альбом «${album.name}»`"
+                @click.prevent.stop="deleteAlbum(album)"
+              >
+                <Icon name="trash" w="w-4" h="h-4" />
+              </button>
             </div>
 
             <div class="mt-2 min-w-0">
+              <!-- album: album.id (было album.name.toLowerCase().replace(...)) -->
               <RouterLink
-                :to="{
-                  name: 'album',
-                  params: { artistName: album.artist, album: album.name.toLowerCase().replace(/\s+/g, '-') },
-                }"
+                :to="{ name: 'album', params: { artistName: album.artist, album: album.id } }"
                 class="line-clamp-2 text-sm font-medium text-fg transition hover:text-active"
                 :title="album.name"
               >

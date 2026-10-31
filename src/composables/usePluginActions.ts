@@ -3,9 +3,11 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
-import { loadPlugin } from '@/plugins/registry';
+import { usePlayerStore } from '@/stores/player';
+import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
+import { audioService } from '@/services/audio/AudioService';
 import type { PluginManifest } from '@/plugins/types';
 import type { FolderRef } from '@/types/folder';
 
@@ -25,8 +27,6 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
   async function doOpenPlugin(row: { manifest: PluginManifest }) {
     const { manifest } = row;
 
-    // 1. Если плагин имеет собственный роут (Радио, Подкасты, Звук) —
-    // просто переходим на него, не трогая библиотеку папок.
     if (manifest.customRoute) {
       router.push({ name: manifest.customRoute });
       return;
@@ -36,18 +36,15 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
     const context = createPluginContext(manifest.id);
     const writer = createLibraryWriter();
 
-    // 2. Ждем рутовый скан
     const snapshot = await plugin.load(context);
     await writer.setLibrary(snapshot, manifest.id);
 
-    // 3. Ищем корень
     const root = findRoot(manifest.id);
     if (!root) {
       toastService.error(`Источник «${manifest.name}» пуст`);
       return;
     }
 
-    // 4. Переход
     router.push({
       name: 'folder',
       params: {
@@ -92,8 +89,30 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
     try {
       const plugin = await loadPlugin(row.manifest.id);
       await plugin.disconnect(createPluginContext(row.manifest.id));
-      await onReload();
+
+      // Останавливаем плеер, если текущий трек был из этого плагина.
+      const player = usePlayerStore();
+      const currentPluginId = player.currentTrack?.sources[0]?.pluginId;
+      const wasCurrentFromPlugin =
+        currentPluginId !== undefined && pluginIdFromSource(currentPluginId) === row.manifest.id;
+
+      player.removeTracksByPlugin(row.manifest.id);
+
+      // Если текущий трек затронут (или очередь опустела) — освобождаем File/objectURL
+      // в AudioService. removeTracksByPlugin мог уже вызвать stop(), но гарантируем.
+      if (wasCurrentFromPlugin || player.queue.length === 0) {
+        audioService.releaseCurrent();
+      }
+    } catch (err) {
+      console.error('[plugin-actions] disconnect failed', err);
+      toastService.error(err instanceof Error ? err.message : 'Не удалось отключить источник');
     } finally {
+      // Всегда перечитываем список плагинов — даже при ошибке.
+      try {
+        await onReload();
+      } catch (reloadErr) {
+        console.warn('[plugin-actions] onReload after disconnect failed', reloadErr);
+      }
       isLoading.value = null;
     }
   }

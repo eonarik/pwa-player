@@ -1,30 +1,30 @@
-// src/services/audio/AudioService.ts
+// src/services/audio/audioService/AudioService.ts
 
-import Hls from 'hls.js';
-import type { AudioEventMap, AudioEventName, AudioListener } from './types';
+import type { AudioEventMap, AudioEventName, AudioListener } from '../types';
+import { HlsController } from './hls';
+import { ResourceHolder } from './resources';
+import { bindNativeEvents, type NativeEventHandlers } from './events';
 
 export class AudioService {
   private static instance: AudioService | null = null;
 
   private audio: HTMLAudioElement;
-  private hls: Hls | null = null;
-  private hlsFailed = false;
+  private hls: HlsController;
+  private resources: ResourceHolder;
+  private nativeEvents: NativeEventHandlers;
+
   private listeners: {
     [K in AudioEventName]?: Set<AudioListener<K>>;
   } = {};
 
-  private nativeHandlers: Array<{
-    event: string;
-    handler: EventListener;
-  }> = [];
-
-  private currentObjectUrl: string | null = null;
   private currentSrc: string | null = null;
 
   private constructor() {
     this.audio = new Audio();
     this.audio.preload = 'metadata';
-    this.bindNativeEvents();
+    this.hls = new HlsController();
+    this.resources = new ResourceHolder();
+    this.nativeEvents = bindNativeEvents(this.audio, (event, payload) => this.emit(event, payload));
   }
 
   static getInstance(): AudioService {
@@ -59,78 +59,65 @@ export class AudioService {
   }
 
   load(source: string | File | Blob): void {
-    this.destroyHls();
-    this.hlsFailed = false;
-
-    if (this.currentObjectUrl) {
-      URL.revokeObjectURL(this.currentObjectUrl);
-      this.currentObjectUrl = null;
-    }
+    this.hls.destroy();
+    this.hls.reset();
+    this.resources.releaseInternal();
 
     if (typeof source === 'string') {
       this.currentSrc = source;
 
-      if (source.includes('.m3u8') && Hls.isSupported()) {
-        this.hls = new Hls();
-        this.hls.loadSource(source);
-        this.hls.attachMedia(this.audio);
-
-        this.hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (!data.fatal) return;
-
-          console.warn('[audio] HLS fatal error', data.type, data.details);
-
-          this.hlsFailed = true;
-          this.pause();
-
-          let message = 'Ошибка потока';
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            message = 'Не удалось загрузить поток (сеть или CORS)';
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            message = 'Ошибка воспроизведения медиа';
-          } else {
-            message = `Ошибка потока: ${data.details}`;
-          }
-
+      if (source.includes('.m3u8')) {
+        const attached = this.hls.tryAttach(source, this.audio, (message) => {
           this.emit('error', { message, src: source });
+          this.pause();
         });
+        if (!attached) {
+          // hls.js не поддерживается — нативный <audio>
+          this.audio.src = source;
+          this.audio.load();
+        }
       } else {
         this.audio.src = source;
         this.audio.load();
       }
     } else {
       this.currentSrc = null;
-      this.currentObjectUrl = URL.createObjectURL(source);
-      this.audio.src = this.currentObjectUrl;
+      const file = source instanceof File ? source : null;
+      const url = URL.createObjectURL(source);
+      this.resources.setObjectUrl(url, file);
+      this.audio.src = url;
       this.audio.load();
     }
   }
 
   unload(): void {
-    this.destroyHls();
-    this.hlsFailed = false;
+    this.hls.destroy();
+    this.hls.reset();
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load();
 
-    if (this.currentObjectUrl) {
-      URL.revokeObjectURL(this.currentObjectUrl);
-      this.currentObjectUrl = null;
-    }
+    this.resources.releaseInternal();
     this.currentSrc = null;
   }
 
-  private destroyHls(): void {
-    if (this.hls) {
-      this.hls.destroy();
-      this.hls = null;
-    }
+  /**
+   * Освобождает текущий File/objectURL и сбрасывает src.
+   * Идемпотентен. Используется при отключении плагина, dispose, unload.
+   *
+   * В отличие от `unload`, не дёргает `hls.destroy()` (HLS разрушим отдельно).
+   */
+  releaseCurrent(): void {
+    this.audio.pause();
+    this.audio.removeAttribute('src');
+    this.audio.load();
+
+    this.resources.releaseInternal();
+    this.currentSrc = null;
   }
 
   async play(): Promise<void> {
-    // HLS-поток уже отдал fatal error. Без явного load() повторно
-    // запускать нечего — вышестоящий код должен вызвать playAt() заново.
-    if (this.hlsFailed) {
+    if (this.hls.isFailed) {
       throw new Error('HLS stream failed');
     }
 
@@ -217,63 +204,17 @@ export class AudioService {
     return !Number.isFinite(this.audio.duration);
   }
 
-  private bindNativeEvents(): void {
-    const bind = <K extends AudioEventName>(nativeEvent: string, emitName: K, map: () => AudioEventMap[K]) => {
-      const handler: EventListener = () => {
-        this.emit(emitName, map());
-      };
-      this.audio.addEventListener(nativeEvent, handler);
-      this.nativeHandlers.push({ event: nativeEvent, handler });
-    };
-
-    bind('timeupdate', 'timeupdate', () => ({
-      currentTime: this.currentTime,
-      duration: this.duration,
-    }));
-
-    bind('loadedmetadata', 'loadedmetadata', () => ({
-      duration: this.duration,
-    }));
-
-    bind('play', 'play', () => undefined as void);
-    bind('pause', 'pause', () => undefined as void);
-    bind('ended', 'ended', () => undefined as void);
-    bind('waiting', 'waiting', () => undefined as void);
-    bind('canplay', 'canplay', () => undefined as void);
-
-    bind('volumechange', 'volumechange', () => ({
-      volume: this.volume,
-      muted: this.muted,
-    }));
-
-    const errorHandler: EventListener = () => {
-      const mediaError = this.audio.error;
-      this.emit('error', {
-        message: mediaError?.message || 'Media error',
-        code: mediaError?.code,
-        src: this.audio.src,
-      });
-    };
-    this.audio.addEventListener('error', errorHandler);
-    this.nativeHandlers.push({ event: 'error', handler: errorHandler });
-  }
-
   destroy(): void {
-    this.destroyHls();
+    this.hls.destroy();
     this.audio.pause();
 
-    this.nativeHandlers.forEach(({ event, handler }) => {
-      this.audio.removeEventListener(event, handler);
-    });
-    this.nativeHandlers = [];
+    this.nativeEvents.dispose();
 
     Object.values(this.listeners).forEach((set) => set?.clear());
     this.listeners = {};
 
-    if (this.currentObjectUrl) {
-      URL.revokeObjectURL(this.currentObjectUrl);
-      this.currentObjectUrl = null;
-    }
+    this.resources.releaseInternal();
+    this.currentSrc = null;
 
     this.audio.removeAttribute('src');
     this.audio.load();
@@ -281,5 +222,3 @@ export class AudioService {
     AudioService.instance = null;
   }
 }
-
-export const audioService = AudioService.getInstance();

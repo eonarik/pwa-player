@@ -58,8 +58,8 @@ function onExportJSON(close: () => void) {
 <template>
   <DropdownMenu :width="256">
     <template #trigger="{ toggle, setTriggerRef }">
-      <div :ref="setTriggerRef" @click.stop="toggle">
-        <IconButton icon="share" label="Поделиться" />
+      <div :ref="setTriggerRef">
+        <IconButton icon="share" label="Поделиться" @click.stop="toggle" />
       </div>
     </template>
 

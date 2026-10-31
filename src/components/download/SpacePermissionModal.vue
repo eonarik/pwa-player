@@ -7,6 +7,10 @@ import { toastService } from '@/services/ui/ToastService';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Button from '@/components/ui/Button.vue';
 
+const emit = defineEmits<{
+  (e: 'close'): void;
+}>();
+
 const isRequesting = ref(false);
 const isPicking = ref(false);
 
@@ -19,6 +23,7 @@ async function requestAccess() {
 
     if (state === 'granted') {
       toastService.success('Доступ к папке скачивания восстановлен');
+      emit('close');
       return;
     }
 
@@ -36,6 +41,7 @@ async function pickSpace() {
     const handle = await downloadSpaceService.pickSpace();
     if (handle) {
       toastService.success('Папка скачивания выбрана');
+      emit('close');
     } else {
       toastService.info('Папка не выбрана. Скачивание недоступно');
     }
@@ -46,7 +52,7 @@ async function pickSpace() {
 </script>
 
 <template>
-  <ModalLayout title="Нужен доступ к папке" max-width="sm" :disable-backdrop-close="true" @close="() => {}">
+  <ModalLayout title="Нужен доступ к папке" max-width="sm" :disable-backdrop-close="true" @close="emit('close')">
     <p class="mb-5 text-sm text-fg-muted">
       Для скачивания треков нужен доступ к папке
       <span v-if="downloadSpaceService.spaceName.value" class="text-fg">
@@ -62,6 +68,8 @@ async function pickSpace() {
       <Button variant="secondary" :disabled="isRequesting || isPicking" @click="pickSpace">
         {{ isPicking ? 'Выбор…' : 'Выбрать другую папку' }}
       </Button>
+
+      <Button variant="ghost" :disabled="isRequesting || isPicking" @click="emit('close')"> Закрыть </Button>
     </div>
   </ModalLayout>
 </template>

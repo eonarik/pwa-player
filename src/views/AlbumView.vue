@@ -10,6 +10,7 @@ import { compareStrings } from '@/utils/sort';
 import TrackListPage from '@/components/library/TrackListPage.vue';
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue';
 import type { Track } from '@/types/track';
+import type { AlbumId } from '@/types/ids';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 
@@ -17,16 +18,12 @@ const route = useRoute();
 const library = useLibraryStore();
 
 const artistName = computed(() => String(route.params.artistName ?? ''));
-const albumSlug = computed(() => String(route.params.album ?? ''));
-const isNoAlbum = computed(() => albumSlug.value === NO_ALBUM_SLUG);
+const albumParam = computed(() => String(route.params.album ?? ''));
+const isNoAlbum = computed(() => albumParam.value === NO_ALBUM_SLUG);
 
 const currentAlbum = computed(() => {
   if (isNoAlbum.value) return null;
-  return (
-    Object.values(library.albums).find(
-      (a) => a.artist === artistName.value && a.name.toLowerCase().replace(/\s+/g, '-') === albumSlug.value,
-    ) || null
-  );
+  return library.getAlbum(albumParam.value as AlbumId);
 });
 
 const tracks = computed<Track[]>(() => {
@@ -77,7 +74,7 @@ const subtitle = computed(() => {
             :to="{ name: 'artist', params: { artistName } }"
             class="flex items-center gap-1 truncate rounded-btn px-2 py-1 text-sm text-fg-muted transition hover:bg-hover-bg hover:text-fg"
           >
-            <Icon name="arrow-left" w="w-4" h="w-4" />
+            <Icon name="arrow-left" w="w-4" h="h-4" />
             {{ artistName }}
           </RouterLink>
           <ShowSourceCheckbox />

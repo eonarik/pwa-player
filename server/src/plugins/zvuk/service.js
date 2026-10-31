@@ -1,6 +1,6 @@
 // server/src/plugins/zvuk/service.js
 
-import { ZvukAPI } from './sberzvuk-api.js';
+import { ZvukAPI, RateLimitError } from './sberzvuk-api.js';
 import * as fuzzball from 'fuzzball';
 import { getArtistSearchVariants, ARTIST_ALIASES } from '../../shared/aliases.js';
 
@@ -19,18 +19,23 @@ function getApi() {
   return apiInstance;
 }
 
-export async function searchAll(query, types, userToken) {
+function titleContainmentScore(a, b) {
+  if (!a || !b) return 0;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  if (shorter.length < 5) return 0;
+  return longer.includes(shorter) ? 1 : 0;
+}
+
+async function queryZvuk(query, types, userToken) {
   const api = userToken ? new ZvukAPI(userToken) : getApi();
 
-  // 1. Проверяем, есть ли точный алиас для всего запроса
   let searchQuery = query;
   const lowerQuery = query.trim().toLowerCase();
-
   if (ARTIST_ALIASES[lowerQuery]) {
-    searchQuery = ARTIST_ALIASES[lowerQuery][0]; // Берем первый алиас
+    searchQuery = ARTIST_ALIASES[lowerQuery][0];
   }
 
-  // 2. Общий поиск
   const searchData = await api.execute('getSearchAll', { query: searchQuery, limit: 10 });
   const search = searchData?.search;
 
@@ -54,11 +59,11 @@ export async function searchAll(query, types, userToken) {
         });
         const popular = artistData?.getArtists?.[0]?.popularTracks || [];
         const validPopular = popular.filter((t) => t != null);
-
         if (validPopular.length > 0) {
           return { tracks: validPopular, artists: [], releases: [] };
         }
       } catch (err) {
+        if (err instanceof RateLimitError) throw err;
         console.warn('[zvuk] artist fetch failed', err);
       }
     }
@@ -81,11 +86,11 @@ export async function searchAll(query, types, userToken) {
         const releaseData = await api.execute('getRelease', { ids: [releaseId] });
         const releaseTracks = releaseData?.getReleases?.[0]?.tracks || [];
         const validReleaseTracks = releaseTracks.filter((t) => t != null);
-
         if (validReleaseTracks.length > 0) {
           return { tracks: validReleaseTracks, artists: [], releases: [] };
         }
       } catch (err) {
+        if (err instanceof RateLimitError) throw err;
         console.warn('[zvuk] release fetch failed', err);
       }
     }
@@ -93,29 +98,22 @@ export async function searchAll(query, types, userToken) {
 
   const rawTracks = search?.tracks?.items || [];
   const tracks = rawTracks.filter((t) => t != null);
-
   return { tracks, artists: [], releases: [] };
 }
 
-/**
- * Строгий поиск метаданных (artist + title) с использованием алиасов.
- */
-export async function searchMetadataStrict(artist, title, userToken) {
-  const api = userToken ? new ZvukAPI(userToken) : getApi();
+export async function searchAll(query, types, userToken) {
+  return queryZvuk(query, types, userToken);
+}
 
-  // 1. Получаем варианты из ядрового словаря
+export async function searchMetadataStrict(artist, title, userToken) {
   const artistVariants = getArtistSearchVariants(artist);
 
-  // 2. Если есть алиасы (каноническое имя), используем ТОЛЬКО их.
-  // Оригинал (#####) ИГНОРИРУЕМ полностью, чтобы не делать лишних запросов.
   let targetArtists = artistVariants;
   if (artistVariants.length > 1) {
-    targetArtists = artistVariants.slice(1); // Берем только алиасы
+    targetArtists = artistVariants.slice(1);
   }
 
-  const searchQueries = targetArtists.length > 0 ? targetArtists.map((a) => `${a} - ${title}`) : [];
-
-  // Фоллбек: только по названию (если артист пустой)
+  const searchQueries = targetArtists.length > 0 ? targetArtists.map((a) => `${a} ${title}`) : [];
   if (title && searchQueries.length === 0) {
     searchQueries.push(title);
   }
@@ -127,42 +125,39 @@ export async function searchMetadataStrict(artist, title, userToken) {
 
   for (const query of searchQueries) {
     try {
-      const searchData = await api.execute('getSearchAll', { query, limit: 10 });
-      const rawTracks = searchData?.search?.tracks?.items || [];
+      const result = await queryZvuk(query, ['tracks'], userToken);
+      const rawTracks = result.tracks;
 
       if (rawTracks.length === 0) continue;
 
-      const trackIds = rawTracks.map((t) => t.id).filter(Boolean);
-      if (trackIds.length === 0) continue;
-
-      const fullData = await api.execute('getTracks', { ids: trackIds });
-      const fullTracks = fullData?.getTracks || [];
-
-      for (const track of fullTracks) {
-        const trackArtistTemplate = (track.artistTemplate || '').toLowerCase().trim();
-        const trackArtists = track.artists?.map((a) => a.title).join(', ') || '';
-        const trackArtist = trackArtists.toLowerCase().trim();
+      for (const track of rawTracks) {
+        const trackArtistTitles = (track.artists || []).map((a) => a.title.toLowerCase().trim());
         const trackTitle = (track.title || '').toLowerCase().trim();
 
-        // --- НОВАЯ ЛОГИКА ---
-        // Ищем точное совпадение с ЛЮБЫМ из вариантов (оригинал или алиас)
-        const isExactArtistMatch = artistVariants.some((variant) => variant.toLowerCase().trim() === trackArtist);
+        const isExactArtistMatch = artistVariants.some((variant) => {
+          const v = variant.toLowerCase().trim();
+          return trackArtistTitles.includes(v) || v === trackArtistTitles.join(', ');
+        });
 
         let artistScore = 0;
         if (isExactArtistMatch) {
           artistScore = 1;
         } else {
-          // Если точного совпадения нет, проверяем через fuzzball,
-          // но с высоким порогом (чтобы отсеять мусор)
-          artistScore = fuzzball.ratio(artistVariants[0], trackArtist) / 100;
-          if (artistScore < 0.8) {
-            artistScore = 0;
+          let maxRatio = 0;
+          for (const variant of artistVariants) {
+            for (const ta of trackArtistTitles) {
+              const r = fuzzball.ratio(variant.toLowerCase().trim(), ta);
+              if (r > maxRatio) maxRatio = r;
+            }
           }
+          artistScore = maxRatio / 100;
+          if (artistScore < 0.8) artistScore = 0;
         }
 
-        const titleScore = fuzzball.ratio(targetTitle, trackTitle) / 100;
+        const titleScoreFuzzy = fuzzball.ratio(targetTitle, trackTitle) / 100;
+        const titleScoreContain = titleContainmentScore(targetTitle, trackTitle);
+        const titleScore = Math.max(titleScoreFuzzy, titleScoreContain);
 
-        // ЖЕСТКИЙ ШТРАФ
         if (artistScore === 0) {
           if (titleScore > 0.95) {
             const finalScore = titleScore * 0.5;
@@ -181,8 +176,12 @@ export async function searchMetadataStrict(artist, title, userToken) {
         }
       }
 
+      console.log(`[zvuk] success for "${query}". score: ${bestScore}`);
       if (bestScore > 0.95) break;
     } catch (err) {
+      if (err instanceof RateLimitError) {
+        throw err;
+      }
       console.warn(`[zvuk] Metadata search failed for "${query}"`, err);
     }
   }
@@ -199,6 +198,7 @@ export async function searchMetadataStrict(artist, title, userToken) {
     source: 'zvuk',
     similarity: bestScore,
     confident: bestScore >= 0.9,
+    trackId: bestMatch.id ? String(bestMatch.id) : undefined,
   };
 }
 

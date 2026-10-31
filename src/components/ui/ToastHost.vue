@@ -54,7 +54,10 @@ function classesFor(type: ToastType): string {
         >
           <Icon :name="iconFor(toast.type)" w="w-5" h="h-5" class="shrink-0" />
 
-          <p class="min-w-0 flex-1 text-sm">{{ toast.message }}</p>
+          <p class="min-w-0 flex-1 text-sm">
+            {{ toast.message }}
+            <span v-if="toast.count > 1" class="ml-1 text-xs opacity-70">×{{ toast.count }}</span>
+          </p>
 
           <button
             v-if="toast.action"

@@ -52,6 +52,7 @@ export interface PlayerActions {
   handleTrackEnd: () => void;
   handleAuthError: (error: AuthError, track: Track) => void;
   skipToNextOnError: () => void;
+  removeTracksByPlugin: (pluginId: string) => void;
 }
 
 export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerActionsCallbacks): PlayerActions {
@@ -110,15 +111,16 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
     const track = queue.value[index];
     if (!track) return;
 
-    // Увеличиваем версию при каждом запуске
     playbackVersion.value++;
 
     const sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority);
 
     if (sortedSources.length === 0) {
-      toastService.error('Источник недоступен. Нет доступных ссылок.');
+      toastService.error('Не удалось воспроизвести трек (все источники недоступны)');
+
+      // Суммаризация — через ToastService (message + type).
       if (queue.value.length > 1) {
-        next();
+        skipToNextOnError();
       } else {
         stop();
       }
@@ -375,6 +377,29 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
     audioService.pause();
   }
 
+  // НОВАЯ ФУНКЦИЯ
+  function removeTracksByPlugin(pluginId: string): void {
+    const tracksToRemove = queue.value.filter((track) => {
+      // Трек удаляется из очереди, если ВСЕ его источники принадлежат отключаемому плагину
+      return track.sources.every((s) => pluginIdFromSource(s.pluginId) === pluginId);
+    });
+
+    if (tracksToRemove.length === 0) return;
+
+    // Если текущий трек из этого плагина — останавливаем
+    if (currentTrack.value && tracksToRemove.some((t) => t.id === currentTrack.value?.id)) {
+      stop();
+      return;
+    }
+
+    // Иначе просто удаляем из очереди
+    queue.value = queue.value.filter((t) => !tracksToRemove.some((tr) => tr.id === t.id));
+
+    if (currentIndex.value >= queue.value.length) {
+      currentIndex.value = queue.value.length - 1;
+    }
+  }
+
   return {
     setQueue,
     playAll,
@@ -397,5 +422,6 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
     handleTrackEnd,
     handleAuthError,
     skipToNextOnError,
+    removeTracksByPlugin,
   };
 }

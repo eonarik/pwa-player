@@ -1,4 +1,4 @@
-// e2e/08-cancel-background-scan.spec.ts
+// e2e/plugins/06-cancel-background-scan.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { setupPageLogs, waitForAppBootstrap } from '../helpers/test-utils';

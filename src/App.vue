@@ -126,6 +126,19 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown);
 });
+
+const isSpacePermissionModalOpen = ref(downloadSpaceService.needsPermission.value);
+
+watch(
+  () => downloadSpaceService.needsPermission.value,
+  (need) => {
+    if (need) isSpacePermissionModalOpen.value = true;
+  },
+);
+
+function closeSpacePermissionModal(): void {
+  isSpacePermissionModalOpen.value = false;
+}
 </script>
 
 <template>
@@ -159,7 +172,7 @@ onUnmounted(() => {
     <ModalHost />
     <ToastHost />
     <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />
-    <SpacePermissionModal v-if="downloadSpaceService.needsPermission.value" />
+    <SpacePermissionModal v-if="isSpacePermissionModalOpen" @close="closeSpacePermissionModal" />
     <FeedbackModal v-if="isFeedbackOpen" @close="closeFeedback" />
 
     <Transition

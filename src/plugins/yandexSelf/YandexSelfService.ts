@@ -27,11 +27,12 @@ export class YandexSelfService implements IYandexService {
   }
 
   async login(): Promise<boolean> {
-    // 1. Проверяем, может, уже залогинены
     const alive = await this.checkSession?.();
-    if (alive === 'ok') return true;
+    if (alive === 'ok') {
+      this.setDisconnected(false);
+      return true;
+    }
 
-    // 2. Спрашиваем пароль через модалку
     const code = await modalService.show<string>({
       title: 'Вход в Логии',
       message: 'Введите пароль (необязательно)',
@@ -39,7 +40,7 @@ export class YandexSelfService implements IYandexService {
       inputType: 'password',
     });
 
-    if (code === null) return false; // Пользователь отменил
+    if (code === null) return false;
 
     let ctx = 'common';
     let password = code;
@@ -50,7 +51,6 @@ export class YandexSelfService implements IYandexService {
       password = parts[1] || '';
     }
 
-    // 3. Делаем запрос
     try {
       const res = await fetch(`${API_URL}/auth`, {
         method: 'POST',
@@ -62,16 +62,14 @@ export class YandexSelfService implements IYandexService {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
 
-        // 401 — неверный пароль
         if (res.status === 401) {
           throw new Error(data.error || 'Неверный пароль');
         }
 
-        // 500+ — ошибка сервера (таймаут)
         throw new Error(data.error || 'Ошибка сервера при подключении');
       }
 
-      localStorage.removeItem(DISCONNECTED_KEY);
+      this.setDisconnected(false);
       return true;
     } catch (err) {
       if (err instanceof Error) throw err;
@@ -93,6 +91,10 @@ export class YandexSelfService implements IYandexService {
     }
   }
 
+  /**
+   * Выход: уничтожает серверную сессию и выставляет флаг «отключено»,
+   * чтобы UI не показывал плагин как «подключённый».
+   */
   async logout(): Promise<void> {
     try {
       await fetch(`${API_URL}/logout`, {
@@ -101,6 +103,8 @@ export class YandexSelfService implements IYandexService {
       });
     } catch (err) {
       console.warn('[yandex-self] logout failed', err);
+    } finally {
+      this.setDisconnected(true);
     }
   }
 

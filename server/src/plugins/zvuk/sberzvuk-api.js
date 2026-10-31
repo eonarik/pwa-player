@@ -9,6 +9,20 @@ export var Quality;
   Quality[(Quality['Middle'] = 1)] = 'Middle';
 })(Quality || (Quality = {}));
 
+const RETRY_DELAYS_MS = [5000, 10000, 15000];
+
+export class RateLimitError extends Error {
+  constructor() {
+    super('Zvuk rate limit (418/429)');
+    this.name = 'RateLimitError';
+    this.status = 429;
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class ZvukAPI {
   constructor(token, axiosOptions = {}) {
     if (typeof token !== 'string' || token.length === 0) {
@@ -32,12 +46,7 @@ export class ZvukAPI {
   }
 
   async quickSearch(query, limit = 10) {
-    const variables = {
-      query,
-      limit,
-      tracks: true,
-    };
-
+    const variables = { query, limit, tracks: true };
     const data = await this.execute('getSearchAll', variables);
     return data?.search?.tracks?.items || [];
   }
@@ -76,26 +85,49 @@ export class ZvukAPI {
     if (!query) throw new Error(`Unknown operation: ${operationName}`);
 
     const cleanQuery = query.replace(/\s+/g, ' ').trim();
-
     const url = 'https://zvuk.com/api/v1/graphql';
 
-    try {
-      const response = await this.client.post(url, {
-        operationName,
-        variables,
-        query: cleanQuery,
-      });
+    let attempt = 0;
 
-      if (response.data.errors) {
-        console.error(`[zvuk] GraphQL Error for ${operationName}:`, JSON.stringify(response.data.errors, null, 2));
-        throw new Error(response.data.errors[0].message);
+    while (true) {
+      try {
+        const response = await this.client.post(url, {
+          operationName,
+          variables,
+          query: cleanQuery,
+        });
+
+        if (response.data.errors) {
+          console.error(`[zvuk] GraphQL Error for ${operationName}:`, JSON.stringify(response.data.errors, null, 2));
+          throw new Error(response.data.errors[0].message);
+        }
+        return response.data.data;
+      } catch (err) {
+        const status = err.response?.status;
+
+        if (status === 418 || status === 429) {
+          const delay = RETRY_DELAYS_MS[attempt];
+          attempt++;
+
+          if (delay === undefined) {
+            console.warn(
+              `[zvuk] anti-bot ${status} for ${operationName}: retries exhausted after ${RETRY_DELAYS_MS.length} attempts`,
+            );
+            throw new RateLimitError();
+          }
+
+          console.warn(
+            `[zvuk] anti-bot ${status} for ${operationName}: retry ${attempt}/${RETRY_DELAYS_MS.length} in ${delay}ms`,
+          );
+          await sleep(delay);
+          continue;
+        }
+
+        if (err.response?.data?.errors) {
+          console.error(`[zvuk] GraphQL Error Response:`, JSON.stringify(err.response.data.errors, null, 2));
+        }
+        throw err;
       }
-      return response.data.data;
-    } catch (err) {
-      if (err.response?.data?.errors) {
-        console.error(`[zvuk] GraphQL Error Response:`, JSON.stringify(err.response.data.errors, null, 2));
-      }
-      throw err;
     }
   }
 

@@ -1,4 +1,4 @@
-// e2e/03-radio-plugin.spec.ts
+// e2e/plugins/02-radio-plugin.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { mockAllApis } from '../mocks/api';

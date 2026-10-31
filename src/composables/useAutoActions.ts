@@ -12,7 +12,7 @@ import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';
 import { pluginCanDownload, isStreamingPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { hasLocalSource } from '@/services/library/selectors';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
-import { isProcessed, markProcessed } from '@/services/metadata/AutoFetchRegistry';
+import { isProcessed, markProcessed, resetProcessedTrack } from '@/services/metadata/AutoFetchRegistry';
 
 export function useAutoActions() {
   const player = usePlayerStore();
@@ -23,9 +23,6 @@ export function useAutoActions() {
     () => player.playbackVersion,
     async () => {
       const track = player.currentTrack;
-      console.log(
-        `[useAutoActions] WATCH TRIGGERED. Version: ${player.playbackVersion}, Track: ${track?.title}, hasMetadataEdits: ${track?.hasMetadataEdits}`,
-      );
 
       if (!track) return;
 
@@ -69,14 +66,27 @@ export function useAutoActions() {
           player.updateTrackInQueue(libTrack.id);
 
           const updated = library.getTrack(libTrack.id);
-          if (updated) void runAutoFetch(updated);
+          if (updated) {
+            try {
+              await runAutoFetch(updated);
+            } catch (err) {
+              console.warn('[auto-actions] runAutoFetch failed (local), will retry next time', err);
+              resetProcessedTrack(track.id);
+            }
+          }
           return;
         } catch (err) {
           console.error('[auto-actions] failed to parse local track metadata', err);
+          resetProcessedTrack(track.id);
         }
       }
 
-      void runAutoFetch(libTrack);
+      try {
+        await runAutoFetch(libTrack);
+      } catch (err) {
+        console.warn('[auto-actions] runAutoFetch failed, will retry next time', err);
+        resetProcessedTrack(track.id);
+      }
 
       const isDownloading = downloadOrchestrator.isDownloading(libTrack.id);
       const cloudPluginId = libTrack.sources.find((s) => s.kind === 'cloud')?.pluginId;

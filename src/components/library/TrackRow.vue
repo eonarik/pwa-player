@@ -94,11 +94,16 @@ const isUnavailable = computed(() => props.track.sources.length === 0);
 
     <template #title>
       <p class="truncate text-sm font-medium" :class="isUnavailable ? 'line-through text-fg-muted' : ''">
-        <template v-if="showSource && hasArtist">
+        <!-- Недоступный трек: всегда показываем Artist - Title -->
+        <template v-if="isUnavailable && hasArtist">
+          <span>{{ displayArtist }}</span>
+          <span> — </span>
+        </template>
+        <!-- Обычный трек: Artist - Title, если включено «Показывать источник» -->
+        <template v-else-if="showSource && hasArtist">
           <RouterLink
             :to="{ name: 'artist', params: { artistName: displayArtist } }"
             class="transition hover:text-active"
-            :class="isUnavailable ? 'pointer-events-none' : ''"
             @click.stop
           >
             {{ displayArtist }}

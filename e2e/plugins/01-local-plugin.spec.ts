@@ -1,4 +1,4 @@
-// e2e/02-local-plugin.spec.ts
+// e2e/plugins/01-local-plugin.spec.ts
 
 import { test, expect } from '@playwright/test';
 import { mockFileSystem, initOPFS } from '../helpers/fs-mock';

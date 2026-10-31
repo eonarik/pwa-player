@@ -1,11 +1,12 @@
 // src/composables/useAppBootstrap.ts
 
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, unref } from 'vue';
 import { usePlayerStore } from '@/stores/player';
 import { useHistoryStore } from '@/stores/history';
 import { useDislikesStore } from '@/stores/dislikes';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { useLibraryStore } from '@/stores/library';
+import { usePlaylistsStore } from '@/stores/playlists';
 import { metadataService } from '@/services/metadata/MetadataService';
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import { syncService } from '@/services/download/SyncService';
@@ -23,6 +24,7 @@ export function useAppBootstrap() {
     const dislikes = useDislikesStore();
     const uiSettings = useUiSettingsStore();
     const library = useLibraryStore();
+    const playlists = usePlaylistsStore();
 
     try {
       await uiSettings.load();
@@ -31,8 +33,12 @@ export function useAppBootstrap() {
       await downloadSpaceService.load();
       await history.restore();
       await dislikes.restore();
+      await playlists.restore();
 
       await library.restore();
+
+      // Синхронизация folder.trackIds ↔ sources — до orphan-cleanup.
+      library.reconcileFolderTrackIds();
 
       if (downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
         const plugins = getPlugins().filter((p) => p.canDownload);
@@ -57,6 +63,13 @@ export function useAppBootstrap() {
 
       const playerRestored = await player.restore();
       if (playerRestored) console.log('[player] restored');
+
+      library.cleanupOrphanTracks(
+        unref(playlists.playlists) ?? {},
+        unref(history.history) ?? { playedAt: {} },
+        unref(dislikes.dislikes) ?? { dislikedAt: {} },
+        unref(player.queue) ?? [],
+      );
     } finally {
       isBootstrapping.value = false;
     }

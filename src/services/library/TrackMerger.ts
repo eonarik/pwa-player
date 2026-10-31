@@ -34,14 +34,14 @@ function isSameSource(a: TrackSource, b: TrackSource): boolean {
   if (a.pluginId !== b.pluginId) return false;
   if (a.kind !== b.kind) return false;
   if (a.kind === 'local' && b.kind === 'local') {
-    // Сравниваем и имя файла, и папку
     return a.handle.name === b.handle.name && a.folderId === b.folderId;
   }
   if (a.kind === 'cloud' && b.kind === 'cloud') {
     return a.remotePath === b.remotePath;
   }
   if (a.kind === 'streaming' && b.kind === 'streaming') {
-    return a.url === b.url;
+    // Пустые url (виртуальные треки при импорте) не считаем одинаковыми
+    return a.url === b.url && a.url !== '';
   }
   return false;
 }
@@ -84,6 +84,9 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     id: newTrackSourceId(),
   } as TrackSource;
 
+  // «Пустой» source (импорт с url: '') — не валиден. Не добавляем его никуда.
+  const isVoidSource = source.kind === 'streaming' && !source.url;
+
   const raw: RawMetadata = {
     artist: incoming.artist,
     title: incoming.title,
@@ -98,7 +101,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     title: incoming.title,
     albumId: null,
     coverUrl: incoming.coverUrl,
-    sources: [source],
+    sources: isVoidSource ? [] : [source],
     metadataCandidates: [],
     raw,
     hasId3Tags: incoming.hasId3Tags,
@@ -120,7 +123,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
       title: incoming.title,
       albumId,
       coverUrl: albumId ? null : incoming.coverUrl,
-      sources: [source],
+      sources: isVoidSource ? [] : [source],
       metadataCandidates: [],
       raw,
       hasId3Tags: incoming.hasId3Tags,
@@ -139,7 +142,8 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
 
   // 3. Есть мэтч. Проверяем, строгий ли он.
   if (isStrictMatch(incomingProbe, bestMatch)) {
-    const alreadyHasSource = bestMatch.sources.some((s) => isSameSource(s, source));
+    // Если source пустой — не добавляем его к существующему треку.
+    const alreadyHasSource = isVoidSource || bestMatch.sources.some((s) => isSameSource(s, source));
     const nextSources = alreadyHasSource
       ? bestMatch.sources
       : [...bestMatch.sources, source].sort((a, b) => a.priority - b.priority);

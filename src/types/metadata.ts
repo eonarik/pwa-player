@@ -19,10 +19,14 @@ export interface RawMetadata {
 }
 
 /**
- * Кандидат на метаданные из внешнего источника (iTunes, Deezer).
+ * Кандидат на метаданные из внешнего источника (iTunes, Deezer, Zvuk).
  * Появляется при fuzzy-мэтче: результат похож, но не равен оригиналу.
  * Пользователь подтверждает (применяем artist/title/album/coverUrl к треку)
  * или отклоняет.
+ *
+ * `extMetadata` — произвольные данные провайдера. Ядро их не парсит и не
+ * интерпретирует. Используются, чтобы провайдер мог применить свою
+ * специфичную логику (например, Zvuk — добавить streaming-source).
  */
 export interface MetadataCandidate {
   id: MetadataCandidateId;
@@ -32,6 +36,8 @@ export interface MetadataCandidate {
   coverUrl: string | null;
   /** 0..1 — насколько похоже на оригинал */
   similarity: number;
-  /** Провайдер: 'itunes' | 'deezer' | любой другой */
+  /** Провайдер: 'itunes' | 'deezer' | 'zvuk' | любой другой */
   provider: string;
+  /** Данные, уникальные для провайдера. Ядро не интерпретирует. */
+  extMetadata?: Record<string, unknown>;
 }
