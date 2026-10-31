@@ -27,6 +27,15 @@ export function hasStreamingSource(track: Track | null | undefined): boolean {
   return track.sources.some((s) => s.kind === 'streaming');
 }
 
+/**
+ * Были ли метаданные трека изменены вручную или через автопоиск.
+ * (То есть текущие метаданные не являются исходными из файла).
+ */
+export function isTrackMetadataModified(track: Track | null | undefined): boolean {
+  if (!track) return false;
+  return track.metaSource === 'manual' || track.metaSource === 'auto';
+}
+
 export interface PlayabilityContext {
   isPluginDisconnected: boolean;
   isDownloading: boolean;

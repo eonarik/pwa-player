@@ -1,6 +1,7 @@
 <!-- src/views/folder/FolderFilters.vue -->
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import SearchInput from '@/components/ui/SearchInput.vue';
 import FolderSortMenu from '@/components/library/FolderSortMenu.vue';
 import FolderSyncMenu from '@/components/library/FolderSyncMenu.vue';
@@ -10,7 +11,7 @@ import MetadataCandidatesButton from '@/components/library/MetadataCandidatesBut
 import Divider from '@/components/ui/Divider.vue';
 import type { Track } from '@/types/track';
 
-defineProps<{
+const props = defineProps<{
   query: string;
   tracks: Track[];
   metadataLoading: boolean;
@@ -37,6 +38,10 @@ const emit = defineEmits<{
   (e: 'cancel-background-scan'): void;
 }>();
 
+const hasMetadataEdits = computed(() => {
+  return props.tracks.some((t) => t.hasMetadataEdits);
+});
+
 function onQueryUpdate(value: string): void {
   emit('update:query', value);
 }
@@ -53,12 +58,14 @@ function onQueryUpdate(value: string): void {
       <div class="flex shrink-0 items-center gap-2">
         <MetadataCandidatesButton :tracks="tracks" />
 
+        <!-- Передаем hasEdits -->
         <MetadataMenu
           :is-loading="metadataLoading"
           :progress="metadataProgress"
           :stats="metadataStats"
           :has-unchecked="metadataHasUnchecked"
           :issues-count="metadataIssuesCount"
+          :has-edits="hasMetadataEdits"
           @search="emit('metadata-search')"
           @cancel="emit('metadata-cancel')"
           @reset="emit('metadata-reset')"

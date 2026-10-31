@@ -22,6 +22,7 @@ export interface PlayerActionsRefs {
   currentTime: Ref<number>;
   repeatMode: Ref<'off' | 'one' | 'all'>;
   shuffle: Ref<boolean>;
+  playbackVersion: Ref<number>;
 }
 
 export interface PlayerActionsCallbacks {
@@ -50,11 +51,12 @@ export interface PlayerActions {
   toggleShuffle: () => void;
   handleTrackEnd: () => void;
   handleAuthError: (error: AuthError, track: Track) => void;
-  skipToNextOnError: () => void; // <--- ДОБАВЛЕНО
+  skipToNextOnError: () => void;
 }
 
 export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerActionsCallbacks): PlayerActions {
-  const { queue, currentIndex, currentTrack, isPlaying, duration, currentTime, repeatMode, shuffle } = refs;
+  const { queue, currentIndex, currentTrack, isPlaying, duration, currentTime, repeatMode, shuffle, playbackVersion } =
+    refs;
 
   const { syncCurrentTime, stopTimeLoop } = callbacks;
 
@@ -108,6 +110,9 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
     const track = queue.value[index];
     if (!track) return;
 
+    // Увеличиваем версию при каждом запуске
+    playbackVersion.value++;
+
     const sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority);
 
     if (sortedSources.length === 0) {
@@ -146,7 +151,6 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
     console.error('[player] All sources failed for track', track.id, lastError);
     toastService.error('Не удалось воспроизвести трек (все источники недоступны)');
 
-    // Пытаемся переключить на следующий
     skipToNextOnError();
   }
 
@@ -355,15 +359,11 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
   }
 
   function skipToNextOnError(): void {
-    // Если очередь пуста или мы на последнем треке без повтора — просто пауза
     const nextIndex = findPlayableIndex(queue.value, currentIndex.value + 1, 1, shouldSkipAuto);
-
     if (nextIndex !== -1) {
       void playAt(nextIndex);
       return;
     }
-
-    // Если стоит повтор всех, идем в начало
     if (repeatMode.value === 'all') {
       const wrapIndex = findPlayableIndex(queue.value, 0, 1, shouldSkipAuto);
       if (wrapIndex !== -1) {
@@ -371,8 +371,6 @@ export function createPlayerActions(refs: PlayerActionsRefs, callbacks: PlayerAc
         return;
       }
     }
-
-    // Если ничего не вышло — пауза
     isPlaying.value = false;
     audioService.pause();
   }

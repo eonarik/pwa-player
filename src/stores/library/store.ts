@@ -17,7 +17,6 @@ function deepToRaw<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
   if (obj instanceof Date) return obj;
   if (Array.isArray(obj)) return obj.map(deepToRaw) as unknown as T;
-  // Не трогаем системные объекты (FileSystemFileHandle, Blob и т.д.)
   if (typeof window !== 'undefined' && (obj instanceof FileSystemFileHandle || obj instanceof Blob)) {
     return obj;
   }
@@ -60,7 +59,7 @@ export const useLibraryStore = defineStore('library', () => {
 
   watch(albums, () => void albumService.saveAll(albums.value), { deep: true });
 
-  // ... (computed properties tracksByAlbumId, tracksByFolderId и т.д. остаются без изменений)
+  // --- Computed ---
   const tracksByAlbumId = computed<Record<AlbumId, TrackId[]>>(() => {
     const index: Record<AlbumId, TrackId[]> = {} as Record<AlbumId, TrackId[]>;
     for (const track of Object.values(tracks.value)) {
@@ -68,20 +67,6 @@ export const useLibraryStore = defineStore('library', () => {
       const list = index[track.albumId] ?? [];
       list.push(track.id);
       index[track.albumId] = list;
-    }
-    return index;
-  });
-
-  const tracksByFolderId = computed<Record<FolderId, TrackId[]>>(() => {
-    const index: Record<FolderId, TrackId[]> = {} as Record<FolderId, TrackId[]>;
-    for (const track of Object.values(tracks.value)) {
-      for (const source of track.sources) {
-        if (source.kind === 'local' || source.kind === 'cloud') {
-          const list = index[source.folderId] ?? [];
-          list.push(track.id);
-          index[source.folderId] = list;
-        }
-      }
     }
     return index;
   });
@@ -101,15 +86,18 @@ export const useLibraryStore = defineStore('library', () => {
   const currentTracks = computed<Track[]>(() => {
     const folder = currentFolder.value;
     if (!folder) return [];
-    const ids = tracksByFolderId.value[folder.id] ?? [];
+
+    // Берем треки прямо из folder.trackIds (новый подход)
     const seen = new Set<TrackId>();
     const list: Track[] = [];
-    for (const id of ids) {
+
+    for (const id of folder.trackIds || []) {
       if (seen.has(id)) continue;
       seen.add(id);
       const track = tracks.value[id];
       if (track) list.push(track);
     }
+
     return sortService.sort(list);
   });
 
@@ -162,7 +150,16 @@ export const useLibraryStore = defineStore('library', () => {
       const saved = await get<{ tracks: Record<TrackId, Track>; folders: Record<FolderId, FolderRef> }>(LIBRARY_KEY);
       if (saved) {
         tracks.value = saved.tracks || {};
-        folders.value = saved.folders || {};
+
+        // При восстановлении проверяем, что у папок есть trackIds (для обратной совместимости)
+        const restoredFolders: Record<FolderId, FolderRef> = {};
+        for (const [id, folder] of Object.entries(saved.folders || {})) {
+          restoredFolders[id as FolderId] = {
+            ...folder,
+            trackIds: folder.trackIds || [],
+          };
+        }
+        folders.value = restoredFolders;
       }
     } catch (err) {
       console.error('[library] failed to restore library from IDB', err);
@@ -187,7 +184,6 @@ export const useLibraryStore = defineStore('library', () => {
     folders,
     currentFolderId,
     tracksByAlbumId,
-    tracksByFolderId,
     currentFolder,
     currentSubfolders,
     currentTracks,

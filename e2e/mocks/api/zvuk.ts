@@ -33,4 +33,12 @@ export async function mockZvuk(page: Page) {
       body: 'dummy-audio-data',
     }),
   );
+
+  await page.route('**/api/zvuk/metadata*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(null),
+    }),
+  );
 }

@@ -4,8 +4,6 @@
 import { computed, ref } from 'vue';
 import { useLibraryStore } from '@/stores/library';
 import { usePlaylistsStore } from '@/stores/playlists';
-import { useUiSettingsStore } from '@/stores/uiSettings';
-import { trackMetadataService } from '@/services/metadata/TrackMetadataService';
 import { metadataService } from '@/services/metadata/MetadataService';
 import { toastService } from '@/services/ui/ToastService';
 import { modalService } from '@/services/ui/ModalService';
@@ -41,7 +39,6 @@ const emit = defineEmits<{
 
 const library = useLibraryStore();
 const playlists = usePlaylistsStore();
-const uiSettings = useUiSettingsStore();
 
 const isSearchingMetadata = ref(false);
 
@@ -53,7 +50,7 @@ const isLinear = computed(() => isLinearContent(primaryPluginId.value));
 const isLive = computed(() => isLiveStream(primaryPluginId.value));
 const isStreaming = computed(() => isStreamingPlugin(primaryPluginId.value));
 
-const hasMetadataEntry = computed(() => metadataService.hasEntry(props.track.id));
+const hasMetadataEdits = computed(() => Boolean(props.track.hasMetadataEdits));
 
 function openMetadataEditor(close: () => void): void {
   if (isStreaming.value) return;
@@ -86,6 +83,7 @@ async function removeMetadata(close: () => void): Promise<void> {
   }
 
   await metadataService.reset(props.track.id);
+
   toastService.success('Метаданные удалены');
   close();
 }
@@ -119,30 +117,16 @@ async function findMetadata(close: () => void): Promise<void> {
   close();
 
   try {
-    const result = await trackMetadataService.fetch(
-      libraryTrack.artist ?? '',
-      libraryTrack.title,
-      uiSettings.metadataThreshold,
-    );
+    const result = await metadataService.fetchAndApply(libraryTrack.id);
 
-    if (result.status === 'aborted') return;
-    if (result.status === 'error') {
-      toastService.error(`Ошибка поиска: ${result.message}`);
-      return;
-    }
-
-    if (result.status === 'not-found') {
-      metadataService.markNotFound(libraryTrack.id);
-      toastService.info('Метаданные не найдены');
-      return;
-    }
-
-    const applyResult = metadataService.applyRemote(libraryTrack.id, result.data);
-
-    if (applyResult.status === 'applied') {
+    if (result.status === 'applied') {
       toastService.success('Метаданные обновлены');
-    } else if (applyResult.status === 'candidates') {
+    } else if (result.status === 'candidates') {
       toastService.info('Найдены похожие варианты. Проверьте «Проблемные совпадения».');
+    } else if (result.status === 'not-found') {
+      toastService.info('Метаданные не найдены');
+    } else if (result.status === 'error') {
+      toastService.error(`Ошибка поиска: ${result.message}`);
     }
   } catch (err) {
     console.error('[track-actions] find metadata failed', err);
@@ -261,7 +245,7 @@ function removeFromQueue(close: () => void): void {
             <span v-else>Найти в интернете<br /><span class="text-fg-subtle text-xs">сбросит ручные правки</span></span>
           </button>
 
-          <template v-if="hasMetadataEntry">
+          <template v-if="hasMetadataEdits">
             <button
               type="button"
               class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"

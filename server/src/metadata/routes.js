@@ -71,8 +71,8 @@ metadataRouter.get('/track-metadata', async (req, res) => {
     // 1. Получаем список запросов (оригинал + алиасы)
     const artistVariants = getArtistSearchVariants(artist);
 
-    // Формируем готовые строки для поиска
-    const searchQueries = artistVariants.length > 0 ? artistVariants.map((a) => `${a} ${title}`) : [title];
+    // Формируем готовые строки для поиска (через дефис для лучшего поиска)
+    const searchQueries = artistVariants.length > 0 ? artistVariants.map((a) => `${a} - ${title}`) : [title];
 
     // 2. Пробуем каждый вариант
     for (const query of searchQueries) {

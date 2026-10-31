@@ -1,6 +1,5 @@
 // e2e/helpers/fs-mock.ts
 
- 
 import { Page } from '@playwright/test';
 
 export async function mockFileSystem(page: Page, fixtures: Record<string, string | Uint8Array>) {
@@ -14,40 +13,43 @@ export async function mockFileSystem(page: Page, fixtures: Record<string, string
   }
 
   await page.addInitScript(async (fixturesData) => {
-    // Переопределяем showDirectoryPicker
-    (window as any).showDirectoryPicker = async () => {
-      // Возвращаем настоящий FileSystemDirectoryHandle из OPFS
+    const setupOPFS = async () => {
       const root = await (navigator.storage as any).getDirectory();
 
-      // Очищаем предыдущие файлы
+      // Очищаем
       for await (const [name] of (root as any).entries()) {
         await (root as any).removeEntry(name, { recursive: true });
       }
 
-      // Создаем файлы из фикстур
+      // Создаем файлы
       for (const [path, content] of Object.entries(fixturesData)) {
         const parts = path.split('/');
         const fileName = parts.pop()!;
         let dir = root;
-
         for (const part of parts) {
           dir = await dir.getDirectoryHandle(part, { create: true });
         }
-
         const fileHandle = await dir.getFileHandle(fileName, { create: true });
         const writable = await fileHandle.createWritable();
-
-        const data = typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content);
-
+        const data =
+          typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content as number[]);
         await writable.write(data);
         await writable.close();
       }
-
       return root;
+    };
+
+    (window as any).__initOPFS = setupOPFS;
+    (window as any).showDirectoryPicker = async () => {
+      return await setupOPFS();
     };
   }, safeFixtures);
 }
 
 export async function initOPFS(page: Page) {
-  void page;
+  await page.evaluate(async () => {
+    if ((window as any).__initOPFS) {
+      await (window as any).__initOPFS();
+    }
+  });
 }

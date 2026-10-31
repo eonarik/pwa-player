@@ -33,7 +33,6 @@ const zvukPlugin: LibrarySource = {
     // Stateless
   },
 
-  // --- НОВЫЙ МЕТОД ---
   async fetchMetadata(artist: string, title: string) {
     try {
       const params = new URLSearchParams();
@@ -44,8 +43,6 @@ const zvukPlugin: LibrarySource = {
       if (!res.ok) return null;
 
       const data = await res.json();
-
-      // data имеет тип { artist, title, album, coverUrl, source, similarity, confident }
       return data;
     } catch (err) {
       console.warn('[zvuk] failed to fetch metadata', err);

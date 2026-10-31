@@ -5,6 +5,8 @@ import type { RawMetadata, MetadataCandidate } from './metadata';
 
 export type TrackSourceKind = 'local' | 'cloud' | 'streaming';
 
+export type MetadataSource = 'manual' | 'auto' | 'file' | 'filename';
+
 interface TrackSourceBase {
   id: TrackSourceId;
   pluginId: string;
@@ -52,6 +54,15 @@ export interface Track {
 
   // --- Флаги ---
   hasId3Tags: boolean;
+
+  /**
+   * Флаг, указывающий, что метаданные были изменены (вручную, авто или из файла).
+   * Если true — показываем кнопку "Удалить метаданные".
+   */
+  hasMetadataEdits?: boolean;
+
+  /** Откуда взяты текущие метаданные (для отладки и UI). */
+  metaSource?: MetadataSource;
 
   // --- Метаданные для UI ---
   duration?: number;

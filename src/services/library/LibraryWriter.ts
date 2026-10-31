@@ -37,7 +37,17 @@ export interface LibraryWriter {
     patch: Partial<
       Pick<
         Track,
-        'artist' | 'title' | 'albumId' | 'coverUrl' | 'hasId3Tags' | 'duration' | 'codec' | 'raw' | 'metadataCandidates'
+        | 'artist'
+        | 'title'
+        | 'albumId'
+        | 'coverUrl'
+        | 'hasId3Tags'
+        | 'duration'
+        | 'codec'
+        | 'raw'
+        | 'metadataCandidates'
+        | 'hasMetadataEdits'
+        | 'metaSource'
       >
     >,
   ): void;

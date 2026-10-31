@@ -4,6 +4,7 @@
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
+import { usePlayerStore } from '@/stores/player';
 import { folderStatusService } from '@/services/folders/FolderStatusService';
 import { pluralize } from '@/utils/pluralize';
 import ListRow from '@/components/ui/ListRow.vue';
@@ -23,28 +24,56 @@ const emit = defineEmits<{
 }>();
 
 const library = useLibraryStore();
-const { folders, tracksByFolderId } = storeToRefs(library);
+const player = usePlayerStore();
+const { folders } = storeToRefs(library);
+const { currentTrack } = storeToRefs(player);
 
-// --- Статус папки -----------------------------------------------------
+function isDescendant(childId: FolderId, parentId: FolderId): boolean {
+  let current: FolderRef | undefined = folders.value[childId];
+
+  while (current) {
+    if (current.id === parentId) return true;
+    current = current.parentId ? folders.value[current.parentId] : undefined;
+  }
+  return false;
+}
+
+const isActive = computed(() => {
+  const track = currentTrack.value;
+  if (!track) return false;
+
+  for (const source of track.sources) {
+    if (source.kind === 'local' || source.kind === 'cloud') {
+      if (isDescendant(source.folderId, props.folder.id)) {
+        return true;
+      }
+    }
+  }
+  return false;
+});
 
 const status = computed(() => folderStatusService.getStatus(props.folder.id));
 const isScanning = computed(() => status.value === 'scanning');
 const isPending = computed(() => status.value === 'pending' || status.value === null);
 const isError = computed(() => status.value === 'error');
 
-const canEnter = computed(() => true); // войти можно всегда
+const canEnter = computed(() => true);
 const canPlay = computed(() => status.value === 'scanned' && trackCount.value > 0);
-
-// --- Счётчики (рекурсивные) ------------------------------------------
 
 const trackCount = computed(() => {
   let count = 0;
   const seen = new Set<string>();
+
   const walk = (folderId: FolderId) => {
     if (seen.has(folderId)) return;
     seen.add(folderId);
-    const ids = tracksByFolderId.value[folderId] ?? [];
-    count += ids.length;
+
+    const folder = folders.value[folderId];
+    if (!folder) return;
+
+    // Используем trackIds из папки
+    count += (folder.trackIds || []).length;
+
     for (const f of Object.values(folders.value)) {
       if (f.parentId === folderId) walk(f.id);
     }
@@ -56,9 +85,11 @@ const trackCount = computed(() => {
 const folderCount = computed(() => {
   let count = 0;
   const seen = new Set<string>();
+
   const walk = (folderId: FolderId) => {
     if (seen.has(folderId)) return;
     seen.add(folderId);
+
     for (const f of Object.values(folders.value)) {
       if (f.parentId === folderId) {
         count++;
@@ -70,14 +101,11 @@ const folderCount = computed(() => {
   return count;
 });
 
-// --- Отображаемая подпись --------------------------------------------
-
 const displayLabel = computed(() => {
   if (isScanning.value) return 'Синхронизация...';
   if (isError.value) return 'Ошибка синхронизации';
   if (isPending.value) return 'Ожидает сканирования';
 
-  // status === 'scanned'
   const parts: string[] = [];
   if (folderCount.value > 0) parts.push(pluralize(folderCount.value, ['папка', 'папки', 'папок']));
   if (trackCount.value > 0) parts.push(pluralize(trackCount.value, ['трек', 'трека', 'треков']));
@@ -90,8 +118,6 @@ const labelClass = computed(() => {
   return 'text-fg-muted';
 });
 
-// --- Обработчики -----------------------------------------------------
-
 function onPlayClick(e: Event): void {
   if (!canPlay.value) return;
   emit('play', props.folder, e);
@@ -103,10 +129,9 @@ function onRowClick(): void {
 </script>
 
 <template>
-  <ListRow @click="onRowClick" :data-testid="`folder-row-${folder.id}`">
+  <ListRow @click="onRowClick" :active="isActive" :data-testid="`folder-row-${folder.id}`">
     <template #leading>
       <div class="flex shrink-0 items-center gap-2">
-        <!-- Play / Spinner / Retry -->
         <div
           class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition"
           :class="[
@@ -135,7 +160,6 @@ function onRowClick(): void {
           <Icon v-else name="play" w="w-5" h="w-5" class="translate-x-[1px]" />
         </div>
 
-        <!-- Иконка папки -->
         <div
           class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn"
           :class="isError ? 'bg-red-500/10 text-red-400' : 'bg-card-bg text-fg-muted'"
@@ -146,7 +170,7 @@ function onRowClick(): void {
     </template>
 
     <template #title>
-      <p class="truncate text-sm font-medium">{{ folder.name }}</p>
+      <p class="truncate text-sm font-medium" :class="isActive ? 'text-active' : ''">{{ folder.name }}</p>
     </template>
 
     <template #subtitle>

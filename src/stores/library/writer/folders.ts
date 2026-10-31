@@ -8,12 +8,16 @@ type LibraryStore = ReturnType<typeof useLibraryStore>;
 
 export function setFolders(s: LibraryStore, folders: PluginFolderPayload[], sourceId: string): void {
   for (const folder of folders) {
+    const existing = s.folders[folder.id];
+
     s.folders[folder.id] = {
       id: folder.id,
       pluginId: sourceId,
       name: folder.name,
       parentId: folder.parentId,
       urlPath: folder.urlPath,
+      // Если папка уже была, сохраняем её trackIds. Иначе создаем пустой массив.
+      trackIds: existing?.trackIds ?? folder.trackIds ?? [],
     };
   }
 }

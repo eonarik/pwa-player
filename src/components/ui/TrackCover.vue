@@ -21,6 +21,7 @@ const albumName = computed(() => album.value?.name ?? '');
   <div
     class="track-cover relative flex shrink-0 items-center justify-center overflow-hidden rounded-btn bg-card-bg"
     :class="[sizeClass, !albumName && 'track-cover_empty']"
+    data-testid="track-cover"
   >
     <span
       v-if="!hasCover && albumName"
@@ -28,7 +29,7 @@ const albumName = computed(() => album.value?.name ?? '');
     >
       {{ albumName }}
     </span>
-    <CoverImage v-else :src="coverUrl" :alt="albumName" fallback-icon-class="h-5 w-5" />
+    <CoverImage v-else :src="coverUrl" :alt="albumName" fallback-icon-class="h-5 w-5" data-testid="track-cover-img" />
     <slot />
   </div>
 </template>

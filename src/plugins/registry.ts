@@ -1,6 +1,7 @@
 // src/plugins/registry.ts
 
 import { ref } from 'vue';
+import { logger } from '@/utils/logger'; // <--- ИМПОРТ
 import type { LibrarySource, PluginManifest } from './types';
 
 const manifestModules = import.meta.glob<{ manifest: PluginManifest }>('./*/manifest.ts', {
@@ -18,17 +19,17 @@ for (const [path, mod] of Object.entries(manifestModules)) {
   const manifest = mod.manifest;
 
   if (!manifest) {
-    console.warn(`[plugins] ${path} не экспортирует manifest`);
+    logger.warn(`[plugins] ${path} не экспортирует manifest`);
     continue;
   }
 
   if (!manifest.enabled) {
-    console.info(`[plugins] ${manifest.id} отключён (enabled: false)`);
+    logger.info(`[plugins] ${manifest.id} отключён (enabled: false)`);
     continue;
   }
 
   if (registry.has(manifest.id)) {
-    console.warn(`[plugins] дубликат id "${manifest.id}" (${path}), пропускаю`);
+    logger.warn(`[plugins] дубликат id "${manifest.id}" (${path}), пропускаю`);
     continue;
   }
 
@@ -146,7 +147,4 @@ export function isStreamingPlugin(pluginId: string): boolean {
   return manifest?.isStreaming ?? false;
 }
 
-if (import.meta.env.DEV) {
-  const ids = getPlugins().map((p) => `${p.icon} ${p.id}`);
-  console.info(`[plugins] зарегистрировано: ${ids.length ? ids.join(', ') : 'нет'}`);
-}
+logger.info(`[plugins] зарегистрировано: ${getPlugins().length}`);

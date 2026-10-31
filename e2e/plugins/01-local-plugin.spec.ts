@@ -1,6 +1,5 @@
 // e2e/02-local-plugin.spec.ts
 
- 
 import { test, expect } from '@playwright/test';
 import { mockFileSystem, initOPFS } from '../helpers/fs-mock';
 import { setupPageLogs, waitForAppBootstrap, getIDBValue } from '../helpers/test-utils';

@@ -8,9 +8,31 @@ import type { useLibraryStore } from '../store';
 
 type LibraryStore = ReturnType<typeof useLibraryStore>;
 
+function syncFolderTrackIds(s: LibraryStore, track: Track, action: 'add' | 'remove'): void {
+  for (const source of track.sources) {
+    if (source.kind === 'local' || source.kind === 'cloud') {
+      const folder = s.folders[source.folderId];
+
+      if (!folder) continue;
+
+      if (action === 'add') {
+        if (!folder.trackIds.includes(track.id)) {
+          folder.trackIds.push(track.id);
+        }
+      } else {
+        const idx = folder.trackIds.indexOf(track.id);
+        if (idx !== -1) {
+          folder.trackIds.splice(idx, 1);
+        }
+      }
+    }
+  }
+}
+
 export function addTracks(s: LibraryStore, tracks: Track[], sourceId: string): void {
   for (const track of tracks) {
     s.tracks[track.id] = track;
+    syncFolderTrackIds(s, track, 'add');
   }
   if (sourceId) {
     librarySaveService.scheduleSave(sourceId);
@@ -21,10 +43,9 @@ export function removeTrack(s: LibraryStore, id: TrackId): void {
   const track = s.tracks[id];
   if (!track) return;
 
-  // Убираем трек из альбома (albumId остаётся у трека, но трек удаляется)
+  syncFolderTrackIds(s, track, 'remove');
   delete s.tracks[id];
 
-  // Планируем сохранение кэша плагинов, которые были у трека
   const pluginIds = new Set(track.sources.map((s) => s.pluginId));
   for (const pid of pluginIds) {
     librarySaveService.scheduleSave(pid);
@@ -34,7 +55,16 @@ export function removeTrack(s: LibraryStore, id: TrackId): void {
 export function updateTrackSources(s: LibraryStore, id: TrackId, sources: TrackSource[]): void {
   const track = s.tracks[id];
   if (!track) return;
+
+  // Удаляем trackId из старых папок
+  syncFolderTrackIds(s, track, 'remove');
+
+  // Обновляем sources
   s.tracks[id] = { ...track, sources };
+
+  // Добавляем trackId в новые папки
+  syncFolderTrackIds(s, s.tracks[id]!, 'add');
+
   const pluginIds = new Set(sources.map((src) => src.pluginId));
   for (const pid of pluginIds) {
     librarySaveService.scheduleSave(pid);
@@ -61,17 +91,23 @@ export function updateTrackMetadataCandidates(s: LibraryStore, id: TrackId, cand
   }
 }
 
-/**
- * Обновление метаданных (artist/title/album/coverUrl/duration/codec/hasId3Tags/raw).
- * Используется MetadataService.
- */
 export function updateTrackMetadata(
   s: LibraryStore,
   id: TrackId,
   patch: Partial<
     Pick<
       Track,
-      'artist' | 'title' | 'albumId' | 'coverUrl' | 'hasId3Tags' | 'duration' | 'codec' | 'raw' | 'metadataCandidates'
+      | 'artist'
+      | 'title'
+      | 'albumId'
+      | 'coverUrl'
+      | 'hasId3Tags'
+      | 'duration'
+      | 'codec'
+      | 'raw'
+      | 'metadataCandidates'
+      | 'hasMetadataEdits'
+      | 'metaSource'
     >
   >,
 ): void {

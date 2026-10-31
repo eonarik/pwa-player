@@ -8,7 +8,6 @@ const props = withDefaults(
     src: string | null | undefined;
     alt?: string;
     fallbackIconClass?: string;
-    /** Если true — используем IconPlaylist, иначе иконку ноты/альбома */
     variant?: 'album' | 'artist';
   }>(),
   {
@@ -53,5 +52,6 @@ defineExpose({ hasError });
     loading="lazy"
     @error="onError"
     @load="onLoad"
+    :data-src-log="src"
   />
 </template>

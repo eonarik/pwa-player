@@ -34,7 +34,6 @@ export async function searchAll(query, types, userToken) {
   const searchData = await api.execute('getSearchAll', { query: searchQuery, limit: 10 });
   const search = searchData?.search;
 
-  // Если ищем по артистам
   if (types.includes('artists')) {
     let artistId = null;
     const bestMatch = search?.bestMatch;
@@ -54,7 +53,6 @@ export async function searchAll(query, types, userToken) {
           withPopularTracks: true,
         });
         const popular = artistData?.getArtists?.[0]?.popularTracks || [];
-        // API Звука иногда возвращает null в массиве (битые треки)
         const validPopular = popular.filter((t) => t != null);
 
         if (validPopular.length > 0) {
@@ -66,7 +64,6 @@ export async function searchAll(query, types, userToken) {
     }
   }
 
-  // Если ищем по альбомам
   if (types.includes('releases')) {
     let releaseId = null;
     const bestMatch = search?.bestMatch;
@@ -94,7 +91,6 @@ export async function searchAll(query, types, userToken) {
     }
   }
 
-  // Если ищем по трекам (или если по артистам/альбомам ничего не нашли)
   const rawTracks = search?.tracks?.items || [];
   const tracks = rawTracks.filter((t) => t != null);
 
@@ -110,16 +106,25 @@ export async function searchMetadataStrict(artist, title, userToken) {
   // 1. Получаем варианты из ядрового словаря
   const artistVariants = getArtistSearchVariants(artist);
 
-  // 2. Формируем список запросов
-  const searchQueries = artistVariants.length > 0 ? artistVariants.map((a) => `${a} ${title}`) : [];
+  // 2. Если есть алиасы (каноническое имя), используем ТОЛЬКО их.
+  // Оригинал (#####) ИГНОРИРУЕМ полностью, чтобы не делать лишних запросов.
+  let targetArtists = artistVariants;
+  if (artistVariants.length > 1) {
+    targetArtists = artistVariants.slice(1); // Берем только алиасы
+  }
 
-  // Фоллбек: только по названию
-  searchQueries.push(title);
+  const searchQueries = targetArtists.length > 0 ? targetArtists.map((a) => `${a} - ${title}`) : [];
+
+  // Фоллбек: только по названию (если артист пустой)
+  if (title && searchQueries.length === 0) {
+    searchQueries.push(title);
+  }
 
   let bestMatch = null;
   let bestScore = 0;
 
-  // 3. Проходимся по всем вариантам
+  const targetTitle = (title || '').toLowerCase().trim();
+
   for (const query of searchQueries) {
     try {
       const searchData = await api.execute('getSearchAll', { query, limit: 10 });
@@ -133,42 +138,49 @@ export async function searchMetadataStrict(artist, title, userToken) {
       const fullData = await api.execute('getTracks', { ids: trackIds });
       const fullTracks = fullData?.getTracks || [];
 
-      const targetArtist = (artist || '').toLowerCase().trim();
-      const targetTitle = (title || '').toLowerCase().trim();
-
       for (const track of fullTracks) {
         const trackArtistTemplate = (track.artistTemplate || '').toLowerCase().trim();
         const trackArtists = track.artists?.map((a) => a.title).join(', ') || '';
         const trackArtist = trackArtists.toLowerCase().trim();
         const trackTitle = (track.title || '').toLowerCase().trim();
 
-        // Считаем скор
-        const artistScore1 = fuzzball.ratio(targetArtist, trackArtist) / 100;
-        const artistScore2 = fuzzball.ratio(targetArtist, trackArtistTemplate) / 100;
+        // --- НОВАЯ ЛОГИКА ---
+        // Ищем точное совпадение с ЛЮБЫМ из вариантов (оригинал или алиас)
+        const isExactArtistMatch = artistVariants.some((variant) => variant.toLowerCase().trim() === trackArtist);
 
-        // Проверяем совпадение с алиасами
-        const aliasScore = artistVariants.some((alias) =>
-          fuzzball.ratio(alias.toLowerCase(), trackArtist) > 0.9 ? 1 : 0,
-        );
-
-        const artistScore = Math.max(artistScore1, artistScore2, aliasScore);
-        const titleScore = fuzzball.ratio(targetTitle, trackTitle) / 100;
-
-        let finalScore = 0;
-        if (artistScore > 0.8) {
-          finalScore = titleScore * 0.8 + artistScore * 0.2;
-        } else if (titleScore > 0.95) {
-          // Если тайтл идеален, но артист не совпал — это может быть кавер или фит
-          finalScore = titleScore * 0.5;
+        let artistScore = 0;
+        if (isExactArtistMatch) {
+          artistScore = 1;
+        } else {
+          // Если точного совпадения нет, проверяем через fuzzball,
+          // но с высоким порогом (чтобы отсеять мусор)
+          artistScore = fuzzball.ratio(artistVariants[0], trackArtist) / 100;
+          if (artistScore < 0.8) {
+            artistScore = 0;
+          }
         }
 
+        const titleScore = fuzzball.ratio(targetTitle, trackTitle) / 100;
+
+        // ЖЕСТКИЙ ШТРАФ
+        if (artistScore === 0) {
+          if (titleScore > 0.95) {
+            const finalScore = titleScore * 0.5;
+            if (finalScore > bestScore) {
+              bestScore = finalScore;
+              bestMatch = track;
+            }
+          }
+          continue;
+        }
+
+        const finalScore = titleScore * 0.8 + artistScore * 0.2;
         if (finalScore > bestScore) {
           bestScore = finalScore;
           bestMatch = track;
         }
       }
 
-      // Если нашли идеальное совпадение, дальше не ищем
       if (bestScore > 0.95) break;
     } catch (err) {
       console.warn(`[zvuk] Metadata search failed for "${query}"`, err);

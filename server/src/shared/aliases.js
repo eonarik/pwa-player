@@ -9,6 +9,8 @@
  */
 export const ARTIST_ALIASES = {
   '#####': ['5diez'],
+  '30 second to mars': ['thirty seconds to mars'],
+  '30 seconds to mars': ['thirty seconds to mars'],
 };
 
 /**

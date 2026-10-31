@@ -22,8 +22,6 @@ export async function yandexFetch(accessToken, endpoint, params = {}, init = {})
   const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
   const urlString = `${YANDEX_API}${endpoint}${queryString}`;
-  // ДОБАВЬ ЭТОТ ЛОГ:
-  console.log(`[YANDEX API] REQUEST: ${urlString}`)
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд

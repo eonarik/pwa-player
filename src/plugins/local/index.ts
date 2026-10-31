@@ -8,6 +8,7 @@ import { newFolderId } from '@/types/ids';
 import { fileSystemService } from './FileSystemService';
 import { localPersistenceService } from './persistence';
 import { newTrackId, newTrackSourceId } from '@/types/ids';
+import { folderStatusService } from '@/services/folders/FolderStatusService';
 
 const PLUGIN_ID = 'local';
 const CONNECTED_KEY = 'local-connected';
@@ -85,7 +86,7 @@ const localPlugin: LibrarySource = {
     const safeTracks = structuredClone(toRaw(allTracks));
 
     await localPersistenceService.save({
-      folders: safeFolders.map((f) => ({ ...f, pluginId: PLUGIN_ID })),
+      folders: safeFolders.map((f) => ({ ...f, pluginId: PLUGIN_ID, trackIds: f.trackIds || [] })),
       tracks: safeTracks.map((t) => ({
         id: newTrackId(),
         pluginId: PLUGIN_ID,
@@ -102,6 +103,8 @@ const localPlugin: LibrarySource = {
           coverUrl: t.coverUrl,
         },
         hasId3Tags: t.hasId3Tags,
+        metaSource: t.metaSource,
+        hasMetadataEdits: t.hasMetadataEdits,
         duration: t.duration,
         codec: t.codec,
       })),
@@ -111,12 +114,22 @@ const localPlugin: LibrarySource = {
       savedAt: Date.now(),
     });
 
+    // Регистрируем папки как scanned, так как локальный скан происходит мгновенно
+    for (const f of allFolders) {
+      folderStatusService.register(f.id, 'scanned');
+    }
+
     return { folders: allFolders, tracks: allTracks };
   },
 
   async restoreFromCache(_context: PluginContext): Promise<PluginSnapshot | null> {
     const persisted = await localPersistenceService.load();
     if (!persisted || persisted.folders.length === 0) return null;
+
+    // Регистрируем папки из кеша как scanned
+    for (const f of persisted.folders) {
+      folderStatusService.register(f.id as FolderId, 'scanned');
+    }
 
     return {
       folders: persisted.folders.map((f) => ({
@@ -138,6 +151,8 @@ const localPlugin: LibrarySource = {
           duration: t.duration,
           codec: t.codec,
           hasId3Tags: t.hasId3Tags,
+          metaSource: t.metaSource,
+          hasMetadataEdits: t.hasMetadataEdits,
           source: {
             pluginId: PLUGIN_ID,
             priority: 10,
@@ -166,6 +181,9 @@ const localPlugin: LibrarySource = {
     await localPersistenceService.clear();
     await fileSystemService.clearHandles();
     await context.storage.clear();
+    // На самом деле, лучше удалять только папки этого плагина, но так как
+    // folderStatusService не знает о pluginId, удалим все (в рамках disconnect)
+    folderStatusService.clear();
   },
 };
 

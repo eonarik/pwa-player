@@ -10,6 +10,8 @@ defineProps<{
   stats: { found: number; checked: number; total: number };
   hasUnchecked: boolean;
   issuesCount: number;
+  /** Есть ли треки, у которых метаданные были изменены (вручную/авто) */
+  hasEdits?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -70,13 +72,14 @@ const onOpenIssues = (close: () => void) => {
           Найдено данных: {{ stats.found }}/{{ stats.total }}
         </div>
 
+        <!-- Показываем сброс, если есть хоть один измененный трек -->
         <button
-          v-if="stats.checked > 0"
+          v-if="hasEdits || stats.checked > 0"
           type="button"
           class="block w-full px-4 py-1.5 text-left text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg border-t border-hover-bg"
           @click="emit('reset')"
         >
-          Очистить кэш
+          Очистить метаданные
         </button>
       </template>
 

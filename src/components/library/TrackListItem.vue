@@ -4,12 +4,18 @@
 import TrackRow from './TrackRow.vue';
 import type { Track } from '@/types/track';
 
-defineProps<{
-  track: Track;
-  index: number;
-  isCurrent: boolean;
-  isPlaying: boolean;
-}>();
+withDefaults(
+  defineProps<{
+    track: Track;
+    index: number;
+    isCurrent: boolean;
+    isPlaying: boolean;
+    testIdPrefix?: string;
+  }>(),
+  {
+    testIdPrefix: 'track-row',
+  },
+);
 
 const emit = defineEmits<{
   (e: 'select', index: number): void;
@@ -22,6 +28,7 @@ const emit = defineEmits<{
     :index="index"
     :is-current="isCurrent"
     :is-playing="isPlaying"
+    :test-id-prefix="testIdPrefix"
     show-download
     @select="emit('select', index)"
   >

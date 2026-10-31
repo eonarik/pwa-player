@@ -9,7 +9,7 @@ import { useItemHeight } from '@/composables/useItemHeight';
 import TrackListItem from './TrackListItem.vue';
 import TrackActions from './TrackActions.vue';
 import type { Track } from '@/types/track';
-import type { TrackId } from '@/types/ids.ts';
+import type { TrackId } from '@/types/ids';
 
 const props = defineProps<{
   tracks: Track[];
@@ -52,18 +52,12 @@ function getCurrentIndex(): number {
   return uniqueTracks.value.findIndex((t) => t.id === id);
 }
 
-/**
- * Прокручивает к текущему треку, если он есть в этом списке.
- * Ждёт nextTick, чтобы высота контейнера успела обновиться.
- */
-// Находим реальный скролл-контейнер (поднимаемся по дереву DOM)
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   let parent = el?.parentElement;
   while (parent) {
     const style = window.getComputedStyle(parent);
     const overflowY = style.overflowY;
     if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
-      // Проверяем, что он реально может скроллиться
       if (parent.scrollHeight > parent.clientHeight) {
         return parent;
       }
@@ -79,7 +73,6 @@ async function scrollToCurrent() {
 
   await nextTick();
 
-  // Если высота ещё не измерилась (0), пробуем подождать следующий кадр
   if (!measuredHeight.value) {
     requestAnimationFrame(() => void scrollToCurrent());
     return;
@@ -102,46 +95,37 @@ async function scrollToCurrent() {
   });
 }
 
-// Скролл при смене трека (next/prev или клик)
 watch(currentIndex, () => {
   scrollToCurrent();
 });
 
-// Скролл при монтировании (если зашли в папку, где уже играет трек)
 onMounted(() => {
   scrollToCurrent();
 });
 
-// Скролл при изменении самого списка (например, переключили сортировку)
 watch(() => uniqueTracks.value.length, scrollToCurrent);
 
 function isCurrent(track: Track): boolean {
   return currentTrack.value?.id === track.id;
 }
-
-// Фейковый трек для измерения высоты, чтобы не ломать тесты и семантику
-const dummyTrack: Track = {
-  id: 'dummy-track-for-measurement' as TrackId,
-  pluginId: 'local',
-  artist: '',
-  title: 'Track Title Placeholder',
-  albumId: null,
-  coverUrl: null,
-  sources: [],
-  metadataCandidates: [],
-  raw: null,
-  hasId3Tags: false,
-  duration: 180,
-};
 </script>
 
 <template>
   <div v-if="uniqueTracks.length === 0" class="p-8 text-center text-sm text-zinc-500">В этой папке нет треков</div>
 
-  <div v-else ref="containerRef" class="h-full overflow-y-auto">
-    <!-- Скрытый эталон для измерения высоты. -->
+  <div v-else ref="containerRef" class="min-h-[400px] h-full overflow-y-auto">
+    <!-- Скрытый эталон для измерения высоты.
+         Передаем фейковый трек и кастомный testIdPrefix, чтобы не мешать тестам -->
     <div ref="measureRef" class="pointer-events-none invisible absolute left-0 top-0 w-full" aria-hidden="true">
-      <TrackListItem :track="dummyTrack" :index="0" :is-current="false" :is-playing="false" @select="() => {}" />
+      <TrackListItem
+        v-if="uniqueTracks[0]"
+        :track="{ ...uniqueTracks[0], id: 'measure-item' as TrackId }"
+        :index="0"
+        :is-current="false"
+        :is-playing="false"
+        test-id-prefix="measure"
+        @select="() => {}"
+      />
     </div>
 
     <div class="relative" :style="{ height: `${totalHeight}px` }">

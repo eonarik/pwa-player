@@ -25,6 +25,8 @@ const listRef = ref<HTMLElement | null>(null);
 const activeIndex = ref(-1);
 const searchQuery = ref('');
 
+const dropdownStyle = ref({ top: '0px', left: '0px', width: '0px' });
+
 const uniqueSuggestions = computed(() => {
   const items = Array.from(new Set(props.suggestions.filter(Boolean)));
   return items.sort((a, b) => a.localeCompare(b, 'ru'));
@@ -38,14 +40,33 @@ const filteredSuggestions = computed(() => {
 
 const showDropdown = computed(() => isOpen.value && filteredSuggestions.value.length > 0);
 
+function updatePosition() {
+  if (!wrapperRef.value) return;
+  const rect = wrapperRef.value.getBoundingClientRect();
+  dropdownStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+  };
+}
+
 function toggleDropdown() {
   if (!isOpen.value) {
     searchQuery.value = '';
     isOpen.value = true;
     activeIndex.value = -1;
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
   } else {
-    isOpen.value = false;
+    closeDropdown();
   }
+}
+
+function closeDropdown() {
+  isOpen.value = false;
+  window.removeEventListener('scroll', updatePosition, true);
+  window.removeEventListener('resize', updatePosition);
 }
 
 function onInput(e: Event) {
@@ -54,11 +75,14 @@ function onInput(e: Event) {
   searchQuery.value = target.value;
   isOpen.value = true;
   activeIndex.value = -1;
+  updatePosition();
+  window.addEventListener('scroll', updatePosition, true);
+  window.addEventListener('resize', updatePosition);
 }
 
 function onSelect(value: string) {
   emit('update:modelValue', value);
-  isOpen.value = false;
+  closeDropdown();
   searchQuery.value = '';
   inputRef.value?.focus();
 }
@@ -68,12 +92,14 @@ function clear() {
   searchQuery.value = '';
   isOpen.value = true;
   inputRef.value?.focus();
+  updatePosition();
 }
 
 function onKeydown(e: KeyboardEvent) {
   if (!showDropdown.value) {
     if (e.key === 'ArrowDown' && filteredSuggestions.value.length > 0) {
       isOpen.value = true;
+      updatePosition();
     }
     return;
   }
@@ -98,7 +124,7 @@ function onKeydown(e: KeyboardEvent) {
       }
       break;
     case 'Escape':
-      isOpen.value = false;
+      closeDropdown();
       break;
   }
 }
@@ -113,8 +139,9 @@ function scrollToActive() {
 }
 
 function onDocumentClick(e: MouseEvent) {
-  if (wrapperRef.value && !wrapperRef.value.contains(e.target as Node)) {
-    isOpen.value = false;
+  const target = e.target as Node;
+  if (wrapperRef.value && !wrapperRef.value.contains(target) && listRef.value && !listRef.value.contains(target)) {
+    closeDropdown();
   }
 }
 
@@ -123,6 +150,8 @@ onMounted(() => {
 });
 onUnmounted(() => {
   document.removeEventListener('mousedown', onDocumentClick);
+  window.removeEventListener('scroll', updatePosition, true);
+  window.removeEventListener('resize', updatePosition);
 });
 </script>
 
@@ -138,7 +167,10 @@ onUnmounted(() => {
         class="w-full rounded-btn bg-card-bg py-2 pl-3 pr-16 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
         autocomplete="off"
         @input="onInput"
-        @focus="isOpen = true"
+        @focus="
+          isOpen = true;
+          updatePosition();
+        "
         @keydown="onKeydown"
       />
 
@@ -165,31 +197,34 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <Transition
-      enter-active-class="transition duration-150 ease-out"
-      enter-from-class="opacity-0 translate-y-1"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition duration-100 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-1"
-    >
-      <div
-        v-if="showDropdown"
-        ref="listRef"
-        class="absolute left-0 right-0 top-full z-[200] mt-1 max-h-60 overflow-y-auto rounded-btn bg-bg-elevated shadow-lg"
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-150 ease-out"
+        enter-from-class="opacity-0 translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-100 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-1"
       >
-        <button
-          v-for="(item, index) in filteredSuggestions"
-          :key="item"
-          type="button"
-          class="block w-full px-3 py-2 text-left text-sm text-fg transition hover:bg-hover-bg"
-          :class="{ 'bg-hover-bg': index === activeIndex }"
-          @click="onSelect(item)"
-          @mouseenter="activeIndex = index"
+        <div
+          v-if="showDropdown"
+          ref="listRef"
+          class="fixed z-[200] max-h-60 overflow-y-auto rounded-btn bg-bg-elevated shadow-lg border border-hover-bg"
+          :style="dropdownStyle"
         >
-          {{ item }}
-        </button>
-      </div>
-    </Transition>
+          <button
+            v-for="(item, index) in filteredSuggestions"
+            :key="item"
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-fg transition hover:bg-hover-bg"
+            :class="{ 'bg-hover-bg': index === activeIndex }"
+            @click="onSelect(item)"
+            @mouseenter="activeIndex = index"
+          >
+            {{ item }}
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

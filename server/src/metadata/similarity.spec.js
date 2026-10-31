@@ -93,9 +93,10 @@ describe('metadataSimilarity', () => {
     expect(s).toBe(1);
   });
 
-  it('у original нет artist — учитывается только title', () => {
+  it('у original нет artist — учитывается только title (с штрафом)', () => {
     const s = metadataSimilarity({ artist: '', title: 'Karma Police' }, { artist: 'Radiohead', title: 'Karma Police' });
-    expect(s).toBe(1);
+    // Т.к. у одного артист пустой, мы применяем штраф 0.5
+    expect(s).toBe(0.5);
   });
 
   it('нормализует whitespace и регистр', () => {

@@ -1,12 +1,9 @@
 // src/composables/useMetadataSearch.ts
 
 import { computed, ref, type Ref } from 'vue';
-import { storeToRefs } from 'pinia';
-import { trackMetadataService } from '@/services/metadata/TrackMetadataService';
 import { metadataService } from '@/services/metadata/MetadataService';
-import { useUiSettingsStore } from '@/stores/uiSettings';
-import type { Track } from '@/types/track';
 import { useLibraryStore } from '@/stores/library';
+import type { Track } from '@/types/track';
 
 const CONCURRENCY = 3;
 const FLUSH_INTERVAL = 10;
@@ -16,12 +13,10 @@ export interface MetadataIssue {
 }
 
 export function useMetadataSearch(tracks: Ref<Track[]>) {
-  const uiSettings = useUiSettingsStore();
-  const { metadataThreshold } = storeToRefs(uiSettings);
-
   const isLoading = ref(false);
   const progress = ref({ done: 0, total: 0 });
   const abortController = ref<AbortController | null>(null);
+  const issues = ref<MetadataIssue[]>([]);
 
   const version = ref(0);
 
@@ -72,7 +67,6 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
   });
 
   const hasUnchecked = computed(() => uncheckedTracks.value.length > 0);
-  const issues = ref<MetadataIssue[]>([]);
 
   async function search(): Promise<void> {
     if (isLoading.value) return;
@@ -84,8 +78,6 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
     abortController.value = new AbortController();
     const signal = abortController.value.signal;
 
-    const threshold = metadataThreshold.value;
-
     const foundIssues: MetadataIssue[] = [];
     let sinceLastFlush = 0;
     let cursor = 0;
@@ -96,33 +88,32 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
           if (signal.aborted) return;
           const track = toFetch[cursor++]!;
 
-          const result = await trackMetadataService.fetch(track.artist ?? '', track.title, threshold, signal);
+          const result = await metadataService.fetchAndApply(track.id, signal);
 
           if (signal.aborted) return;
-          if (result.status === 'aborted') return;
 
-          if (result.status === 'error') {
-            progress.value = { done: progress.value.done + 1, total: toFetch.length };
-            continue;
+          if (result.status === 'aborted') {
+            return;
           }
 
-          if (result.status === 'not-found') {
-            metadataService.markNotFound(track.id);
+          if (result.status === 'applied') {
             progress.value = { done: progress.value.done + 1, total: toFetch.length };
             bumpVersion();
-            continue;
-          }
-
-          const applyResult = metadataService.applyRemote(track.id, result.data);
-
-          if (applyResult.status === 'candidates') {
+          } else if (result.status === 'candidates') {
             const library = useLibraryStore();
             const updated = library.getTrack(track.id);
             if (updated) foundIssues.push({ track: updated });
+            progress.value = { done: progress.value.done + 1, total: toFetch.length };
+            bumpVersion();
+          } else if (result.status === 'not-found') {
+            progress.value = { done: progress.value.done + 1, total: toFetch.length };
+            bumpVersion();
+          } else if (result.status === 'error') {
+            progress.value = { done: progress.value.done + 1, total: toFetch.length };
+          } else if (result.status === 'skipped') {
+            // Пропускаем, не считаем
+            progress.value = { done: progress.value.done + 1, total: toFetch.length };
           }
-
-          progress.value = { done: progress.value.done + 1, total: toFetch.length };
-          bumpVersion();
 
           sinceLastFlush++;
           if (sinceLastFlush >= FLUSH_INTERVAL) {
@@ -135,7 +126,7 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, toFetch.length) }, () => worker()));
 
       await metadataService.flush();
-      issues.value = foundIssues;
+      issues.value = [...issues.value, ...foundIssues];
       bumpVersion();
     } finally {
       isLoading.value = false;

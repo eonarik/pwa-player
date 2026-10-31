@@ -34,7 +34,8 @@ function isSameSource(a: TrackSource, b: TrackSource): boolean {
   if (a.pluginId !== b.pluginId) return false;
   if (a.kind !== b.kind) return false;
   if (a.kind === 'local' && b.kind === 'local') {
-    return a.handle.name === b.handle.name;
+    // Сравниваем и имя файла, и папку
+    return a.handle.name === b.handle.name && a.folderId === b.folderId;
   }
   if (a.kind === 'cloud' && b.kind === 'cloud') {
     return a.remotePath === b.remotePath;
@@ -47,8 +48,6 @@ function isSameSource(a: TrackSource, b: TrackSource): boolean {
 
 /**
  * Строгий мэтч: только если artist и title совпадают ПОБАЙТОВО
- * (с учетом нормализации регистра и пробелов).
- * Ремастеры (song vs song (remaster)) — не склеиваются.
  */
 function isStrictMatch(incoming: Track, existing: Track): boolean {
   const inArtist = incoming.artist.trim().toLowerCase();
@@ -125,6 +124,8 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
       metadataCandidates: [],
       raw,
       hasId3Tags: incoming.hasId3Tags,
+      metaSource: incoming.metaSource,
+      hasMetadataEdits: incoming.hasMetadataEdits,
       duration: incoming.duration,
       codec: incoming.codec,
     };
@@ -267,25 +268,16 @@ export async function applyMany(many: MergeManyResult, deps: ApplyManyDeps): Pro
   const createdTracks: Track[] = [];
   const pluginIds = new Set<string>();
 
+  // 1. Сначала собираем созданные
   for (const result of many.results) {
     if (result.action === 'created') {
       createdTracks.push(result.track);
       const pid = result.track.sources[0]?.pluginId;
       if (pid) pluginIds.add(pid);
-    } else if (result.action === 'merged-strict') {
-      writer.updateTrackSources(result.track.id, result.track.sources);
-      if (result.track.albumId !== null) {
-        writer.updateTrackAlbumId(result.track.id, result.track.albumId);
-      }
-      const pid = result.track.sources[0]?.pluginId;
-      if (pid) pluginIds.add(pid);
-    } else if (result.action === 'merged-soft') {
-      writer.updateTrackMetadataCandidates(result.track.id, result.track.metadataCandidates);
-      const pid = result.track.sources[0]?.pluginId;
-      if (pid) pluginIds.add(pid);
     }
   }
 
+  // 2. Добавляем созданные треки в БД
   if (createdTracks.length > 0) {
     const byPlugin = new Map<string, Track[]>();
     for (const track of createdTracks) {
@@ -296,6 +288,22 @@ export async function applyMany(many: MergeManyResult, deps: ApplyManyDeps): Pro
     }
     for (const [pid, tracks] of byPlugin) {
       writer.addTracks(tracks, pid);
+    }
+  }
+
+  // 3. Теперь обновляем склеенные (они уже есть в БД)
+  for (const result of many.results) {
+    if (result.action === 'merged-strict') {
+      writer.updateTrackSources(result.track.id, result.track.sources);
+      if (result.track.albumId !== null) {
+        writer.updateTrackAlbumId(result.track.id, result.track.albumId);
+      }
+      const pid = result.track.sources[0]?.pluginId;
+      if (pid) pluginIds.add(pid);
+    } else if (result.action === 'merged-soft') {
+      writer.updateTrackMetadataCandidates(result.track.id, result.track.metadataCandidates);
+      const pid = result.track.sources[0]?.pluginId;
+      if (pid) pluginIds.add(pid);
     }
   }
 

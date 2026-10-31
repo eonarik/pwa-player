@@ -148,6 +148,8 @@ export class FileSystemService {
         const guessed = guessMetadataFromFilename(file.name, parentFolder);
         const coverUrl = coverFile ? URL.createObjectURL(coverFile) : null;
 
+        // ЛОГИРУЕМ КАЖДЫЙ НАЙДЕННЫЙ ТРЕК
+
         tracks.push({
           artist: guessed.artist,
           title: guessed.title,
@@ -177,6 +179,8 @@ export class FileSystemService {
     };
 
     await walk(rootHandle, null, '');
+
+    // ЛОГИРУЕМ ИТОГ
 
     return {
       snapshot: { folders, tracks },

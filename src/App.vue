@@ -43,7 +43,7 @@ const isFeedbackOpen = ref(false);
 const { isBootstrapping } = useAppBootstrap();
 
 usePwaUpdate();
-useAutoActions(currentTrack);
+useAutoActions();
 useDocumentTitle(currentTrack);
 useTrackEndOnVisibility();
 

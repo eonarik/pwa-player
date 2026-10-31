@@ -21,8 +21,12 @@ const props = withDefaults(
     isCurrent: boolean;
     isPlaying: boolean;
     showDownload?: boolean;
+    testIdPrefix?: string;
   }>(),
-  { showDownload: false },
+  {
+    showDownload: false,
+    testIdPrefix: 'track-row',
+  },
 );
 
 const emit = defineEmits<{
@@ -71,9 +75,8 @@ const isUnavailable = computed(() => props.track.sources.length === 0);
     :download-progress="downloadProgress"
     :downloaded="isLocal"
     @click="emit('select')"
-    :data-testid="`track-row-${track.id}`"
+    :data-testid="`${testIdPrefix}-${track.id}`"
   >
-    >
     <template #leading>
       <div class="relative">
         <TrackCover :track="track" :class="isUnavailable ? 'opacity-50 grayscale' : ''">
@@ -102,7 +105,7 @@ const isUnavailable = computed(() => props.track.sources.length === 0);
           </RouterLink>
           <span> — </span>
         </template>
-        <span data-testid="track-row-title">{{ title }}</span>
+        <span :data-testid="`${testIdPrefix}-title`">{{ title }}</span>
         <span v-if="isCurrent && !isPlaying" class="ml-1 text-xs text-active/70">(пауза)</span>
       </p>
     </template>

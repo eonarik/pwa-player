@@ -40,6 +40,7 @@ const albumName = computed(() => {
     <div
       class="track-cover aspect-square shrink-0 overflow-hidden bg-card-bg"
       :class="[coverClass, !coverSrc && 'track-cover_empty']"
+      data-testid="now-playing-cover"
     >
       <CoverImage :src="coverSrc" :alt="albumName" :fallback-icon-class="fallbackIconClass" />
     </div>

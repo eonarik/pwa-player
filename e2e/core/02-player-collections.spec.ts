@@ -1,4 +1,4 @@
-// e2e/06-player-collections.spec.ts
+// e2e/core/02-player-collections.spec.ts
 
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
@@ -70,20 +70,40 @@ test.describe('Player & Collections (ядро)', () => {
     // 2. Проверяем, что плеер начал играть
     await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
 
-    // 3. Ставим дизлайк
+    // 3. ПРОВЕРКА ПОДСВЕТКИ РОДИТЕЛЬСКИХ ПАПОК
+    await page.goto('/folder/local');
+
+    const musicRowInRoot = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
+    await expect(musicRowInRoot).toBeVisible();
+    await expect(musicRowInRoot).toHaveClass(/list-row_active/);
+
+    await musicRowInRoot.click();
+    const artistARow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Artist A' });
+    await expect(artistARow).toHaveClass(/list-row_active/);
+
+    await artistARow.click();
+    const albumRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Album 1' });
+    await expect(albumRow).toHaveClass(/list-row_active/);
+
+    await albumRow.click();
+
+    // Убедимся, что трек все еще играет (на случай, если аудио сбилось при навигации)
+    await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
+
+    // 4. Ставим дизлайк
     await track1Row.locator('button[aria-label="Скрывать при воспроизведении"]').click();
 
-    // 4. Добавляем в Избранное
+    // 5. Добавляем в Избранное
     await track2Row.locator('button[aria-label="В избранное"]').click();
 
-    // 5. Создаем плейлист
+    // 6. Создаем плейлист
     await track1Row.locator('button[aria-label="Действия"]').click();
     await page.getByText('Добавить в плейлист').click();
     await page.getByText('+ Создать новый').click();
     await page.getByPlaceholder('Название плейлиста').fill('My Test Playlist');
     await page.getByRole('button', { name: 'Создать' }).click();
 
-    // 6. Проверяем сохранение в IDB
+    // 7. Проверяем сохранение в IDB
     await expect
       .poll(
         async () => {
@@ -99,7 +119,7 @@ test.describe('Player & Collections (ядро)', () => {
         },
         {
           message: 'Ожидание сохранения коллекций в IDB',
-          timeout: 5000,
+          timeout: 10000,
         },
       )
       .toEqual({

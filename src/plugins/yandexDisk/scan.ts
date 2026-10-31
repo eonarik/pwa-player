@@ -112,6 +112,8 @@ export async function scanAll(
             duration: undefined,
             codec: undefined,
             hasId3Tags: false,
+            metaSource: 'filename' as const,
+            hasMetadataEdits: false,
             source: {
               pluginId,
               priority: 20,

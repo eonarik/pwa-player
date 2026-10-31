@@ -1,9 +1,17 @@
 // src/services/metadata/TrackMetadataService.ts
 
-import type { MetadataCandidate } from '@/types/metadata';
-
 const PROXY_URL = '';
 const REQUEST_TIMEOUT_MS = 10_000;
+
+// Тип кандидата, который приходит с бэкенда (source)
+export interface RemoteMetadataCandidate {
+  artist: string;
+  title: string;
+  album: string;
+  coverUrl: string | null;
+  source: string;
+  similarity: number;
+}
 
 export interface RemoteTrackMetadata {
   artist: string;
@@ -13,7 +21,7 @@ export interface RemoteTrackMetadata {
   source: string;
   similarity: number;
   confident: boolean;
-  candidates?: MetadataCandidate[];
+  candidates?: RemoteMetadataCandidate[];
 }
 
 export type MetadataFetchResult =

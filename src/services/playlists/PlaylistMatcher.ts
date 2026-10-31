@@ -60,26 +60,30 @@ export function findBestMatch<T extends Track>(
     const isArtistStrict = maxArtistScore >= 0.85;
     const isTitleStrict = maxTitleScore >= 0.95;
 
+    // --- ЛОГИКА ШТРАФОВ ---
     if (incomingArtist && libArtist) {
       if (isArtistStrict) {
         if (isTitleStrict) {
           finalScore = maxTitleScore * 0.8 + maxArtistScore * 0.2;
         } else {
-          // Артист совпал, но тайтл разный (Track 1 vs Track 2) -> это разные треки
+          // Артист совпал, но тайтл разный -> разные треки
           finalScore = maxTitleScore * 0.4;
         }
       } else {
-        // Артисты не совпали. Если они очень похожи (например, опечатка в имени),
-        // даем шанс только при почти идеальном тайтле.
+        // Артисты не совпали, но похожи
         if (maxArtistScore >= 0.7 && maxTitleScore >= 0.95) {
           finalScore = 0.7 * maxTitleScore + 0.3 * maxArtistScore;
         } else {
           finalScore = maxTitleScore * 0.4;
         }
       }
-    } else {
-      // Один из артистов пуст (например, у радио).
+    } else if (!incomingArtist && !libArtist) {
+      // Оба артиста пустые. Сравниваем только title.
       finalScore = maxTitleScore;
+    } else {
+      // ОДИН АРТИСТ ПУСТОЙ, ДРУГОЙ НЕТ -> ЖЕСТКИЙ ШТРАФ
+      // Даже если title идеален, скор не должен превышать 0.5
+      finalScore = maxTitleScore * 0.5;
     }
 
     if (finalScore > bestScore) {

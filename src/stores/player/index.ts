@@ -24,6 +24,9 @@ export const usePlayerStore = defineStore('player', () => {
   const repeatMode = ref<'off' | 'one' | 'all'>('off');
   const shuffle = ref(false);
 
+  // Счетчик запусков трека для триггера автопоиска
+  const playbackVersion = ref(0);
+
   const currentTrack = shallowRef<Track | null>(null);
 
   const timeLoop = createTimeLoop({ currentTime, isPlaying });
@@ -42,7 +45,17 @@ export const usePlayerStore = defineStore('player', () => {
   const { flushPlayback } = persistence;
 
   const actions = createPlayerActions(
-    { queue, currentIndex, currentTrack, isPlaying, duration, currentTime, repeatMode, shuffle },
+    {
+      queue,
+      currentIndex,
+      currentTrack,
+      isPlaying,
+      duration,
+      currentTime,
+      repeatMode,
+      shuffle,
+      playbackVersion,
+    },
     { syncCurrentTime: timeLoop.syncOnce, stopTimeLoop: timeLoop.stop },
   );
 
@@ -68,7 +81,7 @@ export const usePlayerStore = defineStore('player', () => {
         if (currentIndex.value >= 0) void actions.playAt(currentIndex.value);
       },
       handleAuthError: (error, track) => actions.handleAuthError(error, track),
-      skipToNextOnError: actions.skipToNextOnError, // <--- ПРОКИНУТО
+      skipToNextOnError: actions.skipToNextOnError,
     },
   );
 
@@ -146,6 +159,7 @@ export const usePlayerStore = defineStore('player', () => {
     muted,
     repeatMode,
     shuffle,
+    playbackVersion,
     hasNext,
     hasPrev,
     progress,

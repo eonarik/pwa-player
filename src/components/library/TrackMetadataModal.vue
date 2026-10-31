@@ -5,12 +5,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { metadataService } from '@/services/metadata/MetadataService';
-import { trackMetadataService } from '@/services/metadata/TrackMetadataService';
 import type { MetadataCandidate } from '@/types/metadata';
 import { toastService } from '@/services/ui/ToastService';
 import { modalService } from '@/services/ui/ModalService';
 import AutocompleteInput from '@/components/ui/AutocompleteInput.vue';
-import CoverPicker from '@/components/library/CoverPicker.vue';
+import AlbumSelect from '@/components/library/AlbumSelect.vue';
 import CoverImage from '@/components/ui/CoverImage.vue';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import FormField from '@/components/ui/FormField.vue';
@@ -34,12 +33,10 @@ const currentAlbum = computed(() => {
 const initialArtist = props.track.artist ?? '';
 const initialTitle = props.track.title ?? '';
 const initialAlbum = currentAlbum.value?.name ?? '';
-const initialCoverUrl = currentAlbum.value?.coverUrl ?? props.track.coverUrl ?? undefined;
 
 const artist = ref(initialArtist);
 const title = ref(initialTitle);
 const album = ref(initialAlbum);
-const coverUrl = ref<string | undefined>(initialCoverUrl);
 
 const candidates = ref<MetadataCandidate[]>([]);
 const isLoadingCandidates = ref(false);
@@ -49,24 +46,8 @@ async function loadCandidates() {
   if (!props.track.title?.trim()) return;
   isLoadingCandidates.value = true;
   try {
-    const result = await trackMetadataService.fetch(props.track.artist ?? '', props.track.title, 0);
-    if (result.status === 'found') {
-      if (result.data.candidates && result.data.candidates.length > 0) {
-        candidates.value = result.data.candidates;
-      } else {
-        candidates.value = [
-          {
-            id: crypto.randomUUID() as never,
-            artist: result.data.artist,
-            title: result.data.title,
-            album: result.data.album,
-            coverUrl: result.data.coverUrl,
-            similarity: result.data.similarity,
-            provider: result.data.source,
-          },
-        ];
-      }
-    }
+    const result = await metadataService.fetchCandidates(props.track.id);
+    candidates.value = result;
   } catch (err) {
     console.warn('[metadata-modal] failed to load candidates', err);
   } finally {
@@ -80,7 +61,6 @@ function selectCandidate(index: number) {
   artist.value = c.artist;
   title.value = c.title;
   album.value = c.album;
-  coverUrl.value = c.coverUrl ?? undefined;
   selectedCandidateIndex.value = index;
   isDropdownOpen.value = false;
 }
@@ -125,23 +105,8 @@ const allArtists = computed(() => {
   ).sort((a, b) => a.localeCompare(b, 'ru'));
 });
 
-const allAlbums = computed(() => {
-  return Array.from(
-    new Set(
-      Object.values(library.albums)
-        .map((a) => a.name?.trim())
-        .filter((a): a is string => Boolean(a)),
-    ),
-  ).sort((a, b) => a.localeCompare(b, 'ru'));
-});
-
 const isDirty = computed(() => {
-  return (
-    artist.value !== initialArtist ||
-    title.value !== initialTitle ||
-    album.value !== initialAlbum ||
-    coverUrl.value !== initialCoverUrl
-  );
+  return artist.value !== initialArtist || title.value !== initialTitle || album.value !== initialAlbum;
 });
 
 function save() {
@@ -158,7 +123,7 @@ function save() {
     artist: newArtist,
     title: newTitle,
     album: newAlbum,
-    coverUrl: coverUrl.value,
+    coverUrl: undefined, // Обложка теперь живет в альбоме
   });
 
   toastService.success('Метаданные обновлены');
@@ -202,10 +167,28 @@ onUnmounted(() => {
 <template>
   <ModalLayout title="Редактировать метаданные" max-width="md" :disable-backdrop-close="true" @close="cancel">
     <form class="flex flex-col gap-4" @submit.prevent="save">
-      <div class="flex justify-center pb-2">
-        <CoverPicker v-model="coverUrl" />
+      <!-- Название -->
+      <FormField label="Название">
+        <Input v-model="title" type="text" placeholder="Введите название..." />
+      </FormField>
+
+      <!-- Артист -->
+      <FormField label="Артист">
+        <AutocompleteInput
+          v-model="artist"
+          :suggestions="allArtists"
+          placeholder="Введите артиста..."
+          id="track-artist"
+        />
+      </FormField>
+
+      <!-- Альбом (с обложкой) -->
+      <div class="flex flex-col gap-1">
+        <label class="text-xs text-fg-muted">Альбом</label>
+        <AlbumSelect v-model="album" :artist-filter="artist" />
       </div>
 
+      <!-- Найденные варианты -->
       <div v-if="isLoadingCandidates">
         <Spinner size="sm" text="Поиск вариантов в интернете…" />
       </div>
@@ -253,23 +236,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-
-      <FormField label="Артист">
-        <AutocompleteInput
-          v-model="artist"
-          :suggestions="allArtists"
-          placeholder="Введите артиста..."
-          id="track-artist"
-        />
-      </FormField>
-
-      <FormField label="Название">
-        <Input v-model="title" type="text" placeholder="Введите название..." />
-      </FormField>
-
-      <FormField label="Альбом">
-        <AutocompleteInput v-model="album" :suggestions="allAlbums" placeholder="Введите альбом..." id="track-album" />
-      </FormField>
     </form>
 
     <template #footer>

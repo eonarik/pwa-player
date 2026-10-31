@@ -81,21 +81,24 @@ export function metadataSimilarity(original, incoming) {
 
   const titleSim = fieldSimilarity(origTitle, incTitle);
 
-  // Если artist нет с одной стороны — считаем только title
+  // Если artist нет с одной стороны
   if (!origArtist || !incArtist) {
+    // Если у одного артист есть, а у другого нет — жесткий штраф
+    if (origArtist || incArtist) {
+      return titleSim * 0.5;
+    }
     return titleSim;
   }
 
   const artistSim = fieldSimilarity(origArtist, incArtist);
 
-  // 1. Артисты вообще разные (##### vs Mishka)
+  // 1. Артисты вообще разные
   if (artistSim < ARTIST_LOOSE_THRESHOLD) {
     return titleSim * MISMATCHED_ARTIST_PENALTY;
   }
 
-  // 2. Артисты похожи, но не идеально — не штрафуем, но даем меньший вес
+  // 2. Артисты похожи, но не идеально
   if (artistSim < ARTIST_EXACT_THRESHOLD) {
-    // Взвешиваем: title * 0.9 + artist * 0.1
     return titleSim * 0.9 + artistSim * 0.1;
   }
 

@@ -28,7 +28,7 @@ export interface AudioEventsCallbacks {
   updateTrackDuration: (trackId: TrackId, duration: number) => void;
   retryPlayback: () => void;
   handleAuthError: (error: AuthError, track: Track) => void;
-  skipToNextOnError: () => void; // <--- ДОБАВЛЕНО
+  skipToNextOnError: () => void;
 }
 
 export interface AudioEvents {
