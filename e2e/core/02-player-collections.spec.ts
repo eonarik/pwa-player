@@ -27,6 +27,14 @@ test.describe('Player & Collections (ядро)', () => {
     await page.route('**/fonts.googleapis.com/**', (route) => route.abort());
     await page.route('**/fonts.gstatic.com/**', (route) => route.abort());
 
+    await page.addInitScript(() => {
+      HTMLMediaElement.prototype.play = function () {
+        Object.defineProperty(this, 'paused', { value: false, configurable: true });
+        this.dispatchEvent(new Event('play'));
+        return Promise.resolve();
+      };
+    });
+
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     await page.evaluate(async () => {
@@ -70,7 +78,18 @@ test.describe('Player & Collections (ядро)', () => {
     // 2. Проверяем, что плеер начал играть
     await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
 
-    // 3. ПРОВЕРКА ПОДСВЕТКИ РОДИТЕЛЬСКИХ ПАПОК
+    // 3. Ждем, пока history запишется в IDB (до навигации)
+    await expect
+      .poll(
+        async () => {
+          const historyState = await getIDBValue<any>(page, 'player:history');
+          return historyState?.entries?.length || 0;
+        },
+        { timeout: 10000 },
+      )
+      .toBe(1);
+
+    // 4. ПРОВЕРКА ПОДСВЕТКИ РОДИТЕЛЬСКИХ ПАПОК
     await page.goto('/folder/local');
 
     const musicRowInRoot = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
@@ -87,23 +106,23 @@ test.describe('Player & Collections (ядро)', () => {
 
     await albumRow.click();
 
-    // Убедимся, что трек все еще играет (на случай, если аудио сбилось при навигации)
+    // Убедимся, что трек все еще играет
     await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
 
-    // 4. Ставим дизлайк
+    // 5. Ставим дизлайк
     await track1Row.locator('button[aria-label="Скрывать при воспроизведении"]').click();
 
-    // 5. Добавляем в Избранное
+    // 6. Добавляем в Избранное
     await track2Row.locator('button[aria-label="В избранное"]').click();
 
-    // 6. Создаем плейлист
+    // 7. Создаем плейлист
     await track1Row.locator('button[aria-label="Действия"]').click();
     await page.getByText('Добавить в плейлист').click();
     await page.getByText('+ Создать новый').click();
     await page.getByPlaceholder('Название плейлиста').fill('My Test Playlist');
     await page.getByRole('button', { name: 'Создать' }).click();
 
-    // 7. Проверяем сохранение в IDB
+    // 8. Проверяем сохранение в IDB
     await expect
       .poll(
         async () => {

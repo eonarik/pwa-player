@@ -6,17 +6,17 @@ import { Page, expect } from '@playwright/test';
  * Логирует ошибки из консоли браузера и неотловленные исключения.
  */
 export function setupPageLogs(page: Page) {
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') {
-      console.error(`[BROWSER ERROR] ${msg.text()}`);
-    }
-  });
+  // page.on('console', (msg) => {
+  //   if (msg.type() === 'error') {
+  //     console.error(`[BROWSER ERROR] ${msg.text()}`);
+  //   }
+  // });
   page.on('pageerror', (err) => {
     console.error(`[PAGE ERROR] ${err.message}`);
   });
-  page.on('requestfailed', (req) => {
-    console.warn(`[REQUEST FAILED] ${req.url()} - ${req.failure()?.errorText}`);
-  });
+  // page.on('requestfailed', (req) => {
+  //   console.warn(`[REQUEST FAILED] ${req.url()} - ${req.failure()?.errorText}`);
+  // });
 }
 
 /**
