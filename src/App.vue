@@ -30,6 +30,7 @@ import IconButton from '@/components/ui/IconButton.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import type { PlaylistId } from '@/types/ids';
+import { useClipboardWatcher } from './composables/useClipboardWatcher';
 
 const route = useRoute();
 const player = usePlayerStore();
@@ -48,6 +49,7 @@ usePwaUpdate();
 useAutoActions();
 useDocumentTitle(currentTrack);
 useTrackEndOnVisibility();
+useClipboardWatcher();
 
 function openFullPlayer() {
   isFullPlayerOpen.value = true;

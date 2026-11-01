@@ -21,7 +21,7 @@ const label = computed(() => {
     return p ? `${p.done}/${p.total} · Отменить` : 'Отмена';
   }
   if (pendingCount.value === 0) return 'Скачано';
-  return 'Скачать';
+  return 'Скачать треки';
 });
 
 const variant = computed(() => {

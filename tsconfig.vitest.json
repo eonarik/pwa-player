@@ -1,9 +1,9 @@
 {
   "extends": "./tsconfig.app.json",
-  "include": ["src/**/__tests__/*", "src/**/*.spec.ts", "env.d.ts"],
+  "include": ["src/**/__tests__/*", "src/**/*.spec.ts", "env.d.ts", "vitest.setup.ts"],
   "exclude": [],
   "compilerOptions": {
-    "lib": [],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node", "jsdom", "@types/wicg-file-system-access"],
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo"
   }

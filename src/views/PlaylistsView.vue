@@ -5,15 +5,9 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { usePlaylistsStore } from '@/stores/playlists';
-import { createLibraryWriter, useLibraryStore } from '@/stores/library';
-import { useUiSettingsStore } from '@/stores/uiSettings';
 import { FAVORITES_PLAYLIST_ID } from '@/types/collection';
-import type { Playlist, PlaylistExportTrack } from '@/types/collection';
+import type { Playlist } from '@/types/collection';
 import { pluralize } from '@/utils/pluralize';
-import { toastService } from '@/services/ui/ToastService';
-import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser';
-import { findBestMatch } from '@/services/playlists/PlaylistMatcher';
-import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import Button from '@/components/ui/Button.vue';
 import Input from '@/components/ui/Input.vue';
@@ -21,16 +15,15 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import IconHeart from '@/components/icons/IconHeart.vue';
 import ListContainer from '@/components/ui/ListContainer.vue';
+import ImportPlaylistModal from '@/components/playlists/ImportPlaylistModal.vue';
 
 const router = useRouter();
 const playlists = usePlaylistsStore();
-const library = useLibraryStore();
-const uiSettings = useUiSettingsStore();
 const { sortedPlaylists } = storeToRefs(playlists);
 
 const isCreating = ref(false);
 const newName = ref('');
-const fileInputRef = ref<HTMLInputElement | null>(null);
+const isImportModalOpen = ref(false);
 
 function openPlaylist(playlist: Playlist) {
   router.push({ name: 'playlist', params: { id: playlist.id } });
@@ -67,138 +60,18 @@ function formatDate(ts: number): string {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function triggerImport() {
-  fileInputRef.value?.click();
-}
-
-async function onFileSelected(e: Event) {
-  const target = e.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  try {
-    const content = await file.text();
-    const format = detectPlaylistFormat(content);
-
-    if (format === 'json') {
-      const parsed = parseJSON(content);
-      if (!parsed) {
-        toastService.error('Неверный формат JSON плейлиста');
-        return;
-      }
-      await createPlaylistFromImport(parsed.name, parsed.tracks);
-    } else if (format === 'm3u') {
-      const parsed = parseM3U(content);
-      const name = file.name.replace(/\.[^.]+$/, '');
-      await createPlaylistFromImport(name, parsed);
-    } else {
-      toastService.error('Не удалось распознать формат плейлиста');
-    }
-  } catch (err) {
-    console.error('[import] failed', err);
-    toastService.error('Ошибка чтения файла');
-  } finally {
-    target.value = '';
-  }
-}
-
-async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrack[]) {
-  if (tracks.length === 0) {
-    toastService.error('Плейлист пуст');
-    return;
-  }
-
-  const playlistId = playlists.createPlaylist(name);
-  const playlist = playlists.getPlaylist(playlistId);
-  if (!playlist) return;
-
-  let matched = 0;
-  let fuzzyMatched = 0;
-  let unmatched = 0;
-
-  const allTracks = Object.values(library.tracks);
-  const libraryIndex = buildLibraryIndex(allTracks);
-  const threshold = uiSettings.playlistMatchThreshold;
-  const writer = createLibraryWriter();
-
-  for (const t of tracks) {
-    const exactMatch = allTracks.find(
-      (libTrack) =>
-        libTrack.title.toLowerCase().trim() === (t.title || '').toLowerCase().trim() &&
-        libTrack.artist.toLowerCase().trim() === (t.artist || '').toLowerCase().trim(),
-    );
-
-    if (exactMatch) {
-      matched++;
-      playlist.trackIds.push(exactMatch.id);
-      continue;
-    }
-
-    const bestMatch = findBestMatch(t, libraryIndex, threshold);
-
-    if (bestMatch.track) {
-      fuzzyMatched++;
-      playlist.trackIds.push(bestMatch.track.id);
-    } else {
-      unmatched++;
-      const dummySource = {
-        pluginId: 'imported',
-        priority: 999,
-        kind: 'streaming' as const,
-        url: '',
-      };
-      const mergeResult = merge(
-        {
-          artist: t.artist || '',
-          title: t.title || 'Unknown Title',
-          album: t.album || '',
-          coverUrl: null,
-          hasId3Tags: false,
-          source: dummySource,
-        },
-        {
-          libraryIndex,
-          existingAlbums: Object.values(library.albums),
-          threshold,
-        },
-      );
-      await apply(mergeResult, {
-        writer,
-        saveCache: async () => {},
-      });
-
-      const artistKey = (mergeResult.track.artist || '').trim().toLowerCase();
-      const list = libraryIndex.get(artistKey) || [];
-      if (!list.some((tr) => tr.id === mergeResult.track.id)) {
-        list.push(mergeResult.track);
-        libraryIndex.set(artistKey, list);
-      }
-
-      playlist.trackIds.push(mergeResult.track.id);
-    }
-  }
-
-  playlist.updatedAt = Date.now();
-  playlists.save();
-
-  if (unmatched > 0 || fuzzyMatched > 0) {
-    toastService.info(
-      `Импортировано: ${tracks.length} (точно: ${matched}, примерное: ${fuzzyMatched}, не найдено: ${unmatched})`,
-    );
-  } else {
-    toastService.success(`Импортировано: ${tracks.length}`);
-  }
-
-  router.push({ name: 'playlist', params: { id: playlistId } });
+function onImported(payload: { playlistId: string; stats: unknown }) {
+  router.push({ name: 'playlist', params: { id: payload.playlistId } });
 }
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <PageHeader title="Плейлисты">
-      <Button v-if="!isCreating" variant="secondary" size="sm" @click="triggerImport">Импортировать</Button>
+      <Button v-if="!isCreating" variant="secondary" size="sm" @click="isImportModalOpen = true">
+        Импортировать
+      </Button>
       <Button v-if="!isCreating" variant="primary" size="sm" @click="startCreate">Создать плейлист</Button>
-      <input ref="fileInputRef" type="file" accept=".m3u,.json" class="hidden" @change="onFileSelected" />
     </PageHeader>
 
     <div v-if="isCreating" class="shrink-0 px-4 py-3">
@@ -253,5 +126,7 @@ async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrac
         </ListContainer>
       </div>
     </div>
+
+    <ImportPlaylistModal v-if="isImportModalOpen" @close="isImportModalOpen = false" @imported="onImported" />
   </div>
 </template>
