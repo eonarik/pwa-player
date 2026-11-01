@@ -22,21 +22,28 @@ import FileLocationFilter from '@/components/library/FileLocationFilter.vue';
 import TextEditorModal from '@/components/library/TextEditorModal.vue';
 import MetadataCandidatesModal from '@/components/library/MetadataCandidatesModal.vue';
 import type { Track } from '@/types/track';
-import type { FolderRef, TextFileRef } from '@/plugins/types';
-import type { FolderId, TrackId } from '@/types/ids';
+import type { TextFileRef } from '@/plugins/types';
+import type { FolderId } from '@/types/ids';
 
 const library = useLibraryStore();
 const player = usePlayerStore();
 const uiSettings = useUiSettingsStore();
 
-const { currentTracks, currentFolder, currentSubfolders } = storeToRefs(library);
+// Берем индексы из стора
+const { currentTracks, currentFolder, currentSubfolders, subtreeTracksMap } = storeToRefs(library);
 const { currentTrack, isPlaying } = storeToRefs(player);
 const { showFiles } = storeToRefs(uiSettings);
 
 const tracks = computed(() => currentTracks.value);
 
+// Используем готовый индекс вместо рекурсии
+const subtreeTracks = computed<Track[]>(() => {
+  const folder = currentFolder.value;
+  if (!folder) return [];
+  return subtreeTracksMap.value.get(folder.id) || [];
+});
+
 // --- Метаданные ---
-// Передаем в useMetadataSearch все треки текущей папки (и подпапок)
 const {
   isLoading: metadataLoading,
   progress: metadataProgress,
@@ -125,29 +132,6 @@ function closeFile(): void {
   openedFile.value = null;
 }
 
-const subtreeTracks = computed<Track[]>(() => {
-  const folder = currentFolder.value;
-  if (!folder) return [];
-
-  const result: Track[] = [];
-  const seen = new Set<TrackId>();
-
-  const walk = (f: FolderRef) => {
-    for (const id of f.trackIds) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const track = library.getTrack(id);
-      if (track) result.push(track);
-    }
-    for (const sub of Object.values(library.folders)) {
-      if (sub.parentId === f.id) walk(sub);
-    }
-  };
-
-  walk(folder);
-  return result;
-});
-
 const { query, hasQuery, hasResults, result } = useLibrarySearch(subtreeTracks, uiSettings.searchThreshold);
 
 const searchFlatTracks = computed<Track[]>(() => {
@@ -201,16 +185,12 @@ const isCurrentFolderScanning = computed(() => {
 });
 
 const hasBackgroundScan = computed(() => {
-  const folder = currentFolder.value;
-  if (!folder) return false;
-
-  const walk = (id: FolderId): boolean => {
-    if (folderStatusService.needsScan(id) || folderStatusService.isScanning(id)) return true;
-    return Object.values(library.folders)
-      .filter((f) => f.parentId === id)
-      .some((f) => walk(f.id));
-  };
-  return walk(folder.id);
+  for (const f of Object.values(library.folders)) {
+    if (folderStatusService.needsScan(f.id) || folderStatusService.isScanning(f.id)) {
+      return true;
+    }
+  }
+  return false;
 });
 
 async function cancelBackgroundScan(): Promise<void> {

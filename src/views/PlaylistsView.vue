@@ -1,11 +1,11 @@
 <!-- src/views/PlaylistsView.vue -->
 
 <script setup lang="ts">
-import { ref, unref } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { usePlaylistsStore } from '@/stores/playlists';
-import { useLibraryStore, createLibraryWriter } from '@/stores/library';
+import { createLibraryWriter, useLibraryStore } from '@/stores/library';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { FAVORITES_PLAYLIST_ID } from '@/types/collection';
 import type { Playlist, PlaylistExportTrack } from '@/types/collection';
@@ -13,7 +13,7 @@ import { pluralize } from '@/utils/pluralize';
 import { toastService } from '@/services/ui/ToastService';
 import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser';
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher';
-import { merge, apply } from '@/services/library/TrackMerger';
+import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import Button from '@/components/ui/Button.vue';
 import Input from '@/components/ui/Input.vue';
@@ -21,9 +21,6 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import IconHeart from '@/components/icons/IconHeart.vue';
 import ListContainer from '@/components/ui/ListContainer.vue';
-import { useHistoryStore } from '@/stores/history';
-import { useDislikesStore } from '@/stores/dislikes';
-import { usePlayerStore } from '@/stores/player';
 
 const router = useRouter();
 const playlists = usePlaylistsStore();
@@ -58,23 +55,11 @@ function confirmCreate() {
   router.push({ name: 'playlist', params: { id } });
 }
 
-const history = useHistoryStore();
-const dislikes = useDislikesStore();
-const player = usePlayerStore();
-
 function deletePlaylist(playlist: Playlist) {
   if (playlist.id === FAVORITES_PLAYLIST_ID) return;
   const confirmed = window.confirm(`Удалить плейлист «${playlist.name}»?`);
   if (!confirmed) return;
-
   playlists.deletePlaylist(playlist.id);
-
-  library.cleanupOrphanTracks(
-    unref(playlists.playlists) ?? {},
-    unref(history.history) ?? { playedAt: {} },
-    unref(dislikes.dislikes) ?? { dislikedAt: {} },
-    unref(player.queue) ?? [],
-  );
 }
 
 function formatDate(ts: number): string {
@@ -132,6 +117,7 @@ async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrac
   let unmatched = 0;
 
   const allTracks = Object.values(library.tracks);
+  const libraryIndex = buildLibraryIndex(allTracks);
   const threshold = uiSettings.playlistMatchThreshold;
   const writer = createLibraryWriter();
 
@@ -148,14 +134,13 @@ async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrac
       continue;
     }
 
-    const bestMatch = findBestMatch(t, allTracks, threshold);
+    const bestMatch = findBestMatch(t, libraryIndex, threshold);
 
     if (bestMatch.track) {
       fuzzyMatched++;
       playlist.trackIds.push(bestMatch.track.id);
     } else {
       unmatched++;
-      // Создаём «виртуальный» трек через TrackMerger
       const dummySource = {
         pluginId: 'imported',
         priority: 999,
@@ -172,7 +157,7 @@ async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrac
           source: dummySource,
         },
         {
-          existingTracks: Object.values(library.tracks),
+          libraryIndex,
           existingAlbums: Object.values(library.albums),
           threshold,
         },
@@ -181,6 +166,14 @@ async function createPlaylistFromImport(name: string, tracks: PlaylistExportTrac
         writer,
         saveCache: async () => {},
       });
+
+      const artistKey = (mergeResult.track.artist || '').trim().toLowerCase();
+      const list = libraryIndex.get(artistKey) || [];
+      if (!list.some((tr) => tr.id === mergeResult.track.id)) {
+        list.push(mergeResult.track);
+        libraryIndex.set(artistKey, list);
+      }
+
       playlist.trackIds.push(mergeResult.track.id);
     }
   }

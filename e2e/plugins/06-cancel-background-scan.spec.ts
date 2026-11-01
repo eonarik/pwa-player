@@ -63,7 +63,7 @@ test.describe('Yandex Disk: Отмена фонового сканировани
     await expect(artistFolderRow.getByText('Синхронизация...')).toBeVisible();
 
     // 2. Открываем меню синхронизации (кнопка обновления)
-    await page.locator('button[aria-label="Синхронизация"]').click();
+    await page.locator('button[aria-label="Синхронизация..."]').click();
 
     // 3. Нажимаем "Отменить синхронизацию"
     await page.getByText('Отменить синхронизацию').click();

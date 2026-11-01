@@ -6,6 +6,7 @@ import type { FolderId } from '@/types/ids';
 import { newFolderId } from '@/types/ids';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
 import { mapWithConcurrency } from './concurrency';
+import { compareStrings } from '@/utils/sort';
 
 export const ROOT_REMOTE_PATH = 'disk:/';
 
@@ -46,19 +47,45 @@ export async function scanAll(
   const pathMap: Record<string, string> = {};
   const progress = options.progress;
 
-  // Очередь для безопасного вызова onChunk (Mutex)
+  // --- Батчинг (Throttle) ---
+  let pendingFolders: PluginSnapshot['folders'] = [];
+  let pendingTracks: PluginSnapshot['tracks'] = [];
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
   let chunkPromise = Promise.resolve();
-  const safeOnChunk = async (newFolders: PluginSnapshot['folders'], newTracks: PluginSnapshot['tracks']) => {
-    if (!progress?.onChunk) return;
-    chunkPromise = chunkPromise.then(async () => {
-      try {
-        await progress.onChunk!(newFolders, newTracks);
-      } catch (err) {
-        console.warn(`[${pluginId}] onChunk failed`, err);
-      }
-    });
-    return chunkPromise;
+
+  const flushChunks = async () => {
+    if (pendingFolders.length === 0 && pendingTracks.length === 0) return;
+
+    const toFlushFolders = pendingFolders;
+    const toFlushTracks = pendingTracks;
+    pendingFolders = [];
+    pendingTracks = [];
+
+    // Сортируем пачку перед отправкой
+    toFlushFolders.sort((a, b) => compareStrings(a.name, b.name));
+    toFlushTracks.sort((a, b) => compareStrings(a.title, b.title));
+
+    if (progress?.onChunk) {
+      chunkPromise = chunkPromise.then(async () => {
+        try {
+          await progress.onChunk!(toFlushFolders, toFlushTracks);
+        } catch (err) {
+          console.warn(`[${pluginId}] onChunk failed`, err);
+        }
+      });
+      await chunkPromise;
+    }
   };
+
+  const scheduleFlush = () => {
+    if (flushTimer) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      void flushChunks();
+    }, 1500); // Увеличили до 1500 мс
+  };
+
+  // --- Обход ---
 
   const walk = async (
     remotePath: string,
@@ -79,6 +106,7 @@ export async function scanAll(
         urlPath: remotePath === ROOT_REMOTE_PATH ? '' : remotePath.replace(/^disk:\//, ''),
       };
       folders.push(folder);
+      pendingFolders.push(folder);
     }
 
     progress?.onStart(currentFolderId);
@@ -90,9 +118,6 @@ export async function scanAll(
       const response = await service.listResources(remotePath);
       const items = response._embedded?.items || response.items || [];
 
-      const currentLevelFolders: PluginSnapshot['folders'] = [];
-      const currentLevelTracks: PluginSnapshot['tracks'] = [];
-
       for (const item of items) {
         if (item.type === 'dir') {
           const childPath = item.path;
@@ -100,7 +125,6 @@ export async function scanAll(
           const childFolderId = existingId ? (existingId as FolderId) : newFolderId();
           newFolderMap[childPath] = childFolderId;
 
-          // Добавляем папку в список сразу
           const folder = {
             id: childFolderId,
             parentId: currentFolderId,
@@ -108,7 +132,7 @@ export async function scanAll(
             urlPath: childPath.replace(/^disk:\//, ''),
           };
           folders.push(folder);
-          currentLevelFolders.push(folder);
+          pendingFolders.push(folder);
           pathMap[childFolderId] = childPath;
 
           if (options.recursive) {
@@ -139,14 +163,12 @@ export async function scanAll(
             },
           };
           tracks.push(track);
-          currentLevelTracks.push(track);
+          pendingTracks.push(track);
         }
       }
 
-      // Отдаем в UI текущий уровень через Mutex
-      await safeOnChunk(currentLevelFolders, currentLevelTracks);
+      scheduleFlush();
 
-      // Теперь идем вглубь ПАРАЛЛЕЛЬНО (с лимитом 3)
       if (options.recursive && childDirs.length > 0) {
         await mapWithConcurrency(
           childDirs,
@@ -171,8 +193,15 @@ export async function scanAll(
   newFolderMap[startRemotePath] = startFolderId;
   await walk(startRemotePath, null, startFolderId, true);
 
-  // Дожидаемся всех onChunk
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  await flushChunks();
   await chunkPromise;
+
+  folders.sort((a, b) => compareStrings(a.name, b.name));
+  tracks.sort((a, b) => compareStrings(a.title, b.title));
 
   return {
     snapshot: { folders, tracks },

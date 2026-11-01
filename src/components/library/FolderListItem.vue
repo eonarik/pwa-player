@@ -11,7 +11,6 @@ import ListRow from '@/components/ui/ListRow.vue';
 import Icon from '@/components/ui/Icon.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import type { FolderRef } from '@/types/folder';
-import type { FolderId } from '@/types/ids';
 
 const props = defineProps<{
   folder: FolderRef;
@@ -25,18 +24,8 @@ const emit = defineEmits<{
 
 const library = useLibraryStore();
 const player = usePlayerStore();
-const { folders } = storeToRefs(library);
+const { folders, folderStats } = storeToRefs(library);
 const { currentTrack } = storeToRefs(player);
-
-function isDescendant(childId: FolderId, parentId: FolderId): boolean {
-  let current: FolderRef | undefined = folders.value[childId];
-
-  while (current) {
-    if (current.id === parentId) return true;
-    current = current.parentId ? folders.value[current.parentId] : undefined;
-  }
-  return false;
-}
 
 const isActive = computed(() => {
   const track = currentTrack.value;
@@ -44,8 +33,10 @@ const isActive = computed(() => {
 
   for (const source of track.sources) {
     if (source.kind === 'local' || source.kind === 'cloud') {
-      if (isDescendant(source.folderId, props.folder.id)) {
-        return true;
+      let current: FolderRef | undefined = folders.value[source.folderId];
+      while (current) {
+        if (current.id === props.folder.id) return true;
+        current = current.parentId ? folders.value[current.parentId] : undefined;
       }
     }
   }
@@ -57,48 +48,11 @@ const isScanning = computed(() => status.value === 'scanning');
 const isPending = computed(() => status.value === 'pending' || status.value === null);
 const isError = computed(() => status.value === 'error');
 
-const canEnter = computed(() => true);
-const canPlay = computed(() => status.value === 'scanned' && trackCount.value > 0);
+const canPlay = computed(() => status.value === 'scanned' && stats.value.tracks > 0);
 
-const trackCount = computed(() => {
-  let count = 0;
-  const seen = new Set<string>();
-
-  const walk = (folderId: FolderId) => {
-    if (seen.has(folderId)) return;
-    seen.add(folderId);
-
-    const folder = folders.value[folderId];
-    if (!folder) return;
-
-    // Используем trackIds из папки
-    count += (folder.trackIds || []).length;
-
-    for (const f of Object.values(folders.value)) {
-      if (f.parentId === folderId) walk(f.id);
-    }
-  };
-  walk(props.folder.id);
-  return count;
-});
-
-const folderCount = computed(() => {
-  let count = 0;
-  const seen = new Set<string>();
-
-  const walk = (folderId: FolderId) => {
-    if (seen.has(folderId)) return;
-    seen.add(folderId);
-
-    for (const f of Object.values(folders.value)) {
-      if (f.parentId === folderId) {
-        count++;
-        walk(f.id);
-      }
-    }
-  };
-  walk(props.folder.id);
-  return count;
+// Берем из готового индекса!
+const stats = computed(() => {
+  return folderStats.value.get(props.folder.id) || { folders: 0, tracks: 0 };
 });
 
 const displayLabel = computed(() => {
@@ -107,8 +61,8 @@ const displayLabel = computed(() => {
   if (isPending.value) return 'Ожидает сканирования';
 
   const parts: string[] = [];
-  if (folderCount.value > 0) parts.push(pluralize(folderCount.value, ['папка', 'папки', 'папок']));
-  if (trackCount.value > 0) parts.push(pluralize(trackCount.value, ['трек', 'трека', 'треков']));
+  if (stats.value.folders > 0) parts.push(pluralize(stats.value.folders, ['папка', 'папки', 'папок']));
+  if (stats.value.tracks > 0) parts.push(pluralize(stats.value.tracks, ['трек', 'трека', 'треков']));
   return parts.length > 0 ? parts.join(' · ') : 'пусто';
 });
 
@@ -178,7 +132,7 @@ function onRowClick(): void {
     </template>
 
     <template #trailing>
-      <div class="shrink-0" :class="canEnter ? 'text-fg-subtle' : 'text-fg-disabled'">
+      <div class="shrink-0 text-fg-subtle">
         <Icon name="chevron-right" w="w-4" h="w-4" />
       </div>
     </template>

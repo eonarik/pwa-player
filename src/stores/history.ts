@@ -6,7 +6,7 @@ import { historyPersistenceService } from '@/services/persistence/HistoryPersist
 import type { HistoryCollection } from '@/types/collection';
 import type { TrackId } from '@/types/ids';
 import { useLibraryStore, createLibraryWriter } from './library';
-import { merge, apply } from '@/services/library/TrackMerger';
+import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
 import type { Track } from '@/types/track';
 import { useUiSettingsStore } from './uiSettings';
 
@@ -68,7 +68,7 @@ export const useHistoryStore = defineStore('history', () => {
     };
 
     const mergeResult = merge(incoming, {
-      existingTracks: Object.values(library.tracks),
+      libraryIndex: buildLibraryIndex(Object.values(library.tracks)),
       existingAlbums: Object.values(library.albums),
       threshold: uiSettings.playlistMatchThreshold,
     });

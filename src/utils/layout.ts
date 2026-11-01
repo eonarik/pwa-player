@@ -172,6 +172,10 @@ export function transliterate(text: string): string {
     .join('');
 }
 
+// Кэш для layoutVariants, чтобы не пересчитывать одни и те же строки
+const variantsCache = new Map<string, string[]>();
+const MAX_CACHE_SIZE = 5000;
+
 /**
  * Возвращает все варианты написания строки:
  * - как есть
@@ -182,6 +186,10 @@ export function transliterate(text: string): string {
  */
 export function layoutVariants(text: string): string[] {
   const normalized = text.toLowerCase();
+
+  const cached = variantsCache.get(normalized);
+  if (cached) return cached;
+
   const variants = new Set<string>([
     normalized,
     normalizeUmlauts(normalized),
@@ -189,5 +197,14 @@ export function layoutVariants(text: string): string[] {
     toEnglishLayout(normalized),
     transliterate(normalized),
   ]);
-  return Array.from(variants);
+
+  const result = Array.from(variants);
+
+  // Ограничиваем размер кэша
+  if (variantsCache.size > MAX_CACHE_SIZE) {
+    variantsCache.clear();
+  }
+  variantsCache.set(normalized, result);
+
+  return result;
 }

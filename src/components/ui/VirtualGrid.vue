@@ -189,8 +189,13 @@ defineExpose({ scrollToLetter });
               gap: `${gap}px`,
             }"
           >
-            <!-- Убрали any из слота, item автоматически выводится как T -->
-            <div v-for="(item, idx) in flatRows[vRow.index]!.items" :key="idx" @click="emit('item-click', item)">
+            <div
+              v-for="(item, idx) in flatRows[vRow.index]!.items"
+              :key="idx"
+              @click="emit('item-click', item)"
+              class="content-visibility-auto"
+              :style="{ containIntrinsicSize: effectiveMode === 'grid' ? '0 250px' : '0 56px' }"
+            >
               <slot name="item" :item="item" :mode="effectiveMode" />
             </div>
           </div>

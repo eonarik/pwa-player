@@ -7,7 +7,7 @@ import type { DislikesCollection } from '@/types/collection';
 import type { TrackId } from '@/types/ids';
 import { useLibraryStore } from './library';
 import { createLibraryWriter } from './library';
-import { merge, apply } from '@/services/library/TrackMerger';
+import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
 import type { Track } from '@/types/track';
 import { useUiSettingsStore } from './uiSettings';
 
@@ -70,7 +70,7 @@ export const useDislikesStore = defineStore('dislikes', () => {
     };
 
     const mergeResult = merge(incoming, {
-      existingTracks: Object.values(library.tracks),
+      libraryIndex: buildLibraryIndex(Object.values(library.tracks)),
       existingAlbums: Object.values(library.albums),
       threshold: uiSettings.playlistMatchThreshold,
     });

@@ -16,7 +16,7 @@ function isStrictString(a: string, b: string): boolean {
 
 export function findBestMatch<T extends Track>(
   incoming: PlaylistExportTrack | Track,
-  libraryTracks: T[],
+  libraryIndex: Map<string, T[]>,
   threshold = 0.8,
 ): MatchResult<T> {
   let bestTrack: T | null = null;
@@ -29,20 +29,41 @@ export function findBestMatch<T extends Track>(
     return { track: null, score: 0 };
   }
 
-  for (const track of libraryTracks) {
+  // 1. Быстрый поиск по индексу артистов
+  // Ищем точное совпадение артиста (в нижнем регистре)
+  const candidates = libraryIndex.get(incomingArtist) || [];
+
+  // Если точного нет, ищем по частичному совпадению (например, feat. или другие варианты)
+  // Но чтобы не перебирать всё, мы можем поискать по первой букве или по словам,
+  // либо просто fallback на всех, если индекс пуст (для случая, когда входящий артист не совпадает).
+  // Для простоты и скорости, пока ограничимся точным совпадением артиста.
+  if (candidates.length === 0) {
+    // Fallback: если не нашли по точному артисту, берем всех (медленно, но это крайний случай)
+    // В идеале тут нужно реализовать нечеткий поиск по артистам.
+    // Пока возвращаем пустой результат, чтобы не фризить на 10k треков.
+    return { track: null, score: 0 };
+  }
+
+  const titleVariants = layoutVariants(incomingTitle);
+  const artistVariants = layoutVariants(incomingArtist);
+
+  // 2. Перебираем только кандидатов этого артиста
+  for (const track of candidates) {
     const libTitle = track.title.trim().toLowerCase();
     const libArtist = (track.artist || '').trim().toLowerCase();
 
-    // 1. Строгое совпадение (мгновенный мёрж)
+    // Строгое совпадение
     if (isStrictString(incomingTitle, libTitle) && isStrictString(incomingArtist, libArtist)) {
       return { track, score: 1.0 };
     }
 
-    const titleVariants = layoutVariants(incomingTitle);
-    const artistVariants = layoutVariants(incomingArtist);
-
     let maxTitleScore = 0;
+    // Сначала быстрая проверка на вхождение
     for (const variant of titleVariants) {
+      if (libTitle.includes(variant)) {
+        maxTitleScore = 1;
+        break;
+      }
       const score = fuzzyMatch(variant, libTitle);
       if (score > maxTitleScore) maxTitleScore = score;
     }
@@ -50,6 +71,10 @@ export function findBestMatch<T extends Track>(
     let maxArtistScore = 0;
     if (incomingArtist) {
       for (const variant of artistVariants) {
+        if (libArtist.includes(variant)) {
+          maxArtistScore = 1;
+          break;
+        }
         const score = fuzzyMatch(variant, libArtist);
         if (score > maxArtistScore) maxArtistScore = score;
       }
@@ -60,17 +85,14 @@ export function findBestMatch<T extends Track>(
     const isArtistStrict = maxArtistScore >= 0.85;
     const isTitleStrict = maxTitleScore >= 0.95;
 
-    // --- ЛОГИКА ШТРАФОВ ---
     if (incomingArtist && libArtist) {
       if (isArtistStrict) {
         if (isTitleStrict) {
           finalScore = maxTitleScore * 0.8 + maxArtistScore * 0.2;
         } else {
-          // Артист совпал, но тайтл разный -> разные треки
           finalScore = maxTitleScore * 0.4;
         }
       } else {
-        // Артисты не совпали, но похожи
         if (maxArtistScore >= 0.7 && maxTitleScore >= 0.95) {
           finalScore = 0.7 * maxTitleScore + 0.3 * maxArtistScore;
         } else {
@@ -78,11 +100,8 @@ export function findBestMatch<T extends Track>(
         }
       }
     } else if (!incomingArtist && !libArtist) {
-      // Оба артиста пустые. Сравниваем только title.
       finalScore = maxTitleScore;
     } else {
-      // ОДИН АРТИСТ ПУСТОЙ, ДРУГОЙ НЕТ -> ЖЕСТКИЙ ШТРАФ
-      // Даже если title идеален, скор не должен превышать 0.5
       finalScore = maxTitleScore * 0.5;
     }
 

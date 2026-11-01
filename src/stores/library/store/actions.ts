@@ -7,7 +7,8 @@ import type { FolderRef } from '@/types/folder';
 import type { AlbumId, FolderId, TrackId } from '@/types/ids';
 import { albumService } from '@/services/persistence/AlbumService';
 import type { LibraryRefs } from './state';
-import { LIBRARY_KEY } from './persist';
+
+const LIBRARY_KEY = 'player:library'; // <-- Явно объявляем
 
 export function createLibraryActions(refs: LibraryRefs) {
   const { tracks, albums, folders, currentFolderId } = refs;

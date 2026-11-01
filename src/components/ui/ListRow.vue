@@ -5,9 +5,7 @@ withDefaults(
   defineProps<{
     active?: boolean;
     disliked?: boolean;
-    /** 0..1 — если задано, показывается синий прогресс снизу вверх */
     downloadProgress?: number | null;
-    /** Полностью скачан — синяя полоска на всю высоту */
     downloaded?: boolean;
   }>(),
   { active: false, disliked: false, downloadProgress: null, downloaded: false },
@@ -20,7 +18,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="list-row group relative flex items-center gap-3 border-l-2 border-transparent px-2 py-2 transition radio-inset"
+    class="list-row group relative flex items-center gap-3 border-l-2 border-transparent px-2 py-2 transition radio-inset content-visibility-auto"
     :class="[
       active ? 'list-row_active bg-active/10 text-active' : 'text-fg hover:bg-hover-bg',
       disliked && 'list-row_disliked',
@@ -73,3 +71,11 @@ const emit = defineEmits<{
     </div>
   </div>
 </template>
+
+<style scoped>
+.content-visibility-auto {
+  content-visibility: auto;
+  /* Указываем примерную высоту, чтобы браузер не прыгал при скролле */
+  contain-intrinsic-size: 0 56px;
+}
+</style>

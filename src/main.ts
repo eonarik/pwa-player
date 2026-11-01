@@ -92,6 +92,7 @@ async function bootstrap() {
     void useUiSettingsStore().flush();
     folderStatusService.flush();
   };
+
   window.addEventListener('beforeunload', flushAll);
   window.addEventListener('pagehide', flushAll);
   document.addEventListener('visibilitychange', () => {
@@ -109,6 +110,22 @@ async function bootstrap() {
   w.__playlists = usePlaylistsStore;
   w.__history = useHistoryStore;
   w.__dislikes = useDislikesStore;
+
+  if (import.meta.env.DEV) {
+    // Счётчик DOM-узлов
+    let maxNodes = 0;
+    setInterval(() => {
+      const count = document.querySelectorAll('*').length;
+      if (count > maxNodes) {
+        maxNodes = count;
+        console.log(`[DOM] Peak nodes: ${maxNodes}`);
+      }
+    }, 1000);
+
+    // Можно вывести текущее значение по команде в консоли:
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__countNodes = () => document.querySelectorAll('*').length;
+  }
 }
 
 window.addEventListener('unhandledrejection', (event) => {

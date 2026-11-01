@@ -11,7 +11,6 @@ const props = defineProps<{
   isRefreshing: boolean;
   isRefreshingFromDevice: boolean;
   needsAttention?: boolean;
-  /** true, если идет фоновое сканирование и его можно отменить */
   hasBackgroundScan?: boolean;
 }>();
 
@@ -36,25 +35,19 @@ const onCancelScan = (close: () => void) => {
   emit('cancel-background-scan');
 };
 
-const label = computed(() =>
-  props.isRefreshing
-    ? 'Обновление с облака…'
-    : props.isRefreshingFromDevice
-      ? 'Сканирование устройства…'
-      : 'Синхронизация',
-);
+const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDevice || props.hasBackgroundScan);
 
-const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDevice);
+const label = computed(() => (isSpinning.value ? 'Синхронизация...' : 'Синхронизация'));
 </script>
 
 <template>
   <DropdownMenu :width="256">
     <template #trigger="{ toggle, setTriggerRef }">
       <div class="relative" :ref="setTriggerRef">
+        <!-- Убираем disabled, чтобы можно было открыть меню и нажать "Отменить" -->
         <IconButton
           icon="refresh"
           :label="label"
-          :disabled="isSpinning"
           :variant="needsAttention ? 'danger' : 'default'"
           :icon-class="isSpinning ? 'animate-spin' : ''"
           @click="toggle"
@@ -68,10 +61,12 @@ const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDe
     </template>
 
     <template #default="{ close }">
+      <!-- Блокируем "Обновить", если уже идет процесс -->
       <button
         v-if="canRefresh"
         type="button"
-        class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+        class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
+        :disabled="isSpinning"
         @click="onRefreshCloud(close)"
       >
         Обновить с облака
@@ -81,13 +76,15 @@ const isSpinning = computed(() => props.isRefreshing || props.isRefreshingFromDe
       <button
         v-if="canRefreshFromDevice"
         type="button"
-        class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+        class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
+        :disabled="isSpinning"
         @click="onRefreshDevice(close)"
       >
         Обновить с устройства
         <span class="block text-[10px] text-fg-muted"> Найти новые и отсутствующие файлы </span>
       </button>
 
+      <!-- Кнопка отмены активна всегда, если идет скан -->
       <div v-if="hasBackgroundScan" class="border-t border-hover-bg mt-1 pt-1">
         <button
           type="button"

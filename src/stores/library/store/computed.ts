@@ -21,6 +21,90 @@ export function createLibraryComputed(refs: LibraryRefs) {
     return index;
   });
 
+  // 1. Быстрый доступ к детям папки
+  const childFoldersMap = computed<Map<FolderId, FolderRef[]>>(() => {
+    const map = new Map<FolderId, FolderRef[]>();
+    for (const folder of Object.values(folders.value)) {
+      if (!folder.parentId) continue;
+      const list = map.get(folder.parentId) || [];
+      list.push(folder);
+      map.set(folder.parentId, list);
+    }
+    return map;
+  });
+
+  // 2. Плоский список треков для каждой папки (включая подпапки)
+  const subtreeTracksMap = computed<Map<FolderId, Track[]>>(() => {
+    const map = new Map<FolderId, Track[]>();
+    const allFolders = Object.values(folders.value);
+
+    const collectTracks = (folderId: FolderId, visited: Set<FolderId>): Track[] => {
+      if (visited.has(folderId)) return [];
+      visited.add(folderId);
+
+      if (map.has(folderId)) return map.get(folderId)!;
+
+      const result: Track[] = [];
+      const folder = folders.value[folderId];
+      if (!folder) return result;
+
+      for (const trackId of folder.trackIds) {
+        const track = tracks.value[trackId];
+        if (track) result.push(track);
+      }
+
+      const children = childFoldersMap.value.get(folderId) || [];
+      for (const child of children) {
+        result.push(...collectTracks(child.id, visited));
+      }
+
+      map.set(folderId, result);
+      return result;
+    };
+
+    for (const folder of allFolders) {
+      collectTracks(folder.id, new Set());
+    }
+
+    return map;
+  });
+
+  // 3. Статистика папки (кол-во папок и треков в поддереве)
+  const folderStats = computed(() => {
+    const stats = new Map<FolderId, { folders: number; tracks: number }>();
+    const allFolders = Object.values(folders.value);
+
+    const count = (folderId: FolderId, visited: Set<FolderId>): { folders: number; tracks: number } => {
+      if (visited.has(folderId)) return { folders: 0, tracks: 0 };
+      visited.add(folderId);
+
+      if (stats.has(folderId)) return stats.get(folderId)!;
+
+      const folder = folders.value[folderId];
+      if (!folder) return { folders: 0, tracks: 0 };
+
+      let folderCount = 0;
+      let trackCount = folder.trackIds.length;
+
+      const children = childFoldersMap.value.get(folderId) || [];
+      for (const child of children) {
+        const childRes = count(child.id, visited);
+        folderCount += 1 + childRes.folders;
+        trackCount += childRes.tracks;
+      }
+
+      const res = { folders: folderCount, tracks: trackCount };
+      stats.set(folderId, res);
+      return res;
+    };
+
+    for (const folder of allFolders) {
+      count(folder.id, new Set());
+    }
+
+    return stats;
+  });
+
   const currentFolder = computed<FolderRef | null>(() => {
     if (!currentFolderId.value) return null;
     return folders.value[currentFolderId.value] ?? null;
@@ -29,7 +113,7 @@ export function createLibraryComputed(refs: LibraryRefs) {
   const currentSubfolders = computed<FolderRef[]>(() => {
     const folder = currentFolder.value;
     if (!folder) return [];
-    const list = Object.values(folders.value).filter((f) => f.parentId === folder.id);
+    const list = childFoldersMap.value.get(folder.id) || [];
     return sortService.sortByName(list);
   });
 
@@ -64,11 +148,13 @@ export function createLibraryComputed(refs: LibraryRefs) {
 
   const hasLibrary = computed(() => Object.keys(tracks.value).length > 0 || Object.keys(folders.value).length > 0);
 
-  // `albums` в computed не участвует напрямую, но пробросим для симметрии
   void albums;
 
   return {
     tracksByAlbumId,
+    childFoldersMap,
+    subtreeTracksMap,
+    folderStats,
     currentFolder,
     currentSubfolders,
     currentTracks,

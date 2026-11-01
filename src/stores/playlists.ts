@@ -8,7 +8,7 @@ import type { PlaylistId, TrackId } from '@/types/ids';
 import { newPlaylistId } from '@/types/ids';
 import { useLibraryStore } from './library';
 import { createLibraryWriter } from './library';
-import { merge, apply } from '@/services/library/TrackMerger';
+import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
 import type { Track } from '@/types/track';
 import { useUiSettingsStore } from './uiSettings';
 
@@ -103,8 +103,9 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     let added = 0;
     const now = Date.now();
 
+    const libraryIndex = buildLibraryIndex(Object.values(library.tracks));
+
     for (const track of tracks) {
-      // Мёржим через TrackMerger (может создать новый или найти существующий)
       const incoming = {
         artist: track.artist,
         title: track.title,
@@ -117,7 +118,7 @@ export const usePlaylistsStore = defineStore('playlists', () => {
       };
 
       const mergeResult = merge(incoming, {
-        existingTracks: Object.values(library.tracks),
+        libraryIndex,
         existingAlbums: Object.values(library.albums),
         threshold: uiSettings.playlistMatchThreshold,
       });
@@ -125,7 +126,6 @@ export const usePlaylistsStore = defineStore('playlists', () => {
       await apply(mergeResult, {
         writer,
         saveCache: async () => {
-          // Сохраняем кэш плагина источника
           const pid = mergeResult.track.sources[0]?.pluginId;
           if (pid) {
             const { loadPlugin } = await import('@/plugins/registry');
@@ -145,6 +145,14 @@ export const usePlaylistsStore = defineStore('playlists', () => {
       if (!playlist.trackIds.includes(mergeResult.track.id)) {
         playlist.trackIds.push(mergeResult.track.id);
         added++;
+      }
+
+      // Добавляем в индекс для последующих треков
+      const artistKey = (mergeResult.track.artist || '').trim().toLowerCase();
+      const list = libraryIndex.get(artistKey) || [];
+      if (!list.some((t) => t.id === mergeResult.track.id)) {
+        list.push(mergeResult.track);
+        libraryIndex.set(artistKey, list);
       }
     }
 

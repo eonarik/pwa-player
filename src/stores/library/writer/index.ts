@@ -3,6 +3,7 @@
 import type { LibraryWriter } from '@/services/library/LibraryWriter';
 import type { Album } from '@/types/album';
 import type { PluginSnapshot } from '@/types/plugin';
+import type { Track } from '@/types/track';
 import { useLibraryStore } from '../store';
 import { mergeMany, applyMany } from '@/services/library/TrackMerger';
 import {
@@ -115,8 +116,17 @@ export function createLibraryWriter(): LibraryWriter {
 
       setFolders(s, snapshot.folders, sourceId);
 
+      // Строим индекс артистов из текущей библиотеки
+      const libraryIndex = new Map<string, Track[]>();
+      for (const track of Object.values(s.tracks)) {
+        const artistKey = (track.artist || '').trim().toLowerCase();
+        const list = libraryIndex.get(artistKey) || [];
+        list.push(track);
+        libraryIndex.set(artistKey, list);
+      }
+
       const mergeResult = mergeMany(snapshot.tracks, {
-        existingTracks: Object.values(s.tracks),
+        libraryIndex,
         existingAlbums: Object.values(s.albums),
         threshold: uiSettings.playlistMatchThreshold,
       });
@@ -132,7 +142,6 @@ export function createLibraryWriter(): LibraryWriter {
 
       removeFoldersBySource(s, sourceId);
 
-      // Чистим sources, но НЕ удаляем треки (они могут быть в плейлистах/истории/etc.)
       for (const track of Object.values(s.tracks)) {
         const remainingSources = track.sources.filter((src) => !matchesSource(src.pluginId, sourceId));
 
@@ -141,8 +150,6 @@ export function createLibraryWriter(): LibraryWriter {
         }
       }
 
-      // Синхронизируем folder.trackIds ↔ sources.
-      // После чистки sources у некоторых треков папок не осталось — их trackIds тоже.
       s.reconcileFolderTrackIds();
     },
 

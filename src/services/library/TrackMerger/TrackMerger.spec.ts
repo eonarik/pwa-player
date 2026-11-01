@@ -1,7 +1,7 @@
-// src/services/library/TrackMerger.spec.ts
+// src/services/library/TrackMerger/TrackMerger.spec.ts
 
 import { describe, it, expect } from 'vitest';
-import { merge, type MergeContext } from './TrackMerger';
+import { merge, buildLibraryIndex, type MergeContext } from './index';
 import type { Track } from '@/types/track';
 import type { PluginTrackPayload } from '@/types/plugin';
 import { newTrackId, newTrackSourceId } from '@/types/ids';
@@ -55,7 +55,11 @@ describe('TrackMerger', () => {
       const existing = makeExistingTrack({ artist: 'Artist A', title: 'Track 1' });
       const incoming = makeIncomingPayload({ artist: 'Artist A', title: 'Track 2' });
 
-      const ctx: MergeContext = { existingTracks: [existing], existingAlbums: [], threshold: 0.75 };
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
       const result = merge(incoming, ctx);
 
       expect(result.action).toBe('created');
@@ -68,7 +72,11 @@ describe('TrackMerger', () => {
       const existing = makeExistingTrack({ artist: 'The Beatles', title: 'Song' });
       const incoming = makeIncomingPayload({ artist: 'The Beatles', title: 'Song (Remaster)' });
 
-      const ctx: MergeContext = { existingTracks: [existing], existingAlbums: [], threshold: 0.75 };
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
       const result = merge(incoming, ctx);
 
       expect(result.action).toBe('created');
@@ -80,7 +88,11 @@ describe('TrackMerger', () => {
       const existing = makeExistingTrack({ artist: 'Radiohead', title: 'Creep' });
       const incoming = makeIncomingPayload({ artist: 'Radiohead', title: 'Creep' });
 
-      const ctx: MergeContext = { existingTracks: [existing], existingAlbums: [], threshold: 0.75 };
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
       const result = merge(incoming, ctx);
 
       expect(result.action).toBe('merged-strict');
@@ -90,14 +102,17 @@ describe('TrackMerger', () => {
 
     it('НЕ ДОЛЖЕН добавлять дубликат source', () => {
       const existing = makeExistingTrack({ artist: 'Radiohead', title: 'Creep' });
-      // Тот же самый источник (тот же handle)
       const incoming = makeIncomingPayload({
         artist: 'Radiohead',
         title: 'Creep',
         source: existing.sources[0] as any,
       });
 
-      const ctx: MergeContext = { existingTracks: [existing], existingAlbums: [], threshold: 0.75 };
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
       const result = merge(incoming, ctx);
 
       expect(result.action).toBe('merged-strict');
@@ -110,7 +125,11 @@ describe('TrackMerger', () => {
       const existing = makeExistingTrack({ artist: 'Radiohead', title: 'Karma Police' });
       const incoming = makeIncomingPayload({ artist: 'Radiohead', title: 'Karma Polise' });
 
-      const ctx: MergeContext = { existingTracks: [existing], existingAlbums: [], threshold: 0.75 };
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
       const result = merge(incoming, ctx);
 
       expect(result.action).toBe('merged-soft');

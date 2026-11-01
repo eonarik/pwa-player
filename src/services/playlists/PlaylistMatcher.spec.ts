@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { findBestMatch } from './PlaylistMatcher';
 import type { Track } from '@/types/track';
 import { newTrackId } from '@/types/ids';
+import { buildLibraryIndex } from '@/services/library/TrackMerger';
 
 function makeTrack(overrides: Partial<Track> = {}): Track {
   return {
@@ -27,7 +28,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: 'Radiohead', title: 'Creep' });
       const library = [makeTrack({ artist: 'Radiohead', title: 'Creep' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).not.toBeNull();
       expect(result.score).toBe(1.0);
     });
@@ -36,7 +37,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: '  radiohead  ', title: ' CREEP ' });
       const library = [makeTrack({ artist: 'Radiohead', title: 'Creep' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).not.toBeNull();
       expect(result.score).toBe(1.0);
     });
@@ -47,7 +48,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: 'Radiohead', title: 'Karma Polise' });
       const library = [makeTrack({ artist: 'Radiohead', title: 'Karma Police' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).not.toBeNull();
       expect(result.score).toBeGreaterThan(0.9);
     });
@@ -56,7 +57,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: 'Artist A', title: 'Track 2' });
       const library = [makeTrack({ artist: 'Artist A', title: 'Track 1' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).toBeNull();
       expect(result.score).toBeLessThan(0.75);
     });
@@ -65,7 +66,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: 'The Beatles', title: 'Song (Remaster)' });
       const library = [makeTrack({ artist: 'The Beatles', title: 'Song' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).toBeNull();
       expect(result.score).toBeLessThan(0.75);
     });
@@ -76,7 +77,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: 'Portishead', title: 'Glory Box' });
       const library = [makeTrack({ artist: 'Radiohead', title: 'Creep' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).toBeNull();
     });
 
@@ -84,7 +85,7 @@ describe('PlaylistMatcher', () => {
       const incoming = makeTrack({ artist: '02', title: 'Track 2' });
       const library = [makeTrack({ artist: '01', title: 'Track 1' })];
 
-      const result = findBestMatch(incoming, library, 0.75);
+      const result = findBestMatch(incoming, buildLibraryIndex(library), 0.75);
       expect(result.track).toBeNull();
     });
   });
