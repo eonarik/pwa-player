@@ -2,7 +2,6 @@
 
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
-import { get, set } from 'idb-keyval';
 
 const UI_SETTINGS_KEY = 'player:uiSettings';
 const SAVE_DEBOUNCE_MS = 300;
@@ -21,6 +20,46 @@ interface PersistedUiSettings {
   autoDownloadTracks: boolean;
 }
 
+function readFromStorage(): PersistedUiSettings | null {
+  try {
+    const raw = localStorage.getItem(UI_SETTINGS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedUiSettings>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      showSource: parsed.showSource ?? false,
+      showFiles: parsed.showFiles ?? false,
+      metadataThreshold:
+        typeof parsed.metadataThreshold === 'number' && parsed.metadataThreshold >= 0 && parsed.metadataThreshold <= 1
+          ? parsed.metadataThreshold
+          : DEFAULT_METADATA_THRESHOLD,
+      searchThreshold:
+        typeof parsed.searchThreshold === 'number' && parsed.searchThreshold >= 0 && parsed.searchThreshold <= 1
+          ? parsed.searchThreshold
+          : DEFAULT_SEARCH_THRESHOLD,
+      playlistMatchThreshold:
+        typeof parsed.playlistMatchThreshold === 'number' &&
+        parsed.playlistMatchThreshold >= 0 &&
+        parsed.playlistMatchThreshold <= 1
+          ? parsed.playlistMatchThreshold
+          : DEFAULT_PLAYLIST_MATCH_THRESHOLD,
+      autoFetchMetadata: parsed.autoFetchMetadata ?? true,
+      autoDownloadTracks: parsed.autoDownloadTracks ?? false,
+    };
+  } catch (err) {
+    console.warn('[uiSettings] failed to read from localStorage', err);
+    return null;
+  }
+}
+
+function writeToStorage(data: PersistedUiSettings): void {
+  try {
+    localStorage.setItem(UI_SETTINGS_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.error('[uiSettings] failed to save to localStorage', err);
+  }
+}
+
 export const useUiSettingsStore = defineStore('uiSettings', () => {
   const showSource = ref(false);
   const showFiles = ref(false);
@@ -33,50 +72,32 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   let isLoaded = false;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  async function load(): Promise<void> {
+  function load(): void {
     if (isLoaded) return;
-    try {
-      const data = await get<PersistedUiSettings>(UI_SETTINGS_KEY);
-      if (data) {
-        showSource.value = data.showSource ?? false;
-        showFiles.value = data.showFiles ?? false;
-        if (typeof data.metadataThreshold === 'number' && data.metadataThreshold >= 0 && data.metadataThreshold <= 1) {
-          metadataThreshold.value = data.metadataThreshold;
-        }
-        if (typeof data.searchThreshold === 'number' && data.searchThreshold >= 0 && data.searchThreshold <= 1) {
-          searchThreshold.value = data.searchThreshold;
-        }
-        if (
-          typeof data.playlistMatchThreshold === 'number' &&
-          data.playlistMatchThreshold >= 0 &&
-          data.playlistMatchThreshold <= 1
-        ) {
-          playlistMatchThreshold.value = data.playlistMatchThreshold;
-        }
-        autoFetchMetadata.value = data.autoFetchMetadata ?? true;
-        autoDownloadTracks.value = data.autoDownloadTracks ?? false;
-      }
-      isLoaded = true;
-    } catch (err) {
-      console.error('[uiSettings] failed to load', err);
+    const data = readFromStorage();
+    if (data) {
+      showSource.value = data.showSource;
+      showFiles.value = data.showFiles;
+      metadataThreshold.value = data.metadataThreshold;
+      searchThreshold.value = data.searchThreshold;
+      playlistMatchThreshold.value = data.playlistMatchThreshold;
+      autoFetchMetadata.value = data.autoFetchMetadata;
+      autoDownloadTracks.value = data.autoDownloadTracks;
     }
+    isLoaded = true;
   }
 
-  async function persistNow(): Promise<void> {
+  function persistNow(): void {
     if (!isLoaded) return;
-    try {
-      await set(UI_SETTINGS_KEY, {
-        showSource: showSource.value,
-        showFiles: showFiles.value,
-        metadataThreshold: metadataThreshold.value,
-        searchThreshold: searchThreshold.value,
-        playlistMatchThreshold: playlistMatchThreshold.value,
-        autoFetchMetadata: autoFetchMetadata.value,
-        autoDownloadTracks: autoDownloadTracks.value,
-      });
-    } catch (err) {
-      console.error('[uiSettings] failed to save', err);
-    }
+    writeToStorage({
+      showSource: showSource.value,
+      showFiles: showFiles.value,
+      metadataThreshold: metadataThreshold.value,
+      searchThreshold: searchThreshold.value,
+      playlistMatchThreshold: playlistMatchThreshold.value,
+      autoFetchMetadata: autoFetchMetadata.value,
+      autoDownloadTracks: autoDownloadTracks.value,
+    });
   }
 
   function save(): void {
@@ -84,16 +105,16 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     if (saveTimer !== null) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveTimer = null;
-      void persistNow();
+      persistNow();
     }, SAVE_DEBOUNCE_MS);
   }
 
-  async function flush(): Promise<void> {
+  function flush(): void {
     if (saveTimer !== null) {
       clearTimeout(saveTimer);
       saveTimer = null;
     }
-    await persistNow();
+    persistNow();
   }
 
   watch(

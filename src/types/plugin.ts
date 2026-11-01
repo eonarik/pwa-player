@@ -1,8 +1,9 @@
 // src/types/plugin.ts
 
-import type { FolderId, TrackId, TrackSourceId } from './ids';
+import type { FolderId, TrackId } from './ids';
 import type { LocalTrackSource, CloudTrackSource, StreamingTrackSource } from './track';
 import type { MetadataSource } from './track';
+import type { FolderFile } from './folder';
 
 export type PluginTrackSource =
   Omit<LocalTrackSource, 'id'> | Omit<CloudTrackSource, 'id'> | Omit<StreamingTrackSource, 'id'>;
@@ -28,11 +29,13 @@ export interface PluginFolderPayload {
   urlPath: string;
   /** Треки, которые лежат в этой папке (заполняется writer'ом при сохранении) */
   trackIds?: TrackId[];
+  /** Файлы (не аудио), которые лежат в этой папке */
+  files?: FolderFile[];
 }
 
 export interface PluginSnapshot {
   folders: PluginFolderPayload[];
   tracks: PluginTrackPayload[];
-  removedSourceIds?: TrackSourceId[];
+  removedSourceIds?: import('./ids').TrackSourceId[];
   removedFolderIds?: FolderId[];
 }

@@ -84,4 +84,20 @@ describe('FolderStatusService', () => {
 
     expect(freshService.getStatus(TEST_FOLDER_ID)).toBe('scanned');
   });
+
+  it('scanning → pending при загрузке (сброс зависшего скана)', async () => {
+    localStorage.setItem(
+      'player:folderStatuses',
+      JSON.stringify({
+        v: 2,
+        entries: {
+          'folder-1': { status: 'scanning', updatedAt: Date.now() },
+        },
+      }),
+    );
+
+    vi.resetModules();
+    const { folderStatusService: fresh } = await import('./FolderStatusService');
+    expect(fresh.getStatus('folder-1' as FolderId)).toBe('pending');
+  });
 });

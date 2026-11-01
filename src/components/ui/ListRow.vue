@@ -29,14 +29,14 @@ const emit = defineEmits<{
     <!-- индикатор dislike -->
     <div
       v-if="disliked"
-      class="list-row-indicator-dislike pointer-events-none absolute bottom-0 left-0.5 top-0 w-0.5 bg-red-400"
+      class="list-row-indicator-dislike pointer-events-none absolute bottom-0 left-1 top-0 w-0.5 bg-red-400"
       aria-hidden="true"
     />
 
     <!-- прогресс/индикатор скачивания -->
     <div
       v-if="downloaded || downloadProgress !== null"
-      class="list-row-indicator-download pointer-events-none absolute bottom-0 -left-0.5 w-0.5 bg-emerald-500"
+      class="list-row-indicator-download pointer-events-none absolute bottom-0 left-0 w-0.5 bg-emerald-500"
       :style="{
         height: downloaded ? '100%' : `${(downloadProgress ?? 0) * 100}%`,
         bottom: 0,

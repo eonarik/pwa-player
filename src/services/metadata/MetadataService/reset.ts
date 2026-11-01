@@ -16,9 +16,27 @@ export function createMetadataReset(persistence: MetadataPersistence) {
   async function reset(trackId: TrackId): Promise<void> {
     const library = useLibraryStore();
     const track = library.getTrack(trackId);
-    if (!track || !track.raw) return;
+    if (!track) return;
 
     const writer = createLibraryWriter();
+
+    if (!track.raw) {
+      console.log('[reset] NO RAW METADATA, forcing reset flags');
+      // Если raw нет (старый трек), сбрасываем флаги, чтобы автопоиск сработал заново
+      console.warn(`[reset] track "${trackId}" has no raw metadata, forcing reset flags`);
+      writer.updateTrackMetadata(trackId, {
+        albumId: null,
+        coverUrl: null,
+        metadataCandidates: [],
+        hasMetadataEdits: false,
+        metaSource: 'filename',
+      });
+      await metadataPersistenceService.resetForTracks([trackId]);
+      resetProcessedTrack(trackId);
+      return;
+    }
+
+    console.log('[reset] HAS RAW METADATA', track.raw);
 
     const rawArtist = track.raw.artist;
     const rawTitle = track.raw.title;

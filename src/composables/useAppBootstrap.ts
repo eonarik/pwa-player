@@ -52,7 +52,21 @@ export function useAppBootstrap() {
           const plugin = await loadPlugin(manifest.id);
           const context = createPluginContext(manifest.id);
           const restored = await plugin.restoreFromCache(context);
-          if (restored) console.info(`[app] restored source: ${manifest.id}`);
+          if (restored) {
+            console.info(`[app] restored source: ${manifest.id}`);
+          } else if (!manifest.isStateless && !plugin.isDisconnected?.()) {
+            // Плагин не восстановился из кеша — вызываем load() для получения структуры.
+            // Только если плагин подключён (isDisconnected === false) — иначе нет смысла
+            // дёргать API (401) и засорять requests в тестах.
+            try {
+              const snapshot = await plugin.load(context);
+              if (snapshot.folders.length > 0 || snapshot.tracks.length > 0) {
+                await context.writer.setLibrary(snapshot, manifest.id);
+              }
+            } catch (err) {
+              console.warn(`[app] failed to load source "${manifest.id}"`, err);
+            }
+          }
         } catch (err) {
           console.warn(`[app] failed to restore source "${manifest.id}"`, err);
         }

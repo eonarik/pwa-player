@@ -44,8 +44,6 @@ const sortedEpisodes = computed<Episode[]>(() => {
   return eps;
 });
 
-const currentTrackId = computed(() => player.currentTrack?.id ?? null);
-
 function episodeToTrack(ep: Episode): Track {
   const id = newTrackId();
   return {
@@ -106,13 +104,24 @@ async function refresh(): Promise<void> {
   }
 }
 
+/**
+ * Сравнение «этот эпизод сейчас играет?».
+ * Не по track.id (он всегда новый), а по стабильному ep.audioUrl.
+ */
+function isCurrentEpisode(ep: Episode): boolean {
+  const t = player.currentTrack;
+  if (!t) return false;
+  const src = t.sources[0];
+  if (!src || src.kind !== 'streaming') return false;
+  return src.url === ep.audioUrl;
+}
+
 function playEpisode(ep: Episode): void {
-  const track = episodeToTrack(ep);
-  if (currentTrackId.value === track.id) {
+  if (isCurrentEpisode(ep)) {
     player.toggle();
     return;
   }
-  player.setQueue([track], 0);
+  player.setQueue([episodeToTrack(ep)], 0);
 }
 
 function playAll(): void {
@@ -122,12 +131,6 @@ function playAll(): void {
 
 function isPlayingEpisode(ep: Episode): boolean {
   return isCurrentEpisode(ep) && player.isPlaying;
-}
-
-function isCurrentEpisode(ep: Episode): boolean {
-  const t = player.currentTrack;
-  if (!t) return false;
-  return t.title === ep.title && t.artist === (subscription.value?.podcast.title ?? '');
 }
 
 onMounted(async () => {

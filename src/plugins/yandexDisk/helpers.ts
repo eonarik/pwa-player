@@ -3,13 +3,20 @@
 import type { PluginSnapshot } from '../types';
 import type { FolderId } from '@/types/ids';
 import { folderStatusService } from '@/services/folders/FolderStatusService';
+import type { ScanProgressCallback } from './scan';
 
-/** Прогресс-колбэк для scanAll → folderStatusService. */
-export function makeProgress() {
+/**
+ * Прогресс-колбэк для scanAll → folderStatusService.
+ * Соответствует `ScanProgressCallback` из `scan.ts`.
+ */
+export function makeProgress(): Pick<ScanProgressCallback, 'onStart' | 'onDone' | 'onError'> {
   return {
     onStart: (folderId: FolderId) => folderStatusService.markScanning(folderId),
     onDone: (folderId: FolderId) => folderStatusService.markScanned(folderId),
-    onError: (folderId: FolderId) => folderStatusService.markError(folderId, 'Scan failed'),
+    onError: (folderId: FolderId, error: unknown) => {
+      const reason = error instanceof Error ? error.message : 'Ошибка сканирования';
+      folderStatusService.markError(folderId, reason);
+    },
   };
 }
 
@@ -38,6 +45,11 @@ export function markScanningParents(folderId: FolderId, foldersCache: PluginSnap
 /**
  * После завершения скана проверяет статусы родителей.
  * Если у родителя остались pending/scanning дети, он не может быть scanned.
+ *
+ * Правила:
+ * - Если хоть один ребёнок `scanning` или `pending` → родитель `scanning`.
+ * - Иначе (все дети `scanned` или `error`) → родитель `scanned`.
+ * - `error` НЕ пробрасывается родителю (error — локальный статус папки).
  */
 export function updateParentsStatus(folderId: FolderId, foldersCache: PluginSnapshot['folders']): void {
   let parentId = foldersCache.find((f) => f.id === folderId)?.parentId;
@@ -47,21 +59,16 @@ export function updateParentsStatus(folderId: FolderId, foldersCache: PluginSnap
 
     let hasScanning = false;
     let hasPending = false;
-    let hasError = false;
 
     for (const c of children) {
       const status = folderStatusService.getStatus(c.id);
       if (status === 'scanning') hasScanning = true;
       else if (status === 'pending') hasPending = true;
-      else if (status === 'error') hasError = true;
+      // error игнорируется при суммаризации
     }
 
-    if (hasError) {
-      folderStatusService.markError(parentId, 'Ошибка в дочерней папке');
-    } else if (hasScanning) {
+    if (hasScanning || hasPending) {
       folderStatusService.markScanning(parentId);
-    } else if (hasPending) {
-      folderStatusService.markPending(parentId);
     } else {
       folderStatusService.markScanned(parentId);
     }

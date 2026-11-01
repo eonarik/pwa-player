@@ -12,6 +12,16 @@
 export type FolderScanStatus = 'pending' | 'scanning' | 'scanned' | 'error';
 
 /**
+ * Прогресс скана поддерева (только для `scanning`).
+ * `done` — сколько папок уже отсканировано, `total` — сколько известно на текущий момент.
+ * Оба значения могут расти в процессе скана.
+ */
+export interface FolderScanProgress {
+  done: number;
+  total: number;
+}
+
+/**
  * Запись в сервисе статусов. Хранится в localStorage per-folder.
  * Не привязана к конкретному плагину — id папки уже уникален.
  */
@@ -21,4 +31,6 @@ export interface FolderStatusEntry {
   updatedAt: number;
   /** Сообщение об ошибке (только для status='error'). */
   errorMessage?: string;
+  /** Прогресс скана поддерева (только для status='scanning'). */
+  progress?: FolderScanProgress;
 }

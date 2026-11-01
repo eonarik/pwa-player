@@ -5,6 +5,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
+import { modalService } from '@/services/ui/ModalService'; // <--- ДОБАВЛЕНО
 import IconButton from '@/components/ui/IconButton.vue';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Button from '@/components/ui/Button.vue';
@@ -14,10 +15,6 @@ import { mergeText } from '@/utils/mergeText';
 const props = defineProps<{
   file: TextFileRef;
   pluginId: string;
-}>();
-
-const emit = defineEmits<{
-  (e: 'close'): void;
 }>();
 
 const plugin = ref<LibrarySource | null>(null);
@@ -39,6 +36,7 @@ async function resolvePlugin(): Promise<LibrarySource | null> {
     const p = await loadPlugin(props.pluginId);
     if (!p.readTextFile || !p.writeTextFile) {
       toastService.error('Плагин не поддерживает редактирование текстовых файлов');
+      modalService.cancel(); // <--- ЗАКРЫВАЕМ
       return null;
     }
     plugin.value = p;
@@ -46,6 +44,7 @@ async function resolvePlugin(): Promise<LibrarySource | null> {
   } catch (err) {
     console.error('[text-editor] failed to load plugin', err);
     toastService.error('Не удалось загрузить плагин');
+    modalService.cancel(); // <--- ЗАКРЫВАЕМ
     return null;
   }
 }
@@ -54,15 +53,12 @@ async function load() {
   isLoading.value = true;
   try {
     const p = await resolvePlugin();
-    if (!p?.readTextFile) {
-      emit('close');
-      return;
-    }
+    if (!p?.readTextFile) return;
     const context = createPluginContext(props.pluginId);
     const result = await p.readTextFile(context, props.file.remotePath);
     if (!result) {
       toastService.error('Не удалось загрузить файл');
-      emit('close');
+      modalService.cancel(); // <--- ЗАКРЫВАЕМ
       return;
     }
     content.value = result.content;
@@ -138,7 +134,7 @@ async function save() {
     initialContent.value = content.value;
     initialModified.value = result.modified;
     toastService.success('Сохранено');
-    emit('close');
+    modalService.confirm(); // <--- ЗАКРЫВАЕМ
   } catch (err) {
     toastService.error(err instanceof Error ? err.message : 'Не удалось сохранить');
   } finally {
@@ -151,7 +147,7 @@ function cancel() {
     const confirmed = window.confirm('Есть несохранённые изменения. Закрыть без сохранения?');
     if (!confirmed) return;
   }
-  emit('close');
+  modalService.cancel(); // <--- ЗАКРЫВАЕМ
 }
 
 function onKeydown(e: KeyboardEvent) {

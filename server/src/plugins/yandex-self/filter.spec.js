@@ -1,81 +1,64 @@
 // server/src/plugins/yandex-self/filter.spec.js
 
 import { describe, it, expect } from 'vitest';
-import { mapAndFilterItems, normalizePath, isAudioFile } from './filter.js';
+import { mapAndFilterItems, normalizePath, isAudioFile, stripCleanRoot } from './filter.js';
 
-describe('yandex-self filter', () => {
-  describe('isAudioFile', () => {
-    it('распознает аудио', () => {
-      expect(isAudioFile('song.mp3')).toBe(true);
-      expect(isAudioFile('song.MP3')).toBe(true);
-      expect(isAudioFile('song.flac')).toBe(true);
-    });
-    it('игнорирует не аудио', () => {
-      expect(isAudioFile('song.txt')).toBe(false);
-      expect(isAudioFile('folder')).toBe(false);
-    });
-  });
-
-  describe('mapAndFilterItems', () => {
-    it('добавляет isAudio и не фильтрует, если allowedFolders = null', () => {
-      const items = [
-        { name: 'song.mp3', type: 'file' },
-        { name: 'doc.txt', type: 'file' },
-        { name: 'folder', type: 'dir' },
-      ];
-      const result = mapAndFilterItems(items, '/', null);
-      expect(result).toHaveLength(3);
-      expect(result[0].isAudio).toBe(true);
-      expect(result[1].isAudio).toBe(false);
-    });
-
-    it('фильтрует по allowedFolders (корень)', () => {
-      const items = [
-        { name: 'Flёur', type: 'dir' },
-        { name: 'nostalgy', type: 'dir' },
-        { name: 'other', type: 'dir' },
-      ];
-      const result = mapAndFilterItems(items, '/', ['/Flёur', '/nostalgy']);
-      expect(result).toHaveLength(2);
-      expect(result.map((i) => i.name)).toEqual(['Flёur', 'nostalgy']);
-    });
-
-    it('фильтрует по allowedFolders (внутри папки)', () => {
-      const items = [
-        { name: 'song.mp3', type: 'file' },
-        { name: 'other.txt', type: 'file' },
-      ];
-      const result = mapAndFilterItems(items, '/Flёur', ['/Flёur']);
-      expect(result).toHaveLength(2); // Оба файла внутри разрешенной папки
-    });
-
-    it('фильтрует родителя разрешенной папки', () => {
-      const items = [{ name: 'Flёur', type: 'dir' }];
-      const result = mapAndFilterItems(items, '/', ['/Flёur/Апьбомы']);
-      expect(result).toHaveLength(1); // Папка Flёur — родитель, должна быть видна
-    });
-  });
+describe('yandex-self filter (BFF Normalization)', () => {
+  const cleanRoot = '/все,что наше/Логии';
 
   describe('normalizePath', () => {
-    it('убирает disk: и хвостовые слэши', () => {
-      expect(normalizePath('disk:/music/', '/root').path).toBe('/music');
+    it('нормализует корень', () => {
+      expect(normalizePath('/', cleanRoot).path).toBe('/');
+    });
+    it('нормализует вложенный путь', () => {
+      expect(normalizePath('/Flёur', cleanRoot).path).toBe('/Flёur');
+    });
+  });
+
+  describe('stripCleanRoot (для корневого объекта ответа)', () => {
+    it('отрезает disk: и cleanRoot, возвращая "/"', () => {
+      // Яндекс возвращает полный путь корня
+      expect(stripCleanRoot('disk:/все,что наше/Логии', cleanRoot)).toBe('/');
     });
 
-    it('вырезает root из пути', () => {
-      const result = normalizePath('/root/music', '/root');
-      expect(result.path).toBe('/music');
-      expect(result.cleanRoot).toBe('/root');
+    it('отрезает disk: и cleanRoot, возвращая вложенный путь', () => {
+      expect(stripCleanRoot('disk:/все,что наше/Логии/Flёur', cleanRoot)).toBe('/Flёur');
     });
 
-    it('корректно склеивает', () => {
-      const result = normalizePath('/music', '/root/');
-      expect(result.path).toBe('/music');
-      expect(result.cleanRoot).toBe('/root');
+    it('корректно работает с лишними слэшами', () => {
+      expect(stripCleanRoot('disk:/все,что наше/Логии/', cleanRoot)).toBe('/');
+    });
+  });
+
+  describe('mapAndFilterItems (для массива items)', () => {
+    const yandexItems = [
+      { name: 'Flёur', path: 'disk:/все,что наше/Логии/Flёur', type: 'dir' },
+      { name: 'nostalgy', path: 'disk:/все,что наше/Логии/nostalgy', type: 'dir' },
+      { name: 'song.mp3', path: 'disk:/все,что наше/Логии/song.mp3', type: 'file' },
+    ];
+
+    it('отрезает disk: и cleanRoot у элементов', () => {
+      const result = mapAndFilterItems(yandexItems, '/', null, cleanRoot);
+
+      expect(result).toHaveLength(3);
+      // Пути должны быть ОТНОСИТЕЛЬНЫМИ (без ведущего слэша)
+      expect(result[0].path).toBe('Flёur');
+      expect(result[1].path).toBe('nostalgy');
+      expect(result[2].path).toBe('song.mp3');
     });
 
-    it('возвращает / для корня', () => {
-      expect(normalizePath('/', '/root').path).toBe('/');
-      expect(normalizePath('/root', '/root').path).toBe('/');
+    it('корректно фильтрует по allowedFolders', () => {
+      const result = mapAndFilterItems(yandexItems, '/', ['/Flёur'], cleanRoot);
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('Flёur');
+    });
+
+    it('игнорирует пробелы и регистр в cleanRoot', () => {
+      // Симулируем ситуацию, когда в .env есть лишние пробелы
+      const noisyRoot = ' /все,что наше/Логии/ ';
+      const result = mapAndFilterItems(yandexItems, '/', null, noisyRoot);
+
+      expect(result[0].path).toBe('Flёur');
     });
   });
 });

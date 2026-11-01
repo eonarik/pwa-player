@@ -58,14 +58,24 @@ function isSubscribedPodcast(podcast: Podcast): boolean {
   return subscribedUrls.value.has(podcast.feedUrl);
 }
 
+/**
+ * Играет ли сейчас ЛЮБОЙ эпизод этого подкаста?
+ * Сравниваем по artist (название подкаста) + pluginId + sources[0].kind.
+ */
 function isCurrentPodcastPlaying(podcast: Podcast): boolean {
   if (!player.isPlaying || !player.currentTrack) return false;
-  return player.currentTrack.artist === podcast.title;
+  const t = player.currentTrack;
+  const src = t.sources[0];
+  if (!src || src.kind !== 'streaming' || src.pluginId !== PLUGIN_ID) return false;
+  return t.artist === podcast.title;
 }
 
 function isCurrentPodcast(podcast: Podcast): boolean {
   if (!player.currentTrack) return false;
-  return player.currentTrack.artist === podcast.title;
+  const t = player.currentTrack;
+  const src = t.sources[0];
+  if (!src || src.kind !== 'streaming' || src.pluginId !== PLUGIN_ID) return false;
+  return t.artist === podcast.title;
 }
 
 async function getOrLoadEpisodes(podcast: Podcast): Promise<Episode[] | null> {

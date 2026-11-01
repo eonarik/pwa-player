@@ -9,7 +9,7 @@ export type {
   StreamingTrackSource,
 } from './track';
 export type { Album } from './album';
-export type { FolderRef } from './folder';
+export type { FolderRef, FolderFile } from './folder';
 export type { RawMetadata, MetadataCandidate } from './metadata';
 export type { Playlist, HistoryCollection, DislikesCollection, CollectionsState } from './collection';
 export { FAVORITES_PLAYLIST_ID } from './collection';

@@ -13,12 +13,12 @@ import type { ApplyResult, ManualPatch } from './types';
 import type { MetadataPersistence } from './persistence';
 
 export function createMetadataApply(persistence: MetadataPersistence) {
-  function applyRemote(trackId: TrackId, incoming: RemoteTrackMetadata): ApplyResult {
+  function applyRemote(trackId: TrackId, incoming: RemoteTrackMetadata, force = false): ApplyResult {
     const library = useLibraryStore();
     const track = library.getTrack(trackId);
     if (!track) return { status: 'skipped', reason: 'not-found' };
 
-    if (track.hasId3Tags) {
+    if (track.hasId3Tags && !force) {
       return { status: 'skipped', reason: 'protected' };
     }
 
@@ -29,7 +29,7 @@ export function createMetadataApply(persistence: MetadataPersistence) {
     const isStrictMatch = isArtistStrict && isTitleStrict;
 
     if (incoming.confident) {
-      applyPatch(track, incoming, isStrictMatch);
+      applyPatch(track, incoming, isStrictMatch, force, isArtistStrict);
       syncPlayerQueue(trackId);
       return { status: 'applied' };
     }
@@ -58,7 +58,13 @@ export function createMetadataApply(persistence: MetadataPersistence) {
     return { status: 'candidates' };
   }
 
-  function applyPatch(track: Track, incoming: RemoteTrackMetadata, allowMetadataOverwrite: boolean): void {
+  function applyPatch(
+    track: Track,
+    incoming: RemoteTrackMetadata,
+    allowMetadataOverwrite: boolean,
+    force = false,
+    isArtistStrict = false,
+  ): void {
     const library = useLibraryStore();
     const writer = createLibraryWriter();
 
@@ -75,16 +81,30 @@ export function createMetadataApply(persistence: MetadataPersistence) {
       writer.addOrUpdateAlbum(albumRes.album);
     }
 
-    const nextArtist = allowMetadataOverwrite ? incoming.artist || track.artist : track.artist;
-    const nextTitle = incoming.title || track.title;
+    // Разрешаем перезапись:
+    // artist — только если строгое совпадение артиста или force (ручной поиск)
+    // title — если полное строгое совпадение, или артист строгий (чтобы обновить название), или force
+    const canOverwriteArtist = (isArtistStrict || force) && (!track.hasMetadataEdits || force);
+    const canOverwriteTitle = (allowMetadataOverwrite || isArtistStrict || force) && (!track.hasMetadataEdits || force);
+
+    const nextArtist = canOverwriteArtist ? incoming.artist || track.artist : track.artist;
+    const nextTitle = canOverwriteTitle ? incoming.title || track.title : track.title;
+
+    const nextRaw = track.raw ?? {
+      artist: track.artist,
+      title: track.title,
+      album: track.albumId ? (library.getAlbum(track.albumId)?.name ?? '') : '',
+      coverUrl: track.coverUrl,
+    };
 
     writer.updateTrackMetadata(track.id, {
       artist: nextArtist,
       title: nextTitle,
       albumId: nextAlbumId,
       coverUrl: nextAlbumId ? null : incoming.coverUrl,
-      hasMetadataEdits: true,
+      hasMetadataEdits: canOverwriteArtist || canOverwriteTitle || track.hasMetadataEdits,
       metaSource: 'auto',
+      raw: nextRaw,
     });
 
     persistence.saveCacheForTrack(track);
@@ -138,8 +158,8 @@ export function createMetadataApply(persistence: MetadataPersistence) {
       duration: parsed.duration ?? track.duration,
       codec: parsed.codec ?? track.codec,
       raw: nextRaw,
-      hasMetadataEdits: true,
-      metaSource: 'file',
+      hasMetadataEdits: isManual,
+      metaSource: parsed.hasId3Tags ? 'file' : 'filename',
     });
 
     persistence.saveCacheForTrack(track);
@@ -179,6 +199,13 @@ export function createMetadataApply(persistence: MetadataPersistence) {
       nextCoverUrl = album?.coverUrl ?? null;
     }
 
+    const nextRaw = track.raw ?? {
+      artist: track.artist,
+      title: track.title,
+      album: track.albumId ? (library.getAlbum(track.albumId)?.name ?? '') : '',
+      coverUrl: track.coverUrl,
+    };
+
     writer.updateTrackMetadata(trackId, {
       artist: patch.artist,
       title: patch.title,
@@ -187,6 +214,7 @@ export function createMetadataApply(persistence: MetadataPersistence) {
       metadataCandidates: [],
       hasMetadataEdits: true,
       metaSource: 'manual',
+      raw: nextRaw,
     });
 
     persistence.setManualInMemory(trackId, patch, nextCoverUrl);

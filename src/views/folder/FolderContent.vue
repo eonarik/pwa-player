@@ -5,18 +5,18 @@ import FolderList from '@/components/library/FolderList.vue';
 import TrackList from '@/components/library/TrackList.vue';
 import TrackListItem from '@/components/library/TrackListItem.vue';
 import TrackActions from '@/components/library/TrackActions.vue';
-import FileListItem from '@/components/library/FileListItem.vue';
 import MarkdownText from '@/components/ui/MarkdownText.vue';
 import type { ArtistGroup } from '@/composables/useLibrarySearch';
 import type { Track } from '@/types/track';
-import type { TextFileRef } from '@/plugins/types';
+import type { FolderFile } from '@/types/folder';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Icon from '@/components/ui/Icon.vue';
 
 const props = defineProps<{
   hasFolders: boolean;
-  hasTextFiles: boolean;
+  hasFiles: boolean;
   hasTracks: boolean;
-  textFiles: TextFileRef[];
+  files: FolderFile[];
   tracks: Track[];
   emptyStateMessage: string | null;
   isScanning: boolean;
@@ -31,7 +31,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select-track', index: number): void;
   (e: 'select-search-track', trackId: string): void;
-  (e: 'open-file', file: TextFileRef): void;
+  (e: 'open-file', file: FolderFile): void;
   (e: 'play-search-all'): void;
 }>();
 
@@ -102,23 +102,46 @@ function isSearchCurrent(trackId: string): boolean {
         <FolderList />
       </div>
 
-      <!-- Блок текстовых файлов -->
-      <div v-if="hasTextFiles" class="pb-4">
+      <!-- Блок файлов -->
+      <div v-if="hasFiles" class="pb-4">
         <SectionTitle text="Файлы" />
         <div class="flex flex-col gap-0.5">
-          <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
+          <div
+            v-for="file in files"
+            :key="file.urlPath"
+            class="group flex items-center gap-3 rounded-btn px-3 py-2 transition hover:bg-hover-bg cursor-pointer"
+            @click="emit('open-file', file)"
+          >
+            <!-- Превью или иконка -->
+            <div
+              class="relative h-11 w-11 shrink-0 overflow-hidden rounded-btn bg-card-bg flex items-center justify-center"
+            >
+              <img
+                v-if="file.url && ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(file.ext)"
+                :src="file.url"
+                :alt="file.name"
+                class="h-full w-full object-cover"
+                @error="($event.target as HTMLImageElement).style.display = 'none'"
+              />
+              <Icon v-else name="file" w="w-5" h="w-5" class="text-fg-muted" />
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ file.name }}</p>
+              <p class="truncate text-xs text-fg-muted">Файл {{ file.ext }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Блок треков -->
       <div v-if="hasTracks" class="pb-4">
         <SectionTitle text="Треки" />
-        <!-- TrackList теперь просто рендерит div с высотой, скроллит его родитель -->
         <TrackList :tracks="tracks" @select="(i: number) => emit('select-track', i)" />
       </div>
 
       <div
-        v-if="!hasFolders && !hasTracks && !hasTextFiles"
+        v-if="!hasFolders && !hasTracks && !hasFiles"
         class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted"
       >
         <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />

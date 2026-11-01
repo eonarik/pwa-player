@@ -1,6 +1,6 @@
 // src/composables/useLibrarySearch.ts
 
-import { computed, ref, watch, type Ref } from 'vue';
+import { computed, onUnmounted, ref, watch, type Ref } from 'vue';
 import { fuzzyMatch } from '@/utils/fuzzyMatch';
 import { layoutVariants } from '@/utils/layout';
 import type { Track } from '@/types/track';
@@ -32,6 +32,16 @@ export function useLibrarySearch(source: Ref<Track[]>, threshold = 0.5) {
       debouncedQuery.value = value;
       debounceTimer = null;
     }, DEBOUNCE_MS);
+  });
+
+  // Очищаем таймер при размонтировании компонента — иначе после unmount
+  // таймер продолжит жить и обновлять debouncedQuery, вызывая лишние
+  // пересчёты computed в никуда (утечка).
+  onUnmounted(() => {
+    if (debounceTimer !== null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
   });
 
   function getWords(track: Track): string[] {

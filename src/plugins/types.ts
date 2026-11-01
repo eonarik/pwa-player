@@ -24,33 +24,15 @@ export interface CollectionActionProgress {
 }
 
 export interface CollectionActionContext {
-  /** Обновить прогресс (n/total) и показать его на кнопке. */
   setProgress: (progress: CollectionActionProgress | null) => void;
 }
 
-/**
- * Действие над коллекцией треков (плейлист, история, дизлайки, папка, альбом).
- *
- * Используется для того, чтобы плагин мог добавить кнопку в шапку списка
- * (например, «Найти в Звуке» для недоступных треков). Ядро рендерит кнопку
- * и вызывает `run`, ничего не зная о специфике.
- */
 export interface PluginCollectionAction {
   id: string;
   label: string;
   icon?: IconName;
-  /** Текст всплывающей подсказки. Если пусто — берётся `label`. */
   tooltip?: string;
-  /**
-   * Показывать ли действие. Вызывается с треками текущего представления
-   * (уже отфильтрованными по поиску и фильтру источника).
-   */
   shouldShow: (tracks: Track[]) => boolean | Promise<boolean>;
-  /**
-   * Выполнить действие. Плагин сам отвечает за ошибки, но прогресс
-   * должен репортить через `ctx.setProgress`, чтобы ядро отрисовало
-   * его на кнопке (а не плодило тосты).
-   */
   run: (tracks: Track[], ctx: CollectionActionContext) => void | Promise<void>;
 }
 
@@ -58,7 +40,6 @@ export interface PluginExtension {
   menuItems?: PluginMenuItem[];
   routes?: RouteRecordRaw[];
   getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
-  /** Действия над коллекциями, рендерятся в шапке `TrackListPage`. */
   collectionActions?: PluginCollectionAction[];
 }
 
@@ -90,6 +71,7 @@ export interface PluginManifest {
   readonly runSettingsAction?: (actionId: string, payload?: unknown) => void | Promise<void>;
   readonly options?: PluginManifestOptions;
   readonly requiresActivation?: boolean;
+  readonly activationCode?: string;
 }
 
 export interface LoadOptions {
@@ -98,6 +80,7 @@ export interface LoadOptions {
 
 export interface ScanFolderOptions {
   recursive: boolean;
+  force?: boolean;
 }
 
 export interface DownloadTrackOptions {
@@ -149,6 +132,13 @@ export interface LibrarySource {
 
   scanFolder?(context: PluginContext, folderId: FolderId, options: ScanFolderOptions): Promise<PluginSnapshot>;
 
+  /**
+   * Можно ли выполнить force scan папки (принудительное обновление с пересканированием).
+   * Например, `false` если папка уже сканируется (`scanning`).
+   * Если метод не реализован — `canForceScan` не ограничивается.
+   */
+  canForceScan?(folderId: FolderId): boolean;
+
   restoreFromLocalFiles?(context: PluginContext): Promise<PluginSnapshot | null>;
   mergeLocalIntoLibrary?(context: PluginContext): Promise<PluginSnapshot | null>;
 
@@ -183,6 +173,7 @@ export interface LibrarySource {
   disconnect(context: PluginContext): Promise<void>;
 
   cancelBackgroundScan?(): void;
+  isScanning?(): boolean;
 
   getTextFiles?(context: PluginContext, folderId: FolderId): Promise<TextFileRef[]>;
   writeTextFile?(context: PluginContext, remotePath: string, content: string): Promise<{ modified: string | null }>;
@@ -194,6 +185,8 @@ export interface LibrarySource {
   fetchMetadata?(artist: string, title: string): Promise<FetchedMetadata | null>;
 
   applyCandidate?(trackId: TrackId, extMetadata: Record<string, unknown>): void | Promise<void>;
+
+  buildFileUrl?(context: PluginContext, remotePath: string): Promise<string | null>;
 }
 
 export interface PluginContext {

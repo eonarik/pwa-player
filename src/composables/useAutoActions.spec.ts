@@ -56,7 +56,7 @@ describe('useAutoActions', () => {
     expect(runAutoFetch).toHaveBeenCalledWith(library.tracks[trackId]);
   });
 
-  it('НЕ вызывает runAutoFetch, если hasMetadataEdits = true', async () => {
+  it('НЕ вызывает runAutoFetch, если hasMetadataEdits = true И есть обложка', async () => {
     const library = useLibraryStore();
     const player = usePlayerStore();
     const trackId = newTrackId();
@@ -66,8 +66,8 @@ describe('useAutoActions', () => {
       pluginId: 'local',
       artist: 'Artist A',
       title: 'Track 1',
-      albumId: null,
-      coverUrl: null,
+      albumId: 'some-album-id' as any,
+      coverUrl: 'https://cover.jpg',
       sources: [],
       metadataCandidates: [],
       raw: null,

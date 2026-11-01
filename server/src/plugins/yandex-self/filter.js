@@ -4,19 +4,45 @@ import { isAudioFile } from '../../shared/audio.js';
 
 export { isAudioFile };
 
-export function mapAndFilterItems(items, path, allowedFolders) {
-  // 1. Добавляем isAudio
-  let result = (items || []).map((item) => ({
-    ...item,
-    isAudio: item.type === 'file' && isAudioFile(item.name),
-  }));
+function normalizePathString(p) {
+  if (!p) return '';
+  return p
+    .trim()
+    .replace(/^disk:/i, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+    .replace(/\/+/g, '/');
+}
 
-  // 2. Фильтруем по allowedFolders
+function removePrefix(path, cleanRoot) {
+  const normPath = normalizePathString(path);
+  const normRoot = normalizePathString(cleanRoot);
+
+  if (normRoot && normPath.startsWith(normRoot)) {
+    return normPath.slice(normRoot.length).replace(/^\/+/, '');
+  }
+
+  return normPath;
+}
+
+export function mapAndFilterItems(items, path, allowedFolders, cleanRoot) {
+  let result = (items || []).map((item) => {
+    const relativePath = removePrefix(item.path, cleanRoot);
+
+    return {
+      ...item,
+      path: relativePath,
+      isAudio: item.type === 'file' && isAudioFile(item.name),
+    };
+  });
+
   if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
     result = result.filter((item) => {
-      const itemPath = path === '/' ? '/' + item.name : path + '/' + item.name;
+      const currentPath = path === '/' ? '' : path.replace(/^\/+/, '');
+      const itemPath = currentPath ? `${currentPath}/${item.name}` : item.name;
+
       return allowedFolders.some((f) => {
-        const cleanF = f.replace(/\/+$/, '');
+        const cleanF = normalizePathString(f);
         return cleanF === itemPath || cleanF.startsWith(itemPath + '/') || itemPath.startsWith(cleanF + '/');
       });
     });
@@ -25,18 +51,28 @@ export function mapAndFilterItems(items, path, allowedFolders) {
   return result;
 }
 
+export function stripCleanRoot(path, cleanRoot) {
+  if (!path) return '/';
+  const relative = removePrefix(path, cleanRoot);
+  return '/' + relative;
+}
+
 export function normalizePath(path, root) {
-  let p = path.replace(/^disk:/, '');
+  let p = path.replace(/^disk:/i, '');
   if (!p.startsWith('/')) p = '/' + p;
   if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
 
   let cleanRoot = root.replace(/\/+$/, '');
   if (cleanRoot && !cleanRoot.startsWith('/')) cleanRoot = '/' + cleanRoot;
 
-  if (cleanRoot && p.startsWith(cleanRoot)) {
-    p = p.slice(cleanRoot.length);
+  const normRoot = normalizePathString(cleanRoot);
+  const normP = normalizePathString(p);
+
+  if (normRoot && normP.startsWith(normRoot)) {
+    p = normP.slice(normRoot.length);
     if (!p.startsWith('/')) p = '/' + p;
   }
+
   if (p === '') p = '/';
 
   return { path: p, cleanRoot };

@@ -2,6 +2,7 @@
 
 const API_BASE = 'https://de1.api.radio-browser.info';
 const REQUEST_TIMEOUT_MS = 10_000;
+const USER_AGENT = 'CUEI/1.0 (Radio Browser Client)';
 
 /** «Свежий» TTL: до него — не обновляем. После — пробуем обновить. */
 const COUNTRIES_TTL_MS = 24 * 60 * 60 * 1000;
@@ -9,6 +10,8 @@ const TAGS_TTL_MS = 24 * 60 * 60 * 1000;
 
 const COUNTRIES_STORAGE_KEY = 'radio:cache:countries';
 const TAGS_STORAGE_KEY = 'radio:cache:tags';
+
+export type RadioSortOrder = 'clickCount' | 'votes' | 'clickTrend' | 'random' | 'bitrate' | 'name';
 
 export interface RadioCountry {
   name: string;
@@ -19,6 +22,27 @@ export interface RadioCountry {
 export interface RadioTag {
   name: string;
   stationCount: number;
+}
+
+export interface RadioStation {
+  id: string;
+  name: string;
+  url: string;
+  favicon: string;
+  tags: string[];
+  country: string;
+  bitrate: number;
+}
+
+export interface RadioStationSearchQuery {
+  name?: string;
+  limit?: number;
+  offset?: number;
+  order?: RadioSortOrder;
+  reverse?: boolean;
+  countryCode?: string;
+  tagList?: string[];
+  hideBroken?: boolean;
 }
 
 interface RawCountry {
@@ -32,6 +56,17 @@ interface RawTag {
   stationcount: number;
 }
 
+interface RawStation {
+  stationuuid: string;
+  name: string;
+  url: string;
+  url_resolved: string;
+  favicon: string;
+  tags: string;
+  country: string;
+  bitrate: number;
+}
+
 interface PersistedCache<T> {
   data: T;
   fetchedAt: number;
@@ -43,10 +78,6 @@ interface CacheReadResult<T> {
   fresh: boolean;
 }
 
-/**
- * Читает кеш. Не удаляет запись при истечении TTL — просроченные данные
- * могут быть единственным спасением, если сервер недоступен.
- */
 function readCache<T>(key: string, ttl: number): CacheReadResult<T> | null {
   try {
     const raw = localStorage.getItem(key);
@@ -72,7 +103,10 @@ function writeCache<T>(key: string, data: T): void {
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+      },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
@@ -95,11 +129,44 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
+function buildSearchParams(query: RadioStationSearchQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.name) params.set('name', query.name);
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (typeof query.offset === 'number') params.set('offset', String(query.offset));
+  if (query.order) params.set('order', query.order);
+  if (typeof query.reverse === 'boolean') params.set('reverse', String(query.reverse));
+  if (query.countryCode) params.set('countrycode', query.countryCode);
+  if (query.tagList && query.tagList.length > 0) params.set('tagList', query.tagList.join(','));
+  if (query.hideBroken !== false) params.set('hidebroken', 'true');
+
+  return params.toString();
+}
+
+function mapStation(raw: RawStation): RadioStation {
+  return {
+    id: raw.stationuuid,
+    name: (raw.name || '').trim(),
+    url: raw.url_resolved || raw.url || '',
+    favicon: raw.favicon || '',
+    tags: raw.tags
+      ? raw.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [],
+    country: raw.country || '',
+    bitrate: raw.bitrate || 0,
+  };
+}
+
 export class RadioBrowserClient {
   private static instance: RadioBrowserClient | null = null;
 
   private countriesInFlight: Promise<RadioCountry[] | null> | null = null;
   private tagsInFlight: Map<number, Promise<RadioTag[] | null>> = new Map();
+  private stationsInFlight: Map<string, Promise<RadioStation[]>> = new Map();
 
   static getInstance(): RadioBrowserClient {
     if (!RadioBrowserClient.instance) {
@@ -212,6 +279,80 @@ export class RadioBrowserClient {
     });
 
     this.tagsInFlight.set(limit, promise);
+    return promise;
+  }
+
+  /**
+   * Поиск станций через /json/stations/search.
+   * Поддерживает name, countryCode, tagList, order, limit, offset.
+   *
+   * In-flight дедупликация по полному ключу запроса.
+   * Возвращает [] при ошибке сети (не null — вызывающий код ожидает массив).
+   */
+  async searchStations(query: RadioStationSearchQuery): Promise<RadioStation[]> {
+    const paramsString = buildSearchParams(query);
+    const key = `stations:${paramsString}`;
+
+    const inFlight = this.stationsInFlight.get(key);
+    if (inFlight) return inFlight;
+
+    const url = `${API_BASE}/json/stations/search?${paramsString}`;
+    if (import.meta.env.DEV) console.debug('[radio-browser] stations search', paramsString);
+
+    const promise = (async () => {
+      const data = await fetchJson<RawStation[]>(url);
+      if (data === null) return [];
+      if (!Array.isArray(data)) {
+        console.error('[radio-browser] stations: response is not an array');
+        return [];
+      }
+      return data
+        .filter((s) => s && typeof s === 'object')
+        .map(mapStation)
+        .filter((s) => Boolean(s.url));
+    })().finally(() => {
+      this.stationsInFlight.delete(key);
+    });
+
+    this.stationsInFlight.set(key, promise);
+    return promise;
+  }
+
+  /**
+   * Станции по тегу через /json/stations/bytag/<tag>.
+   * In-flight дедупликация по тегу + параметрам.
+   */
+  async getStationsByTag(tag: string, options: { limit?: number; hideBroken?: boolean } = {}): Promise<RadioStation[]> {
+    const limit = options.limit ?? 20;
+    const hideBroken = options.hideBroken !== false;
+    const key = `bytag:${tag}:${limit}:${hideBroken}`;
+
+    const inFlight = this.stationsInFlight.get(key);
+    if (inFlight) return inFlight;
+
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (hideBroken) params.set('hidebroken', 'true');
+
+    const url = `${API_BASE}/json/stations/bytag/${encodeURIComponent(tag)}?${params.toString()}`;
+    if (import.meta.env.DEV) console.debug('[radio-browser] stations bytag', tag, limit);
+
+    const promise = (async () => {
+      const data = await fetchJson<RawStation[]>(url);
+      if (data === null) return [];
+      if (!Array.isArray(data)) {
+        console.error('[radio-browser] stations: response is not an array');
+        return [];
+      }
+      return data
+        .filter((s) => s && typeof s === 'object')
+        .map(mapStation)
+        .filter((s) => Boolean(s.url));
+    })().finally(() => {
+      this.stationsInFlight.delete(key);
+    });
+
+    this.stationsInFlight.set(key, promise);
     return promise;
   }
 

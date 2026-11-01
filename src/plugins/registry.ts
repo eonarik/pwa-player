@@ -111,14 +111,21 @@ export function isPluginActivated(id: string): boolean {
   return localStorage.getItem(`plugin-activated:${id}`) === 'true';
 }
 
-const ACTIVATION_CODES: Record<string, string> = {
-  'yandex-self': 'logii',
-};
-
+/**
+ * Активирует плагин по секретному коду из его манифеста.
+ *
+ * Ядро не хранит коды активации — они лежат в `manifest.activationCode`.
+ * Проверка: манифест существует, `requiresActivation: true`, код совпадает.
+ *
+ * При успехе записывает флаг в localStorage; `isPluginActivated` начнёт
+ * возвращать true, и плагин появится на главной.
+ */
 export function activatePlugin(id: string, code: string): boolean {
-  const expected = ACTIVATION_CODES[id];
-  if (!expected) return false;
-  if (code.trim() !== expected) return false;
+  const manifest = registry.get(id)?.manifest;
+  if (!manifest) return false;
+  if (!manifest.requiresActivation) return false;
+  if (!manifest.activationCode) return false;
+  if (code.trim() !== manifest.activationCode) return false;
 
   localStorage.setItem(`plugin-activated:${id}`, 'true');
   return true;

@@ -32,6 +32,7 @@ import { getExtensionRoutes, loadExtensions } from './plugins/extensions';
 import { themeService } from './services/ui/ThemeService';
 import { metadataService } from './services/metadata/MetadataService';
 import { folderStatusService } from './services/folders/FolderStatusService.ts';
+import { setupFileHandlers } from './services/files/setupHandlers.ts';
 
 async function bootstrap() {
   themeService.load();
@@ -55,6 +56,7 @@ async function bootstrap() {
   }
 
   await loadExtensions();
+  setupFileHandlers();
 
   const app = createApp(App);
 

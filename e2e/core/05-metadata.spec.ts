@@ -100,19 +100,44 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
     const trackRow = page.locator('[data-testid^="track-row-"]').first();
     await trackRow.click();
 
-    // Ждем автопоиск
+    // 1. ЯВНО ЗАПУСКАЕМ РУЧНОЙ ПОИСК (так как автопоиск выключен)
+    await trackRow.locator('button[aria-label="Действия"]').click();
+    await page.getByText('Найти в интернете').click();
+
+    // Подтверждаем перезапись, если выскочит модалка (хотя hasId3Tags=false, модалки не будет)
+    const confirmButton = page.getByRole('button', { name: 'Продолжить' });
+    if (await confirmButton.isVisible()) {
+      await confirmButton.click();
+    }
+
+    // Ждем, пока метаданные применятся
     await expect(page.locator('[data-testid="track-row-title"]').first()).toHaveText('Mocked Title', {
-      timeout: 15000,
+      timeout: 10000,
     });
 
-    // Очищаем
+    // Проверяем, что альбом создался
+    await expect
+      .poll(
+        async () => {
+          const lib = await getIDBValue<any>(page, 'player:library');
+          if (!lib || !lib.tracks) return null;
+          const tracks = Object.values(lib.tracks) as any[];
+          const track = tracks.find((t) => t.title === 'Mocked Title');
+          return track ? track.albumId : null;
+        },
+        { timeout: 5000 },
+      )
+      .not.toBeNull();
+
+    // 2. РУЧНАЯ ОЧИСТКА
     await trackRow.locator('button[aria-label="Действия"]').click();
-    page.once('dialog', (dialog) => dialog.accept());
+    page.once('dialog', (dialog) => dialog.accept()); // Подтверждаем window.confirm
     await page.getByText('Удалить метаданные').click();
 
+    // 3. ПРОВЕРКА: Трек вернулся к Track 1
     await expect(page.locator('[data-testid="track-row-title"]').first()).toHaveText('Track 1', { timeout: 10000 });
 
-    // Проверяем IDB
+    // 4. ПРОВЕРКА: Альбом отвязался (albumId = null)
     await expect
       .poll(
         async () => {

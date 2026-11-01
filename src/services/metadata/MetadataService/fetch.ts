@@ -11,17 +11,19 @@ import type { MetadataResolve } from './resolve';
 import type { MetadataApply } from './apply';
 
 export function createMetadataFetch(persistence: MetadataPersistence, resolve: MetadataResolve, apply: MetadataApply) {
-  async function fetchAndApply(trackId: TrackId, signal?: AbortSignal): Promise<FetchResult> {
+  async function fetchAndApply(trackId: TrackId, signal?: AbortSignal, force = false): Promise<FetchResult> {
+    console.log('[fetchAndApply] START', { trackId, force });
     const library = useLibraryStore();
     const uiSettings = useUiSettingsStore();
     const track = library.getTrack(trackId);
 
     if (!track) return { status: 'skipped', reason: 'not-found' };
-    if (track.hasId3Tags) return { status: 'skipped', reason: 'protected' };
+    if (track.hasId3Tags && !force) return { status: 'skipped', reason: 'protected' };
     if (signal?.aborted) return { status: 'aborted' };
 
     const threshold = uiSettings.metadataThreshold;
     const result = await resolve.resolveCandidates(track.artist ?? '', track.title, 'sequential', threshold, signal);
+    console.log('[fetchAndApply] resolve result', result.status);
 
     if (result.status === 'aborted') return { status: 'aborted' };
     if (result.status === 'error') return { status: 'error', message: result.message };
@@ -32,15 +34,19 @@ export function createMetadataFetch(persistence: MetadataPersistence, resolve: M
     }
 
     if (result.status === 'confident') {
-      const applied = apply.applyRemote(trackId, {
-        artist: result.candidate.artist,
-        title: result.candidate.title,
-        album: result.candidate.album,
-        coverUrl: result.candidate.coverUrl,
-        source: result.candidate.provider,
-        similarity: result.candidate.similarity,
-        confident: true,
-      });
+      const applied = apply.applyRemote(
+        trackId,
+        {
+          artist: result.candidate.artist,
+          title: result.candidate.title,
+          album: result.candidate.album,
+          coverUrl: result.candidate.coverUrl,
+          source: result.candidate.provider,
+          similarity: result.candidate.similarity,
+          confident: true,
+        },
+        force,
+      );
 
       if (applied.status === 'applied' && result.candidate.extMetadata) {
         await apply.invokeApplyCandidate(result.candidate.provider, trackId, result.candidate.extMetadata);

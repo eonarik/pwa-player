@@ -9,7 +9,13 @@ import { metadataWorkerService } from '@/services/metadata/MetadataWorkerService
 import { runAutoFetch } from '@/services/metadata/runAutoFetch';
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';
-import { pluginCanDownload, isStreamingPlugin, pluginIdFromSource } from '@/plugins/registry';
+import {
+  pluginCanDownload,
+  isStreamingPlugin,
+  isLinearContent,
+  isLiveStream,
+  pluginIdFromSource,
+} from '@/plugins/registry';
 import { hasLocalSource } from '@/services/library/selectors';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
 import { isProcessed, markProcessed, resetProcessedTrack } from '@/services/metadata/AutoFetchRegistry';
@@ -26,13 +32,21 @@ export function useAutoActions() {
 
       if (!track) return;
 
-      if (track.hasMetadataEdits) {
+      const album = track.albumId ? library.getAlbum(track.albumId) : null;
+      const hasCover = Boolean(album?.coverUrl || track.coverUrl);
+
+      // Блокируем только если есть ручные правки И есть обложка.
+      // Если обложки нет — идем искать (runAutoFetch не перезапишет artist/title, если hasMetadataEdits).
+      if (track.hasMetadataEdits && hasCover) {
         return;
       }
 
       const pluginIds = new Set(track.sources.map((s) => pluginIdFromSource(s.pluginId)));
       for (const pid of pluginIds) {
-        if (isStreamingPlugin(pid)) {
+        // Стриминговые сервисы (Звук), linear-контент (подкасты) и live-потоки (радио)
+        // не нуждаются в автопоиске: их метаданные приходят из собственных источников
+        // или попросту не имеют смысла.
+        if (isStreamingPlugin(pid) || isLinearContent(pid) || isLiveStream(pid)) {
           return;
         }
       }
@@ -53,6 +67,16 @@ export function useAutoActions() {
 
           if (parsed) {
             metadataService.applyFromFile(libTrack.id, parsed);
+
+            const updated = library.getTrack(libTrack.id);
+            if (updated && !updated.hasMetadataEdits) {
+              try {
+                await runAutoFetch(updated);
+              } catch (err) {
+                console.warn('[auto-actions] runAutoFetch failed (local), will retry next time', err);
+                resetProcessedTrack(track.id);
+              }
+            }
             return;
           }
 
@@ -62,6 +86,7 @@ export function useAutoActions() {
             title: guessed.title || libTrack.title,
             artist: guessed.artist || libTrack.artist,
             hasId3Tags: false,
+            metaSource: 'filename',
           });
           player.updateTrackInQueue(libTrack.id);
 

@@ -14,7 +14,6 @@ export interface LoadDeps {
   service: IYandexService;
   storage: PluginStorage;
   isCancelled: () => boolean;
-  // Заменяем any на реальные типы
   scanFolderImpl: (context: PluginContext, folderId: FolderId, options: ScanFolderOptions) => Promise<PluginSnapshot>;
   onPendingFolders: (folders: PluginSnapshot['folders']) => void;
 }
@@ -23,19 +22,31 @@ export async function loadImpl(deps: LoadDeps, options?: LoadOptions): Promise<P
   const { pluginId, service, storage, onPendingFolders } = deps;
   const forceRefresh = options?.forceRefresh ?? false;
 
-  // --- Путь 1: кеш папок ---------------------------------------------
-  if (!forceRefresh) {
-    const cached = storage.getFoldersCache();
-    if (cached) {
-      console.info(`[${pluginId}] load: using folders cache`);
+  const currentPathMap = storage.getPathMap();
+  const cached = !forceRefresh ? storage.getFoldersCache() : null;
 
+  // --- Ветка 1: кеш есть, корень scanned ---
+  if (cached) {
+    const rootFolder = cached.find((f) => f.parentId === null);
+    const rootIsScanned = rootFolder ? folderStatusService.isScanned(rootFolder.id) : false;
+
+    if (rootIsScanned) {
+      console.info(`[${pluginId}] load: using folders cache (root scanned)`);
+
+      // enqueue только pending/error детей. Сканы не запускаем.
       const pendingChildren: PluginSnapshot['folders'] = [];
-
       for (const f of cached) {
-        if (folderStatusService.getStatus(f.id) !== null) continue;
-        if (f.parentId === null) {
-          folderStatusService.register(f.id, 'scanned');
-        } else {
+        if (f.parentId === null) continue;
+        if (!currentPathMap[f.id]) {
+          // Путь неизвестен — помечаем error (требуется пересинхронизация).
+          if (folderStatusService.getStatus(f.id) === null) {
+            folderStatusService.register(f.id, 'error');
+          }
+          continue;
+        }
+        if (folderStatusService.needsScan(f.id) || folderStatusService.isError(f.id)) {
+          pendingChildren.push(f);
+        } else if (folderStatusService.getStatus(f.id) === null) {
           folderStatusService.register(f.id, 'pending');
           pendingChildren.push(f);
         }
@@ -45,19 +56,17 @@ export async function loadImpl(deps: LoadDeps, options?: LoadOptions): Promise<P
         onPendingFolders(pendingChildren);
       }
 
-      // Возвращаем только папки. Треки восстанавливаются из libraryStore.
       return { folders: cached, tracks: [] };
     }
   }
 
-  // --- Путь 2: первичная загрузка (кеша нет или forceRefresh) --------
-  const currentPathMap = storage.getPathMap();
+  // --- Ветка 2/3: кеша нет или корень не scanned ---
   const rootFolderId = currentPathMap[ROOT_REMOTE_PATH]
     ? (currentPathMap[ROOT_REMOTE_PATH] as FolderId)
     : newFolderId();
 
   console.info(`[${pluginId}] load: fetching root from API`);
-  folderStatusService.register(rootFolderId, 'scanning');
+  folderStatusService.markScanning(rootFolderId, { done: 0, total: 0 });
 
   const { snapshot, newFolderMap, pathMap } = await scanAll(
     pluginId,
@@ -65,26 +74,35 @@ export async function loadImpl(deps: LoadDeps, options?: LoadOptions): Promise<P
     currentPathMap,
     rootFolderId,
     ROOT_REMOTE_PATH,
-    { recursive: false, progress: makeProgress() },
+    { recursive: false, skipScanned: true, progress: makeProgress() },
   );
 
   storage.setPathMap({ ...currentPathMap, ...newFolderMap, ...pathMap });
 
-  // ВАЖНО: scanAll вернул только детей корня (music, root_track).
-  // Нам нужно вручную добавить сам корень в snapshot.folders.
   const rootFolder = {
     id: rootFolderId,
     parentId: null,
-    name: 'Яндекс.Диск', // Корень всегда называется так в UI
+    name: 'Яндекс.Диск',
     urlPath: '',
   };
 
   const fullFolders = [rootFolder, ...snapshot.folders];
-  storage.setFoldersCache(fullFolders);
+
+  // Мержим кеш (не перезаписываем — глубокие папки из старого кеша могли сохраниться).
+  storage.setFoldersCache(storage.mergeFoldersCache(cached ?? [], fullFolders));
 
   registerFolders(fullFolders, new Set([rootFolderId]));
+  folderStatusService.markScanned(rootFolderId);
 
-  const pendingChildren = fullFolders.filter((f) => f.parentId !== null);
+  // enqueue только pending/error детей (не scanned).
+  const pendingChildren: PluginSnapshot['folders'] = [];
+  for (const f of fullFolders) {
+    if (f.parentId === null) continue;
+    if (folderStatusService.needsScan(f.id) || folderStatusService.isError(f.id)) {
+      pendingChildren.push(f);
+    }
+  }
+
   if (pendingChildren.length > 0) {
     onPendingFolders(pendingChildren);
   }

@@ -25,6 +25,13 @@ export async function reconcile(deps: ReconcileDeps): Promise<void> {
   const libraryIndex = buildLibraryIndex(targets);
 
   for (const v of virtual) {
+    // Защита: если у трека вообще нет sources (битый трек из старой версии),
+    // trackToPayload упадёт. Пропускаем его (его удалит cleanupOrphanTracks).
+    if (v.sources.length === 0) {
+      console.warn(`[reconcile] skipping track "${v.id}" with no sources`);
+      continue;
+    }
+
     const result = merge(trackToPayload(v), {
       libraryIndex,
       existingAlbums: writer.getAllAlbums(),

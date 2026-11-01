@@ -13,6 +13,8 @@ export interface MetadataIssue {
 }
 
 export function useMetadataSearch(tracks: Ref<Track[]>) {
+  const library = useLibraryStore();
+
   const isLoading = ref(false);
   const progress = ref({ done: 0, total: 0 });
   const abortController = ref<AbortController | null>(null);
@@ -28,7 +30,6 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
     tracks.value.filter((t) => {
       if (t.hasId3Tags) return false;
 
-      const library = useLibraryStore();
       const album = t.albumId ? library.getAlbum(t.albumId) : null;
 
       const hasArtist = t.artist.trim().length > 0;
@@ -50,7 +51,6 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
   const stats = computed(() => {
     let found = 0;
     let checked = 0;
-    const library = useLibraryStore();
 
     for (const t of tracks.value) {
       if (t.hasId3Tags) checked++;
@@ -100,7 +100,6 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
             progress.value = { done: progress.value.done + 1, total: toFetch.length };
             bumpVersion();
           } else if (result.status === 'candidates') {
-            const library = useLibraryStore();
             const updated = library.getTrack(track.id);
             if (updated) foundIssues.push({ track: updated });
             progress.value = { done: progress.value.done + 1, total: toFetch.length };
@@ -111,7 +110,6 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
           } else if (result.status === 'error') {
             progress.value = { done: progress.value.done + 1, total: toFetch.length };
           } else if (result.status === 'skipped') {
-            // Пропускаем, не считаем
             progress.value = { done: progress.value.done + 1, total: toFetch.length };
           }
 

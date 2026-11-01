@@ -48,17 +48,25 @@ const isScanning = computed(() => status.value === 'scanning');
 const isPending = computed(() => status.value === 'pending' || status.value === null);
 const isError = computed(() => status.value === 'error');
 
+const errorMessage = computed(() => (isError.value ? folderStatusService.getErrorMessage(props.folder.id) : null));
+const progress = computed(() => (isScanning.value ? folderStatusService.getProgress(props.folder.id) : null));
+
 const canPlay = computed(() => status.value === 'scanned' && stats.value.tracks > 0);
 
-// Берем из готового индекса!
+// Берем из готового индекса
 const stats = computed(() => {
   return folderStats.value.get(props.folder.id) || { folders: 0, tracks: 0 };
 });
 
 const displayLabel = computed(() => {
-  if (isScanning.value) return 'Синхронизация...';
+  if (isScanning.value) {
+    const p = progress.value;
+    if (p && p.total > 0) return `Синхронизировано ${p.done} из ${p.total}`;
+    if (p && p.total === 0 && p.done === 0) return 'Синхронизация...';
+    return 'Синхронизация...';
+  }
   if (isError.value) return 'Ошибка синхронизации';
-  if (isPending.value) return 'Ожидает сканирования';
+  if (isPending.value) return 'Ожидает синхронизации';
 
   const parts: string[] = [];
   if (stats.value.folders > 0) parts.push(pluralize(stats.value.folders, ['папка', 'папки', 'папок']));
@@ -70,6 +78,11 @@ const labelClass = computed(() => {
   if (isError.value) return 'text-red-400';
   if (isScanning.value || isPending.value) return 'text-amber-400';
   return 'text-fg-muted';
+});
+
+const labelTooltip = computed(() => {
+  if (isError.value && errorMessage.value) return errorMessage.value;
+  return undefined;
 });
 
 function onPlayClick(e: Event): void {
@@ -104,7 +117,7 @@ function onRowClick(): void {
                 : isError
                   ? 'Обновить'
                   : isPending
-                    ? 'Ожидает сканирования'
+                    ? 'Ожидает синхронизации'
                     : 'Нет доступных треков'
           "
           @click.stop="isError ? emit('retry', folder) : onPlayClick($event)"
@@ -128,7 +141,7 @@ function onRowClick(): void {
     </template>
 
     <template #subtitle>
-      <p class="truncate text-xs" :class="labelClass">{{ displayLabel }}</p>
+      <p class="truncate text-xs" :class="labelClass" :title="labelTooltip">{{ displayLabel }}</p>
     </template>
 
     <template #trailing>

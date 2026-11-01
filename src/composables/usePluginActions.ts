@@ -8,7 +8,7 @@ import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
 import { audioService } from '@/services/audio/AudioService';
-import type { PluginManifest } from '@/plugins/types';
+import type { PluginManifest, PluginSnapshot } from '@/plugins/types';
 import type { FolderRef } from '@/types/folder';
 
 export interface OpenPluginOptions {
@@ -24,9 +24,8 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
     return Object.values(library.folders).find((f) => f.pluginId === sourceId && f.parentId === null);
   }
 
-  async function doOpenPlugin(row: { manifest: PluginManifest }) {
+  async function doOpenPlugin(row: { manifest: PluginManifest }, options?: OpenPluginOptions) {
     const { manifest } = row;
-
     if (manifest.customRoute) {
       router.push({ name: manifest.customRoute });
       return;
@@ -36,7 +35,18 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
     const context = createPluginContext(manifest.id);
     const writer = createLibraryWriter();
 
-    const snapshot = await plugin.load(context);
+    let snapshot: PluginSnapshot | null = null;
+
+    // Если это "Открыть локально" и плагин умеет восстанавливаться из файлов
+    if (options?.localOnly && plugin.restoreFromLocalFiles) {
+      snapshot = await plugin.restoreFromLocalFiles(context);
+    }
+
+    // Если не удалось восстановить локально (или это обычное открытие) — загружаем через API
+    if (!snapshot) {
+      snapshot = await plugin.load(context);
+    }
+
     await writer.setLibrary(snapshot, manifest.id);
 
     const root = findRoot(manifest.id);
@@ -58,8 +68,7 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
     if (isLoading.value) return;
     isLoading.value = row.manifest.id;
     try {
-      void options;
-      await doOpenPlugin(row);
+      await doOpenPlugin(row, options);
     } finally {
       isLoading.value = null;
     }

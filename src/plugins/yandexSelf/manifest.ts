@@ -12,6 +12,7 @@ export const manifest: PluginManifest = {
   enabled: true,
   canDownload: true,
   requiresActivation: true,
+  activationCode: 'logii',
   order: 100,
   entry: () => import('./index'),
 

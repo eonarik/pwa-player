@@ -45,12 +45,14 @@ watch(
       return;
     }
 
-    // Восстанавливаем при перезагрузке (грузим корень из кеша)
+    // Восстанавливаем при перезагрузке (папка не найдена в library)
     try {
       const plugin = await loadPlugin(pluginIdFromSource(pid));
       const context = createPluginContext(pid);
       const snapshot = await plugin.load(context);
-      await context.writer.setLibrary(snapshot, pid);
+      if (snapshot.folders.length > 0 || snapshot.tracks.length > 0) {
+        await context.writer.setLibrary(snapshot, pid);
+      }
     } catch (err) {
       console.warn('[FolderRoute] failed to load on reload', err);
     }

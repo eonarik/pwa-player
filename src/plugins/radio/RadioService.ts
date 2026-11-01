@@ -1,22 +1,14 @@
 // src/plugins/radio/RadioService.ts
 
-import { RadioBrowserApi, StationSearchType } from 'radio-browser-api';
-import type { Station } from 'radio-browser-api';
-import { radioBrowserClient, type RadioCountry, type RadioTag } from './RadioBrowserClient';
+import {
+  radioBrowserClient,
+  type RadioCountry,
+  type RadioTag,
+  type RadioSortOrder,
+  type RadioStation,
+} from './RadioBrowserClient';
 
-export type { RadioCountry, RadioTag };
-
-export type RadioSortOrder = 'clickCount' | 'votes' | 'clickTrend' | 'random' | 'bitrate' | 'name';
-
-export interface RadioStation {
-  id: string;
-  name: string;
-  url: string;
-  favicon: string;
-  tags: string[];
-  country: string;
-  bitrate: number;
-}
+export type { RadioCountry, RadioTag, RadioSortOrder, RadioStation };
 
 export interface TopStationsResult {
   stations: RadioStation[];
@@ -70,7 +62,6 @@ function writeResultCache(storageKey: string, key: string, data: TopStationsResu
 
 class RadioService {
   private static instance: RadioService | null = null;
-  private api: RadioBrowserApi;
 
   private topInFlight: Map<string, Promise<TopStationsResult>> = new Map();
   private searchInFlight: Map<string, Promise<TopStationsResult>> = new Map();
@@ -80,10 +71,6 @@ class RadioService {
 
   /** Сообщение об ошибке последнего запроса (если был). */
   lastError: string | null = null;
-
-  private constructor() {
-    this.api = new RadioBrowserApi('CUEI Media Player');
-  }
 
   static getInstance(): RadioService {
     if (!RadioService.instance) {
@@ -102,11 +89,11 @@ class RadioService {
 
   async searchByTag(tag: string, limit = 20): Promise<RadioStation[]> {
     try {
-      const stations = await this.api.getStationsBy(StationSearchType.byTag, tag, {
+      const stations = await radioBrowserClient.getStationsByTag(tag, {
         limit,
         hideBroken: true,
       });
-      return this.filterAndMap(stations);
+      return this.filterInvalid(stations);
     } catch (err) {
       console.error('[radio] searchByTag failed', err);
       return [];
@@ -137,23 +124,18 @@ class RadioService {
     const promise = (async () => {
       try {
         const rawLimit = limit * 3;
-        const query: Record<string, unknown> = {
+        const raw = await radioBrowserClient.searchStations({
           name,
           limit: rawLimit,
           offset,
+          order: options.order,
+          reverse: options.order ? options.order !== 'name' : undefined,
+          countryCode: options.countryCode,
+          tagList: options.tags,
           hideBroken: true,
-        };
+        });
 
-        if (options.countryCode) query.countryCode = options.countryCode;
-        if (options.tags && options.tags.length > 0) query.tagList = options.tags;
-
-        if (options.order) {
-          query.order = options.order;
-          query.reverse = options.order !== 'name';
-        }
-
-        const raw = await this.api.searchStations(query);
-        const filtered = this.filterAndMap(raw);
+        const filtered = this.filterInvalid(raw);
 
         const result: TopStationsResult = {
           stations: filtered.slice(0, limit),
@@ -213,19 +195,17 @@ class RadioService {
       const rawLimit = limit * 3;
 
       try {
-        const query: Record<string, unknown> = {
+        const raw = await radioBrowserClient.searchStations({
           limit: rawLimit,
           offset,
-          hideBroken: true,
           order,
           reverse: order !== 'name',
-        };
+          countryCode,
+          tagList: tags,
+          hideBroken: true,
+        });
 
-        if (countryCode) query.countryCode = countryCode;
-        if (tags.length > 0) query.tagList = tags;
-
-        const raw = await this.api.searchStations(query);
-        const filtered = this.filterAndMap(raw);
+        const filtered = this.filterInvalid(raw);
 
         const result: TopStationsResult = {
           stations: filtered.slice(0, limit),
@@ -261,6 +241,7 @@ class RadioService {
     } catch {
       // ignore
     }
+    radioBrowserClient.clearCache();
   }
 
   private buildKey(
@@ -280,21 +261,11 @@ class RadioService {
     return `${kind}|${normalized}|${limit}|${offset}|${order}|${country}|${tags}`;
   }
 
-  private filterAndMap(stations: Station[]): RadioStation[] {
-    return stations
-      .filter((station) => {
-        const url = station.urlResolved || station.url;
-        return Boolean(url && !url.includes('javascript:'));
-      })
-      .map((station) => ({
-        id: station.id,
-        name: station.name.trim(),
-        url: station.urlResolved || station.url,
-        favicon: station.favicon || '',
-        tags: station.tags || [],
-        country: station.country || '',
-        bitrate: station.bitrate || 0,
-      }));
+  private filterInvalid(stations: RadioStation[]): RadioStation[] {
+    return stations.filter((station) => {
+      const url = station.url;
+      return Boolean(url && !url.includes('javascript:'));
+    });
   }
 }
 

@@ -55,7 +55,7 @@ function onBackdrop(e: MouseEvent) {
         </div>
 
         <!-- Контент -->
-        <div class="flex-1 overflow-y-auto p-5" :class="fullscreen ? '!p-0' : ''">
+        <div class="flex-1 overflow-y-auto p-5">
           <slot />
         </div>
 

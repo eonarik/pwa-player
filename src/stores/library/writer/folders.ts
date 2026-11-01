@@ -16,8 +16,8 @@ export function setFolders(s: LibraryStore, folders: PluginFolderPayload[], sour
       name: folder.name,
       parentId: folder.parentId,
       urlPath: folder.urlPath,
-      // Если папка уже была, сохраняем её trackIds. Иначе создаем пустой массив.
       trackIds: existing?.trackIds ?? folder.trackIds ?? [],
+      files: folder.files ?? existing?.files ?? [],
     };
   }
 }

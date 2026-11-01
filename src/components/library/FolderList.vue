@@ -21,12 +21,13 @@ const { currentSubfolders } = storeToRefs(library);
 async function openFolder(folder: FolderRef): Promise<void> {
   const pluginId = pluginIdFromSource(folder.pluginId);
 
-  if (folderStatusService.needsScan(folder.id)) {
+  // Если папка ожидает сканирования или в ошибке — запускаем force scan (рекурсивно)
+  if (folderStatusService.needsScan(folder.id) || folderStatusService.isError(folder.id)) {
     try {
       const plugin = await loadPlugin(pluginId);
       if (plugin.scanFolder) {
         const context = createPluginContext(pluginId);
-        await plugin.scanFolder(context, folder.id, { recursive: false });
+        await plugin.scanFolder(context, folder.id, { recursive: true, force: true });
       }
     } catch (err) {
       console.warn('[FolderList] failed to scan pending folder', err);

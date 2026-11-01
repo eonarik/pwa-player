@@ -23,6 +23,7 @@ const props = defineProps<{
   canRefreshFromDevice: boolean;
   isRefreshing: boolean;
   isRefreshingFromDevice: boolean;
+  isScanning?: boolean;
   needsAttention?: boolean;
   hasBackgroundScan?: boolean;
 }>();
@@ -58,7 +59,6 @@ function onQueryUpdate(value: string): void {
       <div class="flex shrink-0 items-center gap-2">
         <MetadataCandidatesButton :tracks="tracks" />
 
-        <!-- Передаем hasEdits -->
         <MetadataMenu
           :is-loading="metadataLoading"
           :progress="metadataProgress"
@@ -79,6 +79,7 @@ function onQueryUpdate(value: string): void {
             :can-refresh-from-device="canRefreshFromDevice"
             :is-refreshing="isRefreshing"
             :is-refreshing-from-device="isRefreshingFromDevice"
+            :is-scanning="isScanning"
             :needs-attention="needsAttention"
             :has-background-scan="hasBackgroundScan"
             @refresh-cloud="emit('refresh-cloud')"

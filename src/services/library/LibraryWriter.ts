@@ -57,7 +57,28 @@ export interface LibraryWriter {
 
   /**
    * Синхронизация `folder.trackIds` ↔ `source.folderId`.
-   * Вызывается после массовых операций (removeBySource, disconnect).
    */
   reconcileFolderTrackIds(): void;
+
+  // --- Force scan ---
+
+  /**
+   * Удаляет `cloud`-source у треков, чей `folderId` входит в `subtreeIds`.
+   * Если после этого у трека не остаётся sources — трек удаляется (если он
+   * не используется в плейлистах/истории/очереди; это решает `libraryStore.cleanupOrphanTracks`
+   * на следующем bootstrap, здесь — только пометка).
+   *
+   * Используется перед force scan (опционально) или в `cleanupForceScan`.
+   */
+  removeCloudSourcesInFolders(subtreeIds: Set<FolderId>): void;
+
+  /**
+   * Гибридная чистка после force scan: сравнивает `library` с `snapshot`
+   * (в поддереве `subtreeIds`) и удаляет «лишнее» — треки без sources и папки,
+   * которых нет в `snapshot`. Вызывается ПОСЛЕ `setLibrary`.
+   */
+  cleanupForceScan(subtreeIds: Set<FolderId>, snapshot: PluginSnapshot): void;
+
+  /** Удаляет пустые альбомы (без треков). */
+  cleanupOrphanAlbums(): void;
 }

@@ -75,6 +75,7 @@ selfRoutes.get('/resources', async (req, res) => {
   const { path: rawPath = '/' } = req.query;
   const root = process.env.YANDEX_SELF_PATH || '/';
 
+  // path: '/' для корня, '/Flёur' для вложенной
   const { path, cleanRoot } = normalizePath(rawPath, root);
   const allowedFolders = req.selfAuth.allowedFolders;
 
@@ -98,9 +99,12 @@ selfRoutes.get('/resources', async (req, res) => {
     const diskPath = path === '/' ? `disk:${cleanRoot}` : `disk:${cleanRoot}${path}`;
     const data = await yandexListResources(process.env.YANDEX_SELF_TOKEN, diskPath);
 
-    const items = mapAndFilterItems(data._embedded?.items || [], path, allowedFolders);
+    const items = mapAndFilterItems(data._embedded?.items || [], path, allowedFolders, cleanRoot);
 
-    data._embedded = { ...data._embedded, items };
+    const clientRootPath = path === '' ? '/' : path;
+
+    data._embedded = { ...data._embedded, items, path: clientRootPath };
+    data.path = clientRootPath;
     data.total = items.length;
     data.items = items;
 

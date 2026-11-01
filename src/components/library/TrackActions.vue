@@ -25,7 +25,7 @@ import TrackMetadataModal from './TrackMetadataModal.vue';
 import type { Track } from '@/types/track';
 import PlaylistSubmenu from './PlaylistSubmenu.vue';
 import Divider from '../ui/Divider.vue';
-import { DownloadError } from "@/services/download/types.ts";
+import { DownloadError } from '@/services/download/types.ts';
 
 const props = defineProps<{
   track: Track;
@@ -118,7 +118,9 @@ async function findMetadata(close: () => void): Promise<void> {
   close();
 
   try {
-    const result = await metadataService.fetchAndApply(libraryTrack.id);
+    console.log('[findMetadata] called for', libraryTrack.id);
+    const result = await metadataService.fetchAndApply(libraryTrack.id, undefined, true);
+    console.log('[findMetadata] result', result);
 
     if (result.status === 'applied') {
       toastService.success('Метаданные обновлены');

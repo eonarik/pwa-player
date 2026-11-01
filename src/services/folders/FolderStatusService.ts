@@ -2,10 +2,10 @@
 
 import { reactive, readonly } from 'vue';
 import type { FolderId } from '@/types/ids';
-import type { FolderScanStatus, FolderStatusEntry } from './types';
+import type { FolderScanProgress, FolderScanStatus, FolderStatusEntry } from './types';
 
 const STORAGE_KEY = 'player:folderStatuses';
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2; // 2: добавлено поле progress
 
 interface PersistedShape {
   v: number;
@@ -40,6 +40,16 @@ class FolderStatusServiceImpl {
     return this.entries[folderId] ?? null;
   }
 
+  getProgress(folderId: FolderId): FolderScanProgress | null {
+    this.ensureLoaded();
+    return this.entries[folderId]?.progress ?? null;
+  }
+
+  getErrorMessage(folderId: FolderId): string | null {
+    this.ensureLoaded();
+    return this.entries[folderId]?.errorMessage ?? null;
+  }
+
   needsScan(folderId: FolderId): boolean {
     return this.getStatus(folderId) === 'pending';
   }
@@ -62,9 +72,11 @@ class FolderStatusServiceImpl {
     this.setEntry(folderId, { status, updatedAt: Date.now() });
   }
 
-  markScanning(folderId: FolderId): void {
+  markScanning(folderId: FolderId, progress?: FolderScanProgress): void {
     this.ensureLoaded();
-    this.setEntry(folderId, { status: 'scanning', updatedAt: Date.now() });
+    const entry: FolderStatusEntry = { status: 'scanning', updatedAt: Date.now() };
+    if (progress) entry.progress = progress;
+    this.setEntry(folderId, entry);
   }
 
   markScanned(folderId: FolderId): void {
@@ -79,19 +91,38 @@ class FolderStatusServiceImpl {
 
   markError(folderId: FolderId, errorMessage?: string): void {
     this.ensureLoaded();
-    this.setEntry(folderId, { status: 'error', updatedAt: Date.now(), errorMessage });
+    const entry: FolderStatusEntry = { status: 'error', updatedAt: Date.now() };
+    if (errorMessage !== undefined) entry.errorMessage = errorMessage;
+    this.setEntry(folderId, entry);
   }
 
   markErrorMany(folderIds: FolderId[], errorMessage: string): void {
     this.ensureLoaded();
     let changed = false;
     for (const id of folderIds) {
-      if (this.entries[id]) {
-        this.entries[id] = { status: 'error', updatedAt: Date.now(), errorMessage };
-        changed = true;
-      }
+      if (!this.entries[id]) continue;
+      this.entries[id] = { status: 'error', updatedAt: Date.now(), errorMessage };
+      changed = true;
     }
     if (changed) this.scheduleSave();
+  }
+
+  /**
+   * Обновляет только progress (не меняя статус), если папка в статусе `scanning`.
+   * Полезно для индикатора «Синхронизировано N из M»: статус остаётся `scanning`,
+   * меняются только цифры. Если папка не `scanning` — no-op (защита от гонок,
+   * когда фоновый скан пишет progress уже после markScanned).
+   */
+  updateProgress(folderId: FolderId, progress: FolderScanProgress): void {
+    this.ensureLoaded();
+    const current = this.entries[folderId];
+    if (!current || current.status !== 'scanning') return;
+    this.entries[folderId] = {
+      ...current,
+      progress,
+      updatedAt: Date.now(),
+    };
+    this.scheduleSave();
   }
 
   forget(folderId: FolderId): void {
@@ -147,7 +178,10 @@ class FolderStatusServiceImpl {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as PersistedShape;
-      if (!parsed || parsed.v !== STORAGE_VERSION || !parsed.entries) return;
+      if (!parsed || !parsed.entries) return;
+
+      // Миграция со старой версии: прогресс не хранился, scanning → pending
+      const isOldVersion = parsed.v !== STORAGE_VERSION;
 
       for (const [id, entry] of Object.entries(parsed.entries)) {
         if (!entry || typeof entry.status !== 'string') continue;
@@ -157,6 +191,12 @@ class FolderStatusServiceImpl {
         if (entry.status === 'scanning') {
           entry.status = 'pending';
         }
+
+        // Со старой версии progress не было — просто нет поля, ок
+        if (isOldVersion) {
+          delete entry.progress;
+        }
+
         this.entries[id] = entry;
       }
     } catch (err) {

@@ -31,8 +31,8 @@ export class MetadataService {
 
   // --- Публичный API (тонкие прокси) ---
 
-  fetchAndApply(trackId: TrackId, signal?: AbortSignal): Promise<FetchResult> {
-    return this.fetchMod.fetchAndApply(trackId, signal);
+  fetchAndApply(trackId: TrackId, signal?: AbortSignal, force = false): Promise<FetchResult> {
+    return this.fetchMod.fetchAndApply(trackId, signal, force);
   }
 
   fetchCandidates(trackId: TrackId): Promise<MetadataCandidate[]> {
