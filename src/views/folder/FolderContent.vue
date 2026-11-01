@@ -41,6 +41,7 @@ function isSearchCurrent(trackId: string): boolean {
 </script>
 
 <template>
+  <!-- РЕЖИМ ПОИСКА -->
   <div v-if="hasQuery" class="flex-1 flex flex-col min-h-0 overflow-hidden">
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl p-2">
@@ -70,7 +71,6 @@ function isSearchCurrent(trackId: string): boolean {
             <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
               {{ group.artist }}
             </p>
-
             <div class="flex flex-col gap-0.5">
               <TrackListItem
                 v-for="track in group.tracks"
@@ -92,43 +92,72 @@ function isSearchCurrent(trackId: string): boolean {
     </div>
   </div>
 
+  <!-- ОБЫЧНЫЙ РЕЖИМ -->
   <div v-else class="flex-1 flex flex-col min-h-0 overflow-hidden">
-    <!-- Верхняя часть (папки и файлы), если они есть. Они не скроллятся внутри себя,
-         а займут свою высоту (или скроллятся, если их много) -->
-    <div v-if="hasFolders || hasTextFiles || $slots.filters" class="shrink-0 overflow-y-auto max-h-[50vh]">
-      <div class="mx-auto w-full max-w-3xl">
-        <div v-if="$slots.filters" class="px-3 py-2">
-          <slot name="filters" />
-        </div>
+    <!-- Если ЕСТЬ треки: папки/файлы занимают свою высоту, треки скроллятся -->
+    <template v-if="hasTracks">
+      <!-- Верхняя часть (папки и файлы) -->
+      <div
+        v-if="hasFolders || hasTextFiles || $slots.filters"
+        class="shrink-0 overflow-y-auto max-h-[50vh] border-b border-hover-bg"
+      >
+        <div class="mx-auto w-full max-w-3xl">
+          <div v-if="$slots.filters" class="px-3 py-2">
+            <slot name="filters" />
+          </div>
 
-        <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
-          <SectionTitle text="Папки" />
-          <FolderList />
-        </div>
+          <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
+            <SectionTitle text="Папки" />
+            <FolderList />
+          </div>
 
-        <div v-if="hasTextFiles" class="pb-4">
-          <SectionTitle text="Файлы" />
-          <div class="flex flex-col gap-0.5">
-            <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
+          <div v-if="hasTextFiles" class="pb-4">
+            <SectionTitle text="Файлы" />
+            <div class="flex flex-col gap-0.5">
+              <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Нижняя часть (треки). Занимает всё оставшееся место и скроллится -->
-    <div v-if="hasTracks" class="flex-1 min-h-0 flex flex-col pb-4">
-      <div class="mx-auto w-full max-w-3xl flex flex-col flex-1 min-h-0">
-        <SectionTitle text="Треки" />
-        <TrackList :tracks="tracks" class="flex-1 min-h-0" @select="(i: number) => emit('select-track', i)" />
+      <!-- Нижняя часть (треки) -->
+      <div class="flex-1 min-h-0 flex flex-col pb-4">
+        <div class="mx-auto w-full max-w-3xl flex flex-col flex-1 min-h-0">
+          <SectionTitle text="Треки" />
+          <TrackList :tracks="tracks" class="flex-1 min-h-0" @select="(i: number) => emit('select-track', i)" />
+        </div>
       </div>
-    </div>
+    </template>
 
-    <div
-      v-if="!hasFolders && !hasTracks && !hasTextFiles"
-      class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted"
-    >
-      <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />
-      <span v-else>В этой папке пусто</span>
-    </div>
+    <!-- Если НЕТ треков: папки и файлы занимают ВСЮ оставшуюся высоту и скроллятся -->
+    <template v-else>
+      <div class="flex-1 overflow-y-auto">
+        <div class="mx-auto w-full max-w-3xl">
+          <div v-if="$slots.filters" class="px-3 py-2">
+            <slot name="filters" />
+          </div>
+
+          <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
+            <SectionTitle text="Папки" />
+            <FolderList />
+          </div>
+
+          <div v-if="hasTextFiles" class="pb-4">
+            <SectionTitle text="Файлы" />
+            <div class="flex flex-col gap-0.5">
+              <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
+            </div>
+          </div>
+
+          <div
+            v-if="!hasFolders && !hasTracks && !hasTextFiles"
+            class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted"
+          >
+            <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />
+            <span v-else>В этой папке пусто</span>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
