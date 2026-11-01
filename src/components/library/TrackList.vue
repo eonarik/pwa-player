@@ -42,7 +42,7 @@ const uniqueTracks = computed<Track[]>(() => {
 const { totalHeight, visibleItems, offsetY } = useVirtualList({
   items: uniqueTracks,
   itemHeight: measuredHeight,
-  overscan: 5,
+  overscan: 2,
   containerRef,
 });
 
@@ -113,9 +113,8 @@ function isCurrent(track: Track): boolean {
 <template>
   <div v-if="uniqueTracks.length === 0" class="p-8 text-center text-sm text-zinc-500">В этой папке нет треков</div>
 
-  <div v-else ref="containerRef" class="min-h-[400px] h-full overflow-y-auto">
-    <!-- Скрытый эталон для измерения высоты.
-         Передаем фейковый трек и кастомный testIdPrefix, чтобы не мешать тестам -->
+  <div v-else ref="containerRef" class="flex-1 min-h-0 overflow-y-auto">
+    <!-- Скрытый эталон для измерения высоты. -->
     <div ref="measureRef" class="pointer-events-none invisible absolute left-0 top-0 w-full" aria-hidden="true">
       <TrackListItem
         v-if="uniqueTracks[0]"

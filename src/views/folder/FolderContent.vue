@@ -41,86 +41,94 @@ function isSearchCurrent(trackId: string): boolean {
 </script>
 
 <template>
-  <div v-if="hasQuery" class="flex-1 overflow-y-auto">
-    <div class="mx-auto w-full max-w-3xl p-2">
-      <div v-if="$slots.filters" class="mb-2">
-        <slot name="filters" />
-      </div>
-
-      <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
-        Ничего не найдено
-      </div>
-
-      <div v-else class="flex flex-col gap-4">
-        <div class="flex items-center justify-between gap-3 px-3 py-1">
-          <span class="text-xs text-fg-muted">Найдено: {{ searchFlatTracks.length }} · Групп: {{ groups.length }}</span>
-          <button
-            type="button"
-            class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
-            @click="emit('play-search-all')"
-          >
-            Играть всё
-          </button>
+  <div v-if="hasQuery" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div class="flex-1 overflow-y-auto">
+      <div class="mx-auto w-full max-w-3xl p-2">
+        <div v-if="$slots.filters" class="mb-2">
+          <slot name="filters" />
         </div>
 
-        <div v-for="group in groups" :key="group.artist">
-          <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-            {{ group.artist }}
-          </p>
+        <div v-if="!hasResults" class="flex h-full items-center justify-center py-20 text-sm text-fg-muted">
+          Ничего не найдено
+        </div>
 
-          <div class="flex flex-col gap-0.5">
-            <TrackListItem
-              v-for="track in group.tracks"
-              :key="track.id"
-              :track="track"
-              :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
-              :is-current="isSearchCurrent(track.id)"
-              :is-playing="isPlaying"
-              @select="() => emit('select-search-track', track.id)"
+        <div v-else class="flex flex-col gap-4">
+          <div class="flex items-center justify-between gap-3 px-3 py-1">
+            <span class="text-xs text-fg-muted"
+              >Найдено: {{ searchFlatTracks.length }} · Групп: {{ groups.length }}</span
             >
-              <template #actions>
-                <TrackActions :track="track" />
-              </template>
-            </TrackListItem>
+            <button
+              type="button"
+              class="rounded-btn bg-accent px-3 py-1.5 text-xs font-medium text-bg transition hover:bg-accent-hover"
+              @click="emit('play-search-all')"
+            >
+              Играть всё
+            </button>
+          </div>
+
+          <div v-for="group in groups" :key="group.artist">
+            <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+              {{ group.artist }}
+            </p>
+
+            <div class="flex flex-col gap-0.5">
+              <TrackListItem
+                v-for="track in group.tracks"
+                :key="track.id"
+                :track="track"
+                :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
+                :is-current="isSearchCurrent(track.id)"
+                :is-playing="isPlaying"
+                @select="() => emit('select-search-track', track.id)"
+              >
+                <template #actions>
+                  <TrackActions :track="track" />
+                </template>
+              </TrackListItem>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div v-else class="flex-1 overflow-y-auto">
-    <div class="mx-auto w-full max-w-3xl">
-      <div v-if="$slots.filters" class="px-3 py-2">
-        <slot name="filters" />
-      </div>
+  <div v-else class="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <!-- Верхняя часть (папки и файлы), если они есть. Они не скроллятся внутри себя,
+         а займут свою высоту (или скроллятся, если их много) -->
+    <div v-if="hasFolders || hasTextFiles || $slots.filters" class="shrink-0 overflow-y-auto max-h-[50vh]">
+      <div class="mx-auto w-full max-w-3xl">
+        <div v-if="$slots.filters" class="px-3 py-2">
+          <slot name="filters" />
+        </div>
 
-      <!-- Блок папок -->
-      <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
-        <SectionTitle text="Папки" />
-        <FolderList />
-      </div>
+        <div v-if="hasFolders" class="pb-2 -ml-2 -mr-2">
+          <SectionTitle text="Папки" />
+          <FolderList />
+        </div>
 
-      <!-- Блок текстовых файлов -->
-      <div v-if="hasTextFiles" class="pb-4">
-        <SectionTitle text="Файлы" />
-        <div class="flex flex-col gap-0.5">
-          <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
+        <div v-if="hasTextFiles" class="pb-4">
+          <SectionTitle text="Файлы" />
+          <div class="flex flex-col gap-0.5">
+            <FileListItem v-for="file in textFiles" :key="file.path" :file="file" @open="emit('open-file', file)" />
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Блок треков -->
-      <div v-if="hasTracks" class="flex min-h-[400px] flex-1 flex-col pb-4">
+    <!-- Нижняя часть (треки). Занимает всё оставшееся место и скроллится -->
+    <div v-if="hasTracks" class="flex-1 min-h-0 flex flex-col pb-4">
+      <div class="mx-auto w-full max-w-3xl flex flex-col flex-1 min-h-0">
         <SectionTitle text="Треки" />
-        <TrackList :tracks="tracks" @select="(i: number) => emit('select-track', i)" />
+        <TrackList :tracks="tracks" class="flex-1 min-h-0" @select="(i: number) => emit('select-track', i)" />
       </div>
+    </div>
 
-      <div
-        v-if="!hasFolders && !hasTracks && !hasTextFiles"
-        class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted"
-      >
-        <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />
-        <span v-else>В этой папке пусто</span>
-      </div>
+    <div
+      v-if="!hasFolders && !hasTracks && !hasTextFiles"
+      class="flex h-full items-center justify-center px-6 py-20 text-center text-sm text-fg-muted"
+    >
+      <MarkdownText v-if="emptyStateMessage" :source="emptyStateMessage" />
+      <span v-else>В этой папке пусто</span>
     </div>
   </div>
 </template>
