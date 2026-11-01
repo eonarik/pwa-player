@@ -126,5 +126,58 @@ describe('Albums CRUD через writer', () => {
       expect(library.getAlbum(albumId)).toBeNull();
       expect(library.getTrack(track.id)?.albumId).toBe(albumId);
     });
+
+    it('НЕ затирает существующую обложку при создании альбома без обложки', () => {
+      const library = useLibraryStore();
+      const writer = createLibraryWriter();
+      const albumId = newAlbumId();
+
+      // 1. Создаем альбом с обложкой
+      writer.addAlbums([
+        {
+          id: albumId,
+          name: 'Test',
+          artist: 'Artist',
+          coverUrl: 'https://example.com/cover.jpg',
+        },
+      ]);
+
+      // 2. Пытаемся добавить тот же альбом с null (например, при импорте)
+      writer.addAlbums([
+        {
+          id: albumId,
+          name: 'Test',
+          artist: 'Artist',
+          coverUrl: null,
+        },
+      ]);
+
+      // 3. Проверяем, что обложка сохранилась
+      expect(library.getAlbum(albumId)?.coverUrl).toBe('https://example.com/cover.jpg');
+    });
+
+    it('ОБНОВЛЯЕТ обложку, если у существующего её не было', () => {
+      const library = useLibraryStore();
+      const writer = createLibraryWriter();
+      const albumId = newAlbumId();
+
+      writer.addAlbums([
+        {
+          id: albumId,
+          name: 'Test',
+          artist: 'Artist',
+          coverUrl: null,
+        },
+      ]);
+
+      writer.addOrUpdateAlbum({
+        id: albumId,
+        name: 'Test',
+        artist: 'Artist',
+        coverUrl: 'https://example.com/new-cover.jpg',
+      });
+
+      expect(library.getAlbum(albumId)?.coverUrl).toBe('https://example.com/new-cover.jpg');
+    });
   });
 });

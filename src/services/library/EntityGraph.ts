@@ -24,6 +24,8 @@ export function resolveAlbumByName(
 
   const existing = findAlbumByName(existingAlbums, cleanName, artist);
   if (existing) {
+    // Если у альбома уже есть обложка, мы её не трогаем.
+    // Но если её нет, а новая пришла — обновляем.
     if (!existing.coverUrl && coverUrl) {
       return {
         album: { ...existing, coverUrl },

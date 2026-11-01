@@ -18,6 +18,9 @@ export interface ScanQueueDeps {
 
 export class ScanQueue {
   private queue = new Set<FolderId>();
+  // Множество папок, которые прямо сейчас в процессе сканирования (защита от рекурсии)
+  private processingSet = new Set<FolderId>();
+
   private isProcessing = false;
   private abortController: AbortController | null = null;
   private activeFolderId: FolderId | null = null;
@@ -25,6 +28,11 @@ export class ScanQueue {
   constructor(private deps: ScanQueueDeps) {}
 
   enqueue(folderId: FolderId): void {
+    // Защита от дублирования: если папка уже в очереди или сканируется — пропускаем
+    if (this.queue.has(folderId) || this.processingSet.has(folderId)) {
+      return;
+    }
+
     this.queue.add(folderId);
     this.processNext();
   }
@@ -46,11 +54,11 @@ export class ScanQueue {
       this.abortController = null;
     }
 
-    const errorIds = [...pendingIds];
-    if (this.activeFolderId) {
-      errorIds.push(this.activeFolderId);
-      this.activeFolderId = null;
-    }
+    // Собираем все ID, которые не успели отсканироваться
+    const errorIds = [...pendingIds, ...Array.from(this.processingSet)];
+
+    this.processingSet.clear();
+    this.activeFolderId = null;
 
     if (errorIds.length > 0) {
       folderStatusService.markErrorMany(errorIds, 'Отмена синхронизации');
@@ -70,12 +78,20 @@ export class ScanQueue {
         const folderId = this.queue.values().next().value as FolderId;
         this.queue.delete(folderId);
 
+        // Если уже сканируется (например, добавили в очередь во время скана) — пропускаем
+        if (this.processingSet.has(folderId)) {
+          continue;
+        }
+
+        this.processingSet.add(folderId);
         this.activeFolderId = folderId;
+
         const pathMap = this.deps.storage.getPathMap();
         const remotePath = pathMap[folderId];
 
         if (!remotePath) {
           folderStatusService.markError(folderId, 'Path not found');
+          this.processingSet.delete(folderId);
           this.activeFolderId = null;
           continue;
         }
@@ -89,7 +105,6 @@ export class ScanQueue {
           const progress = {
             ...baseProgress,
             onChunk: async (folders: PluginSnapshot['folders'], tracks: PluginSnapshot['tracks']) => {
-              // Сразу отдаем кусок в UI, чтобы обновить библиотеку
               await this.deps.onLibraryUpdate({ folders, tracks });
             },
           };
@@ -115,7 +130,6 @@ export class ScanQueue {
             folderStatusService.register(f.id, 'scanned');
           }
 
-          // На случай, если onChunk не вызвался (например, папка пустая)
           await this.deps.onLibraryUpdate(snapshot);
 
           folderStatusService.markScanned(folderId);
@@ -127,6 +141,7 @@ export class ScanQueue {
           folderStatusService.markError(folderId, 'Ошибка синхронизации');
           updateParentsStatus(folderId, cachedFolders);
         } finally {
+          this.processingSet.delete(folderId);
           this.activeFolderId = null;
         }
       }

@@ -37,7 +37,6 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
   const storage = createPluginStorage(id);
   const isCancelled = () => cancelled;
 
-  // Очередь фонового сканирования
   let scanQueue: ScanQueue | null = null;
 
   function getOrCreateQueue(context: PluginContext): ScanQueue {

@@ -82,8 +82,6 @@ class FolderStatusServiceImpl {
     this.setEntry(folderId, { status: 'error', updatedAt: Date.now(), errorMessage });
   }
 
-  // --- Массовые операции ---
-
   markErrorMany(folderIds: FolderId[], errorMessage: string): void {
     this.ensureLoaded();
     let changed = false;
@@ -153,6 +151,7 @@ class FolderStatusServiceImpl {
 
       for (const [id, entry] of Object.entries(parsed.entries)) {
         if (!entry || typeof entry.status !== 'string') continue;
+
         // Фоллбэк: если вкладку закрыли во время скана, при следующем открытии
         // конвертируем scanning в pending, чтобы можно было досканировать.
         if (entry.status === 'scanning') {
