@@ -1,15 +1,13 @@
 <!-- src/components/library/TrackList.vue -->
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 import { usePlayerStore } from '@/stores/player';
-import { useVirtualList } from '@/composables/useVirtualList';
-import { useItemHeight } from '@/composables/useItemHeight';
+import { useVirtualizer } from '@tanstack/vue-virtual';
 import TrackListItem from './TrackListItem.vue';
 import TrackActions from './TrackActions.vue';
 import type { Track } from '@/types/track';
-import type { TrackId } from '@/types/ids';
 
 const props = defineProps<{
   tracks: Track[];
@@ -23,11 +21,9 @@ const player = usePlayerStore();
 const { currentTrack, isPlaying, currentIndex } = storeToRefs(player);
 
 const containerRef = ref<HTMLElement | null>(null);
-const measureRef = ref<HTMLElement | null>(null);
+const scrollElement = ref<HTMLElement | null>(null);
+const scrollMargin = ref(0);
 
-const measuredHeight = useItemHeight(measureRef);
-
-// Дедупликация на входе
 const uniqueTracks = computed<Track[]>(() => {
   const seen = new Set<string>();
   const result: Track[] = [];
@@ -39,32 +35,52 @@ const uniqueTracks = computed<Track[]>(() => {
   return result;
 });
 
-const { totalHeight, visibleItems, offsetY } = useVirtualList({
-  items: uniqueTracks,
-  itemHeight: measuredHeight,
-  overscan: 2,
-  containerRef,
-});
-
-function getCurrentIndex(): number {
-  const id = currentTrack.value?.id;
-  if (!id) return -1;
-  return uniqueTracks.value.findIndex((t) => t.id === id);
-}
-
+// Находим родителя, который скроллится (overflow-y-auto)
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   let parent = el?.parentElement;
   while (parent) {
     const style = window.getComputedStyle(parent);
-    const overflowY = style.overflowY;
-    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
-      if (parent.scrollHeight > parent.clientHeight) {
-        return parent;
-      }
+    if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'overlay') {
+      return parent;
     }
     parent = parent.parentElement;
   }
   return null;
+}
+
+function updateMeasurements() {
+  if (!containerRef.value) return;
+
+  const scrollParent = findScrollParent(containerRef.value);
+  scrollElement.value = scrollParent;
+
+  if (scrollParent) {
+    // Вычисляем отступ от верха скролл-контейнера до нашего списка
+    const containerRect = containerRef.value.getBoundingClientRect();
+    const scrollRect = scrollParent.getBoundingClientRect();
+    // Добавляем scrollTop родителя, чтобы получить абсолютную позицию внутри контейнера
+    scrollMargin.value = containerRect.top - scrollRect.top + scrollParent.scrollTop;
+  }
+}
+
+const virtualizer = useVirtualizer(
+  computed(() => ({
+    count: uniqueTracks.value.length,
+    getScrollElement: () => scrollElement.value,
+    estimateSize: () => 62, // Примерная высота
+    overscan: 5,
+    scrollMargin: scrollMargin.value, // Отступ от верха контейнера
+  })),
+);
+
+const virtualItems = computed(() => virtualizer.value.getVirtualItems());
+const totalSize = computed(() => virtualizer.value.getTotalSize());
+
+// Скролл к текущему
+function getCurrentIndex(): number {
+  const id = currentTrack.value?.id;
+  if (!id) return -1;
+  return uniqueTracks.value.findIndex((t) => t.id === id);
 }
 
 async function scrollToCurrent() {
@@ -72,27 +88,8 @@ async function scrollToCurrent() {
   if (idx < 0) return;
 
   await nextTick();
-
-  if (!measuredHeight.value) {
-    requestAnimationFrame(() => void scrollToCurrent());
-    return;
-  }
-
-  requestAnimationFrame(() => {
-    if (!containerRef.value) return;
-
-    const scrollParent = findScrollParent(containerRef.value);
-    if (!scrollParent) return;
-
-    const itemHeight = measuredHeight.value;
-    const parentHeight = scrollParent.clientHeight;
-    const targetScrollTop = idx * itemHeight - parentHeight / 2 + itemHeight / 2;
-
-    scrollParent.scrollTo({
-      top: Math.max(0, targetScrollTop),
-      behavior: 'smooth',
-    });
-  });
+  updateMeasurements();
+  virtualizer.value.scrollToIndex(idx, { align: 'center', behavior: 'smooth' });
 }
 
 watch(currentIndex, () => {
@@ -100,10 +97,24 @@ watch(currentIndex, () => {
 });
 
 onMounted(() => {
+  updateMeasurements();
   scrollToCurrent();
+
+  // Если размер окна меняется (или контейнера), пересчитываем
+  window.addEventListener('resize', updateMeasurements);
 });
 
-watch(() => uniqueTracks.value.length, scrollToCurrent);
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMeasurements);
+});
+
+watch(
+  () => uniqueTracks.value.length,
+  () => {
+    updateMeasurements();
+    virtualizer.value.measure();
+  },
+);
 
 function isCurrent(track: Track): boolean {
   return currentTrack.value?.id === track.id;
@@ -113,37 +124,30 @@ function isCurrent(track: Track): boolean {
 <template>
   <div v-if="uniqueTracks.length === 0" class="p-8 text-center text-sm text-zinc-500">В этой папке нет треков</div>
 
-  <div v-else ref="containerRef" class="flex-1 min-h-0 overflow-y-auto">
-    <!-- Скрытый эталон для измерения высоты. -->
-    <div ref="measureRef" class="pointer-events-none invisible absolute left-0 top-0 w-full" aria-hidden="true">
+  <!-- Рендерим контейнер. Если виртуализатор еще не инициализирован (scrollElement = null),
+       рендерим пустоту (чтобы не было скачков). -->
+  <div v-else ref="containerRef" class="relative w-full" :style="{ height: scrollElement ? `${totalSize}px` : 'auto' }">
+    <div
+      v-for="vItem in virtualItems"
+      :key="String(vItem.key)"
+      class="absolute left-0 top-0 w-full"
+      :style="{
+        transform: `translateY(${vItem.start - scrollMargin}px)`,
+      }"
+      :data-index="vItem.index"
+    >
       <TrackListItem
-        v-if="uniqueTracks[0]"
-        :track="{ ...uniqueTracks[0], id: 'measure-item' as TrackId }"
-        :index="0"
-        :is-current="false"
-        :is-playing="false"
-        test-id-prefix="measure"
-        @select="() => {}"
-      />
-    </div>
-
-    <div class="relative" :style="{ height: `${totalHeight}px` }">
-      <div class="absolute inset-x-0 top-0" :style="{ transform: `translateY(${offsetY}px)` }">
-        <TrackListItem
-          v-for="{ item: track, index } in visibleItems"
-          :key="track.id"
-          :track="track"
-          :index="index"
-          :data-track-index="index"
-          :is-current="isCurrent(track)"
-          :is-playing="isPlaying"
-          @select="(i: number) => emit('select', i)"
-        >
-          <template #actions>
-            <TrackActions :track="track" />
-          </template>
-        </TrackListItem>
-      </div>
+        v-if="uniqueTracks[vItem.index]"
+        :track="uniqueTracks[vItem.index]!"
+        :index="vItem.index"
+        :is-current="isCurrent(uniqueTracks[vItem.index]!)"
+        :is-playing="isPlaying"
+        @select="(i: number) => emit('select', i)"
+      >
+        <template #actions>
+          <TrackActions :track="uniqueTracks[vItem.index]!" />
+        </template>
+      </TrackListItem>
     </div>
   </div>
 </template>

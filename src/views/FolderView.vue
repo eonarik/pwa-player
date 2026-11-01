@@ -23,7 +23,6 @@ import TextEditorModal from '@/components/library/TextEditorModal.vue';
 import MetadataCandidatesModal from '@/components/library/MetadataCandidatesModal.vue';
 import type { Track } from '@/types/track';
 import type { TextFileRef } from '@/plugins/types';
-import type { FolderId } from '@/types/ids';
 
 const library = useLibraryStore();
 const player = usePlayerStore();
