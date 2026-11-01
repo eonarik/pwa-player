@@ -7,7 +7,6 @@ import { createPluginContext } from '@/plugins/context';
 import { createLibraryWriter } from '@/stores/library';
 import { downloadSpaceService } from './DownloadSpaceService';
 import { DownloadError, type TrackDownloadState } from './types';
-import { toastService } from '@/services/ui/ToastService';
 import { metadataWorkerService } from '../metadata/MetadataWorkerService';
 import { metadataService } from '../metadata/MetadataService';
 import { newTrackSourceId } from '@/types/ids';
@@ -63,19 +62,14 @@ class DownloadOrchestrator {
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         console.info(`[download] cancelled for "${track.title}"`);
-      } else if (err instanceof DownloadError && (err.status === 404 || err.status === 410)) {
-        toastService.error(`Файл "${track.title}" не найден на Диске (удалён или битый)`);
-      } else if (err instanceof DownloadError && err.status >= 500) {
-        toastService.error(`Сервер временно недоступен. Не удалось скачать "${track.title}"`);
       } else {
-        toastService.error(`Ошибка скачивания "${track.title}"`);
+        console.error(`[download] failed for "${track.title}"`, err);
       }
       return false;
     }
   }
 
   private async downloadTrackInternal(track: Track, externalSignal: AbortSignal | null): Promise<void> {
-    // Ищем cloud-source (скачиваем только облачные)
     const cloudSource = track.sources.find((s) => s.kind === 'cloud');
     if (!cloudSource) {
       throw new Error(`Track "${track.id}" has no cloud source to download`);
@@ -124,7 +118,6 @@ class DownloadOrchestrator {
             },
           });
 
-          // Создаём local-source и добавляем к треку
           const writer = createLibraryWriter();
           const localSource: TrackSource = {
             id: newTrackSourceId(),
@@ -139,7 +132,6 @@ class DownloadOrchestrator {
           );
           writer.updateTrackSources(track.id, nextSources);
 
-          // Парсим MP3 сразу после скачивания
           if (track.sources[0]?.kind !== 'local') {
             try {
               const file = await result.handle.getFile();
@@ -162,7 +154,6 @@ class DownloadOrchestrator {
           }
 
           const isBrokenFile = err instanceof DownloadError && (err.status === 404 || err.status === 410);
-
           if (isBrokenFile) {
             throw err;
           }
@@ -281,28 +272,23 @@ class DownloadOrchestrator {
     const pluginId = pluginIdFromSource(localSource.pluginId);
     const plugin = await loadPlugin(pluginId);
     if (!plugin.removeDownloaded) {
-      console.warn(`[download] plugin "${pluginId}" does not support removeDownloaded`);
-      return false;
+      throw new Error(`Plugin "${pluginId}" does not support removing downloads`);
     }
 
     const targetDir = await downloadSpaceService.getPluginDir(pluginId);
     const pluginContext = createPluginContext(pluginId);
 
-    try {
-      await plugin.removeDownloaded(pluginContext, track, localSource, targetDir);
-      const writer = createLibraryWriter();
-      const nextSources = track.sources.filter((s) => s.kind !== 'local');
-      writer.updateTrackSources(track.id, nextSources);
+    await plugin.removeDownloaded(pluginContext, track, localSource, targetDir);
 
-      if (plugin.saveCache) {
-        await plugin.saveCache(pluginContext);
-      }
+    const writer = createLibraryWriter();
+    const nextSources = track.sources.filter((s) => s.kind !== 'local');
+    writer.updateTrackSources(track.id, nextSources);
 
-      return true;
-    } catch (err) {
-      console.error(`[download] failed to remove "${track.title}"`, err);
-      return false;
+    if (plugin.saveCache) {
+      await plugin.saveCache(pluginContext);
     }
+
+    return true;
   }
 
   async scan(pluginId: string): Promise<import('@/plugins/types').ScanResult | null> {

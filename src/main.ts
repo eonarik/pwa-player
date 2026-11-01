@@ -98,18 +98,17 @@ async function bootstrap() {
     if (document.visibilityState === 'hidden') flushAll();
   });
 
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__library = useLibraryStore;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__player = usePlayerStore;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__downloads = downloadOrchestrator;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__sync = syncService;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__space = downloadSpaceService;
-  }
+  // Доступ к сторам через консоль браузера
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any;
+  w.__library = useLibraryStore;
+  w.__player = usePlayerStore;
+  w.__downloads = downloadOrchestrator;
+  w.__sync = syncService;
+  w.__space = downloadSpaceService;
+  w.__playlists = usePlaylistsStore;
+  w.__history = useHistoryStore;
+  w.__dislikes = useDislikesStore;
 }
 
 window.addEventListener('unhandledrejection', (event) => {

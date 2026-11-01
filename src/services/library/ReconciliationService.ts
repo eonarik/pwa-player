@@ -1,6 +1,5 @@
 // src/services/library/ReconciliationService.ts
 
-import { useLibraryStore } from '@/stores/library';
 import { usePlaylistsStore } from '@/stores/playlists';
 import { useHistoryStore } from '@/stores/history';
 import { useDislikesStore } from '@/stores/dislikes';
@@ -10,6 +9,7 @@ import { reconcile as mergeReconcile } from './TrackMerger';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import type { TrackId } from '@/types/ids';
+import { toastService } from '../ui/ToastService';
 
 class ReconciliationService {
   private static instance: ReconciliationService | null = null;
@@ -25,9 +25,9 @@ class ReconciliationService {
   async reconcile(): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
+    let mergedCount = 0;
 
     try {
-      const library = useLibraryStore();
       const playlists = usePlaylistsStore();
       const history = useHistoryStore();
       const dislikes = useDislikesStore();
@@ -67,8 +67,7 @@ class ReconciliationService {
             delete dislikes.dislikes.dislikedAt[oldId];
           }
 
-          // Force-save (не обязательно, watch сделает)
-          void library;
+          mergedCount++;
         },
         saveCache: async (pluginId: string) => {
           if (!pluginId) return;
@@ -87,6 +86,10 @@ class ReconciliationService {
       console.error('[reconciliation] failed', err);
     } finally {
       this.isRunning = false;
+    }
+
+    if (mergedCount > 0) {
+      toastService.info(`Библиотека обновлена: склеено треков: ${mergedCount}`);
     }
   }
 }

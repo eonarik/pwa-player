@@ -85,8 +85,6 @@ export class ScanQueue {
         try {
           markScanningParents(folderId, cachedFolders);
 
-          console.log(`[YandexPlugin] Background scanning: ${remotePath}`);
-
           const baseProgress = makeProgress();
           const progress = {
             ...baseProgress,

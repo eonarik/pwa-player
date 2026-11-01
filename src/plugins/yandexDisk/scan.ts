@@ -5,6 +5,7 @@ import type { IYandexService } from './types';
 import type { FolderId } from '@/types/ids';
 import { newFolderId } from '@/types/ids';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
+import { mapWithConcurrency } from './concurrency';
 
 export const ROOT_REMOTE_PATH = 'disk:/';
 
@@ -16,7 +17,7 @@ export interface ScanProgressCallback {
   onStart: (folderId: FolderId) => void;
   onDone: (folderId: FolderId) => void;
   onError: (folderId: FolderId, error: unknown) => void;
-  onChunk?: (folders: PluginSnapshot['folders'], tracks: PluginSnapshot['tracks']) => void;
+  onChunk?: (folders: PluginSnapshot['folders'], tracks: PluginSnapshot['tracks']) => void | Promise<void>;
 }
 
 export interface ScanAllOptions {
@@ -45,6 +46,20 @@ export async function scanAll(
   const pathMap: Record<string, string> = {};
   const progress = options.progress;
 
+  // Очередь для безопасного вызова onChunk (Mutex)
+  let chunkPromise = Promise.resolve();
+  const safeOnChunk = async (newFolders: PluginSnapshot['folders'], newTracks: PluginSnapshot['tracks']) => {
+    if (!progress?.onChunk) return;
+    chunkPromise = chunkPromise.then(async () => {
+      try {
+        await progress.onChunk!(newFolders, newTracks);
+      } catch (err) {
+        console.warn(`[${pluginId}] onChunk failed`, err);
+      }
+    });
+    return chunkPromise;
+  };
+
   const walk = async (
     remotePath: string,
     parentId: FolderId | null,
@@ -57,12 +72,13 @@ export async function scanAll(
 
     if (!isStart) {
       const name = remotePath.split('/').filter(Boolean).pop() || 'Папка';
-      folders.push({
+      const folder = {
         id: currentFolderId,
         parentId,
         name,
         urlPath: remotePath === ROOT_REMOTE_PATH ? '' : remotePath.replace(/^disk:\//, ''),
-      });
+      };
+      folders.push(folder);
     }
 
     progress?.onStart(currentFolderId);
@@ -84,7 +100,7 @@ export async function scanAll(
           const childFolderId = existingId ? (existingId as FolderId) : newFolderId();
           newFolderMap[childPath] = childFolderId;
 
-          // ВСЕГДА добавляем папку в список (чтобы onChunk ее увидел)
+          // Добавляем папку в список сразу
           const folder = {
             id: childFolderId,
             parentId: currentFolderId,
@@ -127,12 +143,19 @@ export async function scanAll(
         }
       }
 
-      // Вызываем onChunk сразу после получения списка
-      progress?.onChunk?.(currentLevelFolders, currentLevelTracks);
+      // Отдаем в UI текущий уровень через Mutex
+      await safeOnChunk(currentLevelFolders, currentLevelTracks);
 
-      // Теперь идем вглубь
-      for (const child of childDirs) {
-        await walk(child.remotePath, currentFolderId, child.id, false);
+      // Теперь идем вглубь ПАРАЛЛЕЛЬНО (с лимитом 3)
+      if (options.recursive && childDirs.length > 0) {
+        await mapWithConcurrency(
+          childDirs,
+          5,
+          async (child) => {
+            await walk(child.remotePath, currentFolderId, child.id, false);
+          },
+          { shouldStop: () => service.isCancelled?.() ?? false },
+        );
       }
     } catch (err) {
       console.error(`[${pluginId}] scan: failed to scan "${remotePath}"`, err);
@@ -147,6 +170,9 @@ export async function scanAll(
 
   newFolderMap[startRemotePath] = startFolderId;
   await walk(startRemotePath, null, startFolderId, true);
+
+  // Дожидаемся всех onChunk
+  await chunkPromise;
 
   return {
     snapshot: { folders, tracks },

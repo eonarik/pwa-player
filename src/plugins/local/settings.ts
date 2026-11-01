@@ -126,13 +126,7 @@ async function removeFolder(name: string): Promise<void> {
 }
 
 async function rebuildAndSave(): Promise<void> {
-  // Просто очищаем кэш и перезагружаем через load()
-  // (полная пересборка через TrackMerger — при следующем load())
   await localPersistenceService.clear();
-
-  // Trigger reload
   const writer = createLibraryWriter();
   writer.removeBySource(PLUGIN_ID);
-
-  toastService.info('Библиотека будет пересобрана при следующем открытии');
 }

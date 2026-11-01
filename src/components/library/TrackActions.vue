@@ -25,6 +25,7 @@ import TrackMetadataModal from './TrackMetadataModal.vue';
 import type { Track } from '@/types/track';
 import PlaylistSubmenu from './PlaylistSubmenu.vue';
 import Divider from '../ui/Divider.vue';
+import { DownloadError } from "@/services/download/types.ts";
 
 const props = defineProps<{
   track: Track;
@@ -181,6 +182,7 @@ async function onDownload(close: () => void) {
   if (hasLocalSource(t)) {
     try {
       await downloadOrchestrator.removeDownloaded(t);
+      toastService.success('Файл удалён с устройства');
     } catch (err) {
       console.error('[track-actions] remove failed', err);
       toastService.error(err instanceof Error ? err.message : 'Не удалось удалить');
@@ -194,12 +196,20 @@ async function onDownload(close: () => void) {
       if (!ok) return;
     }
     const success = await downloadOrchestrator.downloadTrack(t);
-    if (!success) {
-      toastService.error('Не удалось скачать трек (ошибка сети или сервера)');
+    if (success) {
+      toastService.success('Скачивание завершено');
+    } else {
+      toastService.error('Не удалось скачать трек');
     }
   } catch (err) {
     console.error('[track-actions] download failed', err);
-    toastService.error(err instanceof Error ? err.message : 'Не удалось скачать');
+    if (err instanceof DownloadError && (err.status === 404 || err.status === 410)) {
+      toastService.error(`Файл "${t.title}" не найден на Диске`);
+    } else if (err instanceof Error) {
+      toastService.error(err.message);
+    } else {
+      toastService.error('Не удалось скачать');
+    }
   }
 }
 
