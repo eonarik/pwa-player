@@ -55,6 +55,8 @@ const preview: Preview = {
           { value: 'default', title: 'Тёмная' },
           { value: 'radio', title: 'Ретро-радио' },
           { value: 'neon', title: 'Киберпанк' },
+          { value: 'barbie', title: 'Барби' },
+          { value: 'tiffany', title: 'Тиффани' },
         ],
         dynamicTitle: true,
       },

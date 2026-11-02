@@ -4,6 +4,7 @@
 @import './theme-radio.css';
 @import './theme-neon.css';
 @import './theme-barbie.css';
+@import './theme-tiffany.css';
 
 @theme {
   --color-active: #768bbe;

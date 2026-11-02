@@ -1,0 +1,273 @@
+/* src/assets/theme-tiffany.css */
+
+[data-theme='tiffany'] {
+  /* --- Палитра --- */
+  --color-bg: #fcfbf9;
+  --color-bg-elevated: #ffffff;
+
+  --color-fg: #2a2a2a;
+  --color-fg-muted: #7a7a7a;
+  --color-fg-subtle: #a19e9e;
+  --color-fg-disabled: rgba(161, 158, 158, 0.4);
+
+  --color-active: #0097a3;
+  --color-accent: #5cdfe5;
+  --color-accent-hover: #0097a3;
+  --color-playing: #0097a3;
+  --color-gold: #c5a059;
+
+  --color-hover-bg: rgba(92, 223, 229, 0.08); /* Ховер теперь бирюзовый */
+  --color-active-bg: rgba(92, 223, 229, 0.15);
+  --color-card-bg: rgba(255, 255, 255, 0.85);
+
+  --color-scrollbar: rgba(92, 223, 229, 0.3);
+  --color-scrollbar-hover: rgba(92, 223, 229, 0.6);
+
+  --radius-btn: 9999px;
+  --radius-card: 0.5rem;
+  --radius-modal: 1rem;
+
+  --font-tiffany: 'Montserrat', sans-serif;
+  --font-tiffany-title: 'Playfair Display', serif;
+}
+
+/* --- Общие стили --- */
+[data-theme='tiffany'] body {
+  font-family: var(--font-tiffany);
+  background-color: var(--color-bg);
+  background-image: url('./tiffany-marble-bg.avif');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: var(--color-fg);
+  letter-spacing: 0.02em;
+}
+
+[data-theme='tiffany'] .grid.bg-bg {
+  background: transparent !important;
+}
+
+[data-theme='tiffany'] main {
+  backdrop-filter: blur(16px);
+  background-color: transparent;
+  border-left: 1px solid rgba(92, 223, 229, 0.2);
+  border-right: 1px solid rgba(92, 223, 229, 0.2);
+
+  background-image: url('./tiffany-floral-corner.png');
+  background-repeat: no-repeat;
+  background-position: bottom right;
+  background-size: 350px;
+}
+
+/* --- Типографика --- */
+[data-theme='tiffany'] h1,
+[data-theme='tiffany'] h2,
+[data-theme='tiffany'] .tiffany-title {
+  font-family: var(--font-tiffany-title);
+  font-weight: 600;
+  color: #1a1b1d;
+}
+
+/* --- 1. Шапка (Бирюзовая лента) --- */
+[data-theme='tiffany'] header {
+  background: rgba(252, 251, 249, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid var(--color-accent);
+  box-shadow: 0 4px 20px rgba(92, 223, 229, 0.15);
+}
+
+/* --- 2. Карточки списков (Бирюзовое свечение при наведении) --- */
+[data-theme='tiffany'] .list-row {
+  border-radius: 0.5rem;
+  margin-bottom: 4px;
+  background-color: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+[data-theme='tiffany'] .list-row:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 25px rgba(92, 223, 229, 0.25); /* Бирюзовая тень */
+  transform: translateY(-2px);
+  border-color: rgba(92, 223, 229, 0.5);
+}
+
+/* --- 3. Активный трек (Усиленная шелковая лента) --- */
+[data-theme='tiffany'] .list-row_active {
+  position: relative;
+  background: #fff;
+}
+
+[data-theme='tiffany'] .list-row_active:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(92, 223, 229, 0.35) 0%, rgba(0, 0, 0, 0) 100%);
+  border-left: 4px solid var(--color-accent); /* Толще полоса */
+  box-shadow: inset 0 0 15px rgba(92, 223, 229, 0.2);
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+[data-theme='tiffany'] .list-row_active p {
+  font-weight: 600;
+  color: #007b85 !important; /* Более глубокий бирюзовый для текста */
+}
+
+/* --- 4. Прогресс-бар --- */
+[data-theme='tiffany'] .radio-progress-fill {
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-gold) 100%);
+  box-shadow: 0 0 8px rgba(92, 223, 229, 0.5);
+}
+
+/* --- 5. Нижняя панель (Футляр) --- */
+[data-theme='tiffany'] footer {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(92, 223, 229, 0.4); /* Бирюзовая линия */
+  box-shadow: 0 -10px 30px rgba(92, 223, 229, 0.08);
+}
+
+/* --- 6. Кнопка Play/Pause (Бирюзовая брошь с золотой окантовкой) --- */
+[data-theme='tiffany'] .player-play-pause-btn {
+  background-color: var(--color-accent); /* Яркий Тиффани */
+  background-image: none;
+  color: #ffffff;
+  border: 2px solid var(--color-gold); /* Золотая окантовка */
+  border-radius: 50%;
+  box-shadow:
+    0 4px 15px rgba(92, 223, 229, 0.5),
+    inset 0 2px 4px rgba(255, 255, 255, 0.6);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme='tiffany'] .player-play-pause-btn:hover {
+  transform: scale(1.05);
+  background-color: var(--color-accent-hover); /* Темнеет при ховере */
+  box-shadow:
+    0 6px 20px rgba(0, 151, 163, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.6);
+}
+
+[data-theme='tiffany'] .player-play-pause-btn svg {
+  color: #ffffff;
+  fill: currentColor;
+  stroke: currentColor;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
+  position: relative;
+  z-index: 1;
+}
+
+/* --- 7. Иконки (Бирюзовые при наведении) --- */
+[data-theme='tiffany'] .icon {
+  transition: all 0.2s ease;
+}
+
+[data-theme='tiffany'] .text-active > .icon,
+[data-theme='tiffany'] .group:hover .icon {
+  stroke: var(--color-accent); /* Бирюзовый цвет */
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 6px rgba(92, 223, 229, 0.6));
+}
+
+/* --- 8. Обложки (Бирюзовая оправа) --- */
+[data-theme='tiffany'] .track-cover {
+  border: 1px solid rgba(92, 223, 229, 0.3);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme='tiffany'] .list-row:hover .track-cover,
+[data-theme='tiffany'] .group:hover .track-cover {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 15px rgba(92, 223, 229, 0.3);
+}
+
+[data-theme='tiffany'] .track-cover_empty {
+  background-color: #f5f5f5;
+  background-image: url('./fallback-tiffany-cover.jpg');
+  background-size: cover;
+  border: 1px dashed var(--color-accent);
+}
+
+/* --- 9. Карточки (Мраморные плитки) --- */
+[data-theme='tiffany'] .bg-card-bg {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+[data-theme='tiffany'] .bg-card-bg:hover {
+  border-color: rgba(92, 223, 229, 0.5);
+  box-shadow: 0 6px 20px rgba(92, 223, 229, 0.15);
+}
+
+/* Скроллбар */
+[data-theme='tiffany'] ::-webkit-scrollbar-thumb {
+  background-color: var(--color-scrollbar);
+  border-radius: 9999px;
+}
+
+[data-theme='tiffany'] ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-scrollbar-hover);
+}
+
+/* --- 10. Кнопки --- */
+[data-theme='tiffany'] .bg-accent {
+  background: var(--color-accent);
+  color: #ffffff;
+  font-weight: 500;
+  border: 1px solid var(--color-gold);
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(92, 223, 229, 0.3);
+  transition: all 0.3s ease;
+}
+
+[data-theme='tiffany'] .bg-accent:hover {
+  background: #ffffff;
+  color: var(--color-accent-hover); /* Инверсия: белый фон, бирюзовый текст */
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(92, 223, 229, 0.4);
+}
+
+/* Поля ввода (Мягкие, как шелк) */
+[data-theme='tiffany'] input,
+[data-theme='tiffany'] textarea,
+[data-theme='tiffany'] select {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--color-fg) !important;
+  border: 1px solid rgba(92, 223, 229, 0.3);
+  border-radius: 9999px;
+  transition: all 0.3s ease;
+}
+
+[data-theme='tiffany'] textarea,
+[data-theme='tiffany'] select {
+  border-radius: 0.5rem;
+}
+
+[data-theme='tiffany'] input:focus,
+[data-theme='tiffany'] textarea:focus,
+[data-theme='tiffany'] select:focus {
+  background: #ffffff !important;
+  border-color: var(--color-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(92, 223, 229, 0.25);
+}
+
+/* --- 11. Меню (Шкатулка) --- */
+[data-theme='tiffany'] .app-drawer-panel {
+  background: rgba(252, 251, 249, 0.95);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(92, 223, 229, 0.3);
+  box-shadow: 4px 0 30px rgba(92, 223, 229, 0.05);
+}

@@ -8,6 +8,7 @@ const STORAGE_KEY = 'ui:theme';
 
 const THEMES: ReadonlyArray<{ id: ThemeId; label: string }> = [
   { id: 'default', label: 'Тёмная' },
+  { id: 'tiffany', label: 'Светлая (Тиффани)' },
   { id: 'radio', label: 'Ретро-радио' },
   { id: 'neon', label: 'Киберпанк' },
   { id: 'barbie', label: 'Барби' },
