@@ -4,3 +4,4 @@ export * from './utils';
 export * from './merge';
 export * from './apply';
 export * from './reconcile';
+export * from './saveCache';

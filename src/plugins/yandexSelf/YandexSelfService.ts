@@ -8,12 +8,46 @@ import type {
 } from '../yandexDisk/types';
 import { modalService } from '@/services/ui/ModalService';
 import { cleanDiskPath } from '@/shared/paths';
+import { apiClient, type AuthProvider } from '@/services/api/ApiClient';
+import { AuthError } from '@/services/api/errors';
 
 const API_URL = '/api/yandex-self';
 const DISCONNECTED_KEY = 'yandex-self-disconnected';
 
-export class YandexSelfService implements IYandexService {
+export class YandexSelfService implements IYandexService, AuthProvider {
   readonly id = 'yandex-self';
+  readonly healthUrl = `${API_URL}/auth/check`;
+
+  private static instance: YandexSelfService | null = null;
+
+  private constructor() {
+    apiClient.registerProvider(this);
+  }
+
+  static getInstance(): YandexSelfService {
+    if (!YandexSelfService.instance) {
+      YandexSelfService.instance = new YandexSelfService();
+    }
+    return YandexSelfService.instance;
+  }
+
+  // --- AuthProvider ----------------------------------------------------
+
+  isAccessValid(): boolean {
+    return true;
+  }
+
+  hasRefreshToken(): boolean {
+    return false;
+  }
+
+  async refreshAccess(): Promise<boolean> {
+    return false;
+  }
+
+  getAuthHeaders(): Record<string, string> {
+    return {};
+  }
 
   // --- IYandexService --------------------------------------------------
 
@@ -79,22 +113,20 @@ export class YandexSelfService implements IYandexService {
 
   async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
     try {
-      const res = await fetch(`${API_URL}/auth/check`, {
-        credentials: 'include',
+      const res = await apiClient.fetch(`${API_URL}/auth/check`, {
+        auth: this.id,
+        method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
       if (res.status === 401) return 'expired';
       if (!res.ok) return 'unavailable';
       return 'ok';
-    } catch {
+    } catch (err) {
+      if (err instanceof AuthError) return 'expired';
       return 'unavailable';
     }
   }
 
-  /**
-   * Выход: уничтожает серверную сессию и выставляет флаг «отключено»,
-   * чтобы UI не показывал плагин как «подключённый».
-   */
   async logout(): Promise<void> {
     try {
       await fetch(`${API_URL}/logout`, {
@@ -112,8 +144,9 @@ export class YandexSelfService implements IYandexService {
     const clean = cleanDiskPath(path);
     const params = new URLSearchParams({ path: clean });
 
-    const res = await fetch(`${API_URL}/resources?${params.toString()}`, {
-      credentials: 'include',
+    const res = await apiClient.fetch(`${API_URL}/resources?${params.toString()}`, {
+      auth: this.id,
+      method: 'GET',
     });
 
     if (!res.ok) {
@@ -133,8 +166,9 @@ export class YandexSelfService implements IYandexService {
     const clean = cleanDiskPath(remotePath);
     const params = new URLSearchParams({ path: clean });
 
-    const res = await fetch(`${API_URL}/text?${params.toString()}`, {
-      credentials: 'include',
+    const res = await apiClient.fetch(`${API_URL}/text?${params.toString()}`, {
+      auth: this.id,
+      method: 'GET',
     });
 
     if (!res.ok) return null;
@@ -145,11 +179,11 @@ export class YandexSelfService implements IYandexService {
     const clean = cleanDiskPath(remotePath);
     const params = new URLSearchParams({ path: clean });
 
-    const res = await fetch(`${API_URL}/text?${params.toString()}`, {
+    const res = await apiClient.fetch(`${API_URL}/text?${params.toString()}`, {
+      auth: this.id,
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
-      credentials: 'include',
     });
 
     if (!res.ok) throw new Error('Failed to write');
@@ -157,4 +191,4 @@ export class YandexSelfService implements IYandexService {
   }
 }
 
-export const yandexSelfService = new YandexSelfService();
+export const yandexSelfService = YandexSelfService.getInstance();

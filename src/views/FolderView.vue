@@ -11,7 +11,7 @@ import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { useLibrarySearch } from '@/composables/useLibrarySearch';
 import { useFolderSync } from '@/composables/useFolderSync';
 import { useMetadataSearch } from '@/composables/useMetadataSearch';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
+import { isScanning as isFolderScanning } from '@/utils/folderStatus';
 import { toastService } from '@/services/ui/ToastService';
 import { getFileHandler } from '@/services/files/FileHandlerRegistry';
 import FolderHeader from './folder/FolderHeader.vue';
@@ -84,7 +84,6 @@ const hasMixedLocations = computed(() => {
 const hasTracks = computed(() => filteredTracks.value.length > 0);
 const hasFolders = computed(() => currentSubfolders.value.length > 0);
 
-// Все файлы папки (для проверки на пустоту и счетчика)
 const allFiles = computed<FolderFile[]>(() => {
   const folder = currentFolder.value;
   if (!folder) return [];
@@ -93,7 +92,6 @@ const allFiles = computed<FolderFile[]>(() => {
 
 const hasFiles = computed(() => allFiles.value.length > 0);
 
-// Видимые файлы (с учётом настройки "Показывать файлы")
 const visibleFiles = computed<FolderFile[]>(() => {
   if (!showFiles.value) return [];
   return allFiles.value;
@@ -156,18 +154,12 @@ const emptyStateMessage = computed(() => {
   return getPluginManifest(folder.pluginId)?.options?.emptyStateMessage ?? null;
 });
 
-const isCurrentFolderScanning = computed(() => {
-  const folder = currentFolder.value;
-  if (!folder) return false;
-  return folderStatusService.isScanning(folder.id);
-});
+const isCurrentFolderScanning = computed(() => isFolderScanning(currentFolder.value));
 
 const hasBackgroundScan = computed(() => {
   if (isPluginScanning.value) return true;
   for (const f of Object.values(library.folders)) {
-    if (folderStatusService.isScanning(f.id)) {
-      return true;
-    }
+    if (isFolderScanning(f)) return true;
   }
   return false;
 });

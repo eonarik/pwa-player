@@ -1,9 +1,10 @@
-// src/services/audio/audioService/AudioService.ts
+// src/services/audio/AudioService/AudioService.ts
 
 import type { AudioEventMap, AudioEventName, AudioListener } from '../types';
 import { HlsController } from './hls';
 import { ResourceHolder } from './resources';
 import { bindNativeEvents, type NativeEventHandlers } from './events';
+import { telemetry } from '@/services/telemetry';
 
 export class AudioService {
   private static instance: AudioService | null = null;
@@ -40,7 +41,6 @@ export class AudioService {
       this.listeners[event] = new Set();
     }
     this.listeners[event].add(listener);
-
     return () => this.off(event, listener);
   }
 
@@ -59,6 +59,18 @@ export class AudioService {
   }
 
   load(source: string | File | Blob): void {
+    const startTs = performance.now();
+    const kind =
+      typeof source === 'string'
+        ? source.includes('.m3u8')
+          ? 'hls'
+          : 'url'
+        : source instanceof File
+          ? 'file'
+          : 'blob';
+
+    telemetry.event('audio.load.start', { kind });
+
     this.hls.destroy();
     this.hls.reset();
     this.resources.releaseInternal();
@@ -68,11 +80,11 @@ export class AudioService {
 
       if (source.includes('.m3u8')) {
         const attached = this.hls.tryAttach(source, this.audio, (message) => {
+          telemetry.event('audio.error', { kind: 'hls_fatal', msg: message.slice(0, 200) });
           this.emit('error', { message, src: source });
           this.pause();
         });
         if (!attached) {
-          // hls.js не поддерживается — нативный <audio>
           this.audio.src = source;
           this.audio.load();
         }
@@ -88,6 +100,11 @@ export class AudioService {
       this.audio.src = url;
       this.audio.load();
     }
+
+    telemetry.event('audio.load.done', {
+      kind,
+      ms: Math.round(performance.now() - startTs),
+    });
   }
 
   unload(): void {
@@ -96,24 +113,18 @@ export class AudioService {
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load();
-
     this.resources.releaseInternal();
     this.currentSrc = null;
+    telemetry.event('audio.unload');
   }
 
-  /**
-   * Освобождает текущий File/objectURL и сбрасывает src.
-   * Идемпотентен. Используется при отключении плагина, dispose, unload.
-   *
-   * В отличие от `unload`, не дёргает `hls.destroy()` (HLS разрушим отдельно).
-   */
   releaseCurrent(): void {
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load();
-
     this.resources.releaseInternal();
     this.currentSrc = null;
+    telemetry.event('audio.release');
   }
 
   async play(): Promise<void> {
@@ -121,23 +132,31 @@ export class AudioService {
       throw new Error('HLS stream failed');
     }
 
+    const startTs = performance.now();
+    telemetry.event('audio.play.start');
+
     try {
       await this.audio.play();
       if (this.audio.paused) {
         this.emit('pause', undefined as void);
       }
+      telemetry.event('audio.play.done', { ms: Math.round(performance.now() - startTs) });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
+        telemetry.event('audio.play.abort');
         return;
       }
 
       const message = err instanceof Error ? err.message : 'Unknown play() error';
+      telemetry.event('audio.play.error', { msg: message.slice(0, 200), ms: Math.round(performance.now() - startTs) });
       console.error('[audio] play() rejected', err);
       this.emit('error', { message, src: this.audio.src });
       this.emit('pause', undefined as void);
       throw err;
     }
   }
+
+  // ... pause, toggle, seek, seekBy, setVolume, setMuted — без инструментации
 
   pause(): void {
     this.audio.pause();
@@ -152,7 +171,6 @@ export class AudioService {
   seek(time: number): void {
     if (!Number.isFinite(time)) return;
     const duration = this.audio.duration;
-
     if (Number.isFinite(duration) && duration > 0) {
       this.audio.currentTime = Math.min(Math.max(time, 0), duration);
     } else {
@@ -175,31 +193,24 @@ export class AudioService {
   get element(): HTMLAudioElement {
     return this.audio;
   }
-
   get currentTime(): number {
     return this.audio.currentTime;
   }
-
   get duration(): number {
     return Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
   }
-
   get paused(): boolean {
     return this.audio.paused;
   }
-
   get volume(): number {
     return this.audio.volume;
   }
-
   get muted(): boolean {
     return this.audio.muted;
   }
-
   get src(): string {
     return this.audio.src;
   }
-
   get isLive(): boolean {
     return !Number.isFinite(this.audio.duration);
   }
@@ -207,18 +218,13 @@ export class AudioService {
   destroy(): void {
     this.hls.destroy();
     this.audio.pause();
-
     this.nativeEvents.dispose();
-
     Object.values(this.listeners).forEach((set) => set?.clear());
     this.listeners = {};
-
     this.resources.releaseInternal();
     this.currentSrc = null;
-
     this.audio.removeAttribute('src');
     this.audio.load();
-
     AudioService.instance = null;
   }
 }

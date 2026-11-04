@@ -1,12 +1,20 @@
 // src/services/metadata/MetadataWorkerService.ts
 
-import type { TrackMetadata } from './types';
+import type { TrackMetadata, ParsedId3 } from './types';
 import type { WorkerOutput } from '@/workers/metadata.worker';
+import { telemetry } from '@/services/telemetry';
+
+interface QueueItem {
+  file: File;
+  resolve: (value: ParsedId3 | null) => void;
+  startTs: number;
+  sizeKB: number;
+}
 
 class MetadataWorkerService {
   private static instance: MetadataWorkerService | null = null;
   private worker: Worker | null = null;
-  private queue: Array<{ file: File; resolve: (v: TrackMetadata | null) => void }> = [];
+  private queue: QueueItem[] = [];
   private isProcessing = false;
 
   static getInstance(): MetadataWorkerService {
@@ -18,8 +26,6 @@ class MetadataWorkerService {
 
   private initWorker() {
     if (this.worker) return;
-    console.log('[metadata-worker] initializing worker...');
-
     try {
       this.worker = new Worker(new URL('../../workers/metadata.worker.ts', import.meta.url), {
         type: 'module',
@@ -30,9 +36,32 @@ class MetadataWorkerService {
         if (!current) return;
 
         if (e.data.status === 'success') {
-          current.resolve(e.data.data);
+          if (e.data.data === null) {
+            telemetry.event('metadata.worker.done', {
+              ms: Math.round(performance.now() - current.startTs),
+              sizeKB: current.sizeKB,
+              hasId3: false,
+              hasCover: false,
+            });
+            current.resolve(null);
+          } else {
+            const metadata = e.data.data;
+            const coverBlob = e.data.coverBlob;
+            telemetry.event('metadata.worker.done', {
+              ms: Math.round(performance.now() - current.startTs),
+              sizeKB: current.sizeKB,
+              hasId3: metadata.hasId3Tags,
+              hasCover: Boolean(coverBlob),
+            });
+            current.resolve({ metadata, coverBlob });
+          }
         } else {
           console.warn('[metadata-worker] failed to parse:', e.data.message);
+          telemetry.event('metadata.worker.error', {
+            ms: Math.round(performance.now() - current.startTs),
+            sizeKB: current.sizeKB,
+            msg: e.data.message.slice(0, 200),
+          });
           current.resolve(null);
         }
 
@@ -69,12 +98,20 @@ class MetadataWorkerService {
     }
   }
 
-  public async parse(file: File): Promise<TrackMetadata | null> {
+  public async parse(file: File): Promise<ParsedId3 | null> {
     return new Promise((resolve) => {
-      this.queue.push({ file, resolve });
+      this.queue.push({
+        file,
+        resolve,
+        startTs: performance.now(),
+        sizeKB: Math.round(file.size / 1024),
+      });
       this.processQueue();
     });
   }
 }
 
 export const metadataWorkerService = MetadataWorkerService.getInstance();
+
+// Экспорт для совместимости
+export type { TrackMetadata, ParsedId3 };

@@ -15,7 +15,7 @@ import { createPlayerActions } from './actions';
 
 export const usePlayerStore = defineStore('player', () => {
   const queue = ref<Track[]>([]);
-  const originalQueue = ref<Track[]>([]); // Добавлено для фикса шафла
+  const originalQueue = ref<Track[]>([]);
   const currentIndex = ref(-1);
   const isPlaying = ref(false);
   const duration = ref(0);
@@ -29,6 +29,9 @@ export const usePlayerStore = defineStore('player', () => {
 
   const currentTrack = shallowRef<Track | null>(null);
 
+  // Флаг: идёт восстановление после F5. В это время не пишем в историю.
+  let isRestoring = false;
+
   const timeLoop = createTimeLoop({ currentTime, isPlaying });
 
   const persistence = createPlayerPersistence({
@@ -40,6 +43,7 @@ export const usePlayerStore = defineStore('player', () => {
     muted,
     repeatMode,
     shuffle,
+    isPlaying,
     currentTrack,
   });
 
@@ -84,6 +88,7 @@ export const usePlayerStore = defineStore('player', () => {
       },
       handleAuthError: (error, track) => actions.handleAuthError(error, track),
       skipToNextOnError: actions.skipToNextOnError,
+      getIsRestoring: () => isRestoring,
     },
   );
 
@@ -109,26 +114,35 @@ export const usePlayerStore = defineStore('player', () => {
   });
 
   async function restore(): Promise<boolean> {
-    const restored = await restorePlayerState();
-    if (!restored) return false;
+    isRestoring = true;
+    try {
+      const restored = await restorePlayerState();
+      if (!restored) return false;
 
-    queue.value = restored.tracks;
-    originalQueue.value = restored.originalTracks || restored.tracks;
-    currentIndex.value = restored.currentIndex;
-    currentTrack.value = restored.tracks[restored.currentIndex] ?? null;
-    volume.value = restored.volume;
-    muted.value = restored.muted;
-    repeatMode.value = restored.repeatMode;
-    shuffle.value = restored.shuffle;
+      queue.value = restored.tracks;
+      originalQueue.value = restored.originalTracks || restored.tracks;
+      currentIndex.value = restored.currentIndex;
+      currentTrack.value = restored.tracks[restored.currentIndex] ?? null;
+      volume.value = restored.volume;
+      muted.value = restored.muted;
+      repeatMode.value = restored.repeatMode;
+      shuffle.value = restored.shuffle;
 
-    audioService.setVolume(restored.volume);
-    audioService.setMuted(restored.muted);
+      audioService.setVolume(restored.volume);
+      audioService.setMuted(restored.muted);
 
-    await applyRestoredPlayback(restored.tracks, restored.currentIndex, (t: number) => {
-      currentTime.value = Math.round(t * 10) / 10;
-    });
+      await applyRestoredPlayback(restored.tracks, restored.currentIndex, (t: number) => {
+        currentTime.value = Math.round(t * 10) / 10;
+      });
 
-    return true;
+      return true;
+    } finally {
+      // Сброс после того, как play event эмитнулся.
+      // Микротаск: play() resolve → play event → finally.
+      setTimeout(() => {
+        isRestoring = false;
+      }, 0);
+    }
   }
 
   function updateTrackInQueue(trackId: TrackId): void {
@@ -143,7 +157,6 @@ export const usePlayerStore = defineStore('player', () => {
       }
     }
 
-    // Обновляем и originalQueue, чтобы при выключении шафла данные были актуальны
     const origIdx = originalQueue.value.findIndex((t) => t.id === trackId);
     if (origIdx !== -1) {
       const libTrack = useLibraryStore().getTrack(trackId);

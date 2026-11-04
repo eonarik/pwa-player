@@ -54,7 +54,9 @@ const selectedAlbum = computed(() => {
   return allAlbums.value.find((a) => a.name === props.modelValue) || null;
 });
 
-const displayCover = computed(() => selectedAlbum.value?.coverUrl ?? undefined);
+function albumHasCover(album: Album): boolean {
+  return Boolean(album.coverBlob || album.coverUrl);
+}
 
 function updatePosition() {
   if (!wrapperRef.value) return;
@@ -93,7 +95,6 @@ function selectAlbum(album: Album | null) {
 function onInputChange(e: Event) {
   const value = (e.target as HTMLInputElement).value;
   emit('update:modelValue', value);
-  // Синхронизируем фильтр в дропдауне
   searchQuery.value = value;
 }
 
@@ -119,8 +120,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', updatePosition);
 });
 
-// Если modelValue меняется извне (например, выбран кандидат из «Найденных вариантов»),
-// синхронизируем searchQuery.
 watch(
   () => props.modelValue,
   (v) => {
@@ -128,7 +127,6 @@ watch(
   },
 );
 
-// Фокус в input при открытии
 const inputRef = ref<HTMLInputElement | null>(null);
 watch(isOpen, async (v) => {
   if (v) {
@@ -140,10 +138,14 @@ watch(isOpen, async (v) => {
 
 <template>
   <div ref="wrapperRef" class="relative flex flex-col gap-2 w-full">
-    <!-- 1. Ручной ввод -->
     <div class="flex items-center gap-2">
       <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-bg">
-        <CoverImage :src="displayCover" alt="Cover" fallback-icon-class="h-5 w-5" />
+        <CoverImage
+          v-if="selectedAlbum"
+          :album-id="selectedAlbum.id"
+          :alt="selectedAlbum.name"
+          fallback-icon-class="h-5 w-5"
+        />
       </div>
       <input
         ref="inputRef"
@@ -164,12 +166,10 @@ watch(isOpen, async (v) => {
       </button>
     </div>
 
-    <!-- Подсказка, если есть совпадение с существующим (и это не точное совпадение) -->
     <p v-if="selectedAlbum && modelValue !== selectedAlbum.name" class="text-[10px] text-fg-subtle px-1">
       Существующий альбом: {{ selectedAlbum.name }}
     </p>
 
-    <!-- 2. Дропдаун существующих -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-150 ease-out"
@@ -185,7 +185,6 @@ watch(isOpen, async (v) => {
           class="fixed z-[200] flex max-h-64 flex-col overflow-hidden rounded-btn bg-bg-elevated shadow-lg border border-hover-bg"
           :style="dropdownStyle"
         >
-          <!-- Поиск -->
           <div class="border-b border-hover-bg p-2">
             <input
               v-model="searchQuery"
@@ -195,7 +194,6 @@ watch(isOpen, async (v) => {
             />
           </div>
 
-          <!-- Список -->
           <div class="flex-1 overflow-y-auto p-1">
             <button
               type="button"
@@ -218,8 +216,11 @@ watch(isOpen, async (v) => {
               :class="album.name === modelValue ? 'bg-active/10' : ''"
               @click="selectAlbum(album)"
             >
-              <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-bg">
-                <CoverImage :src="album.coverUrl" :alt="album.name" fallback-icon-class="h-5 w-5" />
+              <div
+                class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-bg"
+                :class="!albumHasCover(album) && 'track-cover_empty'"
+              >
+                <CoverImage :album-id="album.id" :alt="album.name" fallback-icon-class="h-5 w-5" />
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm" :class="album.name === modelValue ? 'text-active' : 'text-fg'">

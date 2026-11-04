@@ -4,7 +4,7 @@ import { usePlaylistsStore } from '@/stores/playlists';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher';
-import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
+import { merge, apply, buildLibraryIndex, saveCachesForPlugins } from '@/services/library/TrackMerger';
 import { detectPlaylistFormat, parseM3U, parseJSON } from '@/utils/playlistParser';
 import { decodeBlueprint, type BlueprintData } from '@/utils/playlistBlueprint';
 import type { PlaylistExportTrack } from '@/types/collection';
@@ -104,6 +104,7 @@ export async function importPlaylist(parsed: ParsedPlaylist): Promise<ImportResu
   };
 
   const trackIdsSet = new Set<TrackId>();
+  const pluginIdsToSave = new Set<string>();
 
   for (const t of parsed.tracks) {
     const incomingArtist = (t.artist || '').trim();
@@ -111,7 +112,6 @@ export async function importPlaylist(parsed: ParsedPlaylist): Promise<ImportResu
 
     if (!incomingTitle) continue;
 
-    // 1. Точное совпадение по artist+title
     const exactMatch = allTracks.find(
       (libTrack) =>
         libTrack.title.toLowerCase().trim() === incomingTitle.toLowerCase() &&
@@ -124,7 +124,6 @@ export async function importPlaylist(parsed: ParsedPlaylist): Promise<ImportResu
       continue;
     }
 
-    // 2. Fuzzy-поиск
     const bestMatch = findBestMatch(t, libraryIndex, threshold);
     if (bestMatch.track) {
       stats.fuzzy++;
@@ -132,7 +131,6 @@ export async function importPlaylist(parsed: ParsedPlaylist): Promise<ImportResu
       continue;
     }
 
-    // 3. Не найдено — создаём виртуальный трек
     stats.unmatched++;
 
     const dummySource = {
@@ -158,12 +156,9 @@ export async function importPlaylist(parsed: ParsedPlaylist): Promise<ImportResu
       },
     );
 
-    await apply(mergeResult, {
-      writer,
-      saveCache: async () => {},
-    });
+    const pid = apply(mergeResult, { writer });
+    if (pid) pluginIdsToSave.add(pid);
 
-    // Добавляем в индекс, чтобы следующие треки могли с ним склеиться
     const artistKey = (mergeResult.track.artist || '').trim().toLowerCase();
     const list = libraryIndex.get(artistKey) || [];
     if (!list.some((tr) => tr.id === mergeResult.track.id)) {
@@ -172,6 +167,10 @@ export async function importPlaylist(parsed: ParsedPlaylist): Promise<ImportResu
     }
 
     trackIdsSet.add(mergeResult.track.id);
+  }
+
+  if (pluginIdsToSave.size > 0) {
+    await saveCachesForPlugins(Array.from(pluginIdsToSave));
   }
 
   playlist.trackIds = Array.from(trackIdsSet);

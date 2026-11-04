@@ -13,7 +13,6 @@ const trackBuffer = fs.readFileSync(path.resolve(__dirname, '../../fixtures/mp3_
 export async function mockRadio(page: Page) {
   page.on('request', (req) => {
     if (req.url().includes('/json/')) {
-      console.log('[MOCK RADIO] Request:', req.url());
     }
   });
 

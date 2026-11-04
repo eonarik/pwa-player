@@ -4,6 +4,7 @@ import { loadPlugin } from '@/plugins/registry';
 import { createLibraryWriter, useLibraryStore } from '@/stores/library';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { toastService } from '@/services/ui/ToastService';
+import { metadataService } from '@/services/metadata/MetadataService';
 import { newTrackSourceId } from '@/types/ids';
 import type { Track, TrackSource } from '@/types/track';
 import type { CollectionActionContext } from '../types';
@@ -59,6 +60,21 @@ export async function restoreUnavailableTracksInZvuk(tracks: Track[], ctx: Colle
 
         if (data && data.confident && data.similarity >= threshold && data.extMetadata?.trackId) {
           const zvukTrackId = String(data.extMetadata.trackId);
+
+          // 1. Применяем метаданные (создаст альбом с обложкой, если confident).
+          if (data.coverUrl || data.album) {
+            metadataService.applyRemote(libTrack.id, {
+              artist: data.artist,
+              title: data.title,
+              album: data.album,
+              coverUrl: data.coverUrl,
+              source: data.source,
+              similarity: data.similarity,
+              confident: true,
+            });
+          }
+
+          // 2. Добавляем streaming-source от Звука.
           const source: TrackSource = {
             id: newTrackSourceId(),
             pluginId: ZVUK_PLUGIN_ID,

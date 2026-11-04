@@ -61,7 +61,6 @@ class DownloadOrchestrator {
       return true;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        console.info(`[download] cancelled for "${track.title}"`);
       } else {
         console.error(`[download] failed for "${track.title}"`, err);
       }
@@ -136,8 +135,8 @@ class DownloadOrchestrator {
             try {
               const file = await result.handle.getFile();
               const parsed = await metadataWorkerService.parse(file);
-              if (parsed && parsed.artist) {
-                metadataService.applyFromFile(track.id, parsed);
+              if (parsed && parsed.metadata.artist) {
+                metadataService.applyFromFile(track.id, parsed.metadata, parsed.coverBlob);
               }
             } catch (err) {
               console.warn('[download] failed to parse tags after download', err);

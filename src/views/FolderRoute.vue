@@ -4,8 +4,6 @@
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useLibraryStore } from '@/stores/library';
-import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
-import { createPluginContext } from '@/plugins/context';
 import FolderView from '@/views/FolderView.vue';
 
 const route = useRoute();
@@ -21,6 +19,19 @@ const pathSegments = computed<string[]>(() => {
   return [];
 });
 
+watch(
+  () => route.params.path,
+  (raw) => {
+    if (!Array.isArray(raw)) return;
+    if (!raw.some((s) => s === '')) return;
+    router.replace({
+      name: 'folder',
+      params: { pluginId: pluginId.value, path: raw.filter(Boolean) },
+    });
+  },
+  { immediate: true },
+);
+
 const urlPath = computed(() => pathSegments.value.join('/'));
 
 const currentFolder = computed(() => {
@@ -34,7 +45,7 @@ const folderExists = computed(() => Boolean(currentFolder.value));
 
 watch(
   [currentFolder, pluginId],
-  async ([folder, pid]) => {
+  ([folder, pid]) => {
     if (!pid) {
       router.replace({ name: 'home' });
       return;
@@ -45,16 +56,10 @@ watch(
       return;
     }
 
-    // Восстанавливаем при перезагрузке (папка не найдена в library)
-    try {
-      const plugin = await loadPlugin(pluginIdFromSource(pid));
-      const context = createPluginContext(pid);
-      const snapshot = await plugin.load(context);
-      if (snapshot.folders.length > 0 || snapshot.tracks.length > 0) {
-        await context.writer.setLibrary(snapshot, pid);
-      }
-    } catch (err) {
-      console.warn('[FolderRoute] failed to load on reload', err);
+    // Если библиотека не пуста, но папки нет — её больше не существует.
+    // (Не делаем plugin.load — восстановление делает useAppBootstrap.)
+    if (Object.keys(library.folders).length > 0) {
+      router.replace({ name: 'home' });
     }
   },
   { immediate: true },

@@ -51,7 +51,7 @@ function onDismiss(trackId: TrackId, candidateId: string) {
   const track = library.getTrack(trackId);
   if (!track) return;
   const next = track.metadataCandidates.filter((c) => c.id !== candidateId);
-  createLibraryWriter().updateTrackMetadataCandidates(trackId, next);
+  void createLibraryWriter().updateTrackMetadataCandidates(trackId, next);
 }
 </script>
 
@@ -71,14 +71,15 @@ function onDismiss(trackId: TrackId, candidateId: string) {
         :key="track.id"
         class="flex flex-col gap-3 border-b border-hover-bg pb-4 last:border-b-0 last:pb-0"
       >
-        <!-- Заголовок: Текущий трек -->
         <div class="flex items-center gap-3">
           <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-card-bg">
             <CoverImage
-              :src="track.albumId ? library.getAlbum(track.albumId)?.coverUrl : track.coverUrl"
+              v-if="track.albumId"
+              :album-id="track.albumId"
               :alt="track.title"
               fallback-icon-class="h-5 w-5"
             />
+            <CoverImage v-else :src="track.coverUrl" :alt="track.title" fallback-icon-class="h-5 w-5" />
           </div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium text-fg">{{ track.artist }} — {{ track.title }}</p>
@@ -87,19 +88,16 @@ function onDismiss(trackId: TrackId, candidateId: string) {
           <span class="shrink-0 rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold text-active">Основной</span>
         </div>
 
-        <!-- Список кандидатов -->
         <div class="flex flex-col gap-2 pl-4">
           <div
             v-for="candidate in track.metadataCandidates"
             :key="candidate.id"
             class="flex items-center gap-3 rounded-btn bg-card-bg p-2 transition hover:bg-hover-bg"
           >
-            <!-- Обложка кандидата -->
             <div class="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-bg">
               <CoverImage :src="candidate.coverUrl" :alt="candidate.title" fallback-icon-class="h-5 w-5" />
             </div>
 
-            <!-- Текст кандидата -->
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm text-fg">
                 <span v-if="candidate.artist">{{ candidate.artist }} — </span>{{ candidate.title }}
@@ -113,7 +111,6 @@ function onDismiss(trackId: TrackId, candidateId: string) {
               </p>
             </div>
 
-            <!-- Кнопки действий -->
             <div class="flex shrink-0 items-center gap-1">
               <button
                 type="button"

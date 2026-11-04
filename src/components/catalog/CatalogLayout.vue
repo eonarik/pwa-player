@@ -77,7 +77,7 @@ const emit = defineEmits<{
     </div>
 
     <div class="shrink-0 bg-bg border-b border-hover-bg z-20">
-      <div class="mx-auto w-full max-w-3xl py-3">
+      <div class="mx-auto w-full max-w-3xl py-3 max-h-[40vh] overflow-y-auto">
         <slot name="filters" />
       </div>
     </div>

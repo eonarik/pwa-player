@@ -25,8 +25,6 @@ export async function reconcile(deps: ReconcileDeps): Promise<void> {
   const libraryIndex = buildLibraryIndex(targets);
 
   for (const v of virtual) {
-    // Защита: если у трека вообще нет sources (битый трек из старой версии),
-    // trackToPayload упадёт. Пропускаем его (его удалит cleanupOrphanTracks).
     if (v.sources.length === 0) {
       console.warn(`[reconcile] skipping track "${v.id}" with no sources`);
       continue;
@@ -48,11 +46,11 @@ export async function reconcile(deps: ReconcileDeps): Promise<void> {
 
       if (newSources.length > 0) {
         const nextSources = [...mergedSources, ...newSources].sort((a, b) => a.priority - b.priority);
-        writer.updateTrackSources(targetId, nextSources);
+        await writer.updateTrackSources(targetId, nextSources);
       }
 
       await replaceTrackId(v.id, targetId);
-      writer.removeTrack(v.id);
+      await writer.removeTrack(v.id);
 
       await saveCache(target.sources[0]?.pluginId ?? '');
     }

@@ -10,16 +10,22 @@ import {
   yandexDownloadText,
   yandexUploadText,
 } from '../../shared/yandexApi.js';
-import { resolveDiskPath, toClientPath } from './service.js';
+import { resolveDiskPath } from './service.js';
 import { isAudioFile } from '../../shared/audio.js';
 
 export const yandexRoutes = Router();
 yandexRoutes.use(requireSession);
 
 // Кеш реального пути папки приложения на Диске.
-// Яндекс возвращает элементы с полными путями (disk:/Приложения/...),
-// а мы должны отдавать фронтенду пути относительно app:/ (например, 'music').
 let appRealRoot = null;
+
+/**
+ * Скрытый файл — если имя начинается с точки И в нём есть еще одна точка.
+ * (Например, .settings.json — скрытый, а .txt — нет).
+ */
+function isHiddenFile(name) {
+  return name.startsWith('.') && name.indexOf('.', 1) !== -1;
+}
 
 yandexRoutes.get('/resources', async (req, res, next) => {
   const clientPath = typeof req.query.path === 'string' ? req.query.path : '/';
@@ -29,32 +35,38 @@ yandexRoutes.get('/resources', async (req, res, next) => {
     const path = resolveDiskPath(clientPath);
     const data = await yandexListResources(token, path);
 
-    // Если запрашиваем корень app:/, запоминаем его реальный путь на Диске.
-    // Например, data.path будет 'disk:/Приложения/CUEI media player dev'
     if (path === 'app:/' && data.path) {
       appRealRoot = data.path;
     }
 
-    // Преобразуем элементы
-    let items = (data._embedded?.items || []).map((item) => {
-      let itemPath = item.path;
+    // Фильтруем элементы и преобразуем пути
+    let items = (data._embedded?.items || [])
+      .filter((item) => {
+        // Не отдаем на фронтенд скрытые файлы
+        if (item.type === 'file' && isHiddenFile(item.name)) {
+          return false;
+        }
+        return true;
+      })
+      .map((item) => {
+        let itemPath = item.path;
 
-      // Отрезаем реальный путь приложения от пути элемента
-      if (appRealRoot && itemPath.startsWith(appRealRoot)) {
-        itemPath = itemPath.slice(appRealRoot.length);
-        if (itemPath.startsWith('/')) itemPath = itemPath.slice(1);
-      } else if (itemPath.startsWith('disk:/')) {
-        // Fallback: если по какой-то причине appRealRoot еще не установлен,
-        // хотя бы отрезаем 'disk:/', чтобы не было дубля.
-        itemPath = itemPath.replace('disk:/', '');
-      }
+        // Отрезаем реальный путь приложения от пути элемента
+        if (appRealRoot && itemPath.startsWith(appRealRoot)) {
+          itemPath = itemPath.slice(appRealRoot.length);
+          if (itemPath.startsWith('/')) itemPath = itemPath.slice(1);
+        } else if (itemPath.startsWith('disk:/')) {
+          // Fallback: если по какой-то причине appRealRoot еще не установлен,
+          // хотя бы отрезаем 'disk:/', чтобы не было дубля.
+          itemPath = itemPath.replace('disk:/', '');
+        }
 
-      return {
-        ...item,
-        path: itemPath, // Теперь это 'music' или 'music/Artist A'
-        isAudio: item.type === 'file' && isAudioFile(item.name),
-      };
-    });
+        return {
+          ...item,
+          path: itemPath,
+          isAudio: item.type === 'file' && isAudioFile(item.name),
+        };
+      });
 
     data._embedded = { ...data._embedded, items };
     data.total = items.length;

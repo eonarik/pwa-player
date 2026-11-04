@@ -21,7 +21,6 @@ export function createMetadataReset(persistence: MetadataPersistence) {
     const writer = createLibraryWriter();
 
     if (!track.raw) {
-      console.log('[reset] NO RAW METADATA, forcing reset flags');
       // Если raw нет (старый трек), сбрасываем флаги, чтобы автопоиск сработал заново
       console.warn(`[reset] track "${trackId}" has no raw metadata, forcing reset flags`);
       writer.updateTrackMetadata(trackId, {
@@ -35,9 +34,6 @@ export function createMetadataReset(persistence: MetadataPersistence) {
       resetProcessedTrack(trackId);
       return;
     }
-
-    console.log('[reset] HAS RAW METADATA', track.raw);
-
     const rawArtist = track.raw.artist;
     const rawTitle = track.raw.title;
     const rawAlbum = track.raw.album;

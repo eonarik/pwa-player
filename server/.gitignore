@@ -5,4 +5,4 @@ dist/
 
 # Папка с сессиями
 .sessions/
-server/.sessions/
+.telemetry/

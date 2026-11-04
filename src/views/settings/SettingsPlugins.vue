@@ -2,12 +2,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { activatePlugin } from '@/plugins/registry';
 import { getAllSettingsSchemas, type PluginSettingsEntry } from '@/plugins/extensions';
 import { toastService } from '@/services/ui/ToastService';
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import type { PluginManifest } from '@/plugins/types';
+
+const router = useRouter();
 
 const pluginSchemas = ref<PluginSettingsEntry[]>([]);
 const isPluginActionRunning = ref(false);
@@ -17,7 +20,7 @@ async function loadPluginSchemas(): Promise<void> {
 }
 
 async function onPluginAction(
-  manifest: PluginManifest,
+  _manifest: PluginManifest,
   runAction: PluginSettingsEntry['runAction'],
   actionId: string,
   payload?: unknown,
@@ -37,10 +40,6 @@ async function onPluginAction(
   }
 }
 
-function onPluginChange(manifest: PluginManifest, fieldId: string, value: unknown): void {
-  console.log('[settings] plugin change', manifest.id, fieldId, value);
-}
-
 onMounted(() => {
   loadPluginSchemas();
 });
@@ -56,7 +55,7 @@ function handleActivation(): void {
   if (success) {
     toastService.success('Плагин активирован! Он появится на главной.');
     activationCode.value = '';
-    setTimeout(() => window.location.reload(), 1000);
+    router.push('/');
   } else {
     toastService.error('Неверный код активации');
   }
@@ -87,7 +86,6 @@ function handleActivation(): void {
             :section="section"
             :disabled="isPluginActionRunning"
             @action="(id, payload) => onPluginAction(p.manifest, p.runAction, id, payload)"
-            @change="(id, value) => onPluginChange(p.manifest, id, value)"
           />
         </div>
       </div>

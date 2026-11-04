@@ -9,6 +9,7 @@ import type { MetadataCandidate } from '@/types/metadata';
 import type { TrackId } from '@/types/ids';
 import { newMetadataCandidateId } from '@/types/ids';
 import type { RemoteTrackMetadata } from '../TrackMetadataService';
+import type { TrackMetadata } from '../types';
 import type { ApplyResult, ManualPatch } from './types';
 import type { MetadataPersistence } from './persistence';
 
@@ -81,9 +82,6 @@ export function createMetadataApply(persistence: MetadataPersistence) {
       writer.addOrUpdateAlbum(albumRes.album);
     }
 
-    // Разрешаем перезапись:
-    // artist — только если строгое совпадение артиста или force (ручной поиск)
-    // title — если полное строгое совпадение, или артист строгий (чтобы обновить название), или force
     const canOverwriteArtist = (isArtistStrict || force) && (!track.hasMetadataEdits || force);
     const canOverwriteTitle = (allowMetadataOverwrite || isArtistStrict || force) && (!track.hasMetadataEdits || force);
 
@@ -110,7 +108,14 @@ export function createMetadataApply(persistence: MetadataPersistence) {
     persistence.saveCacheForTrack(track);
   }
 
-  function applyFromFile(trackId: TrackId, parsed: import('../types').TrackMetadata): void {
+  /**
+   * Применяет метаданные из ID3 (парсинг файла).
+   *
+   * @param trackId — id трека
+   * @param parsed — метаданные из ID3 (без обложки)
+   * @param coverBlob — Blob обложки из ID3 (или null)
+   */
+  function applyFromFile(trackId: TrackId, parsed: TrackMetadata, coverBlob: Blob | null = null): void {
     const library = useLibraryStore();
     const track = library.getTrack(trackId);
     if (!track) return;
@@ -129,17 +134,21 @@ export function createMetadataApply(persistence: MetadataPersistence) {
     const nextTitle = isManual ? track.title : parsed.title || track.title;
     const nextAlbum = isManual ? (track.raw?.album ?? '') : parsed.album || track.raw?.album || '';
 
-    const albumRes = resolveAlbumByName(
-      nextAlbum,
-      nextArtist,
-      parsed.coverUrl ?? track.raw?.coverUrl ?? null,
-      Object.values(library.albums),
-    );
+    const albumRes = resolveAlbumByName(nextAlbum, nextArtist, parsed.coverUrl ?? null, Object.values(library.albums));
 
     const nextAlbumId = albumRes?.album.id ?? track.albumId;
 
     if (albumRes?.album) {
       writer.addOrUpdateAlbum(albumRes.album);
+    }
+
+    // Blob из ID3 — только в Album.coverBlob (если есть альбом).
+    // «Кто первый» — не перезаписываем существующий.
+    if (coverBlob && nextAlbumId) {
+      const album = library.getAlbum(nextAlbumId);
+      if (album && !album.coverBlob) {
+        writer.addOrUpdateAlbum({ ...album, coverBlob });
+      }
     }
 
     const nextRaw = track.raw ?? {
@@ -153,7 +162,7 @@ export function createMetadataApply(persistence: MetadataPersistence) {
       artist: nextArtist,
       title: nextTitle,
       albumId: nextAlbumId,
-      coverUrl: nextAlbumId ? null : (parsed.coverUrl ?? track.coverUrl),
+      coverUrl: nextAlbumId ? null : (parsed.coverUrl ?? track.coverUrl ?? null),
       hasId3Tags: parsed.hasId3Tags || track.hasId3Tags,
       duration: parsed.duration ?? track.duration,
       codec: parsed.codec ?? track.codec,

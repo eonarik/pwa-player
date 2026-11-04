@@ -5,7 +5,14 @@ import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
+import {
+  isScanning,
+  isPending,
+  isError,
+  isScanned,
+  getErrorMessage,
+  getProgress,
+} from '@/utils/folderStatus';
 import { pluralize } from '@/utils/pluralize';
 import ListRow from '@/components/ui/ListRow.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -43,30 +50,26 @@ const isActive = computed(() => {
   return false;
 });
 
-const status = computed(() => folderStatusService.getStatus(props.folder.id));
-const isScanning = computed(() => status.value === 'scanning');
-const isPending = computed(() => status.value === 'pending' || status.value === null);
-const isError = computed(() => status.value === 'error');
+const status = computed(() => props.folder.scanState);
+const scanning = computed(() => isScanning(props.folder));
+const pending = computed(() => isPending(props.folder) || status.value === null);
+const error = computed(() => isError(props.folder));
 
-const errorMessage = computed(() => (isError.value ? folderStatusService.getErrorMessage(props.folder.id) : null));
-const progress = computed(() => (isScanning.value ? folderStatusService.getProgress(props.folder.id) : null));
+const errorMessage = computed(() => (error.value ? getErrorMessage(props.folder) : null));
+const progress = computed(() => (scanning.value ? getProgress(props.folder) : null));
 
-const canPlay = computed(() => status.value === 'scanned' && stats.value.tracks > 0);
+const stats = computed(() => folderStats.value.get(props.folder.id) || { folders: 0, tracks: 0 });
 
-// Берем из готового индекса
-const stats = computed(() => {
-  return folderStats.value.get(props.folder.id) || { folders: 0, tracks: 0 };
-});
+const canPlay = computed(() => isScanned(props.folder) && stats.value.tracks > 0);
 
 const displayLabel = computed(() => {
-  if (isScanning.value) {
+  if (scanning.value) {
     const p = progress.value;
     if (p && p.total > 0) return `Синхронизировано ${p.done} из ${p.total}`;
-    if (p && p.total === 0 && p.done === 0) return 'Синхронизация...';
     return 'Синхронизация...';
   }
-  if (isError.value) return 'Ошибка синхронизации';
-  if (isPending.value) return 'Ожидает синхронизации';
+  if (error.value) return 'Ошибка синхронизации';
+  if (pending.value) return 'Ожидает синхронизации';
 
   const parts: string[] = [];
   if (stats.value.folders > 0) parts.push(pluralize(stats.value.folders, ['папка', 'папки', 'папок']));
@@ -75,13 +78,13 @@ const displayLabel = computed(() => {
 });
 
 const labelClass = computed(() => {
-  if (isError.value) return 'text-red-400';
-  if (isScanning.value || isPending.value) return 'text-amber-400';
+  if (error.value) return 'text-red-400';
+  if (scanning.value || pending.value) return 'text-amber-400';
   return 'text-fg-muted';
 });
 
 const labelTooltip = computed(() => {
-  if (isError.value && errorMessage.value) return errorMessage.value;
+  if (error.value && errorMessage.value) return errorMessage.value;
   return undefined;
 });
 
@@ -104,32 +107,32 @@ function onRowClick(): void {
           :class="[
             canPlay
               ? 'bg-card-bg text-fg-muted hover:bg-active/15 hover:text-active cursor-pointer'
-              : isError
+              : error
                 ? 'bg-red-500/10 text-red-400 cursor-pointer'
                 : 'bg-card-bg text-fg-disabled cursor-not-allowed',
           ]"
-          :aria-label="canPlay ? `Играть папку ${folder.name}` : isError ? 'Повторить скан' : 'Недоступно'"
+          :aria-label="canPlay ? `Играть папку ${folder.name}` : error ? 'Повторить скан' : 'Недоступно'"
           v-tooltip="
-            isScanning
+            scanning
               ? 'Синхронизация...'
               : canPlay
                 ? 'Играть всё'
-                : isError
+                : error
                   ? 'Обновить'
-                  : isPending
+                  : pending
                     ? 'Ожидает синхронизации'
                     : 'Нет доступных треков'
           "
-          @click.stop="isError ? emit('retry', folder) : onPlayClick($event)"
+          @click.stop="error ? emit('retry', folder) : onPlayClick($event)"
         >
-          <Spinner v-if="isScanning" size="sm" />
-          <Icon v-else-if="isError" name="refresh" w="w-5" h="w-5" />
+          <Spinner v-if="scanning" size="sm" />
+          <Icon v-else-if="error" name="refresh" w="w-5" h="w-5" />
           <Icon v-else name="play" w="w-5" h="w-5" class="translate-x-[1px]" />
         </div>
 
         <div
           class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn"
-          :class="isError ? 'bg-red-500/10 text-red-400' : 'bg-card-bg text-fg-muted'"
+          :class="error ? 'bg-red-500/10 text-red-400' : 'bg-card-bg text-fg-muted'"
         >
           <Icon name="folder" w="w-5" h="w-5" />
         </div>

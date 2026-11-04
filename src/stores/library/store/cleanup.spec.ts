@@ -157,6 +157,8 @@ describe('cleanupOrphanTracks', () => {
       parentId: null,
       urlPath: '',
       trackIds: [track.id],
+      scanState: 'scanned',
+      scanStateUpdatedAt: Date.now(),
     };
 
     library.cleanupOrphanTracks({}, { playedAt: {} }, { dislikedAt: {} }, []);

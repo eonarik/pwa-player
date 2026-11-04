@@ -54,7 +54,6 @@ const isStreaming = computed(() => isStreamingPlugin(primaryPluginId.value));
 const hasMetadataEdits = computed(() => Boolean(props.track.hasMetadataEdits));
 
 function openMetadataEditor(close: () => void): void {
-  if (isStreaming.value) return;
   const libTrack = library.getTrack(props.track.id);
   if (!libTrack) {
     toastService.error('Трек не найден в библиотеке');
@@ -90,7 +89,6 @@ async function removeMetadata(close: () => void): Promise<void> {
 }
 
 async function findMetadata(close: () => void): Promise<void> {
-  if (isStreaming.value) return;
   if (isSearchingMetadata.value) return;
 
   const libraryTrack = library.getTrack(props.track.id);
@@ -118,9 +116,7 @@ async function findMetadata(close: () => void): Promise<void> {
   close();
 
   try {
-    console.log('[findMetadata] called for', libraryTrack.id);
     const result = await metadataService.fetchAndApply(libraryTrack.id, undefined, true);
-    console.log('[findMetadata] result', result);
 
     if (result.status === 'applied') {
       toastService.success('Метаданные обновлены');
@@ -246,7 +242,7 @@ function removeFromQueue(close: () => void): void {
           <Divider />
         </template>
 
-        <template v-if="!isLive && !isLinear && !isStreaming">
+        <template v-if="!isLive && !isLinear">
           <button
             type="button"
             class="block w-full px-4 py-1.5 text-left text-sm text-fg transition hover:bg-hover-bg hover:text-fg-muted disabled:opacity-50"
@@ -266,6 +262,7 @@ function removeFromQueue(close: () => void): void {
               Редактировать метаданные
             </button>
             <button
+              v-if="!isStreaming"
               type="button"
               class="block w-full px-4 py-1.5 text-left text-xs text-red-400 transition hover:bg-hover-bg"
               @click="removeMetadata(close)"

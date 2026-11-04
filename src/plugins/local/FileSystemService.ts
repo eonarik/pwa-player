@@ -140,6 +140,7 @@ export class FileSystemService {
         parentId,
         name: handle.name,
         urlPath: path,
+        scanState: 'scanned',
       });
 
       for (const fileHandle of fileEntries) {

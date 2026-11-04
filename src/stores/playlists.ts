@@ -8,7 +8,7 @@ import type { PlaylistId, TrackId } from '@/types/ids';
 import { newPlaylistId } from '@/types/ids';
 import { useLibraryStore } from './library';
 import { createLibraryWriter } from './library';
-import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
+import { merge, apply, buildLibraryIndex, saveCachesForPlugins } from '@/services/library/TrackMerger';
 import type { Track } from '@/types/track';
 import { useUiSettingsStore } from './uiSettings';
 
@@ -104,6 +104,7 @@ export const usePlaylistsStore = defineStore('playlists', () => {
     const now = Date.now();
 
     const libraryIndex = buildLibraryIndex(Object.values(library.tracks));
+    const pluginIdsToSave = new Set<string>();
 
     for (const track of tracks) {
       const incoming = {
@@ -123,31 +124,14 @@ export const usePlaylistsStore = defineStore('playlists', () => {
         threshold: uiSettings.playlistMatchThreshold,
       });
 
-      await apply(mergeResult, {
-        writer,
-        saveCache: async () => {
-          const pid = mergeResult.track.sources[0]?.pluginId;
-          if (pid) {
-            const { loadPlugin } = await import('@/plugins/registry');
-            const { createPluginContext } = await import('@/plugins/context');
-            try {
-              const plugin = await loadPlugin(pid);
-              if (plugin.saveCache) {
-                await plugin.saveCache(createPluginContext(pid));
-              }
-            } catch (err) {
-              console.warn(`[playlists] saveCache failed for ${pid}`, err);
-            }
-          }
-        },
-      });
+      const pid = apply(mergeResult, { writer });
+      if (pid) pluginIdsToSave.add(pid);
 
       if (!playlist.trackIds.includes(mergeResult.track.id)) {
         playlist.trackIds.push(mergeResult.track.id);
         added++;
       }
 
-      // Добавляем в индекс для последующих треков
       const artistKey = (mergeResult.track.artist || '').trim().toLowerCase();
       const list = libraryIndex.get(artistKey) || [];
       if (!list.some((t) => t.id === mergeResult.track.id)) {
@@ -158,6 +142,10 @@ export const usePlaylistsStore = defineStore('playlists', () => {
 
     if (added > 0) {
       playlist.updatedAt = now;
+    }
+
+    if (pluginIdsToSave.size > 0) {
+      await saveCachesForPlugins(Array.from(pluginIdsToSave));
     }
 
     return added;

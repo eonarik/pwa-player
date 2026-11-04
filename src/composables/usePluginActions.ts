@@ -10,6 +10,7 @@ import { toastService } from '@/services/ui/ToastService';
 import { audioService } from '@/services/audio/AudioService';
 import type { PluginManifest, PluginSnapshot } from '@/plugins/types';
 import type { FolderRef } from '@/types/folder';
+import { urlPathToSegments } from '@/utils/urlPath';
 
 export interface OpenPluginOptions {
   localOnly?: boolean;
@@ -37,12 +38,10 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
 
     let snapshot: PluginSnapshot | null = null;
 
-    // Если это "Открыть локально" и плагин умеет восстанавливаться из файлов
     if (options?.localOnly && plugin.restoreFromLocalFiles) {
       snapshot = await plugin.restoreFromLocalFiles(context);
     }
 
-    // Если не удалось восстановить локально (или это обычное открытие) — загружаем через API
     if (!snapshot) {
       snapshot = await plugin.load(context);
     }
@@ -59,7 +58,7 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
       name: 'folder',
       params: {
         pluginId: manifest.id,
-        path: root.urlPath ? root.urlPath.split('/') : [],
+        path: urlPathToSegments(root.urlPath),
       },
     });
   }

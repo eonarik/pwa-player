@@ -6,7 +6,7 @@ import type { PluginSnapshot } from '@/types/plugin';
 import type { Track } from '@/types/track';
 import type { FolderId, TrackId } from '@/types/ids';
 import { useLibraryStore } from '../store';
-import { mergeMany, applyMany } from '@/services/library/TrackMerger';
+import { mergeMany, applyMany, saveCachesForPlugins } from '@/services/library/TrackMerger';
 import {
   addTracks,
   removeTrack,
@@ -16,36 +16,69 @@ import {
   updateTrackMetadata,
 } from './tracks';
 import { addAlbums, addOrUpdateAlbum, removeAlbum } from './albums';
-import { setFolders, removeFolderRef, removeFoldersBySource } from './folders';
+import {
+  setFolders,
+  removeFolderRef,
+  removeFoldersBySource,
+  setFolderScanState,
+  updateFolderScanProgress,
+} from './folders';
 import { matchesSource } from './helpers';
-import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
-import { createPluginContext } from '@/plugins/context';
 import { useUiSettingsStore } from '@/stores/uiSettings';
+import { telemetry } from '@/services/telemetry';
 
-async function saveCache(pluginId: string): Promise<void> {
-  if (!pluginId) return;
-  try {
-    const plugin = await loadPlugin(pluginIdFromSource(pluginId));
-    if (plugin.saveCache) {
-      const context = createPluginContext(pluginIdFromSource(pluginId));
-      await plugin.saveCache(context);
+function cleanupForceScanInternal(
+  s: ReturnType<typeof useLibraryStore>,
+  subtreeIds: Set<FolderId>,
+  snapshot: PluginSnapshot,
+): void {
+  const snapshotRemotePaths = new Set<string>();
+  for (const t of snapshot.tracks) {
+    if (t.source.kind === 'cloud') {
+      snapshotRemotePaths.add(t.source.remotePath);
     }
-  } catch (err) {
-    console.warn(`[writer] failed to save cache for ${pluginId}`, err);
+  }
+
+  const tracksToRemove: TrackId[] = [];
+  for (const track of Object.values(s.tracks)) {
+    let changed = false;
+    const nextSources = track.sources.filter((src) => {
+      if (src.kind !== 'cloud') return true;
+      if (!subtreeIds.has(src.folderId)) return true;
+      if (snapshotRemotePaths.has(src.remotePath)) return true;
+      changed = true;
+      return false;
+    });
+
+    if (changed) {
+      if (nextSources.length === 0) {
+        tracksToRemove.push(track.id);
+      } else {
+        updateTrackSources(s, track.id, nextSources);
+      }
+    }
+  }
+
+  for (const id of tracksToRemove) {
+    removeTrack(s, id);
+  }
+
+  const snapshotFolderIds = new Set<FolderId>();
+  for (const f of snapshot.folders) snapshotFolderIds.add(f.id);
+
+  const startFolderId = findStartFolderId(subtreeIds);
+  for (const id of subtreeIds) {
+    if (id === startFolderId) continue;
+    if (snapshotFolderIds.has(id)) continue;
+    removeFolderRef(s, id);
   }
 }
-
-/**
- * Мьютекс на `setLibrary`. Сериализует параллельные вызовы
- * (например, `onChunk` из scanAll + force scan) — предотвращает
- * race condition при создании альбомов (см. 0.13.2).
- */
-let setLibraryChain: Promise<void> = Promise.resolve();
 
 export function createLibraryWriter(): LibraryWriter {
   const store = (): ReturnType<typeof useLibraryStore> => useLibraryStore();
 
   const self: LibraryWriter = {
+    // --- Чтение ---
     getTrack(id) {
       return store().tracks[id] ?? null;
     },
@@ -65,80 +98,87 @@ export function createLibraryWriter(): LibraryWriter {
       return Object.values(store().albums);
     },
 
-    addAlbums(albums: Album[]) {
+    // --- Мутаторы: sync-часть + Promise.resolve() (контракт Promise<void>) ---
+    async addAlbums(albums: Album[]) {
       addAlbums(store(), albums);
     },
-    addOrUpdateAlbum(album: Album) {
+    async addOrUpdateAlbum(album: Album) {
       addOrUpdateAlbum(store(), album);
     },
-    removeAlbum(id) {
+    async removeAlbum(id) {
       removeAlbum(store(), id);
     },
 
-    addFolders(folders, sourceId) {
+    async addFolders(folders, sourceId) {
       setFolders(store(), folders, sourceId);
     },
 
-    addTracks(tracks, sourceId) {
+    async addTracks(tracks, sourceId) {
       addTracks(store(), tracks, sourceId);
     },
-    removeTrack(id) {
+    async removeTrack(id) {
       removeTrack(store(), id);
     },
-    updateTrackSources(id, sources) {
+    async updateTrackSources(id, sources) {
       updateTrackSources(store(), id, sources);
     },
-    updateTrackAlbumId(id, albumId) {
+    async updateTrackAlbumId(id, albumId) {
       updateTrackAlbumId(store(), id, albumId);
     },
-    updateTrackMetadataCandidates(id, candidates) {
+    async updateTrackMetadataCandidates(id, candidates) {
       updateTrackMetadataCandidates(store(), id, candidates);
     },
-    updateTrackMetadata(id, patch) {
+    async updateTrackMetadata(id, patch) {
       updateTrackMetadata(store(), id, patch);
     },
 
-    async setLibrary(snapshot: PluginSnapshot, sourceId: string) {
-      // Мьютекс: сериализуем параллельные вызовы.
-      const prev = setLibraryChain;
-      let resolveChain!: () => void;
-      setLibraryChain = new Promise<void>((r) => {
-        resolveChain = r;
+    async setLibrary(snapshot: PluginSnapshot, sourceId: string, opts?: { cleanupSubtree?: Set<FolderId> }) {
+      const startTs = performance.now();
+      telemetry.event('writer.setLibrary.start', {
+        sourceId,
+        tracks: snapshot.tracks.length,
+        folders: snapshot.folders.length,
       });
 
-      await prev;
       try {
-        await applySetLibrary(store(), self, snapshot, sourceId);
-      } finally {
-        resolveChain();
+        const pluginIds = applySetLibrary(store(), self, snapshot, sourceId, opts?.cleanupSubtree);
+        await saveCachesForPlugins(pluginIds);
+
+        telemetry.event('writer.setLibrary.done', {
+          sourceId,
+          ms: Math.round(performance.now() - startTs),
+        });
+      } catch (err) {
+        telemetry.event('writer.setLibrary.error', {
+          sourceId,
+          ms: Math.round(performance.now() - startTs),
+          msg: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
+        });
+        throw err;
       }
     },
 
-    removeBySource(sourceId) {
+    async removeBySource(sourceId: string) {
       const s = store();
-
       removeFoldersBySource(s, sourceId);
-
       for (const track of Object.values(s.tracks)) {
         const remainingSources = track.sources.filter((src) => !matchesSource(src.pluginId, sourceId));
-
         if (remainingSources.length !== track.sources.length) {
           updateTrackSources(s, track.id, remainingSources);
         }
       }
-
       s.reconcileFolderTrackIds();
     },
 
-    removeFolderRef(id) {
+    async removeFolderRef(id) {
       removeFolderRef(store(), id);
     },
 
-    reconcileFolderTrackIds() {
+    async reconcileFolderTrackIds() {
       store().reconcileFolderTrackIds();
     },
 
-    removeCloudSourcesInFolders(subtreeIds: Set<FolderId>) {
+    async removeCloudSourcesInFolders(subtreeIds: Set<FolderId>) {
       const s = store();
       const tracksToUpdate: TrackId[] = [];
 
@@ -156,77 +196,22 @@ export function createLibraryWriter(): LibraryWriter {
       }
     },
 
-    cleanupForceScan(subtreeIds: Set<FolderId>, snapshot: PluginSnapshot) {
-      const s = store();
-
-      // 1. Множество remotePath из snapshot (для проверки «трек ещё есть в облаке»).
-      const snapshotRemotePaths = new Set<string>();
-      for (const t of snapshot.tracks) {
-        if (t.source.kind === 'cloud') {
-          snapshotRemotePaths.add(t.source.remotePath);
-        }
-      }
-
-      // 2. Удаляем cloud-sources в поддереве, чьих remotePath нет в snapshot.
-      const tracksToRemove: TrackId[] = [];
-      for (const track of Object.values(s.tracks)) {
-        let changed = false;
-        const nextSources = track.sources.filter((src) => {
-          if (src.kind !== 'cloud') return true;
-          if (!subtreeIds.has(src.folderId)) return true;
-          // cloud-source в поддереве — оставляем, если remotePath есть в snapshot.
-          if (snapshotRemotePaths.has(src.remotePath)) return true;
-          changed = true;
-          return false;
-        });
-
-        if (changed) {
-          if (nextSources.length === 0) {
-            tracksToRemove.push(track.id);
-          } else {
-            updateTrackSources(s, track.id, nextSources);
-          }
-        }
-      }
-
-      // 3. Удаляем треки без sources, которые не используются.
-      //    (Полная проверка использования — в cleanupOrphanTracks на bootstrap,
-      //    здесь удаляем только те, у кого sources пусты и нет albumId-«якоря».)
-      for (const id of tracksToRemove) {
-        const track = s.tracks[id];
-        if (!track) continue;
-        // Если у трека есть albumId, но нет sources — он «мёртвый», но альбом
-        // может быть нужен. Удаляем трек, альбом почистит cleanupOrphanAlbums.
-        removeTrack(s, id);
-      }
-
-      // 4. Удаляем папки поддерева, которых нет в snapshot.
-      const snapshotFolderIds = new Set<FolderId>();
-      for (const f of snapshot.folders) snapshotFolderIds.add(f.id);
-      snapshotFolderIds.add(snapshot.folders[0]?.parentId ?? (undefined as never)); // защита
-      // На самом деле стартовая папка не в snapshot.folders (её не пушит scanAll),
-      // поэтому просто проверим, что папка в subtreeIds и нет в snapshotFolderIds.
-      // Стартовую папку не трогаем — она «якорь».
-      const startFolderId = findStartFolderId(subtreeIds);
-      for (const id of subtreeIds) {
-        if (id === startFolderId) continue; // не удаляем стартовую
-        if (snapshotFolderIds.has(id)) continue;
-        removeFolderRef(s, id);
-      }
+    async cleanupOrphanAlbums() {
+      store().cleanupOrphanAlbums();
     },
 
-    cleanupOrphanAlbums() {
-      store().cleanupOrphanAlbums();
+    async setFolderScanState(id, state, opts) {
+      setFolderScanState(store(), id, state, opts);
+    },
+
+    async updateFolderScanProgress(id, progress) {
+      updateFolderScanProgress(store(), id, progress);
     },
   };
 
   return self;
 }
 
-/**
- * Находит «стартовую» папку поддерева — ту, у которой `parentId` не входит в `subtreeIds`.
- * Обычно это сама папка force scan.
- */
 function findStartFolderId(subtreeIds: Set<FolderId>): FolderId | null {
   const s = useLibraryStore();
   for (const id of subtreeIds) {
@@ -237,12 +222,13 @@ function findStartFolderId(subtreeIds: Set<FolderId>): FolderId | null {
   return null;
 }
 
-async function applySetLibrary(
+function applySetLibrary(
   s: ReturnType<typeof useLibraryStore>,
   writer: LibraryWriter,
   snapshot: PluginSnapshot,
   sourceId: string,
-): Promise<void> {
+  cleanupSubtree?: Set<FolderId>,
+): string[] {
   const uiSettings = useUiSettingsStore();
 
   if (snapshot.removedSourceIds && snapshot.removedSourceIds.length > 0) {
@@ -250,7 +236,6 @@ async function applySetLibrary(
     for (const track of Object.values(s.tracks)) {
       const nextSources = track.sources.filter((src) => !toRemove.has(src.id));
       if (nextSources.length === track.sources.length) continue;
-
       if (nextSources.length === 0) {
         removeTrack(s, track.id);
       } else {
@@ -281,8 +266,12 @@ async function applySetLibrary(
     threshold: uiSettings.playlistMatchThreshold,
   });
 
-  await applyMany(mergeResult, {
-    writer,
-    saveCache,
-  });
+  const pluginIds = applyMany(mergeResult, { writer });
+
+  // Синхронный cleanup — в той же мутации, чтобы Vue не рендерил промежуточное состояние.
+  if (cleanupSubtree && cleanupSubtree.size > 0) {
+    cleanupForceScanInternal(s, cleanupSubtree, snapshot);
+  }
+
+  return pluginIds;
 }

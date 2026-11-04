@@ -8,7 +8,6 @@ import { newFolderId } from '@/types/ids';
 import { fileSystemService } from './FileSystemService';
 import { localPersistenceService } from './persistence';
 import { newTrackId, newTrackSourceId } from '@/types/ids';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
 
 const PLUGIN_ID = 'local';
 const CONNECTED_KEY = 'local-connected';
@@ -79,14 +78,17 @@ const localPlugin: LibrarySource = {
     await context.storage.set(FOLDER_MAP_KEY, newFolderMap);
     await context.storage.set(ROOT_FOLDER_ID_KEY, rootFolderId);
 
-    // Сохраняем в локальный кэш (для восстановления без диска)
-    // Используем structuredClone для глубокого снятия Proxy,
-    // так как JSON.stringify убивает FileSystemFileHandle
     const safeFolders = structuredClone(toRaw(allFolders));
     const safeTracks = structuredClone(toRaw(allTracks));
 
     await localPersistenceService.save({
-      folders: safeFolders.map((f) => ({ ...f, pluginId: PLUGIN_ID, trackIds: f.trackIds || [] })),
+      folders: safeFolders.map((f) => ({
+        ...f,
+        pluginId: PLUGIN_ID,
+        trackIds: f.trackIds || [],
+        scanState: 'scanned',
+        scanStateUpdatedAt: Date.now(),
+      })),
       tracks: safeTracks.map((t) => ({
         id: newTrackId(),
         pluginId: PLUGIN_ID,
@@ -114,11 +116,6 @@ const localPlugin: LibrarySource = {
       savedAt: Date.now(),
     });
 
-    // Регистрируем папки как scanned, так как локальный скан происходит мгновенно
-    for (const f of allFolders) {
-      folderStatusService.register(f.id, 'scanned');
-    }
-
     return { folders: allFolders, tracks: allTracks };
   },
 
@@ -126,17 +123,14 @@ const localPlugin: LibrarySource = {
     const persisted = await localPersistenceService.load();
     if (!persisted || persisted.folders.length === 0) return null;
 
-    // Регистрируем папки из кеша как scanned
-    for (const f of persisted.folders) {
-      folderStatusService.register(f.id as FolderId, 'scanned');
-    }
-
     return {
       folders: persisted.folders.map((f) => ({
         id: f.id as FolderId,
         parentId: f.parentId as FolderId | null,
         name: f.name,
         urlPath: f.urlPath,
+        scanState: 'scanned',
+        scanStateUpdatedAt: Date.now(),
       })),
       tracks: persisted.tracks.map((t) => {
         const firstSource = t.sources[0];
@@ -181,9 +175,6 @@ const localPlugin: LibrarySource = {
     await localPersistenceService.clear();
     await fileSystemService.clearHandles();
     await context.storage.clear();
-    // На самом деле, лучше удалять только папки этого плагина, но так как
-    // folderStatusService не знает о pluginId, удалим все (в рамках disconnect)
-    folderStatusService.clear();
   },
 };
 

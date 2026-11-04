@@ -4,24 +4,10 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import { NO_ALBUM_LABEL, NO_ALBUM_SLUG } from '@/utils/artists';
 import { MENU_ITEMS } from './menu';
 
-/**
- * Возвращает заголовок страницы для FullPlayer.
- *
- * Логика:
- * 1. Если route.name есть в MENU_ITEMS — берём label.
- * 2. Иначе — динамические роуты:
- *    - 'folder' → имя текущей папки.
- *    - 'playlist' → имя плейлиста.
- *    - 'artist' → artistName.
- *    - 'album' → '{artistName} — {album}'.
- * 3. Fallback — 'Плеер'.
- *
- * Зависимости (library, playlists) передаются снаружи, чтобы хелпер
- * оставался чистым и не тащил Pinia-сторы.
- */
 export interface PageTitleContext {
   folderName: string | null;
   playlistName: string | null;
+  albumName: string | null;
 }
 
 export function getPageTitle(route: RouteLocationNormalizedLoaded, ctx: PageTitleContext): string {
@@ -37,9 +23,10 @@ export function getPageTitle(route: RouteLocationNormalizedLoaded, ctx: PageTitl
       return String(route.params.artistName ?? 'Артист');
     case 'album': {
       const artistName = String(route.params.artistName ?? '');
-      const album = String(route.params.album ?? '');
-      if (album === NO_ALBUM_SLUG) return `${artistName} — ${NO_ALBUM_LABEL}`;
-      return `${artistName} — ${album}`;
+      const albumParam = String(route.params.album ?? '');
+      if (albumParam === NO_ALBUM_SLUG) return `${artistName} — ${NO_ALBUM_LABEL}`;
+      const albumName = ctx.albumName ?? 'Альбом';
+      return artistName ? `${artistName} — ${albumName}` : albumName;
     }
     default:
       return 'Плеер';

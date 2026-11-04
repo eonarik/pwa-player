@@ -40,7 +40,6 @@ export class MetadataPersistenceService {
         }
       }
       this.isLoaded = true;
-      console.info(`[MetadataPersistence] loaded ${this.cache.size} entries`);
     } catch (err) {
       console.error('[MetadataPersistence] failed to load', err);
     }

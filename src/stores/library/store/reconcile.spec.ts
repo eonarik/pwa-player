@@ -31,6 +31,8 @@ function makeFolder(overrides: Partial<FolderRef> = {}): FolderRef {
     parentId: null,
     urlPath: '',
     trackIds: [],
+    scanState: 'scanned',
+    scanStateUpdatedAt: Date.now(),
     ...overrides,
   };
 }

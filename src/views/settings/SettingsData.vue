@@ -14,10 +14,12 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
 import SettingsActionRow from '@/components/ui/SettingsActionRow.vue';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
+import { useLibraryStore } from '@/stores/library';
+import { coverBlobCache } from '@/services/covers/CoverBlobCache';
 
 const history = useHistoryStore();
 const dislikes = useDislikesStore();
+const library = useLibraryStore();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const isExporting = ref(false);
@@ -34,8 +36,6 @@ const selectedDomains = computed<BackupDomain[]>(() => {
   if (checkSettings.value) list.push('settings');
   return list;
 });
-
-// --- Очистка --------------------------------------------------------
 
 function clearHistory(): void {
   if (!window.confirm('Очистить историю воспроизведения?')) return;
@@ -59,20 +59,16 @@ async function resetAll(): Promise<void> {
   if (!window.confirm('Сбросить все данные приложения? Действие необратимо.')) return;
 
   try {
-    // 0. Чистим статусы папок (in-memory + localStorage)
-    folderStatusService.clear();
-
-    // 1. Отключаем Яндекс ID
     yandexSelfService.logout();
 
-    // 2. Чистим localStorage и sessionStorage
+    library.clear();
+    await coverBlobCache.clear();
+
     localStorage.clear();
     sessionStorage.clear();
 
-    // 3. Пытаемся удалить основные базы IDB
     await schemaService.clearAll();
 
-    // 4. Удаляем базу плагинов асинхронно, не блокируя UI
     indexedDB.deleteDatabase('cuei-plugins');
   } catch (err) {
     console.error('[resetAll] failed to clear data', err);
@@ -83,8 +79,6 @@ async function resetAll(): Promise<void> {
     }, 500);
   }
 }
-
-// --- Экспорт / импорт -----------------------------------------------
 
 async function exportBackup(): Promise<void> {
   if (isExporting.value) return;

@@ -148,7 +148,7 @@ class ApiClient {
     };
 
     try {
-      return await fetch(url, { ...init, headers });
+      return await fetch(url, { credentials: 'include', ...init, headers });
     } catch (err) {
       throw new NetworkError(err);
     }

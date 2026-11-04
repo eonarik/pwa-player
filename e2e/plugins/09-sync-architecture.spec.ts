@@ -124,7 +124,7 @@ async function mockYandexDiskConfigurable(
   return { requests };
 }
 
-/** Дождаться, пока статус папки не станет ожидаемым. */
+/** Дождаться, пока статус папки не станет ожидаемым (читает IDB player:library). */
 async function waitForFolderStatus(page: Page, folderId: string, status: string, timeout = 15_000): Promise<void> {
   await expect
     .poll(
@@ -137,17 +137,16 @@ async function waitForFolderStatus(page: Page, folderId: string, status: string,
     .toBe(status);
 }
 
-/** Прочитать все статусы папок из localStorage. */
+/** Прочитать scanState всех папок из IDB player:library. */
 async function getFolderStatuses(page: Page): Promise<Record<string, { status: string; errorMessage?: string }>> {
   return await page.evaluate(() => {
-    const raw = localStorage.getItem('player:folderStatuses');
-    if (!raw) return {};
-    try {
-      const parsed = JSON.parse(raw) as { entries?: Record<string, { status: string; errorMessage?: string }> };
-      return parsed.entries ?? {};
-    } catch {
-      return {};
+    const lib = (window as any).__library?.();
+    if (!lib?.folders) return {};
+    const result: Record<string, { status: string; errorMessage?: string }> = {};
+    for (const [id, f] of Object.entries(lib.folders as Record<string, any>)) {
+      result[id] = { status: f.scanState, errorMessage: f.scanError };
     }
+    return result;
   });
 }
 
@@ -378,44 +377,36 @@ test.describe('B. Повторное открытие', () => {
       ],
     });
 
-    // 1. Первичное подключение — 1-й запрос к корню
     await connectYandex(page);
     await expect(page).toHaveURL(/\/folder\/yandex/);
     const musicId = await findFolderIdByPath(page, 'Music');
     await waitForFolderStatus(page, musicId, 'scanned', 10_000);
 
-    // 2. Очищаем foldersCache + pathMap в IDB
-    await page.evaluate(async () => {
-      return new Promise<void>((resolve, reject) => {
-        const req = indexedDB.open('keyval-store');
-        req.onsuccess = () => {
-          const db = req.result;
-          const tx = db.transaction('keyval', 'readwrite');
-          const store = tx.objectStore('keyval');
-          store.delete('yandex:yandex:foldersCache');
-          store.delete('yandex:yandex:pathMap');
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        };
-        req.onerror = () => reject(req.error);
-      });
+    // Очищаем кэш через initScript, чтобы приложение не успело его перезаписать.
+    await page.addInitScript(() => {
+      const dbs = indexedDB.open('keyval-store');
+      dbs.onsuccess = () => {
+        const db = dbs.result;
+        const tx = db.transaction('keyval', 'readwrite');
+        tx.objectStore('keyval').delete('yandex:yandex:foldersCache');
+        tx.objectStore('keyval').delete('yandex:yandex:pathMap');
+      };
     });
 
-    // 3. F5 — сбрасывает in-memory storage.loaded
+    // F5 — сбрасывает in-memory storage.loaded
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitForAppBootstrap(page);
 
-    // 4. F5 оставил нас на /folder/yandex. Переходим на / для openYandex.
+    // F5 оставил нас на /folder/yandex. Переходим на / для openYandex.
     await page.goto('/');
     await waitForAppBootstrap(page);
 
     const before = countRequestsForPath(requests, '/');
 
-    // 5. Открываем плагин — doOpenPlugin → load() → ветка 3 (IDB пуст) → scanAll(корень)
+    // Открываем плагин
     await openYandex(page);
     await expect(page).toHaveURL(/\/folder\/yandex/);
 
-    // 6. Проверяем, что был ещё хотя бы 1 запрос к корню
     await expect.poll(() => countRequestsForPath(requests, '/'), { timeout: 5000 }).toBeGreaterThan(before);
   });
 
@@ -825,6 +816,47 @@ test.describe('H. Кеш и F5', () => {
 
     // После F5 доскан стартует — 2-й запрос к Slow
     await expect.poll(() => countRequestsForPath(requests, 'Slow'), { timeout: 5000 }).toBeGreaterThanOrEqual(2);
+  });
+
+  test('H4: F5 во время скана — не создаёт дубликаты папок, статус scanning виден', async ({ page }) => {
+    await setup(page);
+    await mockYandexDiskConfigurable(page, {
+      folders: [{ path: 'Slow', delayMs: 5000, files: ['a.mp3'] }],
+    });
+    await connectYandex(page);
+
+    const slowId = await findFolderIdByPath(page, 'Slow');
+    await waitForFolderStatus(page, slowId, 'scanning', 3000);
+
+    // F5 во время скана
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForAppBootstrap(page);
+
+    // Проверяем, что за время F5 не появилось дубликатов папки 'Slow'
+    await expect
+      .poll(
+        async () => {
+          const lib = await getIDBValue<{ folders: Record<string, { name: string; urlPath: string }> }>(
+            page,
+            'player:library',
+          );
+          if (!lib?.folders) return 0;
+          return Object.values(lib.folders).filter((f) => f.name === 'Slow').length;
+        },
+        { timeout: 10000, message: 'Ожидание отсутствия дубликатов Slow' },
+      )
+      .toBe(1);
+
+    // И статус 'scanning' должен быть виден (через Pinia store, а не IDB)
+    await expect
+      .poll(
+        async () => {
+          const statuses = await getFolderStatuses(page);
+          return statuses[slowId]?.status ?? null;
+        },
+        { timeout: 5000, message: 'Ожидание статуса scanning после F5' },
+      )
+      .toBe('scanning');
   });
 });
 

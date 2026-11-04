@@ -3,6 +3,70 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.16.0] — 2026-11-04
+
+Стабильная синхронизация, blob-обложки и чистка легаси.
+
+### Added
+
+- **Blob-обложки из ID3:** `Album.coverBlob` (Blob) — первичен, `Album.coverUrl` — вторичен. `CoverImage` принимает `albumId`, резолвит через `useAlbumCover` (blob URL, fallback на http). `AlbumService` персистит Blob через `structuredClone` (не JSON).
+- **`useAlbumCover`:** composable, резолвит `Album.coverBlob` → blob URL, `Album.coverUrl` — как есть. Revoke при unmount.
+- **`CoverImage` `albumId`:** приоритетнее `src`. Используется в `AlbumsView`, `ArtistView`, `AlbumSelect`, `MetadataCandidatesModal`, `TrackCover`, `NowPlayingInfo`, `FullPlayer`.
+- **`getFolderStatuses` / `waitForFolderStatus` (e2e):** читают `player:library` из IDB и Pinia store (`window.__library`) вместо удалённого `player:folderStatuses`.
+- **`wasPlaying` в `PersistedPlayback`:** воспроизведение возобновляется после F5 только если трек играл до перезагрузки.
+- **`isRestoring` в `usePlayerStore`:** `recordPlay` не вызывается при восстановлении после F5 (история не раздувается).
+- **`cleanupSubtree` в `LibraryWriter.setLibrary`:** force scan удаляет отсутствующие папки/треки **атомарно** с добавлением новых (без мигания UI).
+- **`RadioCatalog` / `PodcastCatalog`:** кнопка «Попробовать еще раз» при ошибке загрузки.
+
+### Changed
+
+- **`scanAll` / `FolderRoute` / `usePluginActions`:** `urlPath` для корня — `''` (было `'/'`). Убран `disk:/` из fallback `remotePath`. Устранены дубликаты папок и `//` в URL.
+- **`FolderScanState`:** единственный источник правды — `library.folders[id].scanState`. `FolderStatusService` **удалён**.
+- **`loadImpl`:** `startFolderName` — из манифеста (`getPluginManifest(pluginId)?.name`), не `'Корень'`.
+- **`scanAll`:** при ошибке `listResources` папка помечается `scanState: 'error'` (до `currentFolder` — **до** `try`).
+- **`ScanQueue` / `scanFolderImpl`:** `onStart`/`onDone`/`onError` явно ставят `scanning`/`scanned`/`error` (для глубокой вложенности).
+- **`ScanQueue.isRunning`:** `Ref<boolean>` (реактивен). `useFolderSync` — периодический опрос.
+- **`restoreFromCache` для `yandex`:** возвращает `null`, если есть `pending`/`error` папки (доскан после F5). Иначе `{ folders: [], tracks: [] }` — без повторного скана.
+- **`AlbumService`:** debounce 500 мс (`scheduleSave`, `flush`). `structuredClone` для Blob.
+- **`ToastService`:** `appendAndTrim` — очищает таймеры вытесненных тостов (`MAX_TOASTS = 5`).
+- **`history.recordPlay` / `dislikes.dislike`:** используют `library.tracksByArtist` (computed) вместо `buildLibraryIndex` O(N).
+- **`deepToRaw`:** вынесен в `src/utils/deepToRaw.ts` (было 3 копии).
+- **`getPageTitle`:** для `album` — `albumName` из `PageTitleContext` (не UUID).
+- **`apiClient.fetch`:** `credentials: 'include'` по умолчанию. `YandexDiskService` / `YandexSelfService` — через `apiClient.fetch`.
+- **`activatePlugin`:** без reload, `router.push('/')` после активации.
+- **`RadioFilters`:** компактнее (`max-h-24`). `CatalogLayout` `#filters` — `max-h-[40vh]` на мобилке.
+- **`SCHEMA_VERSION = 8`:** сброс IDB (чистка legacy `pathMap`).
+
+### Fixed
+
+- **Дубли папок при force scan:** `storage.pathMap` — только `folderId → remotePath` (без `newFolderMap`).
+- **UI залипает на «Синхронизация...»:** `isPluginScanning` периодически опрашивает `plugin.isScanning()`.
+- **Force scan удаляет треки:** `cleanupSubtree` в `setLibrary` (атомарно, без мигания).
+- **`error` перезаписывался на `scanned`:** `scanAll` ставит `scanState: 'error'`, `ScanQueue`/`scanFolderImpl` — не перезаписывают.
+- **`pdf`/`epub` файлы:** заглушки (без изменений).
+- **`ModalHost` `focus`:** (без изменений).
+
+### Removed
+
+- **`src/services/folders/FolderStatusService.ts`** и тесты.
+- **`src/services/folders/types.ts`**.
+- **`player:folderStatuses`** в localStorage.
+- **`disk:/` в `remotePath` fallback**.
+- **`any` в `useFolderSync`** (`LibrarySource | null`).
+- **`SCHEMA_VERSION = 7`** → `8`.
+
+### Internal
+
+- **`TrackMerger/apply.ts`:** `apply`/`applyMany` — **sync**, возвращают `string[]` (pluginIds для `saveCache`). `saveCachesForPlugins` — отдельно.
+- **`LibraryWriter`:** мутаторы — `Promise<void>` (sync-часть + `Promise.resolve()`), `setLibrary` — `cleanupSubtree`.
+- **`metadata.worker.ts`:** `coverBlob: Blob | null` (не URL). `ParsedId3` — `{ metadata, coverBlob }`.
+- **`MetadataWorkerService.parse`:** `ParsedId3 | null`.
+- **`MetadataService.applyFromFile`:** `(trackId, parsed, coverBlob?)`.
+- **`e2e/core/07-local-disconnect.spec.ts`:** `clearHistory(page)` перед `reload` (иначе трек в истории — не сирота).
+- **`e2e/core/09-sync-architecture.spec.ts`:** B3 — очистка IDB через `addInitScript` (не перезаписывается). `getFolderStatuses` — через `window.__library`.
+- **`e2e/plugins/14-force-scan-diff.spec.ts`:** тесты удаления / переименования / добавления.
+- **Тесты:** `yarn test:unit`, `yarn test:e2e` — зелёные.
+
 ## [0.15.1] — Тема «Тиффани» и Файловый менеджер
 
 Дополнение к релизу 0.15.0, добавляющее долгожданную тему оформления и расширяющее возможности работы с файлами.

@@ -5,7 +5,8 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
+import { needsScan, isError, isScanned } from '@/utils/folderStatus';
+import { urlPathToSegments } from '@/utils/urlPath';
 import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
@@ -21,8 +22,7 @@ const { currentSubfolders } = storeToRefs(library);
 async function openFolder(folder: FolderRef): Promise<void> {
   const pluginId = pluginIdFromSource(folder.pluginId);
 
-  // Если папка ожидает сканирования или в ошибке — запускаем force scan (рекурсивно)
-  if (folderStatusService.needsScan(folder.id) || folderStatusService.isError(folder.id)) {
+  if (needsScan(folder) || isError(folder)) {
     try {
       const plugin = await loadPlugin(pluginId);
       if (plugin.scanFolder) {
@@ -38,7 +38,7 @@ async function openFolder(folder: FolderRef): Promise<void> {
     name: 'folder',
     params: {
       pluginId: folder.pluginId,
-      path: folder.urlPath ? folder.urlPath.split('/') : [],
+      path: urlPathToSegments(folder.urlPath),
     },
   });
 }
@@ -57,9 +57,8 @@ async function retryFolder(folder: FolderRef): Promise<void> {
 }
 
 async function playFolder(folder: FolderRef): Promise<void> {
-  if (!folderStatusService.isScanned(folder.id)) return;
+  if (!isScanned(folder)) return;
 
-  // Берем trackIds напрямую из папки
   const ids = folder.trackIds || [];
   if (ids.length === 0) return;
   const tracks = ids.map((id) => library.getTrack(id)).filter((t): t is Track => Boolean(t));

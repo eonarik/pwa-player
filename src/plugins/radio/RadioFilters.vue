@@ -122,7 +122,7 @@ function isTagSelected(name: string): boolean {
         </div>
         <template v-else>
           <Input v-model="countryFilter" placeholder="Поиск страны..." class="mb-2" />
-          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto pr-1">
+          <div class="flex max-h-24 flex-col gap-1 overflow-y-auto pr-1">
             <button
               type="button"
               class="text-left text-xs px-2 py-1 rounded transition"
@@ -159,7 +159,7 @@ function isTagSelected(name: string): boolean {
         </div>
         <template v-else>
           <Input v-model="tagFilter" placeholder="Поиск тега..." class="mb-2" />
-          <div class="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
+          <div class="flex max-h-24 flex-wrap gap-1 overflow-y-auto pr-1">
             <button
               type="button"
               class="text-left text-[10px] px-2 py-1 rounded border border-hover-bg transition"

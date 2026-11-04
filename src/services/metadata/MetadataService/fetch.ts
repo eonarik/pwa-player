@@ -12,7 +12,6 @@ import type { MetadataApply } from './apply';
 
 export function createMetadataFetch(persistence: MetadataPersistence, resolve: MetadataResolve, apply: MetadataApply) {
   async function fetchAndApply(trackId: TrackId, signal?: AbortSignal, force = false): Promise<FetchResult> {
-    console.log('[fetchAndApply] START', { trackId, force });
     const library = useLibraryStore();
     const uiSettings = useUiSettingsStore();
     const track = library.getTrack(trackId);
@@ -23,8 +22,6 @@ export function createMetadataFetch(persistence: MetadataPersistence, resolve: M
 
     const threshold = uiSettings.metadataThreshold;
     const result = await resolve.resolveCandidates(track.artist ?? '', track.title, 'sequential', threshold, signal);
-    console.log('[fetchAndApply] resolve result', result.status);
-
     if (result.status === 'aborted') return { status: 'aborted' };
     if (result.status === 'error') return { status: 'error', message: result.message };
 

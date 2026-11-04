@@ -175,8 +175,6 @@ export async function searchMetadataStrict(artist, title, userToken) {
           bestMatch = track;
         }
       }
-
-      console.log(`[zvuk] success for "${query}". score: ${bestScore}`);
       if (bestScore > 0.95) break;
     } catch (err) {
       if (err instanceof RateLimitError) {

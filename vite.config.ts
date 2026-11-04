@@ -89,6 +89,9 @@ export default defineConfig({
   },
   // Vite проксирует /api/* на localhost:3000 (иначе cookie не будут работать в dev-режиме)
   server: {
+    watch: {
+      ignored: ['**/.telemetry/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

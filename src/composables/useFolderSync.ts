@@ -1,12 +1,13 @@
 // src/composables/useFolderSync.ts
 
-import { ref, watch, type Ref } from 'vue';
+import { ref, watch, onUnmounted, type Ref } from 'vue';
 import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
+import { isScanning as isFolderScanning } from '@/utils/folderStatus';
 import { syncService } from '@/services/download/SyncService';
 import { toastService } from '@/services/ui/ToastService';
 import type { FolderRef } from '@/types/folder';
+import type { LibrarySource } from '@/plugins/types';
 
 export interface UseFolderSyncReturn {
   canRefresh: Ref<boolean>;
@@ -29,6 +30,9 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
   const isPluginScanning = ref(false);
   const needsAttention = ref(false);
 
+  let pluginScanTimer: ReturnType<typeof setInterval> | null = null;
+  let activePlugin: LibrarySource | null = null;
+
   watch(
     () => currentFolder.value?.pluginId,
     async (pluginId) => {
@@ -43,8 +47,6 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
         const plugin = await loadPlugin(pluginIdFromSource(pluginId));
         canRefresh.value = typeof plugin.scanFolder === 'function';
         canRefreshFromDevice.value = plugin.canDownload === true && typeof plugin.scanDownloadDir === 'function';
-        // Проверяем, сканирует ли плагин сейчас
-        isPluginScanning.value = plugin.isScanning?.() ?? false;
       } catch {
         canRefresh.value = false;
         canRefreshFromDevice.value = false;
@@ -55,16 +57,52 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
   );
 
   watch(
-    () => currentFolder.value?.id,
-    (folderId) => {
-      if (!folderId) {
+    () => currentFolder.value,
+    (folder) => {
+      if (!folder) {
         isScanning.value = false;
         return;
       }
-      isScanning.value = folderStatusService.isScanning(folderId);
+      isScanning.value = isFolderScanning(folder);
     },
     { immediate: true },
   );
+
+  watch(
+    () => currentFolder.value?.pluginId,
+    async (pluginId) => {
+      if (pluginScanTimer !== null) {
+        clearInterval(pluginScanTimer);
+        pluginScanTimer = null;
+      }
+      if (!pluginId) {
+        isPluginScanning.value = false;
+        activePlugin = null;
+        return;
+      }
+      try {
+        activePlugin = await loadPlugin(pluginIdFromSource(pluginId));
+        isPluginScanning.value = activePlugin.isScanning?.() ?? false;
+        pluginScanTimer = setInterval(() => {
+          if (activePlugin) {
+            isPluginScanning.value = activePlugin.isScanning?.() ?? false;
+          }
+        }, 500);
+      } catch {
+        isPluginScanning.value = false;
+        activePlugin = null;
+      }
+    },
+    { immediate: true },
+  );
+
+  onUnmounted(() => {
+    if (pluginScanTimer !== null) {
+      clearInterval(pluginScanTimer);
+      pluginScanTimer = null;
+    }
+    activePlugin = null;
+  });
 
   async function refreshFromCloud(): Promise<void> {
     const folder = currentFolder.value;
@@ -72,7 +110,7 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
 
     const pluginId = pluginIdFromSource(folder.pluginId);
 
-    if (folderStatusService.isScanning(folder.id)) {
+    if (isFolderScanning(folder)) {
       toastService.info('Папка уже синхронизируется. Дождитесь завершения.');
       return;
     }
@@ -105,12 +143,8 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
       toastService.error('Не удалось обновить с облака. Требуется ручная синхронизация.');
     } finally {
       isRefreshing.value = false;
-      // Обновляем флаг сканирования после завершения
-      try {
-        const p = await loadPlugin(pluginId);
-        isPluginScanning.value = p.isScanning?.() ?? false;
-      } catch {
-        // ignore
+      if (activePlugin) {
+        isPluginScanning.value = activePlugin.isScanning?.() ?? false;
       }
     }
   }

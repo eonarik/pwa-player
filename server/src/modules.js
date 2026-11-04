@@ -8,6 +8,7 @@ import * as yaSelf from './plugins/yandex-self/index.js';
 import * as podcasts from './plugins/podcasts/index.js';
 import * as hlsProxy from './plugins/hls-proxy/index.js';
 import * as zvuk from './plugins/zvuk/index.js';
+import * as telemetry from './plugins/telemetry/index.js';
 
 const MODULES = [
   { prefix: core.prefix, router: core.router },
@@ -18,6 +19,7 @@ const MODULES = [
   { prefix: podcasts.prefix, router: podcasts.router },
   { prefix: hlsProxy.prefix, router: hlsProxy.router },
   { prefix: zvuk.prefix, router: zvuk.router },
+  { prefix: telemetry.prefix, router: telemetry.router },
 ];
 
 export function mountModules(app) {

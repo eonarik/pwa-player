@@ -70,6 +70,7 @@ export async function applyRestoredPlayback(
   const playback = await persistenceService.loadPlayback();
   const track = tracks[currentIndex];
   const savedTime = playback && playback.trackId === track?.id ? playback.currentTime : 0;
+  const wasPlaying = playback?.wasPlaying === true;
 
   if (!track) return;
 
@@ -85,11 +86,25 @@ export async function applyRestoredPlayback(
 
   audioService.load(source);
 
-  if (savedTime > 0) {
+  await new Promise<void>((resolve) => {
     const unsub = audioService.on('loadedmetadata', () => {
-      audioService.seek(savedTime);
-      setCurrentTime(audioService.currentTime);
-      unsub();
+      try {
+        if (savedTime > 0) {
+          audioService.seek(savedTime);
+          setCurrentTime(audioService.currentTime);
+        }
+      } finally {
+        unsub();
+        resolve();
+      }
     });
+  });
+
+  if (!wasPlaying) return;
+
+  try {
+    await audioService.play();
+  } catch {
+    // Autoplay заблокирован браузером — оставляем паузу.
   }
 }

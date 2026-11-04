@@ -3,16 +3,19 @@
 import { Buffer } from 'buffer';
 import process from 'process';
 
-// Полифилы для music-metadata-browser внутри Web Worker
 (self as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
 (self as unknown as { process: typeof process }).process = process;
 (self as unknown as { global: typeof globalThis }).global = self;
 
 import { parseBlob } from 'music-metadata-browser';
-import type { TrackMetadata } from '@/services/metadata/types';
+import type { TrackMetadata, ParsedId3 } from '@/services/metadata/types';
 
 export type WorkerInput = { file: File };
-export type WorkerOutput = { status: 'success'; data: TrackMetadata | null } | { status: 'error'; message: string };
+
+export type WorkerOutput =
+  | { status: 'success'; data: TrackMetadata; coverBlob: Blob | null }
+  | { status: 'success'; data: null }
+  | { status: 'error'; message: string };
 
 self.onmessage = async (e: MessageEvent<WorkerInput>) => {
   try {
@@ -25,26 +28,25 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
 
     const { common, format } = metadata;
 
-    // Реальные теги: есть artist или album (не пустые)
     const hasId3Tags = Boolean(common.artist?.trim() || common.album?.trim());
 
-    if (!hasId3Tags) {
-      // Нет тегов — возвращаем null, на фронте сработает fallback (имя файла)
-      self.postMessage({ status: 'success', data: null } satisfies WorkerOutput);
-      return;
-    }
-
-    const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
-
-    let coverUrl: string | undefined;
+    let coverBlob: Blob | null = null;
     if (common.picture?.[0]) {
       const picture = common.picture[0];
       const data = picture.data instanceof Uint8Array ? picture.data : new Uint8Array(picture.data);
       const bytes = new Uint8Array(data.length);
       bytes.set(data);
-      const blob = new Blob([bytes], { type: picture.format });
-      coverUrl = URL.createObjectURL(blob);
+      coverBlob = new Blob([bytes], { type: picture.format });
     }
+
+    // Нет ни тегов, ни обложки — возвращаем null.
+    // Обложка без тегов (без album) бесполезна: её некуда положить.
+    if (!hasId3Tags && !coverBlob) {
+      self.postMessage({ status: 'success', data: null } satisfies WorkerOutput);
+      return;
+    }
+
+    const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
 
     const result: TrackMetadata = {
       title: common.title?.trim() || nameWithoutExt,
@@ -55,11 +57,10 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
       genre: common.genre?.[0],
       duration: format.duration,
       codec: format.codec,
-      coverUrl,
-      hasId3Tags: true,
+      hasId3Tags,
     };
 
-    self.postMessage({ status: 'success', data: result } satisfies WorkerOutput);
+    self.postMessage({ status: 'success', data: result, coverBlob } satisfies WorkerOutput);
   } catch (err) {
     self.postMessage({
       status: 'error',
@@ -67,3 +68,6 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
     } satisfies WorkerOutput);
   }
 };
+
+// Неиспользуемый импорт — оставлен для совместимости с `ParsedId3` в типах.
+export type { ParsedId3 };

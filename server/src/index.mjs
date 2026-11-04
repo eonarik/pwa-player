@@ -7,10 +7,10 @@ import { sessionMiddleware } from './core/session.js';
 import { passport } from './core/passport.js';
 import { mountModules } from './modules.js';
 import { logger } from './shared/logger.js';
+import { cleanupTelemetry } from './plugins/telemetry/cleanup.js';
 
 const app = express();
 
-// За Nginx: req.ip = реальный IP клиента (для rate limit feedback)
 app.set('trust proxy', 1);
 
 app.use(
@@ -31,7 +31,6 @@ app.get('/api/health', (_req, res) => {
 
 mountModules(app);
 
-// Централизованный error handler — после всех модулей
 app.use((err, _req, res, _next) => {
   const status = Number.isFinite(err?.status) ? err.status : 500;
   logger.error(`[server] ${status}: ${err?.message ?? err}`);
@@ -44,3 +43,9 @@ const PORT = Number(process.env.PORT ?? 3000);
 app.listen(PORT, () => {
   logger.info(`[server] listening on http://localhost:${PORT}`);
 });
+
+// Cleanup телеметрии: при старте и раз в сутки.
+if (process.env.TELEMETRY_ENABLED !== 'false') {
+  void cleanupTelemetry();
+  setInterval(() => void cleanupTelemetry(), 24 * 60 * 60 * 1000).unref();
+}

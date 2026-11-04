@@ -23,11 +23,11 @@ const router = useRouter();
 const library = useLibraryStore();
 const player = usePlayerStore();
 
+const searchQuery = ref('');
 const query = computed({
   get: () => searchQuery.value,
   set: (v) => (searchQuery.value = v),
 });
-const searchQuery = ref('');
 
 const allAlbums = computed(() => {
   return Object.values(library.albums)
@@ -80,12 +80,16 @@ function deleteAlbum(album: Album, e: Event) {
   if (!confirmed) return;
 
   const writer = createLibraryWriter();
-  writer.removeAlbum(album.id);
+  void writer.removeAlbum(album.id);
   toastService.success(`Альбом «${album.name}» удалён`);
 }
 
 function goToAlbum(album: Album) {
   router.push({ name: 'album', params: { artistName: album.artist, album: album.id } });
+}
+
+function albumHasCover(album: Album): boolean {
+  return Boolean(album.coverBlob || album.coverUrl);
 }
 </script>
 
@@ -131,15 +135,17 @@ function goToAlbum(album: Album) {
           >
             <div
               class="relative overflow-hidden bg-card-bg"
-              :class="mode === 'list' ? 'h-9 w-9 shrink-0 rounded-btn' : 'aspect-square w-full rounded-card'"
+              :class="[
+                mode === 'list' ? 'h-9 w-9 shrink-0 rounded-btn' : 'aspect-square w-full rounded-card',
+                !albumHasCover(album) && 'track-cover_empty',
+              ]"
             >
               <CoverImage
-                :src="album.coverUrl"
+                :album-id="album.id"
                 :alt="album.name"
                 fallback-icon-class="w-8 h-8"
                 class="transition group-hover:scale-105"
               />
-              <!-- Play/Delete buttons (только в grid) -->
               <button
                 type="button"
                 class="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-accent text-bg opacity-100 shadow-lg transition hover:scale-105 md:opacity-0 md:group-hover:opacity-100"

@@ -6,7 +6,7 @@ import { historyPersistenceService } from '@/services/persistence/HistoryPersist
 import type { HistoryCollection } from '@/types/collection';
 import type { TrackId } from '@/types/ids';
 import { useLibraryStore, createLibraryWriter } from './library';
-import { merge, apply, buildLibraryIndex } from '@/services/library/TrackMerger';
+import { merge, apply, saveCachesForPlugins } from '@/services/library/TrackMerger';
 import type { Track } from '@/types/track';
 import { useUiSettingsStore } from './uiSettings';
 
@@ -68,34 +68,19 @@ export const useHistoryStore = defineStore('history', () => {
     };
 
     const mergeResult = merge(incoming, {
-      libraryIndex: buildLibraryIndex(Object.values(library.tracks)),
+      libraryIndex: library.tracksByArtist,
       existingAlbums: Object.values(library.albums),
       threshold: uiSettings.playlistMatchThreshold,
     });
 
-    await apply(mergeResult, {
-      writer,
-      saveCache: async () => {
-        const pid = mergeResult.track.sources[0]?.pluginId;
-        if (pid) {
-          const { loadPlugin } = await import('@/plugins/registry');
-          const { createPluginContext } = await import('@/plugins/context');
-          try {
-            const plugin = await loadPlugin(pid);
-            if (plugin.saveCache) {
-              await plugin.saveCache(createPluginContext(pid));
-            }
-          } catch (err) {
-            console.warn(`[history] saveCache failed for ${pid}`, err);
-          }
-        }
-      },
-    });
+    const pluginId = apply(mergeResult, { writer });
+    if (pluginId) {
+      await saveCachesForPlugins([pluginId]);
+    }
 
     const trackId = mergeResult.track.id;
     history.value.playedAt[trackId] = Date.now();
 
-    // Ограничение размера
     const entriesList: Array<[string, number]> = Object.entries(history.value.playedAt).sort((a, b) => a[1] - b[1]);
     if (entriesList.length > HISTORY_MAX_SIZE) {
       const next: Record<TrackId, number> = {};

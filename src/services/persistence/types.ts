@@ -18,5 +18,6 @@ export interface PersistedState {
 export interface PersistedPlayback {
   currentTime: number;
   trackId: string | null;
+  wasPlaying?: boolean;
   savedAt: number;
 }

@@ -175,7 +175,10 @@ function openArtist(artist: ArtistGroup) {
           >
             <div
               class="relative flex shrink-0 items-center justify-center overflow-hidden bg-card-bg"
-              :class="mode === 'list' ? 'h-9 w-9 rounded-full' : 'w-full aspect-square rounded-full'"
+              :class="[
+                mode === 'list' ? 'h-9 w-9 rounded-full' : 'w-full aspect-square rounded-full',
+                !artist.coverUrl && 'track-cover_empty',
+              ]"
             >
               <CoverImage
                 :src="artist.coverUrl"

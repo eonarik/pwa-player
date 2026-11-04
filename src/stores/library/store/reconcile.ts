@@ -73,7 +73,6 @@ export function createLibraryReconcile(refs: LibraryRefs) {
     }
 
     if (changed) {
-      console.info('[reconcile] folder.trackIds synchronized with sources');
     }
   }
 

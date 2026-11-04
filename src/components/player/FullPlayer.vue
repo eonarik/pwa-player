@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { usePlayerStore } from '@/stores/player';
 import { useLibraryStore } from '@/stores/library';
+import { useAlbumCover } from '@/composables/useAlbumCover';
 import { useDominantColor } from '@/composables/useDominantColor';
 import { rgbToString } from '@/utils/dominantColor';
 import { isLinearContent, isLiveStream } from '@/plugins/registry';
@@ -44,13 +45,19 @@ const coverHasError = ref(false);
 const isLinear = computed(() => (currentTrack.value ? isLinearContent(currentTrack.value.pluginId) : false));
 
 watch(
-  () => currentTrack.value?.coverUrl,
+  () => currentTrack.value?.id,
   () => {
     coverHasError.value = false;
   },
 );
 
-const coverSrc = computed(() => album.value?.coverUrl ?? currentTrack.value?.coverUrl ?? null);
+const albumIdRef = computed(() => currentTrack.value?.albumId ?? null);
+const albumCoverSrc = useAlbumCover(albumIdRef);
+
+const coverSrc = computed(() => {
+  if (currentTrack.value?.albumId) return albumCoverSrc.value;
+  return currentTrack.value?.coverUrl ?? null;
+});
 
 const dominantColor = useDominantColor(coverSrc);
 
@@ -158,7 +165,8 @@ watch(
               :class="[!coverSrc && coverHasError && 'track-cover_empty']"
             >
               <CoverImage
-                :src="coverSrc"
+                :album-id="currentTrack?.albumId ?? null"
+                :src="currentTrack?.albumId ? null : (currentTrack?.coverUrl ?? null)"
                 :alt="albumName"
                 fallback-icon-class="h-1/2 w-1/2"
                 @error="coverHasError = true"
@@ -208,7 +216,13 @@ watch(
               :class="repeatMode !== 'off' ? 'text-active' : ''"
               @click="player.cycleRepeat()"
             />
-            <IconButton icon="list-play" variant="ghost" :to="{ name: 'queue' }" label="Очередь" @click="emit('close')" />
+            <IconButton
+              icon="list-play"
+              variant="ghost"
+              :to="{ name: 'queue' }"
+              label="Очередь"
+              @click="emit('close')"
+            />
           </div>
         </div>
 

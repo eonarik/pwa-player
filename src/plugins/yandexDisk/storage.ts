@@ -61,12 +61,10 @@ export function createPluginStorage(pluginId: string) {
   async function load(): Promise<void> {
     if (loaded) return;
     if (loadPromise) return loadPromise;
-
     loadPromise = (async () => {
       try {
         const idbPathMap = await get<Record<string, string>>(keys.pathMap);
         const idbFoldersCache = await get<PluginSnapshot['folders']>(keys.foldersCache);
-
         // --- pathMap ---
         if (idbPathMap && typeof idbPathMap === 'object') {
           pathMap = idbPathMap;
@@ -77,7 +75,6 @@ export function createPluginStorage(pluginId: string) {
             pathMap = lsPathMap;
             await set(keys.pathMap, lsPathMap);
             removeLS(legacyKeys.pathMap);
-            console.info(`[yandex:${pluginId}] migrated pathMap from localStorage to IDB`);
           }
         }
 
@@ -90,7 +87,6 @@ export function createPluginStorage(pluginId: string) {
             foldersCache = lsFoldersCache;
             await set(keys.foldersCache, lsFoldersCache);
             removeLS(legacyKeys.foldersCache);
-            console.info(`[yandex:${pluginId}] migrated foldersCache from localStorage to IDB`);
           }
         }
 

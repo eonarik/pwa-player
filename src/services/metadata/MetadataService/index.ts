@@ -10,6 +10,7 @@ import type { MetadataCandidate } from '@/types/metadata';
 import type { TrackMetadata } from '../types';
 import type { RemoteTrackMetadata } from '../TrackMetadataService';
 import type { ApplyResult, ManualPatch, FetchResult } from './types';
+import { telemetry } from '@/services/telemetry';
 
 export type { ApplyResult, ManualPatch, FetchResult } from './types';
 
@@ -29,10 +30,26 @@ export class MetadataService {
     return MetadataService.instance;
   }
 
-  // --- Публичный API (тонкие прокси) ---
+  async fetchAndApply(trackId: TrackId, signal?: AbortSignal, force = false): Promise<FetchResult> {
+    const startTs = performance.now();
+    telemetry.event('metadata.fetch.start', { trackId });
 
-  fetchAndApply(trackId: TrackId, signal?: AbortSignal, force = false): Promise<FetchResult> {
-    return this.fetchMod.fetchAndApply(trackId, signal, force);
+    try {
+      const result = await this.fetchMod.fetchAndApply(trackId, signal, force);
+      telemetry.event('metadata.fetch.done', {
+        trackId,
+        status: result.status,
+        ms: Math.round(performance.now() - startTs),
+      });
+      return result;
+    } catch (err) {
+      telemetry.event('metadata.fetch.error', {
+        trackId,
+        ms: Math.round(performance.now() - startTs),
+        msg: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
+      });
+      throw err;
+    }
   }
 
   fetchCandidates(trackId: TrackId): Promise<MetadataCandidate[]> {
@@ -43,8 +60,8 @@ export class MetadataService {
     return this.applyMod.applyRemote(trackId, incoming);
   }
 
-  applyFromFile(trackId: TrackId, parsed: TrackMetadata): void {
-    this.applyMod.applyFromFile(trackId, parsed);
+  applyFromFile(trackId: TrackId, parsed: TrackMetadata, coverBlob: Blob | null = null): void {
+    this.applyMod.applyFromFile(trackId, parsed, coverBlob);
   }
 
   updateManual(trackId: TrackId, patch: ManualPatch): void {

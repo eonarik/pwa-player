@@ -15,6 +15,7 @@ import '@/plugins/registry';
 import App from './App.vue';
 import router from './router';
 import { schemaService } from '@/services/persistence/SchemaService';
+import { initTelemetry } from '@/services/telemetry';
 
 import './assets/main.css';
 import { usePlaylistsStore } from './stores/playlists';
@@ -31,16 +32,20 @@ import { initTooltip, tooltip } from './directives/tooltip';
 import { getExtensionRoutes, loadExtensions } from './plugins/extensions';
 import { themeService } from './services/ui/ThemeService';
 import { metadataService } from './services/metadata/MetadataService';
-import { folderStatusService } from './services/folders/FolderStatusService.ts';
-import { setupFileHandlers } from './services/files/setupHandlers.ts';
+import { setupFileHandlers } from '@/services/files/setupHandlers';
+import { albumService } from './services/persistence/AlbumService.ts';
+import { flushLibrary } from './stores/library/store/persist.ts';
 
 async function bootstrap() {
+  if (import.meta.env.VITE_TELEMETRY === 'true') {
+    initTelemetry();
+  }
+
   themeService.load();
 
   try {
     const wasCleared = await schemaService.ensureCompatible();
     if (wasCleared) {
-      console.info('[app] persisted data cleared due to schema change');
     }
   } catch (err) {
     console.error('[app] schema check failed', err);
@@ -48,8 +53,7 @@ async function bootstrap() {
 
   if (navigator.storage && navigator.storage.persist) {
     try {
-      const isPersisted = await navigator.storage.persist();
-      console.info(`[storage] Persistent storage granted: ${isPersisted}`);
+      await navigator.storage.persist();
     } catch (err) {
       console.warn('[storage] Failed to request persistent storage', err);
     }
@@ -92,7 +96,8 @@ async function bootstrap() {
     void useHistoryStore().flush();
     void useDislikesStore().flush();
     void useUiSettingsStore().flush();
-    folderStatusService.flush();
+    void albumService.flush();
+    flushLibrary();
   };
 
   window.addEventListener('beforeunload', flushAll);
@@ -101,32 +106,25 @@ async function bootstrap() {
     if (document.visibilityState === 'hidden') flushAll();
   });
 
-  // Доступ к сторам через консоль браузера
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  w.__library = useLibraryStore;
-  w.__player = usePlayerStore;
-  w.__downloads = downloadOrchestrator;
-  w.__sync = syncService;
-  w.__space = downloadSpaceService;
-  w.__playlists = usePlaylistsStore;
-  w.__history = useHistoryStore;
-  w.__dislikes = useDislikesStore;
+  window.__library = useLibraryStore;
+  window.__player = usePlayerStore;
+  window.__downloads = downloadOrchestrator;
+  window.__sync = syncService;
+  window.__space = downloadSpaceService;
+  window.__playlists = usePlaylistsStore;
+  window.__history = useHistoryStore;
+  window.__dislikes = useDislikesStore;
 
   if (import.meta.env.DEV) {
-    // Счётчик DOM-узлов
     let maxNodes = 0;
     setInterval(() => {
       const count = document.querySelectorAll('*').length;
       if (count > maxNodes) {
         maxNodes = count;
-        console.log(`[DOM] Peak nodes: ${maxNodes}`);
       }
     }, 1000);
 
-    // Можно вывести текущее значение по команде в консоли:
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__countNodes = () => document.querySelectorAll('*').length;
+    window.__countNodes = () => document.querySelectorAll('*').length;
   }
 }
 

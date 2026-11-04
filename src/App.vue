@@ -14,9 +14,11 @@ import { useAutoActions } from '@/composables/useAutoActions';
 import { useAppBootstrap } from '@/composables/useAppBootstrap';
 import { useDocumentTitle } from '@/composables/useDocumentTitle';
 import { useTrackEndOnVisibility } from '@/composables/useTrackEndOnVisibility';
+import { useClipboardWatcher } from '@/composables/useClipboardWatcher';
 import { syncService } from '@/services/download/SyncService';
 import { getPageTitle } from '@/navigation/title';
 import { TOP_BAR_ITEMS, type MenuItem } from '@/navigation/menu';
+import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import PlayerControls from '@/components/player/PlayerControls.vue';
 import FullPlayer from '@/components/player/FullPlayer.vue';
 import ModalHost from '@/components/ui/ModalHost.vue';
@@ -28,9 +30,8 @@ import FeedbackModal from '@/components/ui/FeedbackModal.vue';
 import AppLoader from '@/components/layout/AppLoader.vue';
 import IconButton from '@/components/ui/IconButton.vue';
 import Icon from '@/components/ui/Icon.vue';
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
-import type { PlaylistId } from '@/types/ids';
-import { useClipboardWatcher } from './composables/useClipboardWatcher';
+import { telemetry } from '@/services/telemetry';
+import type { AlbumId, PlaylistId } from '@/types/ids';
 
 const route = useRoute();
 const player = usePlayerStore();
@@ -82,7 +83,26 @@ const pageTitle = computed(() =>
       const id = String(route.params.id ?? '') as PlaylistId;
       return playlists.getPlaylist(id)?.name ?? null;
     })(),
+    albumName: (() => {
+      if (route.name !== 'album') return null;
+      const albumParam = String(route.params.album ?? '');
+      if (!albumParam) return null;
+      return library.getAlbum(albumParam as AlbumId)?.name ?? null;
+    })(),
   }),
+);
+
+// Телеметрия: роут
+let routeChangeTs = performance.now();
+watch(
+  () => route.fullPath,
+  () => {
+    telemetry.event('route.change', {
+      to: String(route.name),
+      ms: Math.round(performance.now() - routeChangeTs),
+    });
+    routeChangeTs = performance.now();
+  },
 );
 
 watch(
@@ -142,23 +162,19 @@ function isTopBarItemActive(item: MenuItem): boolean {
 
 <template>
   <div class="grid h-screen grid-rows-[auto_1fr_auto] bg-bg text-fg relative">
-    <!-- ШАПКА -->
     <header class="app-safe-top flex items-center justify-between gap-2 px-3 py-2 z-10">
-      <!-- Слева: Бургер -->
       <div class="flex items-center gap-2">
         <IconButton icon="menu" variant="ghost" size="md" label="Меню" @click="openDrawer" class="!px-3 !w-auto">
           <span class="hidden md:inline text-sm">Меню</span>
         </IconButton>
       </div>
 
-      <!-- По центру / Слева: Название -->
       <span v-if="syncService.isSyncing.value" class="text-xs text-fg-muted">Синхронизация…</span>
       <span v-else-if="library.currentFolder" class="hidden md:inline truncate text-sm text-fg-muted">
         {{ library.currentFolder.name }}
       </span>
       <div class="flex-1"></div>
 
-      <!-- Справа: Иконки верхнего меню -->
       <div class="flex items-center gap-1">
         <RouterLink
           v-for="item in TOP_BAR_ITEMS"
@@ -176,18 +192,15 @@ function isTopBarItemActive(item: MenuItem): boolean {
       </div>
     </header>
 
-    <!-- КОНТЕНТ -->
     <main class="overflow-hidden z-10 relative">
       <RouterView v-if="!isBootstrapping" />
       <AppLoader v-else />
     </main>
 
-    <!-- ПЛЕЕР -->
     <div class="z-20 relative">
       <PlayerControls @open="openFullPlayer" />
     </div>
 
-    <!-- МОДАЛКИ -->
     <ModalHost />
     <ToastHost />
     <SyncIssuesModal v-if="showSyncIssues" @close="showSyncIssues = false" />

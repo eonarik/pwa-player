@@ -12,6 +12,7 @@ import PageHeader from '@/components/ui/PageHeader.vue';
 import Button from '@/components/ui/Button.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
+import CoverImage from '@/components/ui/CoverImage.vue';
 import type { Track } from '@/types/track';
 import type { AlbumId } from '@/types/ids';
 
@@ -28,7 +29,7 @@ interface AlbumGroupUI {
   name: string;
   slug: string;
   tracks: Track[];
-  coverUrl: string | undefined;
+  hasCover: boolean;
 }
 
 const albums = computed<AlbumGroupUI[]>(() => {
@@ -53,11 +54,9 @@ const albums = computed<AlbumGroupUI[]>(() => {
     groups.push({
       albumId: (albumId as AlbumId) || null,
       name: album?.name ?? NO_ALBUM_LABEL,
-      // Используем albumId как slug в URL (стабильный UUID).
-      // Для «Без альбома» — NO_ALBUM_SLUG.
       slug: albumId || NO_ALBUM_SLUG,
       tracks: sorted,
-      coverUrl: album?.coverUrl ?? undefined,
+      hasCover: Boolean(album?.coverBlob || album?.coverUrl),
     });
   }
 
@@ -106,13 +105,16 @@ function playAlbum(group: { tracks: Track[] }) {
         >
           <div v-for="group in albums" :key="group.slug" class="group relative">
             <RouterLink :to="{ name: 'album', params: { artistName, album: group.slug } }" class="block">
-              <div class="relative aspect-square overflow-hidden bg-card-bg">
-                <img
-                  v-if="group.coverUrl"
-                  :src="group.coverUrl"
+              <div
+                class="relative aspect-square overflow-hidden bg-card-bg"
+                :class="!group.hasCover && 'track-cover_empty'"
+              >
+                <CoverImage
+                  v-if="group.albumId"
+                  :album-id="group.albumId"
                   :alt="group.name"
-                  class="h-full w-full object-cover transition group-hover:scale-105"
-                  loading="lazy"
+                  fallback-icon-class="w-12 h-12"
+                  class="transition group-hover:scale-105"
                 />
                 <div v-else class="flex h-full w-full items-center justify-center">
                   <Icon name="playlist" w="w-12" h="h-12" class="text-fg-subtle" />

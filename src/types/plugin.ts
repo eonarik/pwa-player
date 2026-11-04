@@ -3,7 +3,7 @@
 import type { FolderId, TrackId } from './ids';
 import type { LocalTrackSource, CloudTrackSource, StreamingTrackSource } from './track';
 import type { MetadataSource } from './track';
-import type { FolderFile } from './folder';
+import type { FolderFile, FolderScanState } from './folder';
 
 export type PluginTrackSource =
   Omit<LocalTrackSource, 'id'> | Omit<CloudTrackSource, 'id'> | Omit<StreamingTrackSource, 'id'>;
@@ -31,6 +31,12 @@ export interface PluginFolderPayload {
   trackIds?: TrackId[];
   /** Файлы (не аудио), которые лежат в этой папке */
   files?: FolderFile[];
+  /**
+   * Статус сканирования для НОВОЙ папки.
+   * Плагин может сразу отдать 'scanned' (например, local).
+   * Если undefined — ядро ставит 'pending'.
+   */
+  scanState?: FolderScanState;
 }
 
 export interface PluginSnapshot {

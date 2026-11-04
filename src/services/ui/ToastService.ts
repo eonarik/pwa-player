@@ -68,7 +68,7 @@ export class ToastService {
       count: 1,
     };
 
-    this.toasts.value = [...this.toasts.value, toast].slice(-MAX_TOASTS);
+    this.appendAndTrim(toast);
 
     if (duration > 0) {
       this.timers.set(
@@ -92,7 +92,7 @@ export class ToastService {
       count: 1,
     };
 
-    this.toasts.value = [...this.toasts.value, toast].slice(-MAX_TOASTS);
+    this.appendAndTrim(toast);
     return id;
   }
 
@@ -125,6 +125,25 @@ export class ToastService {
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
     this.toasts.value = [];
+  }
+
+  /**
+   * Добавляет тост и удаляет старые, если превышен MAX_TOASTS.
+   * Для каждого вытесненного тоста чистит его таймер.
+   */
+  private appendAndTrim(toast: Toast): void {
+    const next = [...this.toasts.value, toast];
+
+    while (next.length > MAX_TOASTS) {
+      const dropped = next.shift()!;
+      const timer = this.timers.get(dropped.id);
+      if (timer) {
+        clearTimeout(timer);
+        this.timers.delete(dropped.id);
+      }
+    }
+
+    this.toasts.value = next;
   }
 }
 

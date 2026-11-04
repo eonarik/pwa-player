@@ -5,7 +5,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
-import { modalService } from '@/services/ui/ModalService'; // <--- ДОБАВЛЕНО
+import { modalService } from '@/services/ui/ModalService';
 import IconButton from '@/components/ui/IconButton.vue';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Button from '@/components/ui/Button.vue';
@@ -36,7 +36,7 @@ async function resolvePlugin(): Promise<LibrarySource | null> {
     const p = await loadPlugin(props.pluginId);
     if (!p.readTextFile || !p.writeTextFile) {
       toastService.error('Плагин не поддерживает редактирование текстовых файлов');
-      modalService.cancel(); // <--- ЗАКРЫВАЕМ
+      modalService.cancel();
       return null;
     }
     plugin.value = p;
@@ -44,7 +44,7 @@ async function resolvePlugin(): Promise<LibrarySource | null> {
   } catch (err) {
     console.error('[text-editor] failed to load plugin', err);
     toastService.error('Не удалось загрузить плагин');
-    modalService.cancel(); // <--- ЗАКРЫВАЕМ
+    modalService.cancel();
     return null;
   }
 }
@@ -58,7 +58,7 @@ async function load() {
     const result = await p.readTextFile(context, props.file.remotePath);
     if (!result) {
       toastService.error('Не удалось загрузить файл');
-      modalService.cancel(); // <--- ЗАКРЫВАЕМ
+      modalService.cancel();
       return;
     }
     content.value = result.content;
@@ -134,7 +134,7 @@ async function save() {
     initialContent.value = content.value;
     initialModified.value = result.modified;
     toastService.success('Сохранено');
-    modalService.confirm(); // <--- ЗАКРЫВАЕМ
+    modalService.confirm();
   } catch (err) {
     toastService.error(err instanceof Error ? err.message : 'Не удалось сохранить');
   } finally {
@@ -147,7 +147,7 @@ function cancel() {
     const confirmed = window.confirm('Есть несохранённые изменения. Закрыть без сохранения?');
     if (!confirmed) return;
   }
-  modalService.cancel(); // <--- ЗАКРЫВАЕМ
+  modalService.cancel();
 }
 
 function onKeydown(e: KeyboardEvent) {

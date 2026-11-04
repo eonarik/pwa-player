@@ -33,19 +33,14 @@ export function useAutoActions() {
       if (!track) return;
 
       const album = track.albumId ? library.getAlbum(track.albumId) : null;
-      const hasCover = Boolean(album?.coverUrl || track.coverUrl);
+      const hasCover = Boolean(album?.coverBlob || album?.coverUrl || track.coverUrl);
 
-      // Блокируем только если есть ручные правки И есть обложка.
-      // Если обложки нет — идем искать (runAutoFetch не перезапишет artist/title, если hasMetadataEdits).
       if (track.hasMetadataEdits && hasCover) {
         return;
       }
 
       const pluginIds = new Set(track.sources.map((s) => pluginIdFromSource(s.pluginId)));
       for (const pid of pluginIds) {
-        // Стриминговые сервисы (Звук), linear-контент (подкасты) и live-потоки (радио)
-        // не нуждаются в автопоиске: их метаданные приходят из собственных источников
-        // или попросту не имеют смысла.
         if (isStreamingPlugin(pid) || isLinearContent(pid) || isLiveStream(pid)) {
           return;
         }
@@ -66,7 +61,7 @@ export function useAutoActions() {
           const parsed = await metadataWorkerService.parse(file);
 
           if (parsed) {
-            metadataService.applyFromFile(libTrack.id, parsed);
+            metadataService.applyFromFile(libTrack.id, parsed.metadata, parsed.coverBlob);
 
             const updated = library.getTrack(libTrack.id);
             if (updated && !updated.hasMetadataEdits) {

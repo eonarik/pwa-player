@@ -4,6 +4,18 @@ import { isAudioFile } from '../../shared/audio.js';
 
 export { isAudioFile };
 
+/**
+ * Скрытый файл — если имя начинается с точки И в нём есть еще одна точка.
+ * Пример:
+ * - `.settings.json` → скрытый
+ * - `.txt` → не скрытый (нет имени)
+ * - `.gitignore` → не скрытый (нет расширения)
+ * - `song.mp3` → не скрытый
+ */
+function isHiddenFile(name) {
+  return name.startsWith('.') && name.indexOf('.', 1) !== -1;
+}
+
 function normalizePathString(p) {
   if (!p) return '';
   return p
@@ -21,20 +33,27 @@ function removePrefix(path, cleanRoot) {
   if (normRoot && normPath.startsWith(normRoot)) {
     return normPath.slice(normRoot.length).replace(/^\/+/, '');
   }
-
   return normPath;
 }
 
 export function mapAndFilterItems(items, path, allowedFolders, cleanRoot) {
-  let result = (items || []).map((item) => {
-    const relativePath = removePrefix(item.path, cleanRoot);
+  let result = (items || [])
+    .filter((item) => {
+      // Скрываем скрытые файлы (но не папки)
+      if (item.type === 'file' && isHiddenFile(item.name)) {
+        return false;
+      }
+      return true;
+    })
+    .map((item) => {
+      const relativePath = removePrefix(item.path, cleanRoot);
 
-    return {
-      ...item,
-      path: relativePath,
-      isAudio: item.type === 'file' && isAudioFile(item.name),
-    };
-  });
+      return {
+        ...item,
+        path: relativePath,
+        isAudio: item.type === 'file' && isAudioFile(item.name),
+      };
+    });
 
   if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
     result = result.filter((item) => {

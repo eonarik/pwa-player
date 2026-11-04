@@ -108,6 +108,5 @@ export async function applyLocalMatchesForFolders(
   }
 
   if (matched > 0) {
-    console.info(`[${pluginId}] local matches applied: ${matched}`);
   }
 }

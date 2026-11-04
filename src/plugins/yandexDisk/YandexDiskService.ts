@@ -2,19 +2,13 @@
 
 import { compareStrings } from '@/utils/sort';
 import { apiClient, type AuthProvider } from '@/services/api/ApiClient';
+import { AuthError } from '@/services/api/errors';
 import type { YandexResourcesResponse, YandexResourceItem } from './types';
 
 const PROXY_URL = '';
 const REQUEST_TIMEOUT_MS = 10_000;
 const DISCONNECTED_KEY = 'yandex-disconnected';
 const CONNECTED_KEY = 'yandex-connected';
-
-export class AuthRequiredError extends Error {
-  constructor() {
-    super('Authorization required');
-    this.name = 'AuthRequiredError';
-  }
-}
 
 export interface TextFileResponse {
   content: string;
@@ -47,11 +41,11 @@ export class YandexDiskService implements AuthProvider {
   // --- AuthProvider ----------------------------------------------------
 
   isAccessValid(): boolean {
-    return true; // Cookie-based, JS не видит
+    return true;
   }
 
   hasRefreshToken(): boolean {
-    return false; // Refresh на сервере
+    return false;
   }
 
   async refreshAccess(): Promise<boolean> {
@@ -66,8 +60,6 @@ export class YandexDiskService implements AuthProvider {
 
   isDisconnected(): boolean {
     if (localStorage.getItem(DISCONNECTED_KEY) === 'true') return true;
-
-    // Если нет флага подключения, считаем отключенным
     return localStorage.getItem(CONNECTED_KEY) !== 'true';
   }
 
@@ -98,18 +90,15 @@ export class YandexDiskService implements AuthProvider {
   }
 
   async listResources(path = '/'): Promise<YandexResourcesResponse> {
-    // encodeURIComponent кодирует пробелы как %20 (а не +, как URLSearchParams)
-    const query = `path=${encodeURIComponent(path)}`;
+    const normalized = path || '/';
+    const query = `path=${encodeURIComponent(normalized)}`;
 
     try {
-      const response = await fetch(`${PROXY_URL}/api/disk/resources?${query}`, {
-        credentials: 'include',
+      const response = await apiClient.fetch(`${PROXY_URL}/api/disk/resources?${query}`, {
+        auth: this.id,
+        method: 'GET',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
-
-      if (response.status === 401) {
-        throw new AuthRequiredError();
-      }
 
       if (!response.ok) {
         const error = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
@@ -126,6 +115,7 @@ export class YandexDiskService implements AuthProvider {
 
       return { ...data, items, total: items.length };
     } catch (err) {
+      if (err instanceof AuthError) throw err;
       if (err instanceof DOMException && err.name === 'TimeoutError') {
         throw new Error(`Таймаут запроса к Диску: ${path}`);
       }
@@ -145,18 +135,17 @@ export class YandexDiskService implements AuthProvider {
     const query = `path=${encodeURIComponent(remotePath)}`;
 
     try {
-      const res = await fetch(`${PROXY_URL}/api/disk/text?${query}`, {
-        credentials: 'include',
+      const res = await apiClient.fetch(`${PROXY_URL}/api/disk/text?${query}`, {
+        auth: this.id,
+        method: 'GET',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
-      if (res.status === 401) {
-        throw new AuthRequiredError();
-      }
       if (!res.ok) return null;
 
       return (await res.json()) as TextFileResponse;
     } catch (err) {
+      if (err instanceof AuthError) throw err;
       console.error(`[yandex] readTextFile failed for "${remotePath}"`, err);
       return null;
     }
@@ -165,17 +154,13 @@ export class YandexDiskService implements AuthProvider {
   async writeTextFile(remotePath: string, content: string): Promise<WriteTextFileResponse> {
     const query = `path=${encodeURIComponent(remotePath)}`;
 
-    const res = await fetch(`${PROXY_URL}/api/disk/text?${query}`, {
+    const res = await apiClient.fetch(`${PROXY_URL}/api/disk/text?${query}`, {
+      auth: this.id,
       method: 'PUT',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-
-    if (res.status === 401) {
-      throw new AuthRequiredError();
-    }
 
     if (!res.ok) {
       const error = (await res.json().catch(() => ({ error: 'Unknown error' }))) as {
@@ -189,15 +174,17 @@ export class YandexDiskService implements AuthProvider {
 
   async checkSession(): Promise<'ok' | 'expired' | 'unavailable'> {
     try {
-      const res = await fetch(`${PROXY_URL}/api/auth/me`, {
-        credentials: 'include',
+      const res = await apiClient.fetch(`${PROXY_URL}/api/auth/me`, {
+        auth: this.id,
+        method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
       if (res.status === 401) return 'expired';
       if (!res.ok) return 'unavailable';
       const data = (await res.json()) as { authenticated: boolean };
       return data.authenticated ? 'ok' : 'expired';
-    } catch {
+    } catch (err) {
+      if (err instanceof AuthError) return 'expired';
       return 'unavailable';
     }
   }

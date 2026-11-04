@@ -1,9 +1,8 @@
-// src/stores/player/playerPersistence.ts
-
-import { toRaw } from 'vue';
 import type { Ref } from 'vue';
 import { persistenceService } from '@/services/persistence/PersistenceService';
 import type { PersistedPlayback, PersistedState } from '@/services/persistence/types';
+import { telemetry } from '@/services/telemetry';
+import { deepToRaw } from '@/utils/deepToRaw';
 import type { Track } from '@/types/track';
 
 export interface PlayerPersistenceRefs {
@@ -15,23 +14,8 @@ export interface PlayerPersistenceRefs {
   muted: Ref<boolean>;
   repeatMode: Ref<'off' | 'one' | 'all'>;
   shuffle: Ref<boolean>;
+  isPlaying: Ref<boolean>;
   currentTrack: Ref<Track | null>;
-}
-
-function deepToRaw<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (obj instanceof Date) return obj;
-  if (Array.isArray(obj)) return obj.map(deepToRaw) as unknown as T;
-  if (typeof window !== 'undefined' && (obj instanceof FileSystemFileHandle || obj instanceof Blob)) {
-    return obj;
-  }
-
-  const raw = toRaw(obj);
-  const result: Record<string, unknown> = {};
-  for (const key in raw) {
-    result[key] = deepToRaw(raw[key]);
-  }
-  return result as T;
 }
 
 export interface PlayerPersistence {
@@ -43,13 +27,24 @@ export interface PlayerPersistence {
 }
 
 export function createPlayerPersistence(refs: PlayerPersistenceRefs): PlayerPersistence {
-  const { queue, originalQueue, currentIndex, currentTime, volume, muted, repeatMode, shuffle, currentTrack } = refs;
+  const {
+    queue,
+    originalQueue,
+    currentIndex,
+    currentTime,
+    volume,
+    muted,
+    repeatMode,
+    shuffle,
+    isPlaying,
+    currentTrack,
+  } = refs;
 
   function buildState(): PersistedState {
     const safeTracks = deepToRaw(queue.value);
     const safeOriginalTracks = deepToRaw(originalQueue.value);
 
-    return {
+    const state = {
       tracks: safeTracks,
       originalTracks: safeOriginalTracks,
       currentIndex: currentIndex.value,
@@ -59,12 +54,18 @@ export function createPlayerPersistence(refs: PlayerPersistenceRefs): PlayerPers
       shuffle: shuffle.value,
       savedAt: Date.now(),
     };
+
+    const sizeKB = Math.round(JSON.stringify(state).length / 1024);
+    telemetry.event('idb.write', { key: 'player:state', sizeKB });
+
+    return state;
   }
 
   function buildPlayback(): PersistedPlayback {
     return {
       currentTime: currentTime.value,
       trackId: currentTrack.value?.id ?? null,
+      wasPlaying: isPlaying.value,
       savedAt: Date.now(),
     };
   }

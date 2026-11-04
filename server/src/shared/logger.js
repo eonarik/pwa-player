@@ -6,7 +6,6 @@ function ts() {
 
 export const logger = {
   info(...args) {
-    console.log(`[${ts()}] [info]`, ...args);
   },
   warn(...args) {
     console.warn(`[${ts()}] [warn]`, ...args);

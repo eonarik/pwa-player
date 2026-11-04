@@ -4,7 +4,9 @@ import { audioService } from '@/services/audio/AudioService';
 import { resolveTrackSource } from '@/services/audio/resolveTrackSource';
 import { toastService } from '@/services/ui/ToastService';
 import { AuthError } from '@/services/api/errors';
+import { metadataService } from '@/services/metadata/MetadataService';
 import { isLiveStream } from '@/plugins/registry';
+import { useLibraryStore } from '@/stores/library';
 import { shuffleArray, findPlayableIndex, findFirstPlayableIndex } from '../playerHelpers';
 import type { PlayerActionsRefs } from './types';
 import type { Helpers } from './helpers';
@@ -26,12 +28,32 @@ export function createNavigation(refs: PlayerActionsRefs, helpers: Helpers, erro
   const { handleAuthError, skipToNextOnError } = errors;
 
   async function playAt(index: number): Promise<void> {
-    const track = queue.value[index];
+    let track = queue.value[index];
     if (!track) return;
 
     playbackVersion.value++;
 
-    const sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority);
+    let sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority);
+
+    // Авто-восстановление источника: если трек без источников (например,
+    // виртуальный из плейлиста), пробуем найти метаданные (Звук → iTunes → Deezer).
+    // Если найдено — applyCandidate от плагина добавит streaming-source.
+    if (sortedSources.length === 0) {
+      try {
+        const result = await metadataService.fetchAndApply(track.id, undefined, true);
+        if (result.status === 'applied') {
+          const lib = useLibraryStore();
+          const updated = lib.getTrack(track.id);
+          if (updated && updated.sources.length > 0) {
+            queue.value[index] = { ...track, ...updated };
+            track = queue.value[index]!;
+            sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority);
+          }
+        }
+      } catch (err) {
+        console.warn('[player] auto-restore source failed', err);
+      }
+    }
 
     if (sortedSources.length === 0) {
       toastService.error('Не удалось воспроизвести трек (все источники недоступны)');

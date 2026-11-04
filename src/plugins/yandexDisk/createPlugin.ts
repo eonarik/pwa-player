@@ -6,13 +6,14 @@ import type { FolderId } from '@/types/ids';
 import { downloadTrackToDir, removeDownloadedFromDir } from './download';
 import { createPluginStorage } from './storage';
 import { authService } from '@/services/auth/AuthService';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
 import { loadImpl } from './load';
 import { scanFolderImpl, canForceScan } from './scanFolder';
 import { ScanQueue } from './ScanQueue';
 import { createTextFileMethods } from './textFiles';
 import { restoreFromLocalFilesImpl } from './localRestore';
 import type { IYandexService } from './types';
+import { createPluginContext } from '../context';
+import { useLibraryStore } from '@/stores/library';
 
 export interface YandexPluginOptions {
   id: string;
@@ -37,7 +38,6 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
   };
 
   const storage = createPluginStorage(id);
-  const isCancelled = () => cancelled;
   const textMethods = createTextFileMethods(id, service, storage);
 
   let scanQueue: ScanQueue | null = null;
@@ -113,8 +113,6 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
           pluginId: id,
           service,
           storage,
-          isCancelled,
-          scanFolderImpl: scanFolderBound,
           onPendingFolders: (folders) => {
             const queue = getOrCreateQueue(context);
             for (const f of folders) {
@@ -122,12 +120,23 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
             }
           },
         },
+        context,
         options,
       );
     },
 
-    async restoreFromCache(): Promise<PluginSnapshot | null> {
-      return null;
+    async restoreFromCache(_context): Promise<PluginSnapshot | null> {
+      const library = useLibraryStore();
+      const pluginFolders = Object.values(library.folders).filter((f) => f.pluginId === id);
+      if (pluginFolders.length === 0) return null;
+
+      const needsScan = pluginFolders.some((f) => f.scanState === 'error' || f.scanState === 'pending');
+      if (needsScan) {
+        // Есть незавершённые сканы — useAppBootstrap вызовет load() → onPendingFolders → ScanQueue.
+        return null;
+      }
+
+      return { folders: [], tracks: [] };
     },
 
     async restoreFromLocalFiles(context: PluginContext): Promise<PluginSnapshot | null> {
@@ -140,7 +149,7 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
 
     scanFolder: scanFolderBound,
 
-    canForceScan: (folderId: FolderId): boolean => canForceScan(folderId),
+    canForceScan: (folderId: FolderId): boolean => canForceScan(folderId, createPluginContext(id).writer),
 
     buildStreamUrl(source: TrackSource): string {
       if (source.kind !== 'cloud') throw new Error(`[${id}] source must be cloud`);
@@ -194,24 +203,18 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
       if (service.setDisconnected) service.setDisconnected(true);
       context.writer.removeBySource(id);
 
-      const cached = storage.getFoldersCache();
-      if (cached) {
-        folderStatusService.forgetMany(cached.map((f) => f.id));
-      }
-
       await storage.clear();
 
       if (service.logout) service.logout();
     },
 
-    // Текстовые файлы и файлы вообще (инкапсулированы в textFiles.ts)
     getTextFiles: textMethods.getTextFiles,
     readTextFile: textMethods.readTextFile,
     writeTextFile: textMethods.writeTextFile,
     buildFileUrl: textMethods.buildFileUrl,
 
     isScanning(): boolean {
-      return scanQueue ? scanQueue.isRunning : false;
+      return scanQueue?.isRunning.value ?? false;
     },
   };
 

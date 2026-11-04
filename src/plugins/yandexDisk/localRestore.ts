@@ -6,8 +6,8 @@ import { newFolderId } from '@/types/ids';
 import { scanDirectory } from '@/services/download/scanDirectory';
 import { isAudioFile } from '@/shared/audioExtensions';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
 import type { PluginStorage } from './storage';
+import { getPluginManifest } from '../lookup';
 
 export async function restoreFromLocalFilesImpl(
   pluginId: string,
@@ -23,7 +23,6 @@ export async function restoreFromLocalFilesImpl(
   const folders: PluginSnapshot['folders'] = [];
   const tracks: PluginSnapshot['tracks'] = [];
 
-  // Ищем существующие папки, чтобы не дублировать их
   const existingFolders = context.writer.getFoldersBySource(pluginId);
   const existingByPath = new Map<string, FolderId>();
   for (const f of existingFolders) {
@@ -31,15 +30,19 @@ export async function restoreFromLocalFilesImpl(
   }
 
   const folderMap = new Map<string, FolderId>();
-  // Корень
   const existingRoot = existingFolders.find((f) => f.parentId === null);
   const rootId = existingRoot ? existingRoot.id : newFolderId();
 
   folderMap.set('', rootId);
   if (!existingRoot) {
-    folders.push({ id: rootId, parentId: null, name: 'Яндекс.Диск', urlPath: '', files: [] });
+    folders.push({
+      id: rootId,
+      parentId: null,
+      name: getPluginManifest(pluginId)?.name ?? 'Источник',
+      urlPath: '',
+      files: [],
+    });
   }
-  folderStatusService.register(rootId, 'scanned');
 
   for (const [relativePath, fileInfo] of filesMap.entries()) {
     if (!isAudioFile(fileInfo.handle.name)) continue;
@@ -66,7 +69,6 @@ export async function restoreFromLocalFilesImpl(
       }
 
       folderMap.set(currentPath, folderId);
-      folderStatusService.register(folderId, 'scanned');
       parentId = folderId;
     }
 
@@ -90,12 +92,10 @@ export async function restoreFromLocalFilesImpl(
 
   if (tracks.length === 0) return null;
 
-  // Мержим pathMap (не перезаписываем!)
   const currentPathMap = storage.getPathMap();
   const newPathMap = { ...currentPathMap };
 
   for (const [urlPath, folderId] of folderMap.entries()) {
-    // Если для папки еще нет пути, ставим дефолтный
     if (!newPathMap[folderId]) {
       newPathMap[folderId] = `disk:/${urlPath}`;
     }

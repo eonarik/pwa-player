@@ -4,14 +4,8 @@ import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import { useUiSettingsStore } from '@/stores/uiSettings';
-import { loadPlugin } from '@/plugins/registry';
-import { createPluginContext } from '@/plugins/context';
-import { buildLibraryIndex, merge, apply } from '@/services/library/TrackMerger';
+import { merge, apply, saveCachesForPlugins } from '@/services/library/TrackMerger';
 
-/**
- * Гарантирует, что трек есть в библиотеке.
- * Возвращает актуальный trackId (может быть существующий или новый).
- */
 export async function ensureTrackInLibrary(track: Track): Promise<TrackId> {
   const library = useLibraryStore();
   const uiSettings = useUiSettingsStore();
@@ -29,25 +23,15 @@ export async function ensureTrackInLibrary(track: Track): Promise<TrackId> {
   };
 
   const mergeResult = merge(incoming, {
-    libraryIndex: buildLibraryIndex(Object.values(library.tracks)),
+    libraryIndex: library.tracksByArtist,
     existingAlbums: Object.values(library.albums),
     threshold: uiSettings.playlistMatchThreshold,
   });
 
-  await apply(mergeResult, {
-    writer,
-    saveCache: async () => {
-      const pid = mergeResult.track.sources[0]?.pluginId;
-      if (pid) {
-        try {
-          const plugin = await loadPlugin(pid);
-          if (plugin.saveCache) {
-            await plugin.saveCache(createPluginContext(pid));
-          }
-        } catch {}
-      }
-    },
-  });
+  const pluginId = apply(mergeResult, { writer });
+  if (pluginId) {
+    await saveCachesForPlugins([pluginId]);
+  }
 
   return mergeResult.track.id;
 }

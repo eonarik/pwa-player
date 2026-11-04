@@ -57,10 +57,12 @@ describe('useLibraryStore', () => {
     library.folders[folderId] = {
       id: folderId,
       pluginId: 'local',
-      name: 'Test Folder',
+      name: 'F',
       parentId: null,
       urlPath: '',
       trackIds: [t1.id, t2.id],
+      scanState: 'scanned',
+      scanStateUpdatedAt: Date.now(),
     };
 
     library.setCurrentFolder(folderId);
@@ -140,6 +142,8 @@ describe('useLibraryStore', () => {
       parentId: null,
       urlPath: '',
       trackIds: [trackId],
+      scanState: 'scanned',
+      scanStateUpdatedAt: Date.now(),
     };
 
     library.cleanupOrphanTracks({}, { playedAt: {} }, { dislikedAt: {} }, []);

@@ -18,6 +18,14 @@ const FIXTURES = {
   'Music/Artist A/Album 1/Artist A - Track 1.mp3': mp3Uint8,
 };
 
+/** Очистить историю через Pinia store. */
+async function clearHistory(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const historyStore = (window as any).__history();
+    historyStore.clear();
+  });
+}
+
 test.describe('Core: Отключение локального плагина', () => {
   test.beforeEach(async ({ page }) => {
     setupPageLogs(page);
@@ -214,6 +222,10 @@ test.describe('Core: Отключение локального плагина', 
         { timeout: 10000 },
       )
       .toBe(0);
+
+    // Очищаем историю, чтобы трек стал «сиротой» (иначе cleanupOrphanTracks
+    // не удалит его, потому что он есть в истории).
+    await clearHistory(page);
 
     // Делаем перезагрузку страницы, чтобы сработал cleanupOrphanTracks
     await page.reload({ waitUntil: 'domcontentloaded' });

@@ -110,7 +110,6 @@ selfRoutes.get('/resources', async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.log(`[yandex-self] List error:`, err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -270,7 +269,6 @@ selfRoutes.get('/text', requireAuth(), async (req, res) => {
       size: meta.size ?? null,
     });
   } catch (err) {
-    console.log(`[yandex-self] Read text error:`, err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -310,7 +308,6 @@ selfRoutes.put('/text', requireAuth(), async (req, res) => {
 
     res.json({ ok: true, modified: meta.modified ?? null });
   } catch (err) {
-    console.log(`[yandex-self] Write text error:`, err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

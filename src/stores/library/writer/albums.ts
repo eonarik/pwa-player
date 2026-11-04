@@ -13,6 +13,7 @@ export function addAlbums(s: LibraryStore, albums: Album[]): void {
       s.albums[album.id] = {
         ...existing,
         ...album,
+        coverBlob: existing.coverBlob ?? album.coverBlob,
         coverUrl: existing.coverUrl || album.coverUrl || null,
       };
     } else {
@@ -27,6 +28,7 @@ export function addOrUpdateAlbum(s: LibraryStore, album: Album): void {
     s.albums[album.id] = {
       ...existing,
       ...album,
+      coverBlob: existing.coverBlob ?? album.coverBlob,
       coverUrl: existing.coverUrl || album.coverUrl || null,
     };
   } else {

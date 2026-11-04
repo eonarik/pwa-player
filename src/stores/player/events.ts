@@ -7,6 +7,7 @@ import { isLiveStream, pluginIdFromSource } from '@/plugins/registry';
 import { apiClient } from '@/services/api/ApiClient';
 import { AuthError } from '@/services/api/errors';
 import { toastService } from '@/services/ui/ToastService';
+import { telemetry } from '@/services/telemetry';
 import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 
@@ -29,6 +30,8 @@ export interface AudioEventsCallbacks {
   retryPlayback: () => void;
   handleAuthError: (error: AuthError, track: Track) => void;
   skipToNextOnError: () => void;
+  /** true во время восстановления состояния после F5 (не писать в историю). */
+  getIsRestoring: () => boolean;
 }
 
 export interface AudioEvents {
@@ -39,6 +42,7 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
   const { queue, currentIndex, currentTrack, isPlaying, duration, volume, muted } = refs;
 
   const unsubscribers: Array<() => void> = [];
+  let trackStartedAt: number | null = null;
 
   async function handleStreamError(track: Track, _error: { src: string; message: string }): Promise<void> {
     const source = track.sources[0];
@@ -48,16 +52,12 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
 
     try {
       await apiClient.healthCheck(pluginId);
-      // Если healthCheck прошел (сервер жив), но audio выдал ошибку — значит, битый файл или CORS.
-      // Пытаемся переключиться на следующий.
       callbacks.skipToNextOnError();
     } catch (err) {
       if (err instanceof AuthError) {
         callbacks.handleAuthError(err, track);
         return;
       }
-
-      // Любая другая ошибка (ServerError, NetworkError) — тоже переключаем трек
       console.error('[player] handleStreamError:', err);
       callbacks.skipToNextOnError();
     }
@@ -83,7 +83,15 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
       }
 
       isPlaying.value = true;
+      trackStartedAt = performance.now();
       callbacks.startTimeLoop();
+
+      // Не пишем в историю при восстановлении после F5 — трек не «начал играть»,
+      // а продолжил. Иначе история раздувается.
+      if (callbacks.getIsRestoring()) {
+        return;
+      }
+
       const track = currentTrack.value;
       if (track && !isLiveStream(track.pluginId)) {
         void useHistoryStore().recordPlay(track);
@@ -96,6 +104,15 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
     }),
 
     audioService.on('ended', () => {
+      const track = currentTrack.value;
+      if (track && trackStartedAt !== null) {
+        telemetry.event('track.end', {
+          trackId: track.id,
+          playedMs: Math.round(performance.now() - trackStartedAt),
+        });
+      }
+      trackStartedAt = null;
+
       isPlaying.value = false;
       callbacks.stopTimeLoop();
       void callbacks.flushPlayback();
@@ -107,12 +124,21 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
       muted.value = m;
     }),
 
-    audioService.on('error', ({ message, src }) => {
+    audioService.on('error', ({ message, src, code }) => {
+      const track = currentTrack.value;
+
+      telemetry.event('audio.error', {
+        trackId: track?.id,
+        kind: 'native',
+        msg: message ? message.slice(0, 200) : 'unknown',
+        code,
+        srcKind: src.startsWith('blob:') ? 'blob' : src.includes('/api/') ? 'api' : 'url',
+      });
+
       console.error('[player] audio error:', message);
       isPlaying.value = false;
       callbacks.stopTimeLoop();
 
-      const track = currentTrack.value;
       if (!track) {
         toastService.error(message || 'Не удалось воспроизвести трек');
         return;

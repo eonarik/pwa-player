@@ -24,14 +24,17 @@ const props = withDefaults(
 
 const library = useLibraryStore();
 
-const coverSrc = computed(() => {
-  if (!props.track?.albumId) return props.track?.coverUrl ?? undefined;
-  return library.getAlbum(props.track.albumId)?.coverUrl ?? undefined;
+const album = computed(() => {
+  if (!props.track?.albumId) return null;
+  return library.getAlbum(props.track.albumId);
 });
 
-const albumName = computed(() => {
-  if (!props.track?.albumId) return '';
-  return library.getAlbum(props.track.albumId)?.name ?? '';
+const albumName = computed(() => album.value?.name ?? '');
+
+const hasCover = computed(() => {
+  if (!props.track) return false;
+  if (album.value?.coverBlob || album.value?.coverUrl) return true;
+  return Boolean(props.track.coverUrl);
 });
 </script>
 
@@ -39,10 +42,16 @@ const albumName = computed(() => {
   <div class="flex min-w-0 items-center gap-3">
     <div
       class="track-cover aspect-square shrink-0 overflow-hidden bg-card-bg"
-      :class="[coverClass, !coverSrc && 'track-cover_empty']"
+      :class="[coverClass, !hasCover && 'track-cover_empty']"
       data-testid="now-playing-cover"
     >
-      <CoverImage :src="coverSrc" :alt="albumName" :fallback-icon-class="fallbackIconClass" />
+      <CoverImage
+        v-if="track?.albumId"
+        :album-id="track.albumId"
+        :alt="albumName"
+        :fallback-icon-class="fallbackIconClass"
+      />
+      <CoverImage v-else :src="track?.coverUrl" :alt="albumName" :fallback-icon-class="fallbackIconClass" />
     </div>
     <div class="min-w-0" :class="align === 'center' ? 'text-center' : 'text-left'">
       <p class="truncate text-base font-medium text-fg" data-testid="now-playing-title">

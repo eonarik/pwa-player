@@ -242,6 +242,16 @@ function clearSearch(): void {
       </div>
     </template>
 
+    <template #error-action>
+      <button
+        type="button"
+        class="rounded-btn bg-card-bg px-4 py-2 text-xs text-fg transition hover:bg-hover-bg"
+        @click="loadStations"
+      >
+        Попробовать еще раз
+      </button>
+    </template>
+
     <template #list>
       <div
         v-for="station in stations"

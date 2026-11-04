@@ -7,9 +7,9 @@ import { newFolderId } from '@/types/ids';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
 import { mapWithConcurrency } from './concurrency';
 import { compareStrings } from '@/utils/sort';
-import { folderStatusService } from '@/services/folders/FolderStatusService';
+import { telemetry } from '@/services/telemetry';
 
-export const ROOT_REMOTE_PATH = 'disk:/';
+export const ROOT_REMOTE_PATH = '/';
 
 export function isTextFile(name: string): boolean {
   return name.toLowerCase().endsWith('.txt');
@@ -27,10 +27,9 @@ export interface ScanAllOptions {
   recursive: boolean;
   skipScanned?: boolean;
   progress?: ScanProgressCallback;
-  /** Имя стартовой папки (если известно) */
   startFolderName?: string;
-  /** ID родителя стартовой папки (если известен) */
   startParentId?: FolderId | null;
+  isFolderScanned?: (folderId: FolderId) => boolean;
 }
 
 export interface ScanAllResult {
@@ -39,38 +38,67 @@ export interface ScanAllResult {
   pathMap: Record<string, string>;
 }
 
-function normalizeUrlPath(remotePath: string): string {
-  return remotePath
-    .replace(/^disk:\//, '')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '');
+/**
+ * Абсолютный путь для запросов к API (всегда с ведущим слэшем).
+ * '/' -> '/', 'Music' -> '/Music', 'disk:/Music' -> '/Music'.
+ */
+export function toRemotePath(p: string): string {
+  if (!p) return '/';
+  let path = p.replace(/^disk:\/?/, '/');
+  if (!path.startsWith('/')) path = '/' + path;
+  if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+  return path;
+}
+
+/**
+ * Относительный путь для UI/роутера/library (без ведущего слэша).
+ * '/' -> '', '/Music' -> 'Music', 'disk:/Music' -> 'Music'.
+ */
+export function toUrlPath(p: string): string {
+  const abs = toRemotePath(p);
+  return abs === '/' ? '' : abs.slice(1);
 }
 
 export async function scanAll(
   pluginId: string,
   service: IYandexService,
-  folderMap: Record<string, string>,
+  pathMapIncoming: Record<string, string>,
   startFolderId: FolderId,
   startRemotePath: string = ROOT_REMOTE_PATH,
   options: ScanAllOptions,
 ): Promise<ScanAllResult> {
   const skipScanned = options.skipScanned !== false;
+  const scanId = crypto.randomUUID();
+  const scanStartTs = performance.now();
+  const normalizedStartRemote = toRemotePath(startRemotePath);
+
+  telemetry.event('scan.start', {
+    scanId,
+    pluginId,
+    mode: skipScanned ? 'resume' : 'force',
+    recursive: options.recursive,
+  });
 
   const folders: PluginSnapshot['folders'] = [];
   const tracks: PluginSnapshot['tracks'] = [];
+
+  const folderMap: Record<string, string> = {};
+  for (const [id, path] of Object.entries(pathMapIncoming)) {
+    if (path) {
+      folderMap[toRemotePath(path)] = id;
+    }
+  }
 
   const newFolderMap: Record<string, string> = { ...folderMap };
   const pathMap: Record<string, string> = {};
   const progress = options.progress;
 
-  // Сразу создаём стартовую папку, чтобы в неё складывать файлы
-  const fallbackName = startRemotePath.split('/').filter(Boolean).pop() || 'Корень';
-
+  const fallbackName = normalizedStartRemote.split('/').filter(Boolean).pop() || 'Корень';
   const startFolder: PluginSnapshot['folders'][number] = {
     id: startFolderId,
     parentId: options.startParentId ?? null,
     name: options.startFolderName || fallbackName,
-    urlPath: normalizeUrlPath(startRemotePath),
+    urlPath: toUrlPath(normalizedStartRemote),
     files: [],
   };
   folders.push(startFolder);
@@ -79,6 +107,7 @@ export async function scanAll(
   let pendingTracks: PluginSnapshot['tracks'] = [];
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
   let chunkPromise = Promise.resolve();
+  let lastChunkTs = performance.now();
 
   const flushChunks = async () => {
     if (pendingFolders.length === 0 && pendingTracks.length === 0) return;
@@ -96,6 +125,13 @@ export async function scanAll(
         if (service.isCancelled?.()) return;
         try {
           await progress.onChunk!(toFlushFolders, toFlushTracks);
+          telemetry.event('scan.chunk', {
+            scanId,
+            folders: toFlushFolders.length,
+            tracks: toFlushTracks.length,
+            ms: Math.round(performance.now() - lastChunkTs),
+          });
+          lastChunkTs = performance.now();
         } catch (err) {
           console.warn(`[${pluginId}] onChunk failed`, err);
         }
@@ -115,44 +151,47 @@ export async function scanAll(
   const walk = async (remotePath: string, currentFolderId: FolderId): Promise<void> => {
     if (service.isCancelled?.()) return;
 
-    pathMap[currentFolderId] = remotePath;
+    const normalizedRemote = toRemotePath(remotePath);
+    pathMap[currentFolderId] = normalizedRemote;
     progress?.onStart(currentFolderId);
 
     let hasError = false;
     const childDirs: Array<{ id: FolderId; name: string; remotePath: string }> = [];
 
-    try {
-      const response = await service.listResources(remotePath);
-      const items = response._embedded?.items || response.items || [];
+    const currentFolder = folders.find((f) => f.id === currentFolderId);
 
-      const currentFolder = folders.find((f) => f.id === currentFolderId);
+    try {
+      const response = await service.listResources(normalizedRemote);
+      const items = response._embedded?.items || response.items || [];
 
       for (const item of items) {
         if (item.type === 'dir') {
-          const childPath = item.path;
-          const existingId = newFolderMap[childPath];
+          const childRemote = toRemotePath(item.path);
+          const childUrl = toUrlPath(childRemote);
+
+          const existingId = newFolderMap[childRemote];
           const childFolderId = existingId ? (existingId as FolderId) : newFolderId();
-          newFolderMap[childPath] = childFolderId;
+          newFolderMap[childRemote] = childFolderId;
 
           const folder = {
             id: childFolderId,
             parentId: currentFolderId,
             name: item.name,
-            urlPath: normalizeUrlPath(childPath),
+            urlPath: childUrl,
             files: [],
           };
           folders.push(folder);
           pendingFolders.push(folder);
-          pathMap[childFolderId] = childPath;
+          pathMap[childFolderId] = childRemote;
 
-          if (skipScanned && folderStatusService.isScanned(childFolderId)) {
+          if (skipScanned && options.isFolderScanned?.(childFolderId)) {
             continue;
           }
 
           progress?.onFolderDiscovered?.(folder);
 
           if (options.recursive) {
-            childDirs.push({ id: childFolderId, name: item.name, remotePath: childPath });
+            childDirs.push({ id: childFolderId, name: item.name, remotePath: childRemote });
           }
         } else if (item.type === 'file') {
           if (item.isAudio) {
@@ -171,22 +210,22 @@ export async function scanAll(
                 pluginId,
                 priority: 20,
                 kind: 'cloud' as const,
-                remotePath: item.path,
+                remotePath: toRemotePath(item.path),
                 folderId: currentFolderId,
               },
             };
             tracks.push(track);
             pendingTracks.push(track);
           } else {
-            // Не аудио — складываем в файлы текущей папки
-            if (currentFolder) {
+            const isHidden = item.name.startsWith('.') && item.name.indexOf('.', 1) !== -1;
+            if (currentFolder && !isHidden) {
               const dotIndex = item.name.lastIndexOf('.');
               const ext = dotIndex !== -1 ? item.name.slice(dotIndex).toLowerCase() : '';
 
               let fileUrl: string | undefined;
               if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
                 try {
-                  fileUrl = service.buildDownloadUrl(item.path);
+                  fileUrl = service.buildDownloadUrl(toRemotePath(item.path));
                 } catch {
                   fileUrl = undefined;
                 }
@@ -195,7 +234,7 @@ export async function scanAll(
               if (!currentFolder.files) currentFolder.files = [];
               currentFolder.files.push({
                 name: item.name,
-                urlPath: normalizeUrlPath(item.path),
+                urlPath: toUrlPath(item.path),
                 ext,
                 url: fileUrl,
               });
@@ -222,6 +261,15 @@ export async function scanAll(
       console.error(`[${pluginId}] scan: failed to scan "${remotePath}"`, err);
       progress?.onError(currentFolderId, err);
       hasError = true;
+
+      if (currentFolder) {
+        currentFolder.scanState = 'error';
+      }
+
+      telemetry.event('scan.error', {
+        scanId,
+        msg: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
+      });
     }
 
     if (!hasError && !service.isCancelled?.()) {
@@ -229,8 +277,9 @@ export async function scanAll(
     }
   };
 
-  newFolderMap[startRemotePath] = startFolderId;
-  await walk(startRemotePath, startFolderId);
+  newFolderMap[normalizedStartRemote] = startFolderId;
+
+  await walk(normalizedStartRemote, startFolderId);
 
   if (flushTimer) {
     clearTimeout(flushTimer);
@@ -241,6 +290,13 @@ export async function scanAll(
 
   folders.sort((a, b) => compareStrings(a.name, b.name));
   tracks.sort((a, b) => compareStrings(a.title, b.title));
+
+  telemetry.event('scan.done', {
+    scanId,
+    ms: Math.round(performance.now() - scanStartTs),
+    folders: folders.length,
+    tracks: tracks.length,
+  });
 
   return {
     snapshot: { folders, tracks },

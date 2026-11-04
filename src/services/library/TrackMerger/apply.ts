@@ -6,12 +6,15 @@ import type { MergeResult, MergeManyResult } from './merge';
 
 export interface ApplyDeps {
   writer: LibraryWriter;
-  saveCache: (pluginId: string) => Promise<void>;
 }
 
-export async function apply(result: MergeResult, deps: ApplyDeps): Promise<void> {
-  const { writer, saveCache } = deps;
-  const pluginId = result.track.sources[0]?.pluginId;
+/**
+ * Применяет один результат merge. Синхронно (мутации store).
+ * Возвращает pluginId, для которого нужно сделать saveCache (или null).
+ */
+export function apply(result: MergeResult, deps: ApplyDeps): string | null {
+  const { writer } = deps;
+  const pluginId = result.track.sources[0]?.pluginId ?? null;
 
   if (result.action === 'created') {
     if (result.album) {
@@ -30,25 +33,26 @@ export async function apply(result: MergeResult, deps: ApplyDeps): Promise<void>
     writer.updateTrackMetadataCandidates(result.track.id, result.track.metadataCandidates);
   }
 
-  if (pluginId) {
-    await saveCache(pluginId);
-  }
+  return pluginId;
 }
 
 export interface ApplyManyDeps {
   writer: LibraryWriter;
-  saveCache: (pluginId: string) => Promise<void>;
 }
 
-export async function applyMany(many: MergeManyResult, deps: ApplyManyDeps): Promise<void> {
-  const { writer, saveCache } = deps;
+/**
+ * Применяет много результатов merge. Синхронно (мутации store).
+ * Возвращает список уникальных pluginId, для которых нужно сделать saveCache.
+ */
+export function applyMany(many: MergeManyResult, deps: ApplyManyDeps): string[] {
+  const { writer } = deps;
+  const pluginIds = new Set<string>();
 
   if (many.albums.length > 0) {
     writer.addAlbums(many.albums);
   }
 
   const createdTracks: Track[] = [];
-  const pluginIds = new Set<string>();
 
   for (const result of many.results) {
     if (result.action === 'created') {
@@ -86,7 +90,5 @@ export async function applyMany(many: MergeManyResult, deps: ApplyManyDeps): Pro
     }
   }
 
-  for (const pid of pluginIds) {
-    await saveCache(pid);
-  }
+  return Array.from(pluginIds);
 }

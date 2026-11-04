@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import IconButton from '@/components/ui/IconButton.vue';
+import { urlPathToSegments } from '@/utils/urlPath';
 import type { FolderRef } from '@/types/folder';
 
 const router = useRouter();
@@ -42,7 +43,10 @@ function goUp() {
 
   router.push({
     name: 'folder',
-    params: { pluginId: parent.pluginId, folderId: parent.id },
+    params: {
+      pluginId: parent.pluginId,
+      path: urlPathToSegments(parent.urlPath),
+    },
   });
 }
 
@@ -51,7 +55,7 @@ function goToFolder(crumb: FolderRef) {
     name: 'folder',
     params: {
       pluginId: crumb.pluginId,
-      path: crumb.urlPath ? crumb.urlPath.split('/') : [],
+      path: urlPathToSegments(crumb.urlPath),
     },
   });
 }

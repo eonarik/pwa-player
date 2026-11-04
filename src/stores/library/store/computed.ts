@@ -21,7 +21,24 @@ export function createLibraryComputed(refs: LibraryRefs) {
     return index;
   });
 
-  // 1. Быстрый доступ к детям папки
+  /**
+   * Индекс `artistKey → Track[]` для быстрого поиска кандидатов при merge.
+   * artistKey = artist.trim().toLowerCase().
+   *
+   * Используется в history.recordPlay, dislikes.dislike — чтобы не строить
+   * индекс на каждый play (O(N) → O(1) для одиночных операций).
+   */
+  const tracksByArtist = computed<Map<string, Track[]>>(() => {
+    const index = new Map<string, Track[]>();
+    for (const track of Object.values(tracks.value)) {
+      const artistKey = (track.artist || '').trim().toLowerCase();
+      const list = index.get(artistKey) || [];
+      list.push(track);
+      index.set(artistKey, list);
+    }
+    return index;
+  });
+
   const childFoldersMap = computed<Map<FolderId, FolderRef[]>>(() => {
     const map = new Map<FolderId, FolderRef[]>();
     for (const folder of Object.values(folders.value)) {
@@ -33,7 +50,6 @@ export function createLibraryComputed(refs: LibraryRefs) {
     return map;
   });
 
-  // 2. Плоский список треков для каждой папки (включая подпапки)
   const subtreeTracksMap = computed<Map<FolderId, Track[]>>(() => {
     const map = new Map<FolderId, Track[]>();
     const allFolders = Object.values(folders.value);
@@ -69,7 +85,6 @@ export function createLibraryComputed(refs: LibraryRefs) {
     return map;
   });
 
-  // 3. Статистика папки (кол-во папок и треков в поддереве)
   const folderStats = computed(() => {
     const stats = new Map<FolderId, { folders: number; tracks: number }>();
     const allFolders = Object.values(folders.value);
@@ -152,6 +167,7 @@ export function createLibraryComputed(refs: LibraryRefs) {
 
   return {
     tracksByAlbumId,
+    tracksByArtist,
     childFoldersMap,
     subtreeTracksMap,
     folderStats,
