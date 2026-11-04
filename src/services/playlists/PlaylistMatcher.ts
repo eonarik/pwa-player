@@ -49,22 +49,26 @@ export function findBestMatch<T extends Track>(
 
     let maxTitleScore = 0;
     for (const variant of titleVariants) {
-      if (libTitle.includes(variant)) {
+      // Симметричное substring-совпадение (одна строка содержит другую).
+      if (libTitle.includes(variant) || variant.includes(libTitle)) {
         maxTitleScore = 1;
         break;
       }
-      const score = fuzzyMatch(variant, libTitle);
+      // Jaro-Winkler асимметричен: короткая строка первой даёт больший score.
+      const [short, long] = variant.length <= libTitle.length ? [variant, libTitle] : [libTitle, variant];
+      const score = fuzzyMatch(short, long);
       if (score > maxTitleScore) maxTitleScore = score;
     }
 
     let maxArtistScore = 0;
     if (incomingArtist) {
       for (const variant of artistVariants) {
-        if (libArtist.includes(variant)) {
+        if (libArtist.includes(variant) || variant.includes(libArtist)) {
           maxArtistScore = 1;
           break;
         }
-        const score = fuzzyMatch(variant, libArtist);
+        const [short, long] = variant.length <= libArtist.length ? [variant, libArtist] : [libArtist, variant];
+        const score = fuzzyMatch(short, long);
         if (score > maxArtistScore) maxArtistScore = score;
       }
     }
@@ -76,11 +80,9 @@ export function findBestMatch<T extends Track>(
 
     if (incomingArtist && libArtist) {
       if (isArtistStrict) {
-        if (isTitleStrict) {
-          finalScore = maxTitleScore * 0.8 + maxArtistScore * 0.2;
-        } else {
-          finalScore = maxTitleScore * 0.4;
-        }
+        // Artist строгий: title с любым fuzzy — 0.8 * title + 0.2 * artist.
+        // Если title не строгий — всё равно высокий score, но merge отправит в candidates.
+        finalScore = maxTitleScore * 0.8 + maxArtistScore * 0.2;
       } else {
         if (maxArtistScore >= 0.7 && maxTitleScore >= 0.95) {
           finalScore = 0.7 * maxTitleScore + 0.3 * maxArtistScore;
@@ -89,8 +91,6 @@ export function findBestMatch<T extends Track>(
         }
       }
     } else if (!incomingArtist && !libArtist) {
-      // Если артистов нет, требуем строгого совпадения тайтла,
-      // иначе любые "track1" и "track2" склеятся из-за высокого fuzzy score.
       finalScore = isTitleStrict ? maxTitleScore : 0;
     } else {
       finalScore = maxTitleScore * 0.5;

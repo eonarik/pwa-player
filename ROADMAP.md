@@ -1,17 +1,17 @@
 # Roadmap (от 0.15.1 до 1.0.0)
 
-## [0.16.0] — Стабильная синхронизация и Blob-обложки (Текущий релиз)
+## [0.16.1] — Стабильная склейка и Кандидаты (Текущий релиз)
 
-Цель: Стабильная синхронизация, blob-обложки из ID3, чистка легаси.
+Цель: Исправить склейку, добавить управление кандидатами, устранить дубликаты.
 
-- [x] Удаление `FolderStatusService` (статусы — в `FolderRef`).
-- [x] Blob-обложки из ID3 (`Album.coverBlob`, `useAlbumCover`).
-- [x] Атомарный force scan (`cleanupSubtree` в `setLibrary`).
-- [x] `wasPlaying` (F5 — воспроизведение).
-- [x] `SCHEMA_VERSION = 8`.
-- [x] Дубли папок (pathMap).
-- [x] `RadioFilters` компактнее, `error-action`.
-- [x] e2e: force scan diff (удаление/переименование/добавление).
+- [x] Симметричный fuzzy в `findBestMatch`.
+- [x] `merged-soft` создаёт новый трек (`mergeWithTrackId`).
+- [x] `TrackCandidatesModal` (меню трека).
+- [x] `applyCandidate` (слияние треков).
+- [x] Авто-восстановление источника в `playAt`.
+- [x] «Играть всё» (subtree).
+- [x] F5 без повторного скана (`restoreFromCache`).
+- [x] `SCHEMA_VERSION = 1`.
 
 ## [0.17.0] — Планируется
 

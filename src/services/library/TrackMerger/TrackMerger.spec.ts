@@ -51,9 +51,9 @@ function makeIncomingPayload(overrides: Partial<PluginTrackPayload> = {}): Plugi
 
 describe('TrackMerger', () => {
   describe('Создание нового трека (created)', () => {
-    it('НЕ должен склеивать "Track 1" и "Track 2"', () => {
-      const existing = makeExistingTrack({ artist: 'Artist A', title: 'Track 1' });
-      const incoming = makeIncomingPayload({ artist: 'Artist A', title: 'Track 2' });
+    it('НЕ должен склеивать сильно разные треки (разные артисты)', () => {
+      const existing = makeExistingTrack({ artist: 'Portishead', title: 'Glory Box' });
+      const incoming = makeIncomingPayload({ artist: 'Radiohead', title: 'Creep' });
 
       const ctx: MergeContext = {
         libraryIndex: buildLibraryIndex([existing]),
@@ -64,11 +64,11 @@ describe('TrackMerger', () => {
 
       expect(result.action).toBe('created');
       expect(result.matchedTrackId).toBeNull();
-      expect(result.track.title).toBe('Track 2');
+      expect(result.track.title).toBe('Creep');
       expect(result.track.sources).toHaveLength(1);
     });
 
-    it('НЕ должен склеивать "Song" и "Song (Remaster)"', () => {
+    it('НЕ должен склеивать "Song" и "Song (Remaster)" как strict (но отправит в candidates)', () => {
       const existing = makeExistingTrack({ artist: 'The Beatles', title: 'Song' });
       const incoming = makeIncomingPayload({ artist: 'The Beatles', title: 'Song (Remaster)' });
 
@@ -79,7 +79,10 @@ describe('TrackMerger', () => {
       };
       const result = merge(incoming, ctx);
 
-      expect(result.action).toBe('created');
+      // Разные title → strict не срабатывает. Score проходит — candidate.
+      expect(result.action).toBe('merged-soft');
+      expect(result.matchedTrackId).toBe(existing.id);
+      expect(result.track.metadataCandidates).toHaveLength(1);
     });
   });
 
@@ -97,7 +100,7 @@ describe('TrackMerger', () => {
 
       expect(result.action).toBe('merged-strict');
       expect(result.matchedTrackId).toBe(existing.id);
-      expect(result.track.sources).toHaveLength(2); // local + local
+      expect(result.track.sources).toHaveLength(2);
     });
 
     it('НЕ ДОЛЖЕН добавлять дубликат source', () => {
@@ -116,7 +119,7 @@ describe('TrackMerger', () => {
       const result = merge(incoming, ctx);
 
       expect(result.action).toBe('merged-strict');
-      expect(result.track.sources).toHaveLength(1); // не добавился дубликат
+      expect(result.track.sources).toHaveLength(1);
     });
   });
 
@@ -135,7 +138,23 @@ describe('TrackMerger', () => {
       expect(result.action).toBe('merged-soft');
       expect(result.matchedTrackId).toBe(existing.id);
       expect(result.track.metadataCandidates).toHaveLength(1);
-      expect(result.track.sources).toHaveLength(1); // sources не тронут
+      expect(result.track.sources).toHaveLength(1);
+    });
+
+    it('ДОЛЖЕН отправлять "Track 2" в metadataCandidates (высокий fuzzy)', () => {
+      const existing = makeExistingTrack({ artist: 'Artist A', title: 'Track 1' });
+      const incoming = makeIncomingPayload({ artist: 'Artist A', title: 'Track 2' });
+
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
+      const result = merge(incoming, ctx);
+
+      expect(result.action).toBe('merged-soft');
+      expect(result.matchedTrackId).toBe(existing.id);
+      expect(result.track.metadataCandidates).toHaveLength(1);
     });
   });
 });

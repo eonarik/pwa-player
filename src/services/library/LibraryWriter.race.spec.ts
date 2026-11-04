@@ -24,7 +24,7 @@ describe('LibraryWriter: Race Condition (Альбомы)', () => {
     const writer = createLibraryWriter();
     const library = useLibraryStore();
 
-    // Два одинаковых альбома, но с разными ID треков
+    // Два одинаковых альбома, но с разными ID треков.
     const snapshot1: PluginSnapshot = {
       folders: [],
       tracks: [
@@ -65,21 +65,16 @@ describe('LibraryWriter: Race Condition (Альбомы)', () => {
       ],
     };
 
-    // ВАЖНО: вызываем setLibrary параллельно (без await!)
-    // Это симулирует onChunk из сканера, когда два чанка приходят одновременно
     const promise1 = writer.setLibrary(snapshot1, 'local');
     const promise2 = writer.setLibrary(snapshot2, 'local');
 
     await Promise.all([promise1, promise2]);
 
-    // Проверяем, сколько альбомов создалось
     const albums = Object.values(library.albums);
-
-    // Если сработал баг (гонка), их будет 2. Если фикс есть — 1.
     expect(albums.length).toBe(1);
 
-    // Дополнительно проверяем, что оба трека ссылаются на этот единственный альбом
     const tracks = Object.values(library.tracks);
+    // Трек 1 и Трек 2 — разные title, оба created.
     expect(tracks.length).toBe(2);
 
     const albumId = albums[0]!.id;

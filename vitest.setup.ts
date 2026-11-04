@@ -121,18 +121,18 @@ if (typeof (globalThis as any).DecompressionStream === 'undefined') {
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+// let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-  consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  // consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 
 afterEach(() => {
   consoleWarnSpy.mockRestore();
   consoleErrorSpy.mockRestore();
   consoleInfoSpy.mockRestore();
-  consoleLogSpy.mockRestore();
+  // consoleLogSpy.mockRestore();
 });

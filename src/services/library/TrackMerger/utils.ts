@@ -21,10 +21,11 @@ export function isSameSource(a: TrackSource, b: TrackSource): boolean {
 export function isStrictMatch(incoming: Track, existing: Track): boolean {
   const inArtist = incoming.artist.trim().toLowerCase();
   const exArtist = existing.artist.trim().toLowerCase();
+  if (inArtist !== exArtist) return false;
+
   const inTitle = incoming.title.trim().toLowerCase();
   const exTitle = existing.title.trim().toLowerCase();
-
-  return inArtist === exArtist && inTitle === exTitle;
+  return inTitle === exTitle;
 }
 
 export function trackToPayload(track: Track): PluginTrackPayload {

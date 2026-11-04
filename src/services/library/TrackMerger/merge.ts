@@ -63,6 +63,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
 
   const { track: bestMatch, score } = findBestMatch(incomingProbe, ctx.libraryIndex, ctx.threshold);
 
+  // --- created ---
   if (!bestMatch || score < ctx.threshold) {
     const albumRes = resolveAlbumByName(incoming.album, incoming.artist, incoming.coverUrl, ctx.existingAlbums);
     const albumId: AlbumId | null = albumRes?.album.id ?? null;
@@ -90,6 +91,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     };
   }
 
+  // --- merged-strict ---
   if (isStrictMatch(incomingProbe, bestMatch)) {
     const alreadyHasSource = isVoidSource || bestMatch.sources.some((s) => isSameSource(s, source));
     const nextSources = alreadyHasSource
@@ -117,6 +119,11 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     };
   }
 
+  // --- merged-soft ---
+  // Создаём новый трек (как created), но сохраняем ссылку на existing.
+  const albumRes = resolveAlbumByName(incoming.album, incoming.artist, incoming.coverUrl, ctx.existingAlbums);
+  const albumId: AlbumId | null = albumRes?.album.id ?? null;
+
   const candidate: MetadataCandidate = {
     id: newMetadataCandidateId(),
     artist: incoming.artist,
@@ -125,25 +132,32 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     coverUrl: incoming.coverUrl,
     similarity: score,
     provider: incoming.provider ?? 'unknown',
+    extMetadata: {
+      mergeWithTrackId: bestMatch.id,
+    },
   };
 
-  const alreadyHasCandidate = bestMatch.metadataCandidates.some(
-    (c) =>
-      c.artist.trim().toLowerCase() === candidate.artist.trim().toLowerCase() &&
-      c.title.trim().toLowerCase() === candidate.title.trim().toLowerCase(),
-  );
-
-  const track: Track = alreadyHasCandidate
-    ? bestMatch
-    : {
-        ...bestMatch,
-        metadataCandidates: [...bestMatch.metadataCandidates, candidate],
-      };
-
+  const track: Track = {
+    id: newTrackId(),
+    pluginId: source.pluginId,
+    artist: incoming.artist,
+    title: incoming.title,
+    albumId,
+    coverUrl: albumId ? null : incoming.coverUrl,
+    sources: isVoidSource ? [] : [source],
+    metadataCandidates: [candidate],
+    raw,
+    hasId3Tags: incoming.hasId3Tags,
+    metaSource: incoming.metaSource,
+    hasMetadataEdits: incoming.hasMetadataEdits,
+    duration: incoming.duration,
+    codec: incoming.codec,
+  };
+console.log('[merge]', incoming.artist, '|', incoming.title, '| best:', bestMatch?.title, '| score:', score, '| strict:', isStrictMatch(incomingProbe, bestMatch));
   return {
     track,
     action: 'merged-soft',
-    album: null,
+    album: albumRes?.album ?? null,
     matchedTrackId: bestMatch.id,
   };
 }

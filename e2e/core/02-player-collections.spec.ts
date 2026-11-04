@@ -17,6 +17,8 @@ const mp3Uint8 = new Uint8Array(mp3Buffer);
 const FIXTURES = {
   'Music/Artist A/Album 1/01 - Track 1.mp3': mp3Uint8,
   'Music/Artist A/Album 1/02 - Track 2.mp3': mp3Uint8,
+  // Пустая папка (только txt — не аудио)
+  'Empty Folder/readme.txt': 'nothing here',
 };
 
 test.describe('Player & Collections (ядро)', () => {
@@ -52,7 +54,10 @@ test.describe('Player & Collections (ядро)', () => {
 
     const localCard = page.locator('[data-plugin-id="local"]');
     await localCard.getByRole('button', { name: 'Подключить' }).click();
+  });
 
+  test('проигрывание трека, добавление в избранное, дизлайк и плейлист', async ({ page }) => {
+    // Навигация: Music → Artist A → Album 1.
     const musicRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicRow).toBeVisible();
     await musicRow.click();
@@ -64,9 +69,7 @@ test.describe('Player & Collections (ядро)', () => {
     const albumRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Album 1' });
     await expect(albumRow).toBeVisible();
     await albumRow.click();
-  });
 
-  test('проигрывание трека, добавление в избранное, дизлайк и плейлист', async ({ page }) => {
     const track1Row = page.locator('[data-testid^="track-row-"]').filter({ hasText: 'Track 1' }).first();
     const track2Row = page.locator('[data-testid^="track-row-"]').filter({ hasText: 'Track 2' }).first();
 
@@ -78,7 +81,7 @@ test.describe('Player & Collections (ядро)', () => {
     // 2. Проверяем, что плеер начал играть
     await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
 
-    // 3. Ждем, пока history запишется в IDB (до навигации)
+    // 3. Ждем, пока history запишется в IDB
     await expect
       .poll(
         async () => {
@@ -97,14 +100,14 @@ test.describe('Player & Collections (ядро)', () => {
     await expect(musicRowInRoot).toHaveClass(/list-row_active/);
 
     await musicRowInRoot.click();
-    const artistARow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Artist A' });
-    await expect(artistARow).toHaveClass(/list-row_active/);
+    const artistARowAgain = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Artist A' });
+    await expect(artistARowAgain).toHaveClass(/list-row_active/);
 
-    await artistARow.click();
-    const albumRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Album 1' });
-    await expect(albumRow).toHaveClass(/list-row_active/);
+    await artistARowAgain.click();
+    const albumRowAgain = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Album 1' });
+    await expect(albumRowAgain).toHaveClass(/list-row_active/);
 
-    await albumRow.click();
+    await albumRowAgain.click();
 
     // Убедимся, что трек все еще играет
     await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
@@ -146,5 +149,60 @@ test.describe('Player & Collections (ядро)', () => {
         dislikes: 1,
         playlists: 2,
       });
+  });
+
+  test('«Играть всё» на папке с вложенными треками собирает очередь из поддерева', async ({ page }) => {
+    // Music содержит треки только во вложенных подпапках (Artist A / Album 1).
+    const musicRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
+    await expect(musicRow).toBeVisible();
+
+    // Ждём, пока фоновый скан заполнит subtree (иначе кнопка play заблокирована).
+    await expect
+      .poll(
+        async () => {
+          const lib = await getIDBValue<any>(page, 'player:library');
+          if (!lib?.folders) return 0;
+          const music = Object.values(lib.folders).find((f: any) => f.name === 'Music') as any;
+          if (!music) return 0;
+          const allFolders = Object.values(lib.folders) as any[];
+          const byParent = new Map<string, any[]>();
+          for (const f of allFolders) {
+            if (f.parentId) {
+              const list = byParent.get(f.parentId) ?? [];
+              list.push(f);
+              byParent.set(f.parentId, list);
+            }
+          }
+          let total = 0;
+          const stack: any[] = [music];
+          while (stack.length > 0) {
+            const f = stack.pop()!;
+            total += (f.trackIds ?? []).length;
+            for (const c of byParent.get(f.id) ?? []) stack.push(c);
+          }
+          return total;
+        },
+        { timeout: 10000 },
+      )
+      .toBe(2);
+
+    // Кликаем "Играть всё" на Music (кнопка Play слева в FolderListItem).
+    const playBtn = musicRow.locator('div[aria-label^="Играть"]').first();
+    await expect(playBtn).toBeVisible();
+    await playBtn.click();
+
+    // Проверяем, что очередь заполнилась из поддерева (2 трека).
+    await expect
+      .poll(
+        async () => {
+          const state = await getIDBValue<any>(page, 'player:state');
+          return state?.tracks?.length ?? 0;
+        },
+        { timeout: 5000 },
+      )
+      .toBe(2);
+
+    // И что играет один из вложенных треков.
+    await expect(page.getByTestId('now-playing-title').first()).toHaveText(/Track [12]/);
   });
 });

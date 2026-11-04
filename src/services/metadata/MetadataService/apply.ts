@@ -12,6 +12,10 @@ import type { RemoteTrackMetadata } from '../TrackMetadataService';
 import type { TrackMetadata } from '../types';
 import type { ApplyResult, ManualPatch } from './types';
 import type { MetadataPersistence } from './persistence';
+import { useDislikesStore } from '@/stores/dislikes';
+import { useHistoryStore } from '@/stores/history';
+import { usePlaylistsStore } from '@/stores/playlists';
+import { isSameSource } from '@/services/library/TrackMerger';
 
 export function createMetadataApply(persistence: MetadataPersistence) {
   function applyRemote(trackId: TrackId, incoming: RemoteTrackMetadata, force = false): ApplyResult {
@@ -234,6 +238,77 @@ export function createMetadataApply(persistence: MetadataPersistence) {
   }
 
   async function applyCandidate(trackId: TrackId, candidate: MetadataCandidate): Promise<void> {
+    const library = useLibraryStore();
+    const writer = createLibraryWriter();
+
+    const mergeTarget = candidate.extMetadata?.mergeWithTrackId;
+    const candidateTrack = library.getTrack(trackId);
+
+    // Резолв кандидата: если у candidate есть ссылка на existing — мержим.
+    if (typeof mergeTarget === 'string' && mergeTarget !== trackId && candidateTrack) {
+      const target = library.getTrack(mergeTarget as TrackId);
+      if (target) {
+        // 1. Объединяем sources (target + candidate).
+        const combined = [...target.sources, ...candidateTrack.sources];
+        const unique: typeof combined = [];
+        for (const s of combined) {
+          if (!unique.some((u) => isSameSource(u, s))) {
+            unique.push(s);
+          }
+        }
+        unique.sort((a, b) => a.priority - b.priority);
+
+        // 2. Обновляем sources у target (trackId — удалим).
+        writer.updateTrackSources(target.id, unique);
+
+        // 3. Заменяем trackId в плейлистах/истории/дизлайках.
+        //    (reconcile замену не делает для произвольных треков — вызываем вручную.)
+        // Используем playlists/history/dislikes stores.
+        const playlists = usePlaylistsStore();
+        for (const playlist of Object.values(playlists.playlists)) {
+          const idx = playlist.trackIds.indexOf(trackId);
+          if (idx !== -1) {
+            playlist.trackIds[idx] = target.id;
+            playlist.trackIds = Array.from(new Set(playlist.trackIds));
+            playlist.updatedAt = Date.now();
+          }
+        }
+        playlists.save();
+
+        const history = useHistoryStore();
+        const historyTs = history.history.playedAt[trackId];
+        if (historyTs !== undefined) {
+          if (history.history.playedAt[target.id] === undefined) {
+            history.history.playedAt[target.id] = historyTs;
+          }
+          delete history.history.playedAt[trackId];
+        }
+
+        const dislikes = useDislikesStore();
+        const dislikeTs = dislikes.dislikes.dislikedAt[trackId];
+        if (dislikeTs !== undefined) {
+          if (dislikes.dislikes.dislikedAt[target.id] === undefined) {
+            dislikes.dislikes.dislikedAt[target.id] = dislikeTs;
+          }
+          delete dislikes.dislikes.dislikedAt[trackId];
+        }
+
+        // 4. Удаляем трек-кандидат.
+        writer.removeTrack(trackId);
+
+        // 5. Применяем метаданные кандидата к target (artist/title/album).
+        updateManual(target.id, {
+          artist: candidate.artist,
+          title: candidate.title,
+          album: candidate.album,
+          coverUrl: candidate.coverUrl ?? undefined,
+        });
+
+        return;
+      }
+    }
+
+    // Стандартный резолв (нет mergeWithTrackId) — просто обновляем метаданные.
     updateManual(trackId, {
       artist: candidate.artist,
       title: candidate.title,

@@ -12,7 +12,6 @@ import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
 import FolderListItem from './FolderListItem.vue';
 import type { FolderRef } from '@/types/folder';
-import type { Track } from '@/types/track';
 
 const router = useRouter();
 const library = useLibraryStore();
@@ -56,14 +55,19 @@ async function retryFolder(folder: FolderRef): Promise<void> {
   }
 }
 
-async function playFolder(folder: FolderRef): Promise<void> {
-  if (!isScanned(folder)) return;
+function playFolder(folder: FolderRef): void {
+  if (!isScanned(folder)) {
+    toastService.info('Папка ещё не отсканирована');
+    return;
+  }
 
-  const ids = folder.trackIds || [];
-  if (ids.length === 0) return;
-  const tracks = ids.map((id) => library.getTrack(id)).filter((t): t is Track => Boolean(t));
-  if (tracks.length === 0) return;
-  player.playAll(tracks);
+  // Обход вглубь: треки из папки + всех подпапок.
+  const subtreeTracks = library.subtreeTracksMap.get(folder.id) ?? [];
+  if (subtreeTracks.length === 0) {
+    toastService.info('В этой папке нет треков для воспроизведения');
+    return;
+  }
+  player.playAll(subtreeTracks);
 }
 </script>
 

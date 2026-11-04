@@ -39,12 +39,7 @@ function onApply(trackId: TrackId, candidateId: string) {
   const candidate = track.metadataCandidates.find((c) => c.id === candidateId);
   if (!candidate) return;
 
-  metadataService.updateManual(trackId, {
-    artist: candidate.artist,
-    title: candidate.title,
-    album: candidate.album,
-    coverUrl: candidate.coverUrl ?? undefined,
-  });
+  void metadataService.applyCandidate(trackId, candidate);
 }
 
 function onDismiss(trackId: TrackId, candidateId: string) {

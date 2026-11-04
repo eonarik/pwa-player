@@ -3,6 +3,78 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.16.1] — Стабильная склейка и Кандидаты
+
+Хотфикс к 0.16.0: исправлена логика склейки треков (симметрия, кандидаты вместо дубликатов), добавлено управление альтернативными источниками прямо из меню трека.
+
+### Added
+
+- **Меню трека → Кандидаты:** в `TrackActions` появился пункт «Найденные варианты», открывающий `TrackCandidatesModal` для конкретного трека (локальная альтернатива глобальному `MetadataCandidatesModal`).
+- **`TrackCandidatesModal`:** модалка для разрешения альтернативных источников (Это он / Не он) для одного трека.
+- **`mergeWithTrackId` (в `MetadataCandidate.extMetadata`):** при `merged-soft` новый трек сохраняет ссылку на «хозяина» (`targetId`). При резолве («Это он») оба трека сливаются, `sources` объединяются, плейлисты/история/дизлайки обновляются (`applyCandidate`).
+
+### Changed
+
+- **`findBestMatch` (PlaylistMatcher):** симметричный fuzzy (сортировка по длине), без штрафа `* 0.4` для `isArtistStrict && !isTitleStrict`. Порог `0.75` пропускает похожие названия (candidates) — пользователь решает.
+- **`merge` (TrackMerger):** `merged-soft` теперь **создаёт новый трек** (`created` + `metadataCandidates` со ссылкой на хозяина). Раньше — просто добавлял candidate в `bestMatch`. Это исправило пропажу трека из папки (например, `folder2` оставалась пустой).
+- **`applyMany` (TrackMerger):** `merged-soft` обрабатывается как `created` (`addTracks`).
+- **`applyCandidate` (MetadataService):** если `candidate.extMetadata.mergeWithTrackId` — мержит треки (sources, плейлисты, история, дизлайки), удаляет трек-кандидат, применяет метаданные к target.
+- **`MetadataCandidatesModal`:** `onApply` теперь вызывает `metadataService.applyCandidate` (не `updateManual`).
+- **`TrackActions`:** у стриминговых треков (Звук) снова доступны «Найти в интернете» и «Редактировать вручную». «Удалить метаданные» скрыто (нет `raw`).
+- **`restoreFromCache` (yandex):** возвращает `null`, если есть `pending`/`error` папки (доскан после F5). Иначе `{ folders: [], tracks: [] }` — без повторного скана.
+- **`loadImpl`:** `startFolderName` из манифеста (`getPluginManifest(pluginId)?.name`). Не `'Корень'`.
+- **`scanAll`:** `onFolderDiscovered` → `setLibrary` для новых папок (`ScanQueue`) — папка есть в `s.folders` до `onStart` (`scanning`).
+- **`ScanQueue.cancelAll`:** сбрасывает в `error` все `scanning` папки плагина (крутяшка исчезает после отмены).
+- **`playAll` (в `FolderList`):** `subtreeTracksMap` (обход вглубь) + тост «нет треков», если пусто.
+- **`playAt` (player/actions/navigation):** при `sources.length === 0` — `metadataService.fetchAndApply` (авто-восстановление через Звук/iTunes/Deezer). `queue` обновляется.
+- **`PlaylistMatcher`:** `Track 1` vs `Track 2` (`0.82`) — **candidate** (не склеивается strict). `Song` vs `Song (Remaster)` — **candidate** (не strict).
+- **`library.tracksByArtist` (computed):** используется в `history.recordPlay`/`dislikes.dislike` (O(N) → O(1)).
+- **`deepToRaw`:** вынесен в `src/utils/deepToRaw.ts`.
+- **`AlbumService`:** debounce 500 мс, `structuredClone` (Blob).
+- **`ToastService`:** `appendAndTrim` — очистка таймеров вытесненных тостов.
+- **`getPageTitle`:** имя альбома из `PageTitleContext` (не UUID).
+- **`playerRestore`:** `wasPlaying` (играть после F5 только если играл).
+- **`isRestoring` (usePlayerStore):** `recordPlay` не вызывается при восстановлении (история не раздувается).
+- **`apiClient.fetch`:** `credentials: 'include'` по умолчанию. `YandexDiskService` / `YandexSelfService` через `apiClient.fetch`.
+- **`RadioFilters`:** компактнее (`max-h-24`). `CatalogLayout` `#filters` — `max-h-[40vh]` на мобилке.
+- **`RadioCatalog` / `PodcastCatalog`:** кнопка «Попробовать еще раз» при ошибке.
+- **`activatePlugin`:** без reload, `router.push('/')`.
+- **`SCHEMA_VERSION = 9`:** сброс IDB (чистка legacy `pathMap` + дубликатов).
+
+### Fixed
+
+- **Дубли папок при force scan:** `storage.pathMap` — только `folderId → remotePath` (без `newFolderMap`). `rootFolderId` — через `Object.entries().find(p === '/')`.
+- **UI залипает на «Синхронизация...»:** `isPluginScanning` периодически опрашивает `plugin.isScanning()`. `ScanQueue.isRunning` — `ref`.
+- **Force scan удаляет треки:** `cleanupSubtree` в `setLibrary` (атомарно, без мигания).
+- **`error` перезаписывался на `scanned`:** `scanAll` ставит `scanState: 'error'` (до `try` `currentFolder`), `ScanQueue`/`scanFolderImpl` — не перезаписывают.
+- **Трек пропадал из папки при склейке:** `merged-soft` создаёт новый `Track` (не сливает в `bestMatch`).
+- **Обложка в `NowPlayingInfo`:** `useAlbumCover` (blob/url). `CoverImage :album-id`.
+- **`Album.coverBlob`:** первичен, `coverUrl` — вторичен. `CoverImage` резолвит blob.
+- **`TrackCover`:** порядок — `track.coverUrl` → `album.coverBlob/coverUrl` → текст альбома → `track-cover_empty`.
+- **«Найти в Звуке»:** обложка применяется через `metadataService.applyRemote`.
+- **`Song (Remaster)` / `Track 2`:** не strict (`created` / candidate).
+- **`activeTab` в `SettingsView`:** из хэша (`#general`, `#plugins`).
+- **`scanFolderImpl`:** `await writer.setLibrary` (без `.then`).
+- **`FolderSyncMenu`:** `label` (без `any`).
+
+### Internal
+
+- **`useAppBootstrap`:** `isBootstrapping = false` сразу после `library.restore`. Фоновый скан плагинов, `player.restore`, `cleanupOrphanTracks` — асинхронно.
+- **`e2e/plugins/14-force-scan-diff.spec.ts`:** удаление / переименование / добавление.
+- **`e2e/core/06-multi-source-merge.spec.ts`:** strict (2 sources), candidate (2 трека, 1 с candidate, резолв через UI).
+- **`e2e/core/07-local-disconnect.spec.ts`:** `clearHistory` перед reload.
+- **`e2e/core/09-sync-architecture.spec.ts`:** B3, D3, F1, H2, H4 (нет дубликатов после F5).
+- **`e2e/core/02-player-collections.spec.ts`:** «Играть всё» с вложенными треками.
+- **Юнит-тесты:** `TrackMerger.spec.ts` (`Track 1`/`Track 2` — `merged-soft`, `Song (Remaster)` — `merged-soft`), `PlaylistMatcher.spec.ts` (симметрия, `Song (Remaster)` — candidate).
+
+### Removed
+
+- **`FolderStatusService`** (статусы — только в `FolderRef`).
+- **`player:folderStatuses`** (localStorage).
+- **`disk:/` в `remotePath` fallback**.
+- **`any` в `useFolderSync`** (`LibrarySource | null`).
+- **`stripBrackets` / `getCleanedTitle`** (не используем — пользователь решает через candidates).
+
 ## [0.16.0] — 2026-11-04
 
 Стабильная синхронизация, blob-обложки и чистка легаси.

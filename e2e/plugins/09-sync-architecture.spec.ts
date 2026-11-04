@@ -724,6 +724,13 @@ test.describe('F. Отмена', () => {
     if (slow1) {
       expect(slow1[1].errorMessage).toContain('Отмена');
     }
+
+    // Нет ни одной папки в статусе 'scanning'.
+    const stillScanning = Object.values(statuses).filter((s) => s.status === 'scanning');
+    expect(stillScanning).toHaveLength(0);
+
+    // Кнопка «Синхронизация...» больше не крутится.
+    await expect(page.locator('button[aria-label="Синхронизация..."]')).toHaveCount(0, { timeout: 5000 });
   });
 
   test('F2: после отмены «Открыть» запускает доскан error-папок', async ({ page }) => {

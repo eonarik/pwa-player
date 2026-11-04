@@ -63,8 +63,17 @@ export class ScanQueue {
       this.abortController = null;
     }
 
-    const errorIds = [...pendingIds, ...Array.from(this.processingSet)];
+    const errorIds = new Set<FolderId>([...pendingIds, ...Array.from(this.processingSet)]);
     this.processingSet.clear();
+
+    // Также сбрасываем в error все папки плагина, оставшиеся в scanning.
+    // (scanAll мог вызвать onStart(child) после abort — child остался scanning.)
+    const pluginFolders = writer.getFoldersBySource(this.deps.pluginId);
+    for (const f of pluginFolders) {
+      if (f.scanState === 'scanning') {
+        errorIds.add(f.id);
+      }
+    }
 
     for (const id of errorIds) {
       writer.setFolderScanState(id, 'error', { error: 'Отмена синхронизации' });

@@ -26,6 +26,7 @@ import type { Track } from '@/types/track';
 import PlaylistSubmenu from './PlaylistSubmenu.vue';
 import Divider from '../ui/Divider.vue';
 import { DownloadError } from '@/services/download/types.ts';
+import MetadataCandidatesModal from './MetadataCandidatesModal.vue';
 
 const props = defineProps<{
   track: Track;
@@ -53,6 +54,10 @@ const isStreaming = computed(() => isStreamingPlugin(primaryPluginId.value));
 
 const hasMetadataEdits = computed(() => Boolean(props.track.hasMetadataEdits));
 
+const libraryTrack = computed<Track | null>(() => library.getTrack(props.track.id));
+
+const candidateCount = computed(() => libraryTrack.value?.metadataCandidates?.length ?? 0);
+
 function openMetadataEditor(close: () => void): void {
   const libTrack = library.getTrack(props.track.id);
   if (!libTrack) {
@@ -70,13 +75,26 @@ function openMetadataEditor(close: () => void): void {
   });
 }
 
+function openCandidates(close: () => void): void {
+  const t = libraryTrack.value;
+  if (!t) return;
+  close();
+  void modalService.show({
+    title: 'Альтернативные совпадения',
+    type: 'custom',
+    component: MetadataCandidatesModal,
+    props: { trackIds: [t.id] },
+    disableBackdropClose: true,
+  });
+}
+
 async function removeMetadata(close: () => void): Promise<void> {
   if (isStreaming.value) return;
 
   if (!confirm('Удалить метаданные и вернуть исходные значения?')) return;
 
-  const libraryTrack = library.getTrack(props.track.id);
-  if (!libraryTrack) {
+  const libTrack = library.getTrack(props.track.id);
+  if (!libTrack) {
     toastService.error('Трек не найден в библиотеке');
     close();
     return;
@@ -91,14 +109,14 @@ async function removeMetadata(close: () => void): Promise<void> {
 async function findMetadata(close: () => void): Promise<void> {
   if (isSearchingMetadata.value) return;
 
-  const libraryTrack = library.getTrack(props.track.id);
-  if (!libraryTrack) {
+  const libTrack = library.getTrack(props.track.id);
+  if (!libTrack) {
     toastService.error('Трек не найден в библиотеке');
     close();
     return;
   }
 
-  if (libraryTrack.hasId3Tags) {
+  if (libTrack.hasId3Tags) {
     const confirmed = await modalService.show({
       title: 'Перезаписать метаданные?',
       message: 'У трека есть ID3-теги. Поиск в интернете может заменить их ненадежными данными.',
@@ -116,7 +134,7 @@ async function findMetadata(close: () => void): Promise<void> {
   close();
 
   try {
-    const result = await metadataService.fetchAndApply(libraryTrack.id, undefined, true);
+    const result = await metadataService.fetchAndApply(libTrack.id, undefined, true);
 
     if (result.status === 'applied') {
       toastService.success('Метаданные обновлены');
@@ -144,8 +162,6 @@ const downloadProgress = computed(() => {
   if (!p || p.total <= 0) return null;
   return Math.round((p.written / p.total) * 100);
 });
-
-const libraryTrack = computed<Track | null>(() => library.getTrack(props.track.id));
 
 const downloadLabel = computed(() => {
   if (isDownloading.value) {
@@ -281,6 +297,18 @@ function removeFromQueue(close: () => void): void {
             </button>
           </template>
         </template>
+
+        <button
+          v-if="candidateCount > 0"
+          type="button"
+          class="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-amber-400 transition hover:bg-hover-bg"
+          @click="openCandidates(close)"
+        >
+          <span>Альтернативные совпадения</span>
+          <span class="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+            {{ candidateCount }}
+          </span>
+        </button>
 
         <button
           v-if="playlistId"

@@ -8,15 +8,11 @@ export interface ApplyDeps {
   writer: LibraryWriter;
 }
 
-/**
- * Применяет один результат merge. Синхронно (мутации store).
- * Возвращает pluginId, для которого нужно сделать saveCache (или null).
- */
 export function apply(result: MergeResult, deps: ApplyDeps): string | null {
   const { writer } = deps;
   const pluginId = result.track.sources[0]?.pluginId ?? null;
 
-  if (result.action === 'created') {
+  if (result.action === 'created' || result.action === 'merged-soft') {
     if (result.album) {
       writer.addAlbums([result.album]);
     }
@@ -29,8 +25,6 @@ export function apply(result: MergeResult, deps: ApplyDeps): string | null {
     if (result.track.albumId !== null) {
       writer.updateTrackAlbumId(result.track.id, result.track.albumId);
     }
-  } else if (result.action === 'merged-soft') {
-    writer.updateTrackMetadataCandidates(result.track.id, result.track.metadataCandidates);
   }
 
   return pluginId;
@@ -40,10 +34,6 @@ export interface ApplyManyDeps {
   writer: LibraryWriter;
 }
 
-/**
- * Применяет много результатов merge. Синхронно (мутации store).
- * Возвращает список уникальных pluginId, для которых нужно сделать saveCache.
- */
 export function applyMany(many: MergeManyResult, deps: ApplyManyDeps): string[] {
   const { writer } = deps;
   const pluginIds = new Set<string>();
@@ -55,7 +45,7 @@ export function applyMany(many: MergeManyResult, deps: ApplyManyDeps): string[] 
   const createdTracks: Track[] = [];
 
   for (const result of many.results) {
-    if (result.action === 'created') {
+    if (result.action === 'created' || result.action === 'merged-soft') {
       createdTracks.push(result.track);
       const pid = result.track.sources[0]?.pluginId;
       if (pid) pluginIds.add(pid);
@@ -81,10 +71,6 @@ export function applyMany(many: MergeManyResult, deps: ApplyManyDeps): string[] 
       if (result.track.albumId !== null) {
         writer.updateTrackAlbumId(result.track.id, result.track.albumId);
       }
-      const pid = result.track.sources[0]?.pluginId;
-      if (pid) pluginIds.add(pid);
-    } else if (result.action === 'merged-soft') {
-      writer.updateTrackMetadataCandidates(result.track.id, result.track.metadataCandidates);
       const pid = result.track.sources[0]?.pluginId;
       if (pid) pluginIds.add(pid);
     }
