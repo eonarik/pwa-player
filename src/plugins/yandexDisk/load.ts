@@ -52,7 +52,22 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
     (Object.entries(currentPathMap).find(([_, p]) => p === ROOT_REMOTE_PATH)?.[0] as FolderId | undefined) ??
     newFolderId();
 
-  const manifestName = getPluginManifest(pluginId)?.name ?? 'Корень';
+  const manifestName = getPluginManifest(pluginId)?.name ?? 'Root';
+
+  // Создаем корневую папку заранее, чтобы setFolderScanState не падал
+  await writer.addFolders(
+    [
+      {
+        id: rootFolderId,
+        parentId: null,
+        name: manifestName,
+        urlPath: '',
+        files: [],
+      },
+    ],
+    pluginId,
+  );
+
   writer.setFolderScanState(rootFolderId, 'scanning', { progress: { done: 0, total: 0 } });
   const { snapshot, pathMap } = await scanAll(pluginId, service, currentPathMap, rootFolderId, ROOT_REMOTE_PATH, {
     recursive: false,
@@ -75,7 +90,6 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
 
   const fullFolders = [rootFolder, ...childFolders];
   storage.setFoldersCache(storage.mergeFoldersCache(cached ?? [], fullFolders));
-
   await writer.setLibrary({ ...snapshot, folders: fullFolders }, pluginId);
 
   writer.setFolderScanState(rootFolderId, 'scanned');
@@ -93,5 +107,5 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
     onPendingFolders(pendingChildren);
   }
 
-  return { ...snapshot, folders: fullFolders };
+  return { ...snapshot, folders: fullFolders, alreadyApplied: true };
 }

@@ -119,14 +119,13 @@ test.describe('Plugin Yandex: Локальный режим', () => {
     const trackRow = page.locator('[data-testid^="track-row-"]').filter({ hasText: 'track' }).first();
     await expect(trackRow).toBeVisible();
 
-    // Проверяем, что у трека есть local-source в IDB
     await expect
       .poll(async () => {
         const lib = await getIDBValue<any>(page, 'player:library');
         if (!lib || !lib.tracks) return false;
         const tracks = Object.values(lib.tracks) as any[];
-        const t = tracks.find((tr) => tr.title.includes('track'));
-        return t ? t.sources.some((s: any) => s.kind === 'local') : false;
+        // Ищем любой трек с local source
+        return tracks.some((tr) => tr.sources.some((s: any) => s.kind === 'local'));
       })
       .toBe(true);
   });

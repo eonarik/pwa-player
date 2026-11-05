@@ -124,7 +124,7 @@ describe('TrackMerger', () => {
   });
 
   describe('Мягкий мёрж (merged-soft)', () => {
-    it('ДОЛЖЕН отправлять "Karma Polise" в metadataCandidates', () => {
+    it('НЕ ДОЛЖЕН отправлять "Karma Polise" в metadataCandidates', () => {
       const existing = makeExistingTrack({ artist: 'Radiohead', title: 'Karma Police' });
       const incoming = makeIncomingPayload({ artist: 'Radiohead', title: 'Karma Polise' });
 
@@ -135,13 +135,12 @@ describe('TrackMerger', () => {
       };
       const result = merge(incoming, ctx);
 
-      expect(result.action).toBe('merged-soft');
-      expect(result.matchedTrackId).toBe(existing.id);
-      expect(result.track.metadataCandidates).toHaveLength(1);
-      expect(result.track.sources).toHaveLength(1);
+      // Опечатка — это новый трек по строгим правилам
+      expect(result.action).toBe('created');
+      expect(result.matchedTrackId).toBeNull();
     });
 
-    it('ДОЛЖЕН отправлять "Track 2" в metadataCandidates (высокий fuzzy)', () => {
+    it('НЕ ДОЛЖЕН отправлять "Track 2" в metadataCandidates (разные тайтлы)', () => {
       const existing = makeExistingTrack({ artist: 'Artist A', title: 'Track 1' });
       const incoming = makeIncomingPayload({ artist: 'Artist A', title: 'Track 2' });
 
@@ -152,6 +151,22 @@ describe('TrackMerger', () => {
       };
       const result = merge(incoming, ctx);
 
+      expect(result.action).toBe('created');
+      expect(result.matchedTrackId).toBeNull();
+    });
+
+    it('ДОЛЖЕН отправлять "Song" в metadataCandidates, если это "Song (Remaster)" (подстрока)', () => {
+      const existing = makeExistingTrack({ artist: 'The Beatles', title: 'Song' });
+      const incoming = makeIncomingPayload({ artist: 'The Beatles', title: 'Song (Remaster)' });
+
+      const ctx: MergeContext = {
+        libraryIndex: buildLibraryIndex([existing]),
+        existingAlbums: [],
+        threshold: 0.75,
+      };
+      const result = merge(incoming, ctx);
+
+      // "song" — подстрока "song (remaster)" → кандидат
       expect(result.action).toBe('merged-soft');
       expect(result.matchedTrackId).toBe(existing.id);
       expect(result.track.metadataCandidates).toHaveLength(1);

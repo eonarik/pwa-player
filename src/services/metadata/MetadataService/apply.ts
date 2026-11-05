@@ -328,10 +328,18 @@ export function createMetadataApply(persistence: MetadataPersistence) {
   ): Promise<void> {
     try {
       const plugin = await loadPlugin(provider);
-      if (!plugin.applyCandidate) return;
+
+      if (plugin.isDisconnected?.()) {
+        return;
+      }
+
+      if (!plugin.applyCandidate) {
+        return;
+      }
+
       await plugin.applyCandidate(trackId, extMetadata);
     } catch (err) {
-      console.warn(`[metadata] applyCandidate failed for provider "${provider}"`, err);
+      console.error(`[metadata] applyCandidate failed for provider "${provider}"`, err);
     }
   }
 

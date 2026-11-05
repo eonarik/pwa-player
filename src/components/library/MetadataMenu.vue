@@ -9,7 +9,6 @@ defineProps<{
   progress: { done: number; total: number };
   stats: { found: number; checked: number; total: number };
   hasUnchecked: boolean;
-  issuesCount: number;
   /** Есть ли треки, у которых метаданные были изменены (вручную/авто) */
   hasEdits?: boolean;
 }>();
@@ -18,13 +17,7 @@ const emit = defineEmits<{
   (e: 'search'): void;
   (e: 'cancel'): void;
   (e: 'reset'): void;
-  (e: 'open-issues'): void;
 }>();
-
-const onOpenIssues = (close: () => void) => {
-  close();
-  emit('open-issues');
-};
 </script>
 
 <template>
@@ -37,12 +30,12 @@ const onOpenIssues = (close: () => void) => {
         @click.stop="toggle"
       >
         <span v-if="isLoading">Поиск данных… {{ progress.done }}/{{ progress.total }}</span>
-        <span v-else :class="issuesCount > 0 ? 'text-amber-400' : ''">Метаданные</span>
+        <span v-else>Метаданные</span>
         <Icon name="chevron-down" w="w-3" h="h-3" class="transition" :class="isOpen ? 'rotate-180' : ''" />
       </button>
     </template>
 
-    <template #default="{ close }">
+    <template #default>
       <template v-if="isLoading">
         <div class="flex items-center gap-2 px-4 py-2.5 text-xs text-fg-muted">
           <Icon name="spinner" w="w-3.5" h="h-3.5" class="animate-spin" />
@@ -72,7 +65,6 @@ const onOpenIssues = (close: () => void) => {
           Найдено данных: {{ stats.found }}/{{ stats.total }}
         </div>
 
-        <!-- Показываем сброс, если есть хоть один измененный трек -->
         <button
           v-if="hasEdits || stats.checked > 0"
           type="button"
@@ -82,16 +74,6 @@ const onOpenIssues = (close: () => void) => {
           Очистить метаданные
         </button>
       </template>
-
-      <button
-        v-if="issuesCount > 0"
-        type="button"
-        class="flex w-full items-center gap-2 border-t border-hover-bg px-4 py-2.5 text-left text-sm text-amber-400 transition hover:bg-hover-bg"
-        @click="onOpenIssues(close)"
-      >
-        <Icon name="alert-triangle" w="w-4" h="h-4" />
-        <span>Поправить треки ({{ issuesCount }})</span>
-      </button>
     </template>
   </DropdownMenu>
 </template>

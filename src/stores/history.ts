@@ -12,6 +12,21 @@ import { useUiSettingsStore } from './uiSettings';
 
 const HISTORY_MAX_SIZE = 1000;
 
+/**
+ * Проверяет, что у существующего трека artist и title строго совпадают
+ * с incoming. В этом случае merge всегда вернёт merged-strict,
+ * и можно пропустить merge/apply.
+ */
+function isStrictSameTrack(existing: Track, incoming: Track): boolean {
+  const existingArtist = (existing.artist || '').trim().toLowerCase();
+  const incomingArtist = (incoming.artist || '').trim().toLowerCase();
+  if (existingArtist !== incomingArtist) return false;
+
+  const existingTitle = (existing.title || '').trim().toLowerCase();
+  const incomingTitle = (incoming.title || '').trim().toLowerCase();
+  return existingTitle === incomingTitle;
+}
+
 export const useHistoryStore = defineStore('history', () => {
   const history = ref<HistoryCollection>({
     id: 'collection:history',
@@ -53,32 +68,42 @@ export const useHistoryStore = defineStore('history', () => {
 
   async function recordPlay(track: Track): Promise<void> {
     const library = useLibraryStore();
-    const uiSettings = useUiSettingsStore();
-    const writer = createLibraryWriter();
 
-    const incoming = {
-      artist: track.artist,
-      title: track.title,
-      album: track.raw?.album ?? '',
-      coverUrl: track.coverUrl,
-      duration: track.duration,
-      codec: track.codec,
-      hasId3Tags: track.hasId3Tags,
-      source: track.sources[0]!,
-    };
+    const existing = library.getTrack(track.id);
+    let trackId: TrackId;
 
-    const mergeResult = merge(incoming, {
-      libraryIndex: library.tracksByArtist,
-      existingAlbums: Object.values(library.albums),
-      threshold: uiSettings.playlistMatchThreshold,
-    });
+    if (existing && isStrictSameTrack(existing, track)) {
+      // Оптимизация: трек уже в библиотеке, метаданные совпадают → не нужен merge/apply.
+      trackId = existing.id;
+    } else {
+      const uiSettings = useUiSettingsStore();
+      const writer = createLibraryWriter();
 
-    const pluginId = apply(mergeResult, { writer });
-    if (pluginId) {
-      await saveCachesForPlugins([pluginId]);
+      const incoming = {
+        artist: track.artist,
+        title: track.title,
+        album: track.raw?.album ?? '',
+        coverUrl: track.coverUrl,
+        duration: track.duration,
+        codec: track.codec,
+        hasId3Tags: track.hasId3Tags,
+        source: track.sources[0]!,
+      };
+
+      const mergeResult = merge(incoming, {
+        libraryIndex: library.tracksByArtist,
+        existingAlbums: Object.values(library.albums),
+        threshold: uiSettings.playlistMatchThreshold,
+      });
+
+      const pluginId = apply(mergeResult, { writer });
+      if (pluginId) {
+        await saveCachesForPlugins([pluginId]);
+      }
+
+      trackId = mergeResult.track.id;
     }
 
-    const trackId = mergeResult.track.id;
     history.value.playedAt[trackId] = Date.now();
 
     const entriesList: Array<[string, number]> = Object.entries(history.value.playedAt).sort((a, b) => a[1] - b[1]);

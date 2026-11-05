@@ -176,7 +176,6 @@ export class ScanQueue {
               await applyLocalMatchesForFolders(this.deps.pluginId, this.deps.context, folders);
             },
           };
-
           const { snapshot, pathMap: newPaths } = await scanAll(
             this.deps.pluginId,
             this.deps.service,

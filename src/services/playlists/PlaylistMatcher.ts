@@ -1,7 +1,5 @@
 // src/services/playlists/PlaylistMatcher.ts
 
-import { fuzzyMatch } from '@/utils/fuzzyMatch';
-import { layoutVariants } from '@/utils/layout';
 import type { Track } from '@/types/track';
 import type { PlaylistExportTrack } from '@/types/collection';
 
@@ -10,101 +8,75 @@ export interface MatchResult<T = Track> {
   score: number;
 }
 
-function isStrictString(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+/**
+ * Нормализация строки для сравнения:
+ * - Unicode NFC (чтобы "й" как одна точка == "й" как "и" + бревис);
+ * - trim;
+ * - lowercase;
+ * - схлопывание множественных пробелов в один.
+ *
+ * Используется для artist и title в PlaylistMatcher и TrackMerger/utils.
+ */
+export function normalizeMatchString(value: string | null | undefined): string {
+  return (value || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+const SCORE_STRICT = 1.0;
+const SCORE_SOFT = 0.9;
+
+/**
+ * Ищет лучшее совпадение incoming в libraryIndex.
+ *
+ * Правила (по требованию пользователя):
+ * 1. artist !== artist → null (score 0).
+ * 2. artist === artist && title === title → strict (score 1.0).
+ * 3. artist === artist && (title1 — подстрока title2, или наоборот) → soft (score 0.9).
+ * 4. artist === artist && title !== title && не подстрока → null (score 0).
+ *
+ * `threshold` сохранён в сигнатуре для обратной совместимости вызывающего кода.
+ * Все возвращаемые score уже "прошли" threshold, если track !== null.
+ *
+ * Если среди нескольких soft-кандидатов есть strict — strict побеждает
+ * (не может быть нескольких strict с одинаковым artist+title, но на всякий случай).
+ */
 export function findBestMatch<T extends Track>(
   incoming: PlaylistExportTrack | Track,
   libraryIndex: Map<string, T[]>,
-  threshold = 0.8,
+  threshold = 0.75,
 ): MatchResult<T> {
-  let bestTrack: T | null = null;
-  let bestScore = 0;
+  void threshold;
 
-  const incomingTitle = (incoming.title || '').trim().toLowerCase();
-  const incomingArtist = (incoming.artist || '').trim().toLowerCase();
+  const incomingArtist = normalizeMatchString(incoming.artist);
+  const incomingTitle = normalizeMatchString(incoming.title);
 
-  if (!incomingTitle && !incomingArtist) {
+  // Если нет артиста или тайтла — не склеиваем (created).
+  if (!incomingArtist || !incomingTitle) {
     return { track: null, score: 0 };
   }
 
-  const candidates = libraryIndex.get(incomingArtist) || [];
-
-  if (candidates.length === 0) {
+  const candidates = libraryIndex.get(incomingArtist);
+  if (!candidates || candidates.length === 0) {
     return { track: null, score: 0 };
   }
 
-  const titleVariants = layoutVariants(incomingTitle);
-  const artistVariants = layoutVariants(incomingArtist);
+  let bestSoft: { track: T; score: number } | null = null;
 
-  for (const track of candidates) {
-    const libTitle = track.title.trim().toLowerCase();
-    const libArtist = (track.artist || '').trim().toLowerCase();
+  for (const candidate of candidates) {
+    const candidateTitle = normalizeMatchString(candidate.title);
 
-    // Строгое совпадение
-    if (isStrictString(incomingTitle, libTitle) && isStrictString(incomingArtist, libArtist)) {
-      return { track, score: 1.0 };
+    if (candidateTitle === incomingTitle) {
+      return { track: candidate, score: SCORE_STRICT };
     }
 
-    let maxTitleScore = 0;
-    for (const variant of titleVariants) {
-      // Симметричное substring-совпадение (одна строка содержит другую).
-      if (libTitle.includes(variant) || variant.includes(libTitle)) {
-        maxTitleScore = 1;
-        break;
-      }
-      // Jaro-Winkler асимметричен: короткая строка первой даёт больший score.
-      const [short, long] = variant.length <= libTitle.length ? [variant, libTitle] : [libTitle, variant];
-      const score = fuzzyMatch(short, long);
-      if (score > maxTitleScore) maxTitleScore = score;
-    }
-
-    let maxArtistScore = 0;
-    if (incomingArtist) {
-      for (const variant of artistVariants) {
-        if (libArtist.includes(variant) || variant.includes(libArtist)) {
-          maxArtistScore = 1;
-          break;
-        }
-        const [short, long] = variant.length <= libArtist.length ? [variant, libArtist] : [libArtist, variant];
-        const score = fuzzyMatch(short, long);
-        if (score > maxArtistScore) maxArtistScore = score;
-      }
-    }
-
-    let finalScore = 0;
-
-    const isArtistStrict = maxArtistScore >= 0.85;
-    const isTitleStrict = maxTitleScore >= 0.95;
-
-    if (incomingArtist && libArtist) {
-      if (isArtistStrict) {
-        // Artist строгий: title с любым fuzzy — 0.8 * title + 0.2 * artist.
-        // Если title не строгий — всё равно высокий score, но merge отправит в candidates.
-        finalScore = maxTitleScore * 0.8 + maxArtistScore * 0.2;
-      } else {
-        if (maxArtistScore >= 0.7 && maxTitleScore >= 0.95) {
-          finalScore = 0.7 * maxTitleScore + 0.3 * maxArtistScore;
-        } else {
-          finalScore = maxTitleScore * 0.4;
+    if (candidateTitle.length > 0 && incomingTitle.length > 0) {
+      if (candidateTitle.includes(incomingTitle) || incomingTitle.includes(candidateTitle)) {
+        if (!bestSoft) {
+          bestSoft = { track: candidate, score: SCORE_SOFT };
         }
       }
-    } else if (!incomingArtist && !libArtist) {
-      finalScore = isTitleStrict ? maxTitleScore : 0;
-    } else {
-      finalScore = maxTitleScore * 0.5;
-    }
-
-    if (finalScore > bestScore) {
-      bestScore = finalScore;
-      bestTrack = track;
     }
   }
 
-  if (bestScore >= threshold && bestTrack) {
-    return { track: bestTrack, score: bestScore };
-  }
-
-  return { track: null, score: bestScore };
+  if (bestSoft) return bestSoft;
+  return { track: null, score: 0 };
 }

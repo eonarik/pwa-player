@@ -3,6 +3,65 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.16.2] — Строгий мэтчинг и плагинная граница
+
+Релиз посвящён стабилизации после 0.16.1: убраны дубликаты при сканировании, вынесены жёсткие зависимости от плагинов в манифесты, упрощён `PlaylistMatcher`.
+
+### Added
+
+- **`PluginManifest.metadataPriority`:** приоритет провайдера метаданных. Если задан и `LibrarySource.fetchMetadata` реализован — плагин участвует в автопоиске.
+- **`uiSettings.metadataProviderOrder`:** порядок провайдеров метаданных (iTunes, Deezer, плагины). Управление в `Settings` → «Источники метаданных» (drag-and-drop, чекбоксы, up/down).
+- **`MetadataProvidersList.vue`:** список провайдеров с drag-and-drop (`vue-draggable-plus`).
+- **`PluginManifest.backup`:** декларация `localStorageKeys` / `idbKeys` для бэкапа.
+- **`PluginSnapshot.alreadyApplied`:** флаг, что плагин уже применил снимок. Убирает двойной `setLibrary`.
+- **`sourceKey`** в `TrackMerger/merge.ts`:** защита от дубликатов по `source` (при повторном сканировании).
+- **`TrackMerger/merge.ts`:** склейка `local` → `cloud` по имени файла (для `restoreFromLocalFiles`).
+- **`TrackMetadataService.fetchItunes` / `fetchDeezer`:** раздельные методы вместо общего `fetch`.
+- **`MetadataService/migrations.ts`:** `consumeLegacyMetadataToggle` (legacy `zvuk:fetchMetadata`).
+
+### Changed
+
+- **`PlaylistMatcher.findBestMatch`:** полностью переписан на строгие правила. `artist === artist && title === title` → strict (1.0); `artist === artist && title — подстрока` → soft (0.9); иначе `null`. Никакого Jaro-Winkler.
+- **`TrackMerger/utils.isStrictMatch`:** использует `normalizeMatchString` (NFC + trim + lowercase + collapse spaces).
+- **`buildLibraryIndex`:** нормализует по `normalizeMatchString`.
+- **`useLibrarySearch`:** остаётся на Jaro-Winkler (для поиска в UI).
+- **`MetadataService.resolve`:** итерируется по `uiSettings.metadataProviderOrder`. Zvuk больше не хардкод (кроме legacy migration).
+- **`BackupService`:** собирает/восстанавливает данные через `manifest.backup`. `BACKUP_VERSION = 2`. Миграция v1 → v2.
+- **`useAppBootstrap`:** не вызывает `setLibrary` повторно, если `snapshot.alreadyApplied`.
+- **`main.ts`:** убран дубль `playlists.restore()`.
+- **`history.recordPlay` / `dislikes.dislike`:** не делает `merge`/`apply`, если трек в библиотеке с совпадающими метаданными.
+- **`writer/updateTrackSources` / `addTracks`:** пересчитывают `track.pluginId` из `sources[0]` (по priority).
+- **`MetadataService.invokeApplyCandidate`:** проверяет `isDisconnected` (не воскрешает source отключённого плагина).
+- **`MetadataMenu`:** убран `issuesCount`. После `search()` — тост «Найдено кандидатов: N».
+
+### Fixed
+
+- **Дубликаты `root_track` / `track1` при сканировании:** `sourceKey` + `alreadyApplied` + `isSameSource`-проверка в `merge`.
+- **`Track.pluginId` не обновлялся при `updateTrackSources`:** UI показывал неверные кнопки для мультисурсных треков.
+- **`CoverBlobCache` удалён:** `useAlbumCover` читает только `Album.coverBlob`.
+- **`zvuk.applyCandidate` вызывался у отключённого плагина.**
+- **`yandex-self` / `yandex` legacy-ключи в бэкапе:** переехали в `manifest.backup`.
+- **`FOLDER NOT FOUND` в `ScanQueue`:** корневая папка создаётся до `setFolderScanState`.
+- **Race в `setLibrary`:** удалён `withWriteLock` (мутаторы sync, race нет).
+
+### Removed
+
+- **`src/services/covers/CoverBlobCache.ts`:** дубль `Album.coverBlob`.
+- **`src/stores/library/writer/mutex.ts`:** не использовался.
+- **`ZVUK_PLUGIN_ID` из `resolve.ts`:** хардкод плагина в ядре.
+- **`PLUGIN_STORAGE_KEYS` из `BackupService`:** переехал в манифесты.
+- **`DEFAULT_METADATA_PROVIDER_ORDER`** из `constants.ts` (хардкод `zvuk`).
+- **`TrackMetadataService.fetch`** (общий) — разделён на `fetchItunes`/`fetchDeezer`.
+- **`jaroWinkler` / `fuzzyMatch` из `PlaylistMatcher`** (остаётся только в `useLibrarySearch`).
+
+### Internal
+
+- **`@vueuse/core`** — не используется; добавлен **`vue-draggable-plus`**.
+- **`TrackMerger/merge.ts`** — `sourceKey` и проверка `sourceIndex` (защита от дубликатов).
+- **`TrackMerger/utils.ts`** — `normalizeMatchString` (NFC + trim + lowercase + collapse).
+- **Тесты:** обновлены `PlaylistMatcher.spec.ts`, `TrackMerger.spec.ts`, `MetadataService.applyCandidate.spec.ts`, `uiSettings.metadataProviderOrder.spec.ts`, `BackupService.spec.ts`, `writer/pluginId.spec.ts`, `history.spec.ts`, `concurrency.spec.ts`, `LibraryWriter.race.spec.ts`.
+- **E2E:** `06-multi-source-merge.spec.ts`, `08-zvuk-source.spec.ts`, `05-yandex-folder-statuses.spec.ts`, `12-local-only-mode.spec.ts`.
+
 ## [0.16.1] — Стабильная склейка и Кандидаты
 
 Хотфикс к 0.16.0: исправлена логика склейки треков (симметрия, кандидаты вместо дубликатов), добавлено управление альтернативными источниками прямо из меню трека.

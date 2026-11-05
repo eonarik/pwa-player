@@ -59,6 +59,15 @@ export interface PluginManifest {
   readonly order?: number;
   readonly sourcePriority?: number;
 
+  /**
+   * Приоритет источника метаданных (обложки, альбомы, теги).
+   * Меньше — выше в порядке поиска.
+   * Если задан и плагин реализует LibrarySource.fetchMetadata — плагин
+   * участвует в автопоиске метаданных (при условии, что он есть в
+   * uiSettings.metadataProviderOrder).
+   */
+  readonly metadataPriority?: number;
+
   readonly isLiveStream?: boolean;
   readonly isStreaming?: boolean;
   readonly contentKind?: 'music' | 'linear';
@@ -72,6 +81,11 @@ export interface PluginManifest {
   readonly options?: PluginManifestOptions;
   readonly requiresActivation?: boolean;
   readonly activationCode?: string;
+
+  readonly backup?: {
+    localStorageKeys?: string[];
+    idbKeys?: string[];
+  };
 }
 
 export interface LoadOptions {
@@ -132,11 +146,6 @@ export interface LibrarySource {
 
   scanFolder?(context: PluginContext, folderId: FolderId, options: ScanFolderOptions): Promise<PluginSnapshot>;
 
-  /**
-   * Можно ли выполнить force scan папки (принудительное обновление с пересканированием).
-   * Например, `false` если папка уже сканируется (`scanning`).
-   * Если метод не реализован — `canForceScan` не ограничивается.
-   */
   canForceScan?(folderId: FolderId): boolean;
 
   restoreFromLocalFiles?(context: PluginContext): Promise<PluginSnapshot | null>;

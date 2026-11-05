@@ -68,7 +68,7 @@ export function setFolderScanState(
 ): void {
   const folder = s.folders[id];
   if (!folder) {
-    console.warn('[setFolderScanState] FOLDER NOT FOUND', id);
+    console.warn('[setFolderScanState] FOLDER NOT FOUND', id, 'existing folders:', Object.keys(s.folders));
     return;
   }
   // Если статус не меняется и это просто обновление прогресса — не трогаем updatedAt

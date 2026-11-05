@@ -18,7 +18,6 @@ import FolderHeader from './folder/FolderHeader.vue';
 import FolderFilters from './folder/FolderFilters.vue';
 import FolderContent from './folder/FolderContent.vue';
 import FileLocationFilter from '@/components/library/FileLocationFilter.vue';
-import MetadataCandidatesModal from '@/components/library/MetadataCandidatesModal.vue';
 import type { Track } from '@/types/track';
 import type { FolderFile } from '@/types/folder';
 
@@ -43,23 +42,10 @@ const {
   progress: metadataProgress,
   stats: metadataStats,
   hasUnchecked: metadataHasUnchecked,
-  issues: metadataIssues,
   search: searchMetadata,
   cancel: cancelMetadataSearch,
   reset: resetMetadata,
-  dismissIssues,
 } = useMetadataSearch(computed(() => subtreeTracks.value));
-
-const isIssuesModalOpen = ref(false);
-
-function openIssuesModal() {
-  isIssuesModalOpen.value = true;
-}
-
-function closeIssuesModal() {
-  isIssuesModalOpen.value = false;
-  dismissIssues();
-}
 
 type SourceFilter = 'all' | 'local' | 'cloud';
 const sourceFilter = ref<SourceFilter>('all');
@@ -199,7 +185,6 @@ async function cancelBackgroundScan(): Promise<void> {
       :metadata-progress="metadataProgress"
       :metadata-stats="metadataStats"
       :metadata-has-unchecked="metadataHasUnchecked"
-      :metadata-issues-count="metadataIssues.length"
       :can-refresh="canRefresh"
       :can-refresh-from-device="canRefreshFromDevice"
       :is-refreshing="isRefreshing"
@@ -210,7 +195,6 @@ async function cancelBackgroundScan(): Promise<void> {
       @metadata-search="searchMetadata"
       @metadata-cancel="cancelMetadataSearch"
       @metadata-reset="resetMetadata"
-      @open-issues="openIssuesModal"
       @refresh-cloud="refreshFromCloud"
       @refresh-device="refreshFromDevice"
       @cancel-background-scan="cancelBackgroundScan"
@@ -240,11 +224,5 @@ async function cancelBackgroundScan(): Promise<void> {
         <FileLocationFilter v-if="hasMixedLocations" v-model="sourceFilter" />
       </template>
     </FolderContent>
-
-    <MetadataCandidatesModal
-      v-if="isIssuesModalOpen"
-      :track-ids="metadataIssues.map((i) => i.track.id)"
-      @close="closeIssuesModal"
-    />
   </div>
 </template>

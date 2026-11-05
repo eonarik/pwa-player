@@ -14,6 +14,7 @@ import Select from '@/components/ui/Select.vue';
 import Input from '@/components/ui/Input.vue';
 import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
+import MetadataProvidersList from './MetadataProvidersList.vue';
 
 const uiSettings = useUiSettingsStore();
 const {
@@ -90,7 +91,6 @@ async function pickSpace(): Promise<void> {
     if (handle) {
       toastService.success('Папка скачивания выбрана');
 
-      // Запускаем сканирование для всех плагинов с canDownload
       const plugins = getPlugins().filter((p) => p.canDownload);
       for (const p of plugins) {
         void syncService.scanPlugin(p.id);
@@ -105,7 +105,6 @@ async function restoreAccess(): Promise<void> {
   const state = await downloadSpaceService.requestAccess();
   if (state === 'granted') {
     toastService.success('Доступ восстановлен');
-    // Тоже запускаем скан, чтобы обновить fileLocation
     const plugins = getPlugins().filter((p) => p.canDownload);
     for (const p of plugins) {
       void syncService.scanPlugin(p.id);
@@ -150,7 +149,9 @@ async function restoreAccess(): Promise<void> {
 
     <section>
       <SectionTitle text="Метаданные" />
-      <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3">
+      <MetadataProvidersList />
+
+      <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 mt-2">
         <div class="min-w-0">
           <p class="text-sm text-fg">Порог совпадения</p>
           <p class="text-xs text-fg-muted">Ниже порога — трек в «Проблемные»</p>
@@ -166,7 +167,7 @@ async function restoreAccess(): Promise<void> {
         </div>
       </div>
 
-      <div class="bg-card-bg px-4 py-3">
+      <div class="bg-card-bg px-4 py-3 mt-2">
         <Checkbox
           v-model="autoFetchMetadata"
           label="Автопоиск при воспроизведении"

@@ -3,6 +3,7 @@ import type { Track, TrackSource } from '@/types/track';
 import type { AlbumId, FolderId, TrackId } from '@/types/ids';
 import type { MetadataCandidate } from '@/types/metadata';
 import { librarySaveService } from '@/services/library/LibrarySaveService';
+import { pluginIdFromSource } from '@/plugins/registry';
 import type { useLibraryStore } from '../store';
 
 type LibraryStore = ReturnType<typeof useLibraryStore>;
@@ -30,10 +31,27 @@ function syncFolderTrackIds(s: LibraryStore, track: Track, action: 'add' | 'remo
   }
 }
 
+/**
+ * Сортирует sources по priority (стабильно) и вычисляет pluginId
+ * из первого (самого приоритетного) источника.
+ *
+ * Инвариант: `pluginId === pluginIdFromSource(sources[0]?.pluginId ?? '')`.
+ * При пустом sources — `pluginId === ''`.
+ */
+function normalizeSources(sources: TrackSource[]): { sources: TrackSource[]; pluginId: string } {
+  const sorted = [...sources].sort((a, b) => a.priority - b.priority);
+  const first = sorted[0];
+  const pluginId = first ? pluginIdFromSource(first.pluginId) : '';
+  return { sources: sorted, pluginId };
+}
+
 export function addTracks(s: LibraryStore, tracks: Track[], sourceId: string): void {
   for (const track of tracks) {
-    s.tracks[track.id] = track;
-    syncFolderTrackIds(s, track, 'add');
+    const { sources, pluginId } = normalizeSources(track.sources);
+    const normalized: Track = { ...track, sources, pluginId };
+
+    s.tracks[normalized.id] = normalized;
+    syncFolderTrackIds(s, normalized, 'add');
   }
   if (sourceId) {
     librarySaveService.scheduleSave(sourceId);
@@ -57,11 +75,13 @@ export function updateTrackSources(s: LibraryStore, id: TrackId, sources: TrackS
   const track = s.tracks[id];
   if (!track) return;
 
+  const { sources: normalizedSources, pluginId } = normalizeSources(sources);
+
   syncFolderTrackIds(s, track, 'remove');
-  s.tracks[id] = { ...track, sources };
+  s.tracks[id] = { ...track, sources: normalizedSources, pluginId };
   syncFolderTrackIds(s, s.tracks[id]!, 'add');
 
-  const pluginIds = new Set(sources.map((src) => src.pluginId));
+  const pluginIds = new Set(normalizedSources.map((src) => src.pluginId));
   for (const pid of pluginIds) {
     librarySaveService.scheduleSave(pid);
   }

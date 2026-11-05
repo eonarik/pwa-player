@@ -11,6 +11,16 @@ import { merge, apply, saveCachesForPlugins } from '@/services/library/TrackMerg
 import type { Track } from '@/types/track';
 import { useUiSettingsStore } from './uiSettings';
 
+function isStrictSameTrack(existing: Track, incoming: Track): boolean {
+  const existingArtist = (existing.artist || '').trim().toLowerCase();
+  const incomingArtist = (incoming.artist || '').trim().toLowerCase();
+  if (existingArtist !== incomingArtist) return false;
+
+  const existingTitle = (existing.title || '').trim().toLowerCase();
+  const incomingTitle = (incoming.title || '').trim().toLowerCase();
+  return existingTitle === incomingTitle;
+}
+
 export const useDislikesStore = defineStore('dislikes', () => {
   const dislikes = ref<DislikesCollection>({
     id: 'collection:dislikes',
@@ -55,32 +65,41 @@ export const useDislikesStore = defineStore('dislikes', () => {
 
   async function dislike(track: Track): Promise<void> {
     const library = useLibraryStore();
-    const uiSettings = useUiSettingsStore();
-    const writer = createLibraryWriter();
 
-    const incoming = {
-      artist: track.artist,
-      title: track.title,
-      album: track.raw?.album ?? '',
-      coverUrl: track.coverUrl,
-      duration: track.duration,
-      codec: track.codec,
-      hasId3Tags: track.hasId3Tags,
-      source: track.sources[0]!,
-    };
+    const existing = library.getTrack(track.id);
+    let trackId: TrackId;
 
-    const mergeResult = merge(incoming, {
-      libraryIndex: library.tracksByArtist,
-      existingAlbums: Object.values(library.albums),
-      threshold: uiSettings.playlistMatchThreshold,
-    });
+    if (existing && isStrictSameTrack(existing, track)) {
+      trackId = existing.id;
+    } else {
+      const uiSettings = useUiSettingsStore();
+      const writer = createLibraryWriter();
 
-    const pluginId = apply(mergeResult, { writer });
-    if (pluginId) {
-      await saveCachesForPlugins([pluginId]);
+      const incoming = {
+        artist: track.artist,
+        title: track.title,
+        album: track.raw?.album ?? '',
+        coverUrl: track.coverUrl,
+        duration: track.duration,
+        codec: track.codec,
+        hasId3Tags: track.hasId3Tags,
+        source: track.sources[0]!,
+      };
+
+      const mergeResult = merge(incoming, {
+        libraryIndex: library.tracksByArtist,
+        existingAlbums: Object.values(library.albums),
+        threshold: uiSettings.playlistMatchThreshold,
+      });
+
+      const pluginId = apply(mergeResult, { writer });
+      if (pluginId) {
+        await saveCachesForPlugins([pluginId]);
+      }
+
+      trackId = mergeResult.track.id;
     }
 
-    const trackId = mergeResult.track.id;
     if (isDisliked(trackId)) return;
     dislikes.value.dislikedAt[trackId] = Date.now();
   }

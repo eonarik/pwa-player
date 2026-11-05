@@ -2,6 +2,7 @@
 
 import type { Track, TrackSource } from '@/types/track';
 import type { PluginTrackPayload } from '@/types/plugin';
+import { normalizeMatchString } from '@/services/playlists/PlaylistMatcher';
 
 export function isSameSource(a: TrackSource, b: TrackSource): boolean {
   if (a.pluginId !== b.pluginId) return false;
@@ -18,14 +19,18 @@ export function isSameSource(a: TrackSource, b: TrackSource): boolean {
   return false;
 }
 
+/**
+ * "Строгое" совпадение: нормализованные artist и title равны.
+ * Используется в TrackMerger.merge, чтобы решить merged-strict vs merged-soft.
+ *
+ * Обрати внимание: title с суффиксом "(Official Video)" — это НЕ strict,
+ * это soft (кандидат). Пользователь решает через MetadataCandidatesModal.
+ */
 export function isStrictMatch(incoming: Track, existing: Track): boolean {
-  const inArtist = incoming.artist.trim().toLowerCase();
-  const exArtist = existing.artist.trim().toLowerCase();
-  if (inArtist !== exArtist) return false;
-
-  const inTitle = incoming.title.trim().toLowerCase();
-  const exTitle = existing.title.trim().toLowerCase();
-  return inTitle === exTitle;
+  return (
+    normalizeMatchString(incoming.artist) === normalizeMatchString(existing.artist) &&
+    normalizeMatchString(incoming.title) === normalizeMatchString(existing.title)
+  );
 }
 
 export function trackToPayload(track: Track): PluginTrackPayload {
@@ -50,7 +55,7 @@ export function trackToPayload(track: Track): PluginTrackPayload {
 export function buildLibraryIndex(tracks: Track[]): Map<string, Track[]> {
   const index = new Map<string, Track[]>();
   for (const track of tracks) {
-    const artistKey = (track.artist || '').trim().toLowerCase();
+    const artistKey = normalizeMatchString(track.artist);
     const list = index.get(artistKey) || [];
     list.push(track);
     index.set(artistKey, list);

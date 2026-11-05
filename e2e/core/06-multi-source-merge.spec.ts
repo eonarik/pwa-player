@@ -108,7 +108,14 @@ test.describe('Core: Склейка треков из разных папок', 
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            items: [{ type: 'file', name: 'Track 1.mp3', path: 'disk:/Folder A/Track 1.mp3', isAudio: true }],
+            items: [
+              {
+                type: 'file',
+                name: 'Artist A - Track 1.mp3',
+                path: 'disk:/Folder A/Artist A - Track 1.mp3',
+                isAudio: true,
+              },
+            ],
           }),
         });
       }
@@ -135,7 +142,14 @@ test.describe('Core: Склейка треков из разных папок', 
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            items: [{ type: 'file', name: 'Track 1.mp3', path: 'Folder B/Track 1.mp3', isAudio: true }],
+            items: [
+              {
+                type: 'file',
+                name: 'Artist A - Track 1.mp3',
+                path: 'Folder B/Artist A - Track 1.mp3',
+                isAudio: true,
+              },
+            ],
           }),
         });
       }
@@ -304,7 +318,12 @@ test.describe('Core: Склейка треков из разных папок', 
           contentType: 'application/json',
           body: JSON.stringify({
             items: [
-              { type: 'file', name: 'Artist A - Track 1.mp3', path: 'Folder B/Artist A - Track 1.mp3', isAudio: true },
+              {
+                type: 'file',
+                name: 'Artist A - Track 1.mp3',
+                path: 'Folder B/Artist A - Track 1.mp3',
+                isAudio: true,
+              },
             ],
           }),
         });

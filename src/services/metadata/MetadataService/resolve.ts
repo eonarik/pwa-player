@@ -1,14 +1,13 @@
 // src/services/metadata/MetadataService/resolve.ts
 
 import { loadPlugin } from '@/plugins/registry';
+import { getPlugins } from '@/plugins/registry';
 import { trackMetadataService } from '../TrackMetadataService';
 import type { MetadataCandidate } from '@/types/metadata';
 import { newMetadataCandidateId } from '@/types/ids';
 import type { ResolveMode, ResolveResult, RemoteResult, ResolvedCandidate } from './types';
-
-// Единственное место, где ядро «знает» про конкретного провайдера —
-// приоритетный источник для автопоиска (Zvuk идёт первым).
-const ZVUK_PLUGIN_ID = 'zvuk';
+import { isBuiltinMetadataProvider, type BuiltinMetadataProviderId } from './constants';
+import { useUiSettingsStore } from '@/stores/uiSettings';
 
 export function createMetadataResolve() {
   async function resolveCandidates(
@@ -26,46 +25,108 @@ export function createMetadataResolve() {
     return resolveParallel(artist, title, threshold, signal);
   }
 
+  function getOrder(): string[] {
+    const uiSettings = useUiSettingsStore();
+    return uiSettings.metadataProviderOrder;
+  }
+
+  function getAvailablePluginIds(): Set<string> {
+    return new Set(
+      getPlugins()
+        .filter((m) => m.metadataPriority !== undefined)
+        .map((m) => m.id),
+    );
+  }
+
+  async function tryProvider(
+    providerId: string,
+    artist: string,
+    title: string,
+    threshold: number,
+    signal?: AbortSignal,
+  ): Promise<RemoteResult> {
+    if (isBuiltinMetadataProvider(providerId)) {
+      const builtin = providerId as BuiltinMetadataProviderId;
+      const result =
+        builtin === 'itunes'
+          ? await trackMetadataService.fetchItunes(artist, title, threshold, signal)
+          : await trackMetadataService.fetchDeezer(artist, title, threshold, signal);
+
+      if (result.status === 'aborted') return { status: 'aborted' };
+      if (result.status === 'error') return { status: 'error', message: result.message };
+      if (result.status === 'not-found') return { status: 'not-found' };
+
+      const data = result.data;
+      const candidate: ResolvedCandidate = {
+        artist: data.artist,
+        title: data.title,
+        album: data.album,
+        coverUrl: data.coverUrl,
+        similarity: data.similarity,
+        provider: data.source,
+        confident: data.confident,
+      };
+      return { status: 'ok', candidates: [candidate] };
+    }
+
+    // Плагин
+    try {
+      const plugin = await loadPlugin(providerId);
+      if (!plugin.fetchMetadata) return { status: 'not-found' };
+      const data = await plugin.fetchMetadata(artist, title);
+      if (!data) return { status: 'not-found' };
+      const candidate: ResolvedCandidate = {
+        artist: data.artist,
+        title: data.title,
+        album: data.album,
+        coverUrl: data.coverUrl,
+        similarity: data.similarity,
+        provider: providerId,
+        confident: data.confident,
+        extMetadata: data.extMetadata,
+      };
+      return { status: 'ok', candidates: [candidate] };
+    } catch (err) {
+      return { status: 'error', message: err instanceof Error ? err.message : 'Unknown plugin error' };
+    }
+  }
+
   async function resolveSequential(
     artist: string,
     title: string,
     threshold: number,
     signal?: AbortSignal,
   ): Promise<ResolveResult> {
-    // 1. Zvuk
-    const zvuk = await tryZvuk(artist, title);
-    if (signal?.aborted) return { status: 'aborted' };
+    const order = getOrder();
+    if (order.length === 0) return { status: 'not-found' };
 
-    const zvukCandidate = mapZvukCandidate(zvuk);
-    if (zvukCandidate && zvukCandidate.confident && zvukCandidate.similarity >= threshold) {
-      return { status: 'confident', candidate: zvukCandidate };
-    }
+    const availablePlugins = getAvailablePluginIds();
+    const collected: ResolvedCandidate[] = [];
 
-    // 2. iTunes/Deezer
-    const remote = await tryRemote(artist, title, threshold, signal);
-    if (remote.status === 'aborted') return { status: 'aborted' };
-    if (remote.status === 'error') return { status: 'error', message: remote.message };
-    if (remote.status === 'not-found') {
-      if (zvukCandidate && zvukCandidate.similarity >= threshold) {
-        return { status: 'candidates', candidates: [zvukCandidate] };
+    for (const providerId of order) {
+      if (signal?.aborted) return { status: 'aborted' };
+
+      if (!isBuiltinMetadataProvider(providerId) && !availablePlugins.has(providerId)) {
+        continue;
       }
-      return { status: 'not-found' };
+
+      const result = await tryProvider(providerId, artist, title, threshold, signal);
+      if (result.status === 'aborted') return { status: 'aborted' };
+      if (result.status === 'error') {
+        console.warn(`[metadata] provider "${providerId}" failed: ${result.message}`);
+        continue;
+      }
+      if (result.status === 'not-found') continue;
+
+      const confident = result.candidates.find((c) => c.confident && c.similarity >= threshold);
+      if (confident) return { status: 'confident', candidate: confident };
+
+      collected.push(...result.candidates.filter((c) => c.similarity >= threshold));
     }
 
-    const remoteCandidates = remote.candidates;
-    const confidentRemote = remoteCandidates.find((c) => c.confident && c.similarity >= threshold);
-    if (confidentRemote) {
-      return { status: 'confident', candidate: confidentRemote };
-    }
-
-    // 3. Никто не confident — собираем всех, кто прошёл threshold.
-    const all: ResolvedCandidate[] = [];
-    if (zvukCandidate && zvukCandidate.similarity >= threshold) all.push(zvukCandidate);
-    all.push(...remoteCandidates.filter((c) => c.similarity >= threshold));
-    all.sort((a, b) => b.similarity - a.similarity);
-
-    if (all.length === 0) return { status: 'not-found' };
-    return { status: 'candidates', candidates: all };
+    if (collected.length === 0) return { status: 'not-found' };
+    collected.sort((a, b) => b.similarity - a.similarity);
+    return { status: 'candidates', candidates: collected };
   }
 
   async function resolveParallel(
@@ -74,143 +135,41 @@ export function createMetadataResolve() {
     threshold: number,
     signal?: AbortSignal,
   ): Promise<ResolveResult> {
-    const [zvukRes, remoteRes] = await Promise.all([
-      tryZvuk(artist, title),
-      tryRemote(artist, title, threshold, signal),
-    ]);
+    const order = getOrder();
+    if (order.length === 0) return { status: 'not-found' };
 
-    if (signal?.aborted || remoteRes.status === 'aborted') return { status: 'aborted' };
-    if (remoteRes.status === 'error') return { status: 'error', message: remoteRes.message };
+    const availablePlugins = getAvailablePluginIds();
+    const filteredOrder = order.filter((id) => isBuiltinMetadataProvider(id) || availablePlugins.has(id));
 
-    const all: ResolvedCandidate[] = [];
+    const tasks = filteredOrder.map((providerId) => tryProvider(providerId, artist, title, threshold, signal));
 
-    const zvukCandidate = mapZvukCandidate(zvukRes);
-    if (zvukCandidate) all.push(zvukCandidate);
+    const results = await Promise.all(tasks);
+    if (signal?.aborted) return { status: 'aborted' };
 
-    if (remoteRes.status === 'ok') {
-      all.push(...remoteRes.candidates);
+    const collected: ResolvedCandidate[] = [];
+    for (const result of results) {
+      if (result.status === 'error') {
+        console.warn(`[metadata] parallel provider failed: ${result.message}`);
+        continue;
+      }
+      if (result.status === 'not-found') continue;
+      if (result.status === 'aborted') return { status: 'aborted' };
+      collected.push(...result.candidates.filter((c) => c.similarity >= threshold));
     }
 
-    const filtered = all.filter((c) => c.similarity >= threshold);
-    if (filtered.length === 0) return { status: 'not-found' };
+    if (collected.length === 0) return { status: 'not-found' };
 
-    // Сортировка: Zvuk-confident первым, остальное — по similarity desc.
-    filtered.sort((a, b) => {
-      const aIsZvukConfident = a.confident && a.provider === ZVUK_PLUGIN_ID;
-      const bIsZvukConfident = b.confident && b.provider === ZVUK_PLUGIN_ID;
-      if (aIsZvukConfident && !bIsZvukConfident) return -1;
-      if (!aIsZvukConfident && bIsZvukConfident) return 1;
+    collected.sort((a, b) => {
+      const aConf = a.confident;
+      const bConf = b.confident;
+      if (aConf && !bConf) return -1;
+      if (!aConf && bConf) return 1;
       return b.similarity - a.similarity;
     });
 
-    const first = filtered[0]!;
-    if (first.confident) {
-      return { status: 'confident', candidate: first };
-    }
-    return { status: 'candidates', candidates: filtered };
-  }
-
-  async function tryZvuk(
-    artist: string,
-    title: string,
-  ): Promise<{
-    artist: string;
-    title: string;
-    album: string;
-    coverUrl: string | null;
-    similarity: number;
-    confident: boolean;
-    extMetadata?: Record<string, unknown>;
-  } | null> {
-    const zvukEnabled = localStorage.getItem('zvuk:fetchMetadata') !== 'false';
-    if (!zvukEnabled) return null;
-
-    try {
-      const zvukPlugin = await loadPlugin(ZVUK_PLUGIN_ID);
-      if (!zvukPlugin.fetchMetadata) return null;
-      const data = await zvukPlugin.fetchMetadata(artist, title);
-      if (!data) return null;
-      return {
-        artist: data.artist,
-        title: data.title,
-        album: data.album,
-        coverUrl: data.coverUrl,
-        similarity: data.similarity,
-        confident: data.confident,
-        extMetadata: data.extMetadata,
-      };
-    } catch (err) {
-      console.warn('[metadata] zvuk failed', err);
-      return null;
-    }
-  }
-
-  function mapZvukCandidate(
-    data: {
-      artist: string;
-      title: string;
-      album: string;
-      coverUrl: string | null;
-      similarity: number;
-      confident: boolean;
-      extMetadata?: Record<string, unknown>;
-    } | null,
-  ): ResolvedCandidate | null {
-    if (!data) return null;
-    return {
-      artist: data.artist,
-      title: data.title,
-      album: data.album,
-      coverUrl: data.coverUrl,
-      similarity: data.similarity,
-      provider: ZVUK_PLUGIN_ID,
-      confident: data.confident,
-      extMetadata: data.extMetadata,
-    };
-  }
-
-  async function tryRemote(
-    artist: string,
-    title: string,
-    threshold: number,
-    signal?: AbortSignal,
-  ): Promise<RemoteResult> {
-    try {
-      const result = await trackMetadataService.fetch(artist, title, threshold, signal);
-      if (result.status === 'aborted') return { status: 'aborted' };
-      if (result.status === 'error') return { status: 'error', message: result.message };
-      if (result.status === 'not-found') return { status: 'not-found' };
-
-      const candidates: ResolvedCandidate[] = [];
-
-      if (result.data.candidates && result.data.candidates.length > 0) {
-        for (const c of result.data.candidates) {
-          candidates.push({
-            artist: c.artist ?? '',
-            title: c.title ?? '',
-            album: c.album ?? '',
-            coverUrl: c.coverUrl ?? null,
-            similarity: c.similarity,
-            provider: c.source,
-            confident: c.similarity >= threshold,
-          });
-        }
-      } else {
-        candidates.push({
-          artist: result.data.artist,
-          title: result.data.title,
-          album: result.data.album,
-          coverUrl: result.data.coverUrl,
-          similarity: result.data.similarity,
-          provider: result.data.source,
-          confident: result.data.confident,
-        });
-      }
-
-      return { status: 'ok', candidates };
-    } catch (err) {
-      return { status: 'error', message: err instanceof Error ? err.message : 'Unknown error' };
-    }
+    const first = collected[0]!;
+    if (first.confident) return { status: 'confident', candidate: first };
+    return { status: 'candidates', candidates: collected };
   }
 
   function toCandidate(c: ResolvedCandidate): MetadataCandidate {

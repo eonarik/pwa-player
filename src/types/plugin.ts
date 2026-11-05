@@ -44,4 +44,10 @@ export interface PluginSnapshot {
   tracks: PluginTrackPayload[];
   removedSourceIds?: import('./ids').TrackSourceId[];
   removedFolderIds?: FolderId[];
+
+  /**
+   * true, если плагин уже применил снимок к библиотеке (через writer.setLibrary).
+   * Используется в useAppBootstrap, чтобы не вызывать setLibrary повторно (иначе будут дубликаты).
+   */
+  alreadyApplied?: boolean;
 }

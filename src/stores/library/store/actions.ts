@@ -7,7 +7,6 @@ import type { FolderRef } from '@/types/folder';
 import type { AlbumId, FolderId, TrackId } from '@/types/ids';
 import { albumService } from '@/services/persistence/AlbumService';
 import type { LibraryRefs } from './state';
-import { coverBlobCache } from '@/services/covers/CoverBlobCache';
 
 const LIBRARY_KEY = 'player:library';
 
@@ -37,15 +36,12 @@ export function createLibraryActions(refs: LibraryRefs) {
     folders.value = {};
     currentFolderId.value = null;
     void albumService.clear();
-    void coverBlobCache.clear();
     void set(LIBRARY_KEY, { tracks: {}, folders: {} });
   }
 
   async function restore(): Promise<void> {
     const savedAlbums = await albumService.loadAll();
     albums.value = savedAlbums;
-
-    await coverBlobCache.load();
 
     try {
       const saved = await get<{ tracks: Record<TrackId, Track>; folders: Record<FolderId, FolderRef> }>(LIBRARY_KEY);
@@ -54,15 +50,14 @@ export function createLibraryActions(refs: LibraryRefs) {
 
         const restoredFolders: Record<FolderId, FolderRef> = {};
         for (const [id, folder] of Object.entries(saved.folders || {})) {
-          // Миграция старых данных: добавляем scanState, если его нет
           const scanState = folder.scanState ?? 'pending';
 
           restoredFolders[id as FolderId] = {
             ...folder,
             trackIds: folder.trackIds || [],
             files: folder.files || [],
-            scanState: scanState === 'scanning' ? 'pending' : scanState, // сброс застрявших сканов
-            scanProgress: undefined, // прогресс не сохраняем
+            scanState: scanState === 'scanning' ? 'pending' : scanState,
+            scanProgress: undefined,
             scanError: folder.scanError,
             scanStateUpdatedAt: folder.scanStateUpdatedAt ?? 0,
           };

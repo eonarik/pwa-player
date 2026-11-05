@@ -72,7 +72,9 @@ export function useAppBootstrap() {
             } else if (!manifest.isStateless && !plugin.isDisconnected?.()) {
               try {
                 const snapshot = await plugin.load(context);
-                if (snapshot.folders.length > 0 || snapshot.tracks.length > 0) {
+
+                // Если плагин уже применил снимок (yandex, yandex-self), не применяем повторно.
+                if (!snapshot.alreadyApplied && (snapshot.folders.length > 0 || snapshot.tracks.length > 0)) {
                   await context.writer.setLibrary(snapshot, manifest.id);
                 }
               } catch (err) {

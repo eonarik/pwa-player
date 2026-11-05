@@ -56,7 +56,13 @@ test.describe('Zvuk → streaming-source', () => {
       localStorage.clear();
       sessionStorage.clear();
       localStorage.setItem('player:uiSettings', JSON.stringify({ autoFetchMetadata: true }));
-      localStorage.setItem('zvuk:fetchMetadata', 'true');
+      localStorage.setItem(
+        'player:uiSettings',
+        JSON.stringify({
+          autoFetchMetadata: true,
+          metadataProviderOrder: ['zvuk', 'itunes', 'deezer'],
+        }),
+      );
     });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitForAppBootstrap(page);
@@ -82,6 +88,22 @@ test.describe('Zvuk → streaming-source', () => {
 
     // Кликаем → автопоиск (useAutoActions) → Zvuk strict-match
     await track1Row.click();
+
+    // ДИАГНОСТИКА: ждём 2 секунды, чтобы debounce+idle callback сработали
+    await page.waitForTimeout(2000);
+
+    const debugLib = await getIDBValue<any>(page, 'player:library');
+    console.log('[DEBUG] lib keys:', debugLib ? Object.keys(debugLib) : 'NULL');
+    if (debugLib) {
+      console.log(
+        '[DEBUG] tracks:',
+        Object.values(debugLib.tracks || {}).map((t: any) => ({
+          title: t.title,
+          artist: t.artist,
+          sources: t.sources?.map((s: any) => `${s.kind}:${s.pluginId}`),
+        })),
+      );
+    }
 
     // Ждём, пока автопоиск завершится и sources обновится
     await expect

@@ -4,6 +4,7 @@ import { computed, ref, type Ref } from 'vue';
 import { metadataService } from '@/services/metadata/MetadataService';
 import { useLibraryStore } from '@/stores/library';
 import type { Track } from '@/types/track';
+import { toastService } from '@/services/ui/ToastService';
 
 const CONCURRENCY = 3;
 const FLUSH_INTERVAL = 10;
@@ -126,6 +127,10 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
       await metadataService.flush();
       issues.value = [...issues.value, ...foundIssues];
       bumpVersion();
+
+      if (foundIssues.length > 0) {
+        toastService.info(`Найдено кандидатов: ${foundIssues.length}. Проверьте «Проблемные совпадения».`);
+      }
     } finally {
       isLoading.value = false;
       progress.value = { done: 0, total: 0 };

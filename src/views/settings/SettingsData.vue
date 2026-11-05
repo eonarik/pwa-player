@@ -15,7 +15,6 @@ import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
 import SettingsActionRow from '@/components/ui/SettingsActionRow.vue';
 import { useLibraryStore } from '@/stores/library';
-import { coverBlobCache } from '@/services/covers/CoverBlobCache';
 
 const history = useHistoryStore();
 const dislikes = useDislikesStore();
@@ -62,7 +61,6 @@ async function resetAll(): Promise<void> {
     yandexSelfService.logout();
 
     library.clear();
-    await coverBlobCache.clear();
 
     localStorage.clear();
     sessionStorage.clear();

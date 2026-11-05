@@ -7,12 +7,13 @@ import { useDislikesStore } from '@/stores/dislikes';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { themeService, type ThemeId } from '@/services/ui/ThemeService';
 import { toastService } from '@/services/ui/ToastService';
+import { getPlugins } from '@/plugins/registry';
 import type { PersistedSubscriptions } from '@/plugins/podcasts/types';
 import type { Playlist } from '@/types/collection';
-import type { TrackId, PlaylistId } from '@/types/ids';
+import type { TrackId } from '@/types/ids';
 
 export const BACKUP_FORMAT = 'cuei-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export interface BackupMedia {
   playlists: Playlist[];
@@ -63,14 +64,15 @@ export interface BackupThresholds {
   playlistMatch: number;
 }
 
-export interface BackupPluginFlags {
-  [pluginId: string]: Record<string, boolean>;
+export interface BackupPluginStorage {
+  localStorage?: Record<string, string>;
+  idb?: Record<string, unknown>;
 }
 
 export interface BackupSettings {
   app: BackupAppSettings;
   thresholds: BackupThresholds;
-  plugins: BackupPluginFlags;
+  plugins: Record<string, BackupPluginStorage>;
 }
 
 export interface CueiBackup {
@@ -87,12 +89,6 @@ export interface CueiBackup {
 export type BackupDomain = 'media' | 'sources' | 'settings';
 export const ALL_DOMAINS: BackupDomain[] = ['media', 'sources', 'settings'];
 
-const PLUGIN_STORAGE_KEYS: Record<string, string[]> = {
-  'yandex-self': ['plugin-activated:yandex-self', 'yandex-self-disconnected'],
-  local: ['local-connected'],
-  yandex: ['yandex-disconnected'],
-};
-
 class BackupService {
   private static instance: BackupService | null = null;
 
@@ -108,7 +104,7 @@ class BackupService {
 
     if (domains.includes('media')) data.media = this.collectMedia();
     if (domains.includes('sources')) data.sources = await this.collectSources();
-    if (domains.includes('settings')) data.settings = this.collectSettings();
+    if (domains.includes('settings')) data.settings = await this.collectSettings();
 
     return {
       format: BACKUP_FORMAT,
@@ -159,17 +155,44 @@ class BackupService {
     };
   }
 
-  private collectSettings(): BackupSettings {
+  private async collectSettings(): Promise<BackupSettings> {
     const uiSettings = useUiSettingsStore();
+    const pluginStorage: Record<string, BackupPluginStorage> = {};
 
-    const pluginFlags: BackupPluginFlags = {};
-    for (const [pluginId, keys] of Object.entries(PLUGIN_STORAGE_KEYS)) {
-      pluginFlags[pluginId] = {};
-      for (const key of keys) {
-        const value = localStorage.getItem(key);
-        if (value === null) continue;
-        const flagName = key.split(':').pop() || key;
-        pluginFlags[pluginId][flagName] = value === 'true';
+    for (const manifest of getPlugins()) {
+      const backup = manifest.backup;
+      if (!backup) continue;
+
+      const entry: BackupPluginStorage = {};
+
+      if (backup.localStorageKeys && backup.localStorageKeys.length > 0) {
+        const lsData: Record<string, string> = {};
+        for (const key of backup.localStorageKeys) {
+          const value = localStorage.getItem(key);
+          if (value !== null) {
+            lsData[key] = value;
+          }
+        }
+        if (Object.keys(lsData).length > 0) {
+          entry.localStorage = lsData;
+        }
+      }
+
+      if (backup.idbKeys && backup.idbKeys.length > 0) {
+        const idbData: Record<string, unknown> = {};
+        for (const key of backup.idbKeys) {
+          const value = await idbGet(key);
+          if (value !== undefined) {
+            idbData[key] = value;
+          }
+        }
+        if (Object.keys(idbData).length > 0) {
+          entry.idb = idbData;
+        }
+      }
+
+      if (entry.localStorage || entry.idb) {
+        pluginStorage[manifest.id] = entry;
       }
     }
 
@@ -185,7 +208,7 @@ class BackupService {
         search: uiSettings.searchThreshold,
         playlistMatch: uiSettings.playlistMatchThreshold,
       },
-      plugins: pluginFlags,
+      plugins: pluginStorage,
     };
   }
 
@@ -208,7 +231,7 @@ class BackupService {
       await this.importSources(backup.data.sources);
     }
     if (domains.includes('settings') && backup.data.settings) {
-      await this.importSettings(backup.data.settings);
+      await this.importSettings(backup.data.settings, backup.version);
     }
 
     await idbDel('player:state');
@@ -224,8 +247,8 @@ class BackupService {
     const dislikes = useDislikesStore();
 
     if (Array.isArray(media.playlists)) {
-      playlists.playlists = {} as Record<PlaylistId, Playlist>;
-      for (const p of media.playlists as Playlist[]) {
+      playlists.playlists = {};
+      for (const p of media.playlists) {
         if (!p.id) continue;
         playlists.playlists[p.id] = {
           id: p.id,
@@ -285,7 +308,7 @@ class BackupService {
     }
   }
 
-  private async importSettings(settings: BackupSettings): Promise<void> {
+  private async importSettings(settings: BackupSettings, version: number): Promise<void> {
     const uiSettings = useUiSettingsStore();
 
     if (settings.app) {
@@ -309,14 +332,53 @@ class BackupService {
       }
     }
 
+    // Импорт плагинов (поддерживаем оба формата: v1 и v2)
     if (settings.plugins) {
-      for (const [pluginId, flags] of Object.entries(settings.plugins)) {
-        const keys = PLUGIN_STORAGE_KEYS[pluginId];
-        if (!keys) continue;
-        for (const key of keys) {
-          const flagName = key.split(':').pop() || key;
-          if (typeof flags[flagName] === 'boolean') {
-            localStorage.setItem(key, flags[flagName] ? 'true' : 'false');
+      if (version < 2) {
+        // v1: Record<pluginId, Record<flagName, boolean>>
+        const legacyPlugins = settings.plugins as unknown as Record<string, Record<string, boolean>>;
+        for (const [pluginId, flags] of Object.entries(legacyPlugins)) {
+          const manifest = getPlugins().find((p) => p.id === pluginId);
+          const keys = manifest?.backup?.localStorageKeys;
+          if (!keys) continue;
+
+          for (const key of keys) {
+            const flagName = key.split(':').pop() || key;
+            const value = flags[flagName];
+            if (typeof value === 'boolean') {
+              localStorage.setItem(key, value ? 'true' : 'false');
+            }
+          }
+        }
+      } else {
+        // v2: Record<pluginId, { localStorage?: Record<string, string>, idb?: Record<string, unknown> }>
+        for (const [pluginId, entry] of Object.entries(settings.plugins)) {
+          const manifest = getPlugins().find((p) => p.id === pluginId);
+          if (!manifest) {
+            console.warn(`[backup] skipping plugin "${pluginId}": not found in registry`);
+            continue;
+          }
+
+          const keys = manifest.backup?.localStorageKeys;
+          if (entry.localStorage) {
+            for (const [key, value] of Object.entries(entry.localStorage)) {
+              if (keys?.includes(key)) {
+                localStorage.setItem(key, value);
+              } else {
+                console.warn(`[backup] skipping key "${key}" for plugin "${pluginId}": not in manifest.backup`);
+              }
+            }
+          }
+
+          const idbKeys = manifest.backup?.idbKeys;
+          if (entry.idb) {
+            for (const [key, value] of Object.entries(entry.idb)) {
+              if (idbKeys?.includes(key)) {
+                await idbSet(key, value);
+              } else {
+                console.warn(`[backup] skipping idb key "${key}" for plugin "${pluginId}": not in manifest.backup`);
+              }
+            }
           }
         }
       }

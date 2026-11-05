@@ -2,6 +2,13 @@
 
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
+import {
+  BUILTIN_METADATA_PROVIDERS,
+  BUILTIN_METADATA_PRIORITY,
+  isBuiltinMetadataProvider,
+} from '@/services/metadata/MetadataService/constants';
+import { consumeLegacyMetadataToggle } from '@/services/metadata/MetadataService/migrations';
+import { getPlugins } from '@/plugins/registry';
 
 const UI_SETTINGS_KEY = 'player:uiSettings';
 const SAVE_DEBOUNCE_MS = 300;
@@ -18,33 +25,116 @@ interface PersistedUiSettings {
   playlistMatchThreshold: number;
   autoFetchMetadata: boolean;
   autoDownloadTracks: boolean;
+  metadataProviderOrder: string[];
+}
+
+function isValidThreshold(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function sanitizeProviderOrder(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    if (seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+
+/**
+ * Дефолтный порядок провайдеров метаданных:
+ * 1. Built-in провайдеры (itunes, deezer) — всегда первыми.
+ * 2. Плагины с manifest.metadataPriority — по возрастанию приоритета.
+ */
+function defaultProviderOrder(): string[] {
+  const order: string[] = [...BUILTIN_METADATA_PROVIDERS];
+
+  try {
+    const pluginProviders = getPlugins()
+      .filter((m) => m.metadataPriority !== undefined)
+      .sort((a, b) => (a.metadataPriority ?? 0) - (b.metadataPriority ?? 0))
+      .map((m) => m.id);
+
+    for (const id of pluginProviders) {
+      if (!order.includes(id)) order.push(id);
+    }
+  } catch {
+    // getPlugins может быть недоступен на этапе инициализации (например, в тестах).
+    // Fallback — только built-in.
+  }
+
+  return order;
+}
+
+/**
+ * Полный объект дефолтных настроек.
+ * Используется, когда localStorage пуст (первый запуск) или не удалось прочитать.
+ */
+function defaultValues(): PersistedUiSettings {
+  return {
+    showSource: false,
+    showFiles: false,
+    metadataThreshold: DEFAULT_METADATA_THRESHOLD,
+    searchThreshold: DEFAULT_SEARCH_THRESHOLD,
+    playlistMatchThreshold: DEFAULT_PLAYLIST_MATCH_THRESHOLD,
+    autoFetchMetadata: true,
+    autoDownloadTracks: false,
+    metadataProviderOrder: defaultProviderOrder(),
+  };
 }
 
 function readFromStorage(): PersistedUiSettings | null {
+  // Консультируемся с legacy-флагом ВСЕГДА (один раз, идемпотентно).
+  // Это гарантирует, что после миграции ключ zvuk:fetchMetadata удалён,
+  // и значение корректно сконвертировано, если основного ключа ещё нет.
+  const legacy = consumeLegacyMetadataToggle();
+
+  let raw: string | null = null;
   try {
-    const raw = localStorage.getItem(UI_SETTINGS_KEY);
-    if (!raw) return null;
+    raw = localStorage.getItem(UI_SETTINGS_KEY);
+  } catch (err) {
+    console.warn('[uiSettings] failed to read from localStorage', err);
+    return null;
+  }
+
+  if (!raw) {
+    const base = defaultValues();
+    if (legacy === 'disabled-all-plugins') {
+      base.metadataProviderOrder = [...BUILTIN_METADATA_PROVIDERS];
+    }
+    return base;
+  }
+
+  try {
     const parsed = JSON.parse(raw) as Partial<PersistedUiSettings>;
     if (!parsed || typeof parsed !== 'object') return null;
+
+    let metadataProviderOrder = sanitizeProviderOrder(parsed.metadataProviderOrder);
+    if (metadataProviderOrder === null) {
+      if (legacy === 'disabled-all-plugins') {
+        metadataProviderOrder = [...BUILTIN_METADATA_PROVIDERS];
+      } else {
+        metadataProviderOrder = defaultProviderOrder();
+      }
+    }
+
     return {
       showSource: parsed.showSource ?? false,
       showFiles: parsed.showFiles ?? false,
-      metadataThreshold:
-        typeof parsed.metadataThreshold === 'number' && parsed.metadataThreshold >= 0 && parsed.metadataThreshold <= 1
-          ? parsed.metadataThreshold
-          : DEFAULT_METADATA_THRESHOLD,
-      searchThreshold:
-        typeof parsed.searchThreshold === 'number' && parsed.searchThreshold >= 0 && parsed.searchThreshold <= 1
-          ? parsed.searchThreshold
-          : DEFAULT_SEARCH_THRESHOLD,
-      playlistMatchThreshold:
-        typeof parsed.playlistMatchThreshold === 'number' &&
-        parsed.playlistMatchThreshold >= 0 &&
-        parsed.playlistMatchThreshold <= 1
-          ? parsed.playlistMatchThreshold
-          : DEFAULT_PLAYLIST_MATCH_THRESHOLD,
+      metadataThreshold: isValidThreshold(parsed.metadataThreshold)
+        ? parsed.metadataThreshold
+        : DEFAULT_METADATA_THRESHOLD,
+      searchThreshold: isValidThreshold(parsed.searchThreshold) ? parsed.searchThreshold : DEFAULT_SEARCH_THRESHOLD,
+      playlistMatchThreshold: isValidThreshold(parsed.playlistMatchThreshold)
+        ? parsed.playlistMatchThreshold
+        : DEFAULT_PLAYLIST_MATCH_THRESHOLD,
       autoFetchMetadata: parsed.autoFetchMetadata ?? true,
       autoDownloadTracks: parsed.autoDownloadTracks ?? false,
+      metadataProviderOrder,
     };
   } catch (err) {
     console.warn('[uiSettings] failed to read from localStorage', err);
@@ -68,6 +158,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   const playlistMatchThreshold = ref(DEFAULT_PLAYLIST_MATCH_THRESHOLD);
   const autoFetchMetadata = ref(true);
   const autoDownloadTracks = ref(false);
+  const metadataProviderOrder = ref<string[]>(defaultProviderOrder());
 
   let isLoaded = false;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -83,6 +174,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       playlistMatchThreshold.value = data.playlistMatchThreshold;
       autoFetchMetadata.value = data.autoFetchMetadata;
       autoDownloadTracks.value = data.autoDownloadTracks;
+      metadataProviderOrder.value = data.metadataProviderOrder;
     }
     isLoaded = true;
   }
@@ -97,6 +189,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       playlistMatchThreshold: playlistMatchThreshold.value,
       autoFetchMetadata: autoFetchMetadata.value,
       autoDownloadTracks: autoDownloadTracks.value,
+      metadataProviderOrder: metadataProviderOrder.value,
     });
   }
 
@@ -126,10 +219,12 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       playlistMatchThreshold,
       autoFetchMetadata,
       autoDownloadTracks,
+      metadataProviderOrder,
     ],
     () => {
       save();
     },
+    { deep: true },
   );
 
   function toggleShowSource(): void {
@@ -148,6 +243,45 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     playlistMatchThreshold.value = Math.min(Math.max(value, 0), 1);
   }
 
+  function setMetadataProviderOrder(order: string[]): void {
+    const sanitized = sanitizeProviderOrder(order) ?? [];
+    metadataProviderOrder.value = sanitized;
+  }
+
+  function getProviderPriority(id: string): number | null {
+    if (isBuiltinMetadataProvider(id)) return BUILTIN_METADATA_PRIORITY[id];
+    const manifest = getPlugins().find((m) => m.id === id);
+    return manifest?.metadataPriority ?? null;
+  }
+
+  function toggleMetadataProvider(id: string, enabled: boolean): void {
+    const current = metadataProviderOrder.value;
+    const has = current.includes(id);
+
+    if (enabled && !has) {
+      const priority = getProviderPriority(id);
+      const next = [...current];
+
+      if (priority === null) {
+        next.push(id);
+      } else {
+        let insertAt = next.length;
+        for (let i = 0; i < next.length; i++) {
+          const otherPriority = getProviderPriority(next[i]!);
+          if (otherPriority !== null && otherPriority > priority) {
+            insertAt = i;
+            break;
+          }
+        }
+        next.splice(insertAt, 0, id);
+      }
+
+      metadataProviderOrder.value = next;
+    } else if (!enabled && has) {
+      metadataProviderOrder.value = current.filter((x) => x !== id);
+    }
+  }
+
   return {
     autoFetchMetadata,
     autoDownloadTracks,
@@ -156,6 +290,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     metadataThreshold,
     searchThreshold,
     playlistMatchThreshold,
+    metadataProviderOrder,
 
     load,
     flush,
@@ -163,5 +298,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     setMetadataThreshold,
     setSearchThreshold,
     setPlaylistMatchThreshold,
+    setMetadataProviderOrder,
+    toggleMetadataProvider,
   };
 });

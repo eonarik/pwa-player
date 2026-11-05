@@ -6,7 +6,7 @@ import type { PluginSnapshot } from '@/types/plugin';
 import type { Track } from '@/types/track';
 import type { FolderId, TrackId } from '@/types/ids';
 import { useLibraryStore } from '../store';
-import { mergeMany, applyMany, saveCachesForPlugins } from '@/services/library/TrackMerger';
+import { mergeMany, applyMany, saveCachesForPlugins, sourceKey } from '@/services/library/TrackMerger';
 import {
   addTracks,
   removeTrack,
@@ -260,10 +260,19 @@ function applySetLibrary(
     libraryIndex.set(artistKey, list);
   }
 
+  // Строим sourceIndex по существующим трекам
+  const sourceIndex = new Map<string, Track>();
+  for (const track of Object.values(s.tracks)) {
+    for (const src of track.sources) {
+      sourceIndex.set(sourceKey(src), track);
+    }
+  }
+
   const mergeResult = mergeMany(snapshot.tracks, {
     libraryIndex,
     existingAlbums: Object.values(s.albums),
     threshold: uiSettings.playlistMatchThreshold,
+    sourceIndex,
   });
 
   const pluginIds = applyMany(mergeResult, { writer });

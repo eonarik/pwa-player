@@ -13,6 +13,9 @@ export const manifest: PluginManifest = {
   canDownload: true,
   order: 30,
   sourcePriority: 20,
+  backup: {
+    localStorageKeys: ['yandex-connected', 'yandex-disconnected'],
+  },
   entry: () => import('./index'),
   options: {
     emptyStateMessage:

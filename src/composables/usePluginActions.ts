@@ -46,7 +46,10 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
       snapshot = await plugin.load(context);
     }
 
-    await writer.setLibrary(snapshot, manifest.id);
+    // Добавляем проверку
+    if (!snapshot.alreadyApplied) {
+      await writer.setLibrary(snapshot, manifest.id);
+    }
 
     const root = findRoot(manifest.id);
     if (!root) {

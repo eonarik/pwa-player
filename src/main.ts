@@ -79,9 +79,6 @@ async function bootstrap() {
 
   app.use(router);
 
-  const playlists = usePlaylistsStore();
-  await playlists.restore();
-
   app.mount('#app');
 
   const bootLoader = document.getElementById('app-boot-loader');

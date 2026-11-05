@@ -18,7 +18,6 @@ const props = defineProps<{
   metadataProgress: { done: number; total: number };
   metadataStats: { found: number; checked: number; total: number };
   metadataHasUnchecked: boolean;
-  metadataIssuesCount: number;
   canRefresh: boolean;
   canRefreshFromDevice: boolean;
   isRefreshing: boolean;
@@ -33,7 +32,6 @@ const emit = defineEmits<{
   (e: 'metadata-search'): void;
   (e: 'metadata-cancel'): void;
   (e: 'metadata-reset'): void;
-  (e: 'open-issues'): void;
   (e: 'refresh-cloud'): void;
   (e: 'refresh-device'): void;
   (e: 'cancel-background-scan'): void;
@@ -64,12 +62,10 @@ function onQueryUpdate(value: string): void {
           :progress="metadataProgress"
           :stats="metadataStats"
           :has-unchecked="metadataHasUnchecked"
-          :issues-count="metadataIssuesCount"
           :has-edits="hasMetadataEdits"
           @search="emit('metadata-search')"
           @cancel="emit('metadata-cancel')"
           @reset="emit('metadata-reset')"
-          @open-issues="emit('open-issues')"
         />
 
         <template v-if="canRefresh || canRefreshFromDevice">

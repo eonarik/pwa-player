@@ -14,6 +14,11 @@ export const manifest: PluginManifest = {
   requiresActivation: true,
   activationCode: 'logii',
   order: 100,
+
+  backup: {
+    localStorageKeys: ['plugin-activated:yandex-self', 'yandex-self-disconnected'],
+  },
+
   entry: () => import('./index'),
 
   // 1. Описываем схему
