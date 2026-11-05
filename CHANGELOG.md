@@ -3,6 +3,67 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.17.0] — Логии (yandex-self)
+
+Переработка `yandex-self` в мультифункциональный плагин «Логии». Ядро не знает о специфике Логий — всё через `PluginExtension.folderViews`, `fileHandlers` (в будущем) и `manifest`.
+
+### Added
+
+- **`PluginFolderView` в `PluginExtension`:** новый контракт для кастомных view папок. `folderViews: Array<{ pluginId, match(urlPath), component, props? }>`. Ядро (`FolderRoute`) выбирает компонент по `match`, иначе рендерит `FolderView`.
+- **`findFolderView(pluginId, urlPath)`** в `plugins/extensions.ts`:** ищет первый подходящий `folderView` по `urlPath`.
+- **`getExtensionFolderViews()`** в `plugins/extensions.ts`:** плоский список всех `folderViews`.
+- **`LogiiView.vue`:** 3-колоночный UI для папок с префиксом `logii.`:
+  - Колонка 1: авторы (схлопывающаяся, аватар с первой буквой).
+  - Колонка 2: папки автора (`1..20`, `bonus`), первая — Intro (если у автора есть `.txt`). Сортировка как в `FolderView` (глобальный `sortService`).
+  - Колонка 3: табы «Трек / Чат / Галерея».
+- **`LogiiAuthorsColumn.vue`, `LogiiFoldersColumn.vue`, `LogiiPanel.vue`, `LogiiPanelHeader.vue`, `LogiiTrackTab.vue`, `LogiiChat.vue`, `LogiiGallery.vue`:** разбиение `LogiiView` на компоненты.
+- **`parseLogii.ts`:** парсер и stringify формата `vibe.logii.txt`:
+  - `vibe` (описание), `===` (разделитель), `comments` (`<nickname> (time): text`, разделитель `---`).
+- **`useLogiiSeason` / `useLogiiTrack`** в `useLogiiData.ts`:** computed из `library` (без `listResources`). `audioTracks` — реальные `Track` из `library` (воспроизводятся через `yandex-self`, метаданные ищутся, `TrackActions` работает).
+- **Intro (напутствие):** если у автора есть `.txt`-файл в корне — первый пункт в колонке 2 показывает **имя файла** (например, `vibe.txt`). При клике — открывается Intro (vibe + чат). Автовыбор первой папки отключён, если есть Intro.
+- **Ник глобальный:** `localStorage['logii:nickname']`. Инпут в `LogiiChat` (сверху), сохраняется при каждом изменении (debounce 300 мс) и при `blur`. Общий для всех чатов.
+- **Авто-растущий `textarea`** в `LogiiChat`: 1 строка → до 8 строк, дальше скролл.
+- **Кнопка «Обновить» (refresh)** в `LogiiPanelHeader`:** вызывает `plugin.scanFolder(folderId, { recursive: true, force: true })` (как `FolderView.refreshFromCloud`).
+- **Лоадеры:** отдельно для Vibe («Загружаем Vibe…»), для чата («Загружаем чат…»), для отправки комментария («Отправляем…»). Аудио-треки показываются сразу (из `library`).
+- **Индикация отправки:** спиннер внизу ленты чата + `spinner` на кнопке «Отправить».
+
+### Changed
+
+- **`FolderListItem`:** папки с префиксом `logii.` отображаются **без префикса** и с иконкой `radio` (маркер «подплагин»).
+- **`FolderRoute`:** использует `findFolderView(pluginId, urlPath)` → рендерит кастомный компонент из `extension`, иначе `FolderView`.
+- **`yandex-self/extension.ts`:** добавлены `folderViews` (2 матчера: `logii.<season>/<author>/<folder>` → `LogiiView`, `logii.<season>` → `LogiiView`).
+- **`LogiiView`** использует `router.replace` (не `push`) для авто-выбора автора/папки:** не засоряет историю, `router.back()` возвращает на предыдущий реальный роут.
+- **Защита от повторного `reloadTrack`:** `lastLoadedKey` (`urlPath|logiiFileName`) — при возврате в ту же папку запрос `readLogiiFile` не дублируется.
+- **`readLogiiFile` / `writeLogiiFile`** принимают `fileName: string | null`:** любой `.txt`-файл в папке интерпретируется как vibe + чат. При создании (если `.txt` нет) — дефолтное имя `vibe.logii.txt`.
+- **`LogiiTrackItem.logiiFileName`:** имя первого `.txt` в папке (или `null`).
+- **`LogiiTrackItem.isIntro`:** `true` для корня автора, `false` для папок треков. В `LogiiTrackTab` заголовок блока — имя файла для Intro, «Vibe» для трека.
+
+### Fixed
+
+- **500 при чтении `vibe.logii.txt`, которого нет:** `readLogiiFile` обёрнут в `try/catch` → возвращает `null` (не ошибка). Файл создаётся при первом сохранении (`writeLogiiFile`).
+- **«Назад» не работал после перехода в папку Логий:** `router.replace` вместо `router.push` для авто-выбора + `watch` без `immediate` (только на изменение).
+- **Лоадер перекрывал аудио-треки:** `isLoading` в `LogiiPanel` больше не блокирует весь контент, только блоки Vibe и Чат.
+- **Ник не сохранялся между чатами:** `watch(nickname, debounce 300ms)` → `setNickname` в `localStorage`. Инициализация `nickname` из `localStorage` при монтировании.
+- **Трек из Логий падал с 500 молча:** `handleStreamError` теперь показывает тост «Не удалось воспроизвести трек» / «Сервер недоступен» (даже если `healthCheck` OK, но `<audio>` получил 500/404).
+- **Трек из Логий не воспроизводился:** `LogiiTrackItem.audioTracks` — реальные `Track` из `library` (не виртуальные). `resolveTrackSource` → `plugin.buildStreamUrl` → `/api/yandex-self/download`. `TrackActions` работает (трек в `library`).
+- **`applyCandidate` воскрешал отключённые плагины:** `invokeApplyCandidate` проверяет `plugin.isDisconnected?.()`.
+
+### Removed
+
+- **`src/plugins/yandexSelf/logii/LogiiSeasonView.vue`** (объединён в `LogiiView`).
+- **`src/plugins/yandexSelf/logii/LogiiTrackView.vue`** (объединён в `LogiiView`).
+- **`src/plugins/yandexSelf/logii/LogiiNicknameModal.vue`** (ник теперь в `LogiiChat`).
+- **`src/plugins/yandexSelf/logii/logiiApi.ts` (`listSeasons` / `listAuthors` / `listTracks`):** данные из `library`, без `listResources`.
+- **Поллинг `vibe.logii.txt`:** убран (спам Яндекса). Обновление — вручную (кнопка `refresh` в шапке).
+
+### Internal
+
+- **`LogiiView` разбит на компоненты:** `LogiiAuthorsColumn`, `LogiiFoldersColumn`, `LogiiPanel`, `LogiiPanelHeader`, `LogiiTrackTab`, `LogiiChat`, `LogiiGallery`. Каждый — одна ответственность.
+- **`parseLogii.spec.ts`:** юнит-тесты на парсинг/stringify (абстрактные ники `userA`/`userB`, без конкретики).
+- **`sourceKey` collision (0.16.3):** `local|pluginId|handle.name|folderId`. Fallback `local → cloud` по имени файла — только при однозначности.
+- **`PlaylistMatcher`:** диакритика схлопывается (`ё → е`, `é → e`, `ä → a`, `ß → ss`), но `й` остаётся отдельной буквой.
+- **`metadataProviderOrder` + `metadataProviderEnabled`:** порядок всех провайдеров + флаги `enabled`. `toggleMetadataProvider(id, false)` не удаляет из `order`.
+
 ## [0.16.3] — Стабилизация после 0.16.2
 
 Мелкий релиз: закрываем хвосты строгого мэтчинга и плагинной границы.

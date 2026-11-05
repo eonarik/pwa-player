@@ -122,10 +122,12 @@ const {
   canRefreshFromDevice,
   isRefreshing,
   isRefreshingFromDevice,
+  isShallowRefreshing,
   isScanning,
   isPluginScanning,
   needsAttention,
   refreshFromCloud,
+  refreshFromCloudShallow,
   refreshFromDevice,
 } = useFolderSync(currentFolder);
 
@@ -189,6 +191,7 @@ async function cancelBackgroundScan(): Promise<void> {
       :can-refresh-from-device="canRefreshFromDevice"
       :is-refreshing="isRefreshing"
       :is-refreshing-from-device="isRefreshingFromDevice"
+      :is-shallow-refreshing="isShallowRefreshing"
       :is-scanning="isScanning"
       :tracks="filteredTracks"
       :has-background-scan="hasBackgroundScan"
@@ -196,6 +199,7 @@ async function cancelBackgroundScan(): Promise<void> {
       @metadata-cancel="cancelMetadataSearch"
       @metadata-reset="resetMetadata"
       @refresh-cloud="refreshFromCloud"
+      @refresh-cloud-shallow="refreshFromCloudShallow"
       @refresh-device="refreshFromDevice"
       @cancel-background-scan="cancelBackgroundScan"
     />

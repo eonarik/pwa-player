@@ -7,6 +7,13 @@ import type { MetadataCandidate } from '@/types/metadata';
 import type { AlbumId, TrackId, FolderId } from '@/types/ids';
 import type { PluginSnapshot, PluginFolderPayload } from '@/types/plugin';
 
+export interface CleanupScope {
+  /** Где удалять отсутствующие треки (по source.folderId). */
+  trackScope: Set<FolderId>;
+  /** Где удалять отсутствующие папки (по folder.id). */
+  folderScope: Set<FolderId>;
+}
+
 export interface LibraryWriter {
   // --- Чтение ---
   getTrack(id: TrackId): Track | null;
@@ -17,7 +24,7 @@ export interface LibraryWriter {
   getAllAlbums(): Album[];
 
   // --- Запись (сериализовано через mutex) ---
-  setLibrary(snapshot: PluginSnapshot, sourceId: string, opts?: { cleanupSubtree?: Set<FolderId> }): Promise<void>;
+  setLibrary(snapshot: PluginSnapshot, sourceId: string, opts?: { cleanup?: CleanupScope }): Promise<void>;
   addFolders(folders: PluginFolderPayload[], sourceId: string): Promise<void>;
   removeFolderRef(id: FolderId): Promise<void>;
 
@@ -31,7 +38,6 @@ export interface LibraryWriter {
   updateTrackAlbumId(id: TrackId, albumId: AlbumId | null): Promise<void>;
   updateTrackMetadataCandidates(id: TrackId, candidates: MetadataCandidate[]): Promise<void>;
 
-  // --- Метаданные ---
   updateTrackMetadata(
     id: TrackId,
     patch: Partial<
@@ -52,15 +58,12 @@ export interface LibraryWriter {
     >,
   ): Promise<void>;
 
-  // --- Служебные ---
   removeBySource(sourceId: string): Promise<void>;
   reconcileFolderTrackIds(): Promise<void>;
 
-  // --- Force scan ---
   removeCloudSourcesInFolders(subtreeIds: Set<FolderId>): Promise<void>;
   cleanupOrphanAlbums(): Promise<void>;
 
-  // --- Состояние сканирования папок ---
   setFolderScanState(
     id: FolderId,
     state: FolderScanState,

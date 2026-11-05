@@ -5,19 +5,13 @@ import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
-import {
-  isScanning,
-  isPending,
-  isError,
-  isScanned,
-  getErrorMessage,
-  getProgress,
-} from '@/utils/folderStatus';
+import { isScanning, isPending, isError, isScanned, getErrorMessage, getProgress } from '@/utils/folderStatus';
 import { pluralize } from '@/utils/pluralize';
 import ListRow from '@/components/ui/ListRow.vue';
 import Icon from '@/components/ui/Icon.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import type { FolderRef } from '@/types/folder';
+import type { IconName } from '@/components/icons';
 
 const props = defineProps<{
   folder: FolderRef;
@@ -33,6 +27,20 @@ const library = useLibraryStore();
 const player = usePlayerStore();
 const { folders, folderStats } = storeToRefs(library);
 const { currentTrack } = storeToRefs(player);
+
+/** Префикс подплагина (например, `logii.`). */
+const SUBPLUGIN_PREFIX = 'logii.';
+
+const isSubplugin = computed(() => props.folder.name.startsWith(SUBPLUGIN_PREFIX));
+
+const displayName = computed(() => {
+  if (isSubplugin.value) {
+    return props.folder.name.slice(SUBPLUGIN_PREFIX.length);
+  }
+  return props.folder.name;
+});
+
+const leadingIcon = computed<IconName>(() => (isSubplugin.value ? 'radio' : 'folder'));
 
 const isActive = computed(() => {
   const track = currentTrack.value;
@@ -111,7 +119,7 @@ function onRowClick(): void {
                 ? 'bg-red-500/10 text-red-400 cursor-pointer'
                 : 'bg-card-bg text-fg-disabled cursor-not-allowed',
           ]"
-          :aria-label="canPlay ? `Играть папку ${folder.name}` : error ? 'Повторить скан' : 'Недоступно'"
+          :aria-label="canPlay ? `Играть папку ${displayName}` : error ? 'Повторить скан' : 'Недоступно'"
           v-tooltip="
             scanning
               ? 'Синхронизация...'
@@ -134,13 +142,13 @@ function onRowClick(): void {
           class="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn"
           :class="error ? 'bg-red-500/10 text-red-400' : 'bg-card-bg text-fg-muted'"
         >
-          <Icon name="folder" w="w-5" h="w-5" />
+          <Icon :name="leadingIcon" w="w-5" h="w-5" />
         </div>
       </div>
     </template>
 
     <template #title>
-      <p class="truncate text-sm font-medium" :class="isActive ? 'text-active' : ''">{{ folder.name }}</p>
+      <p class="truncate text-sm font-medium" :class="isActive ? 'text-active' : ''">{{ displayName }}</p>
     </template>
 
     <template #subtitle>

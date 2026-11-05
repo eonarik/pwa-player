@@ -269,6 +269,10 @@ selfRoutes.get('/text', requireAuth(), async (req, res) => {
       size: meta.size ?? null,
     });
   } catch (err) {
+    if (err.status === 404 || (err.name === 'YandexApiError' && err.message?.includes('not found'))) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

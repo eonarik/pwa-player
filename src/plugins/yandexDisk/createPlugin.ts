@@ -59,7 +59,23 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
 
   const scanFolderBound = async (context: PluginContext, folderId: FolderId, options: ScanFolderOptions) => {
     await storage.load();
-    return scanFolderImpl({ pluginId: id, service, storage }, context, folderId, options);
+
+    // Запоминаем, какие папки были в library до скана.
+    const beforeIds = new Set(context.writer.getFoldersBySource(id).map((f) => f.id));
+
+    const snapshot = await scanFolderImpl({ pluginId: id, service, storage }, context, folderId, options);
+
+    // Shallow force scan: рекурсивно сканируем НОВЫХ детей (которых не было до скана).
+    if (options.force && !options.recursive) {
+      const queue = getOrCreateQueue(context);
+      for (const f of snapshot.folders) {
+        if (f.parentId === folderId && !beforeIds.has(f.id)) {
+          queue.enqueue(f.id);
+        }
+      }
+    }
+
+    return snapshot;
   };
 
   const plugin: LibrarySource = {

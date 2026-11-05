@@ -1,6 +1,6 @@
 // src/stores/library/writer/index.ts
 
-import type { LibraryWriter } from '@/services/library/LibraryWriter';
+import type { LibraryWriter, CleanupScope } from '@/services/library/LibraryWriter';
 import type { Album } from '@/types/album';
 import type { PluginSnapshot } from '@/types/plugin';
 import type { Track } from '@/types/track';
@@ -29,9 +29,10 @@ import { telemetry } from '@/services/telemetry';
 
 function cleanupForceScanInternal(
   s: ReturnType<typeof useLibraryStore>,
-  subtreeIds: Set<FolderId>,
   snapshot: PluginSnapshot,
+  scope: CleanupScope,
 ): void {
+  // --- 1. Удаляем отсутствующие треки в trackScope ---
   const snapshotRemotePaths = new Set<string>();
   for (const t of snapshot.tracks) {
     if (t.source.kind === 'cloud') {
@@ -44,7 +45,7 @@ function cleanupForceScanInternal(
     let changed = false;
     const nextSources = track.sources.filter((src) => {
       if (src.kind !== 'cloud') return true;
-      if (!subtreeIds.has(src.folderId)) return true;
+      if (!scope.trackScope.has(src.folderId)) return true;
       if (snapshotRemotePaths.has(src.remotePath)) return true;
       changed = true;
       return false;
@@ -63,11 +64,12 @@ function cleanupForceScanInternal(
     removeTrack(s, id);
   }
 
+  // --- 2. Удаляем отсутствующие папки в folderScope ---
   const snapshotFolderIds = new Set<FolderId>();
   for (const f of snapshot.folders) snapshotFolderIds.add(f.id);
 
-  const startFolderId = findStartFolderId(subtreeIds);
-  for (const id of subtreeIds) {
+  const startFolderId = findStartFolderId(scope.folderScope);
+  for (const id of scope.folderScope) {
     if (id === startFolderId) continue;
     if (snapshotFolderIds.has(id)) continue;
     removeFolderRef(s, id);
@@ -78,7 +80,6 @@ export function createLibraryWriter(): LibraryWriter {
   const store = (): ReturnType<typeof useLibraryStore> => useLibraryStore();
 
   const self: LibraryWriter = {
-    // --- Чтение ---
     getTrack(id) {
       return store().tracks[id] ?? null;
     },
@@ -98,7 +99,6 @@ export function createLibraryWriter(): LibraryWriter {
       return Object.values(store().albums);
     },
 
-    // --- Мутаторы: sync-часть + Promise.resolve() (контракт Promise<void>) ---
     async addAlbums(albums: Album[]) {
       addAlbums(store(), albums);
     },
@@ -132,7 +132,7 @@ export function createLibraryWriter(): LibraryWriter {
       updateTrackMetadata(store(), id, patch);
     },
 
-    async setLibrary(snapshot: PluginSnapshot, sourceId: string, opts?: { cleanupSubtree?: Set<FolderId> }) {
+    async setLibrary(snapshot: PluginSnapshot, sourceId: string, opts?: { cleanup?: CleanupScope }) {
       const startTs = performance.now();
       telemetry.event('writer.setLibrary.start', {
         sourceId,
@@ -141,7 +141,7 @@ export function createLibraryWriter(): LibraryWriter {
       });
 
       try {
-        const pluginIds = applySetLibrary(store(), self, snapshot, sourceId, opts?.cleanupSubtree);
+        const pluginIds = applySetLibrary(store(), self, snapshot, sourceId, opts?.cleanup);
         await saveCachesForPlugins(pluginIds);
 
         telemetry.event('writer.setLibrary.done', {
@@ -212,12 +212,12 @@ export function createLibraryWriter(): LibraryWriter {
   return self;
 }
 
-function findStartFolderId(subtreeIds: Set<FolderId>): FolderId | null {
+function findStartFolderId(scope: Set<FolderId>): FolderId | null {
   const s = useLibraryStore();
-  for (const id of subtreeIds) {
+  for (const id of scope) {
     const f = s.folders[id];
     if (!f) continue;
-    if (f.parentId === null || !subtreeIds.has(f.parentId)) return id;
+    if (f.parentId === null || !scope.has(f.parentId)) return id;
   }
   return null;
 }
@@ -227,7 +227,7 @@ function applySetLibrary(
   writer: LibraryWriter,
   snapshot: PluginSnapshot,
   sourceId: string,
-  cleanupSubtree?: Set<FolderId>,
+  cleanup?: CleanupScope,
 ): string[] {
   const uiSettings = useUiSettingsStore();
 
@@ -260,7 +260,6 @@ function applySetLibrary(
     libraryIndex.set(artistKey, list);
   }
 
-  // Строим sourceIndex по существующим трекам
   const sourceIndex = new Map<string, Track>();
   for (const track of Object.values(s.tracks)) {
     for (const src of track.sources) {
@@ -278,8 +277,8 @@ function applySetLibrary(
   const pluginIds = applyMany(mergeResult, { writer });
 
   // Синхронный cleanup — в той же мутации, чтобы Vue не рендерил промежуточное состояние.
-  if (cleanupSubtree && cleanupSubtree.size > 0) {
-    cleanupForceScanInternal(s, cleanupSubtree, snapshot);
+  if (cleanup) {
+    cleanupForceScanInternal(s, snapshot, cleanup);
   }
 
   return pluginIds;

@@ -4,8 +4,8 @@ import { ref, type Ref } from 'vue';
 import type { FolderId } from '@/types/ids';
 import type { PluginContext, PluginFolderPayload, PluginSnapshot } from '../types';
 import { scanAll } from './scan';
+import { buildFullPathMap, type PluginStorage } from './storage';
 import type { IYandexService } from './types';
-import type { PluginStorage } from './storage';
 import { applyLocalMatchesForFolders } from './localMatches';
 
 export interface ScanQueueDeps {
@@ -23,10 +23,6 @@ export class ScanQueue {
   private isProcessing = false;
   private abortController: AbortController | null = null;
 
-  /**
-   * Реактивный флаг: очередь не пуста или сейчас выполняется скан.
-   * Используется UI (FolderView/FolderSyncMenu) для индикатора.
-   */
   readonly isRunning: Ref<boolean> = ref(false);
 
   constructor(private deps: ScanQueueDeps) {}
@@ -66,8 +62,6 @@ export class ScanQueue {
     const errorIds = new Set<FolderId>([...pendingIds, ...Array.from(this.processingSet)]);
     this.processingSet.clear();
 
-    // Также сбрасываем в error все папки плагина, оставшиеся в scanning.
-    // (scanAll мог вызвать onStart(child) после abort — child остался scanning.)
     const pluginFolders = writer.getFoldersBySource(this.deps.pluginId);
     for (const f of pluginFolders) {
       if (f.scanState === 'scanning') {
@@ -117,12 +111,15 @@ export class ScanQueue {
 
         this.processingSet.add(folderId);
 
-        let remotePath = this.deps.storage.getPathMap()[folderId];
+        const basePathMap = buildFullPathMap(this.deps.storage, writer, this.deps.pluginId);
+        this.deps.storage.setPathMap(basePathMap);
+
+        let remotePath = basePathMap[folderId];
 
         if (!remotePath) {
           if (folder.urlPath !== undefined) {
             remotePath = folder.urlPath ? folder.urlPath : '/';
-            this.deps.storage.setPathMap({ ...this.deps.storage.getPathMap(), [folderId]: remotePath });
+            this.deps.storage.setPathMap({ ...basePathMap, [folderId]: remotePath });
           }
         }
 
@@ -164,9 +161,9 @@ export class ScanQueue {
                 writer.updateFolderScanProgress(folderId, { done: progressDone, total: progressTotal });
               }
             },
-            onFolderDiscovered: (folder: PluginFolderPayload) => {
-              if (folder.id !== folderId) {
-                void writer.setLibrary({ folders: [folder], tracks: [] }, this.deps.pluginId);
+            onFolderDiscovered: (f: PluginFolderPayload) => {
+              if (f.id !== folderId) {
+                void writer.setLibrary({ folders: [f], tracks: [] }, this.deps.pluginId);
               }
               progressTotal++;
               writer.updateFolderScanProgress(folderId, { done: progressDone, total: progressTotal });
@@ -176,10 +173,11 @@ export class ScanQueue {
               await applyLocalMatchesForFolders(this.deps.pluginId, this.deps.context, folders);
             },
           };
+
           const { snapshot, pathMap: newPaths } = await scanAll(
             this.deps.pluginId,
             this.deps.service,
-            this.deps.storage.getPathMap(),
+            basePathMap,
             folderId,
             remotePath,
             {

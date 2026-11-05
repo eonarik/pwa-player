@@ -2,9 +2,9 @@
 
 import type { PluginContext, PluginSnapshot, ScanFolderOptions } from '../types';
 import type { FolderId } from '@/types/ids';
-import type { LibraryWriter } from '@/services/library/LibraryWriter';
+import type { LibraryWriter, CleanupScope } from '@/services/library/LibraryWriter';
 import { scanAll } from './scan';
-import type { PluginStorage } from './storage';
+import { buildFullPathMap, type PluginStorage } from './storage';
 import type { IYandexService } from './types';
 import { applyLocalMatchesForFolders } from './localMatches';
 import { getPluginManifest } from '@/plugins/lookup';
@@ -44,6 +44,33 @@ function collectSubtreeIds(context: PluginContext, folderId: FolderId): Set<Fold
   return result;
 }
 
+/**
+ * Для shallow-скана (recursive: false):
+ * - trackScope = { folderId } (удаляем отсутствующие треки ТОЛЬКО в текущей папке).
+ * - folderScope = { folderId } + прямые дети (удаляем отсутствующие прямые дети).
+ *
+ * Существующие прямые дети не трогаются (их треки не в trackScope).
+ */
+function collectShallowScope(
+  context: PluginContext,
+  folderId: FolderId,
+  pluginId: string,
+  snapshotFolders: PluginSnapshot['folders'],
+): CleanupScope {
+  const trackScope = new Set<FolderId>([folderId]);
+  const folderScope = new Set<FolderId>([folderId]);
+
+  for (const f of context.writer.getFoldersBySource(pluginId)) {
+    if (f.parentId === folderId) folderScope.add(f.id);
+  }
+
+  for (const f of snapshotFolders) {
+    if (f.parentId === folderId) folderScope.add(f.id);
+  }
+
+  return { trackScope, folderScope };
+}
+
 export async function scanFolderImpl(
   deps: ScanFolderDeps,
   context: PluginContext,
@@ -53,15 +80,16 @@ export async function scanFolderImpl(
   const { pluginId, service, storage } = deps;
   const writer = context.writer;
 
-  let remotePath = storage.getPathMap()[folderId];
+  const basePathMap = buildFullPathMap(storage, writer, pluginId);
+  storage.setPathMap(basePathMap);
+
+  let remotePath = basePathMap[folderId];
 
   if (!remotePath) {
     const libFolder = writer.getFolder(folderId);
     if (libFolder && libFolder.urlPath !== undefined) {
-      // urlPath — без 'disk:/' (может быть '' для корня).
-      // scanAll сам нормализует в '/...'.
       remotePath = libFolder.urlPath ? libFolder.urlPath : '/';
-      storage.setPathMap({ ...storage.getPathMap(), [folderId]: remotePath });
+      storage.setPathMap({ ...basePathMap, [folderId]: remotePath });
     }
   }
 
@@ -122,8 +150,6 @@ export async function scanFolderImpl(
         progressTotal++;
         writer.updateFolderScanProgress(folderId, { done: progressDone, total: progressTotal });
       },
-      // При force scan — не отдаём чанки в UI, чтобы не было промежуточного
-      // состояния (старая + новая папка). Всё применяется атомарно в финальном setLibrary.
       onChunk: isForce
         ? undefined
         : async (folders: PluginSnapshot['folders'], tracks: PluginSnapshot['tracks']) => {
@@ -132,30 +158,29 @@ export async function scanFolderImpl(
           },
     };
 
-    const { snapshot, pathMap: newPaths } = await scanAll(
-      pluginId,
-      service,
-      storage.getPathMap(),
-      folderId,
-      remotePath,
-      {
-        recursive: options.recursive,
-        skipScanned: !isForce,
-        progress,
-        startFolderName,
-        startParentId: folder?.parentId ?? null,
-        isFolderScanned: (id) => writer.getFolder(id)?.scanState === 'scanned',
-      },
-    );
-
-    // Не подмешиваем newFolderMap (remotePath → folderId) в storage.pathMap.
-    storage.setPathMap({ ...storage.getPathMap(), ...newPaths });
-
-    await writer.setLibrary(snapshot, pluginId, {
-      cleanupSubtree: isForce ? collectSubtreeIds(context, folderId) : undefined,
+    const { snapshot, pathMap: newPaths } = await scanAll(pluginId, service, basePathMap, folderId, remotePath, {
+      recursive: options.recursive,
+      skipScanned: !isForce,
+      progress,
+      startFolderName,
+      startParentId: folder?.parentId ?? null,
+      isFolderScanned: (id) => writer.getFolder(id)?.scanState === 'scanned',
     });
 
-    // cleanupOrphanAlbums — после всех мутаций, sync.
+    storage.setPathMap({ ...storage.getPathMap(), ...newPaths });
+
+    let cleanup: CleanupScope | undefined;
+    if (isForce) {
+      if (options.recursive) {
+        const subtree = collectSubtreeIds(context, folderId);
+        cleanup = { trackScope: subtree, folderScope: subtree };
+      } else {
+        cleanup = collectShallowScope(context, folderId, pluginId, snapshot.folders);
+      }
+    }
+
+    await writer.setLibrary(snapshot, pluginId, { cleanup });
+
     if (isForce) {
       writer.cleanupOrphanAlbums();
     }

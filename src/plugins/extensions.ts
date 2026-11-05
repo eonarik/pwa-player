@@ -1,7 +1,7 @@
 // src/plugins/extensions.ts
 
 import { getPlugins, isPluginActivated } from './registry';
-import type { PluginMenuItem, PluginManifest, PluginCollectionAction } from './types';
+import type { PluginMenuItem, PluginManifest, PluginCollectionAction, PluginFolderView } from './types';
 import type { RouteRecordRaw } from 'vue-router';
 import type { PluginSettingsSchema } from './settingsTypes';
 import { loadRemotePlugins } from './remoteLoader';
@@ -13,6 +13,7 @@ interface LoadedExtension {
   getSettings: (() => PluginSettingsSchema | Promise<PluginSettingsSchema>) | null;
   runSettingsAction: ((id: string, payload?: unknown) => void | Promise<void>) | null;
   collectionActions: PluginCollectionAction[];
+  folderViews: PluginFolderView[];
 }
 
 let extensions: LoadedExtension[] = [];
@@ -30,6 +31,7 @@ export async function loadExtensions(): Promise<void> {
       routes?: RouteRecordRaw[];
       getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
       collectionActions?: PluginCollectionAction[];
+      folderViews?: PluginFolderView[];
     } | null = null;
 
     if (manifest.extension) {
@@ -41,10 +43,8 @@ export async function loadExtensions(): Promise<void> {
       }
     }
 
-    // Приоритет: extension.getSettings -> manifest.getSettings
     const getter = ext?.getSettings ?? manifest.getSettings;
 
-    // Если есть расширение или геттер настроек — сохраняем
     if (ext || getter) {
       extensions.push({
         pluginId: manifest.id,
@@ -53,32 +53,45 @@ export async function loadExtensions(): Promise<void> {
         getSettings: getter ?? null,
         runSettingsAction: manifest.runSettingsAction ?? null,
         collectionActions: ext?.collectionActions ?? [],
+        folderViews: ext?.folderViews ?? [],
       });
     }
   }
 }
 
-/** Все динамические пункты меню */
 export function getExtensionMenuItems(): PluginMenuItem[] {
   return extensions.flatMap((e) => e.menuItems);
 }
 
-/** Все роуты для добавления в Vue Router */
 export function getExtensionRoutes(): RouteRecordRaw[] {
   return extensions.flatMap((e) => e.routes);
 }
 
-/** Все действия над коллекциями (кнопки в шапке списков) */
 export function getCollectionActions(): PluginCollectionAction[] {
   return extensions.flatMap((e) => e.collectionActions);
 }
 
 /**
- * Все схемы настроек от плагинов.
- *
- * ВАЖНО: перезапрашивает `getSettings()` каждый раз, чтобы подтянуть
- * актуальные данные (например, список добавленных локальных папок).
+ * Все кастомные view для папок.
  */
+export function getExtensionFolderViews(): PluginFolderView[] {
+  return extensions.flatMap((e) => e.folderViews);
+}
+
+/**
+ * Найти подходящий view для папки (pluginId + urlPath).
+ * Возвращает первый match (порядок регистрации в extension).
+ */
+export function findFolderView(pluginId: string, urlPath: string): PluginFolderView | null {
+  for (const ext of extensions) {
+    if (ext.pluginId !== pluginId) continue;
+    for (const fv of ext.folderViews) {
+      if (fv.match(urlPath)) return fv;
+    }
+  }
+  return null;
+}
+
 export interface PluginSettingsEntry {
   manifest: PluginManifest;
   schema: PluginSettingsSchema;
@@ -111,7 +124,6 @@ export async function getAllSettingsSchemas(): Promise<PluginSettingsEntry[]> {
   return result;
 }
 
-/** Очистка (для тестов) */
 export function clearExtensions(): void {
   extensions = [];
 }

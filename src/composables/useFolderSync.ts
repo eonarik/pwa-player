@@ -14,10 +14,12 @@ export interface UseFolderSyncReturn {
   canRefreshFromDevice: Ref<boolean>;
   isRefreshing: Ref<boolean>;
   isRefreshingFromDevice: Ref<boolean>;
+  isShallowRefreshing: Ref<boolean>;
   isScanning: Ref<boolean>;
   isPluginScanning: Ref<boolean>;
   needsAttention: Ref<boolean>;
   refreshFromCloud: () => Promise<void>;
+  refreshFromCloudShallow: () => Promise<void>;
   refreshFromDevice: () => Promise<void>;
 }
 
@@ -26,6 +28,7 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
   const canRefreshFromDevice = ref(false);
   const isRefreshing = ref(false);
   const isRefreshingFromDevice = ref(false);
+  const isShallowRefreshing = ref(false);
   const isScanning = ref(false);
   const isPluginScanning = ref(false);
   const needsAttention = ref(false);
@@ -149,6 +152,56 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
     }
   }
 
+  /**
+   * Доскан: только текущая папка (без рекурсии), с cleanupSubtree = { folderId }.
+   * Добавляет новые файлы/папки, удаляет отсутствующие (только в текущей папке).
+   * Также возобновляет очередь pending детей (через ScanQueue).
+   */
+  async function refreshFromCloudShallow(): Promise<void> {
+    const folder = currentFolder.value;
+    if (!folder) return;
+
+    const pluginId = pluginIdFromSource(folder.pluginId);
+
+    if (isFolderScanning(folder)) {
+      toastService.info('Папка уже синхронизируется. Дождитесь завершения.');
+      return;
+    }
+
+    try {
+      const plugin = await loadPlugin(pluginId);
+
+      if (plugin.isDisconnected?.()) {
+        toastService.info('Подключение к источнику...');
+        const context = createPluginContext(pluginId);
+        await plugin.connect(context);
+      }
+      if (!plugin.scanFolder) return;
+
+      if (plugin.canForceScan && !plugin.canForceScan(folder.id)) {
+        toastService.info('Папка уже синхронизируется. Дождитесь завершения.');
+        return;
+      }
+
+      isShallowRefreshing.value = true;
+      needsAttention.value = false;
+
+      const context = createPluginContext(pluginId);
+      await plugin.scanFolder(context, folder.id, { recursive: false, force: true });
+
+      toastService.success('Досканировано');
+    } catch (err) {
+      console.error('[folder-sync] shallow refresh failed', err);
+      needsAttention.value = true;
+      toastService.error('Не удалось досканировать');
+    } finally {
+      isShallowRefreshing.value = false;
+      if (activePlugin) {
+        isPluginScanning.value = activePlugin.isScanning?.() ?? false;
+      }
+    }
+  }
+
   async function refreshFromDevice(): Promise<void> {
     if (isRefreshingFromDevice.value) return;
     isRefreshingFromDevice.value = true;
@@ -174,10 +227,12 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
     canRefreshFromDevice,
     isRefreshing,
     isRefreshingFromDevice,
+    isShallowRefreshing,
     isScanning,
     isPluginScanning,
     needsAttention,
     refreshFromCloud,
+    refreshFromCloudShallow,
     refreshFromDevice,
   };
 }

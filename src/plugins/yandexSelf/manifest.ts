@@ -20,6 +20,7 @@ export const manifest: PluginManifest = {
   },
 
   entry: () => import('./index'),
+  extension: () => import('./extension'),
 
   // 1. Описываем схему
   getSettings: () => ({

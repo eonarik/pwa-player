@@ -22,6 +22,7 @@ const props = defineProps<{
   canRefreshFromDevice: boolean;
   isRefreshing: boolean;
   isRefreshingFromDevice: boolean;
+  isShallowRefreshing: boolean;
   isScanning?: boolean;
   needsAttention?: boolean;
   hasBackgroundScan?: boolean;
@@ -33,6 +34,7 @@ const emit = defineEmits<{
   (e: 'metadata-cancel'): void;
   (e: 'metadata-reset'): void;
   (e: 'refresh-cloud'): void;
+  (e: 'refresh-cloud-shallow'): void;
   (e: 'refresh-device'): void;
   (e: 'cancel-background-scan'): void;
 }>();
@@ -75,10 +77,12 @@ function onQueryUpdate(value: string): void {
             :can-refresh-from-device="canRefreshFromDevice"
             :is-refreshing="isRefreshing"
             :is-refreshing-from-device="isRefreshingFromDevice"
+            :is-shallow-refreshing="isShallowRefreshing"
             :is-scanning="isScanning"
             :needs-attention="needsAttention"
             :has-background-scan="hasBackgroundScan"
             @refresh-cloud="emit('refresh-cloud')"
+            @refresh-cloud-shallow="emit('refresh-cloud-shallow')"
             @refresh-device="emit('refresh-device')"
             @cancel-background-scan="emit('cancel-background-scan')"
           />

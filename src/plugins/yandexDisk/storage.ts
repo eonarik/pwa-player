@@ -2,25 +2,13 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { PluginSnapshot } from '../types';
+import type { LibraryWriter } from '@/services/library/LibraryWriter';
 
 export interface PluginStorageKeys {
   pathMap: string;
   foldersCache: string;
 }
 
-/**
- * In-memory кэш `pathMap`/`foldersCache` с персистом в IndexedDB.
- *
- * - `load()` — один раз при старте плагина: читает IDB, мигрирует из localStorage
- *   (старые ключи `${pluginId}:pathMap`/`${pluginId}:foldersCache`), удаляет из localStorage.
- * - `getPathMap()`/`getFoldersCache()` — синхронные, из памяти (быстро, без await).
- * - `setPathMap()`/`setFoldersCache()` — синхронные, пишут в память + debounce в IDB.
- * - `flush()` — форсирует запись в IDB (для beforeunload / disconnect).
- * - `clear()` — очищает память, IDB и legacy localStorage.
- *
- * In-memory кэш нужен, потому что `scanAll`/`scanFolder` вызывают storage
- * десятки раз за скан; `await` на каждый вызов замедлил бы скан.
- */
 export function createPluginStorage(pluginId: string) {
   const keys: PluginStorageKeys = {
     pathMap: `yandex:${pluginId}:pathMap`,
@@ -65,11 +53,9 @@ export function createPluginStorage(pluginId: string) {
       try {
         const idbPathMap = await get<Record<string, string>>(keys.pathMap);
         const idbFoldersCache = await get<PluginSnapshot['folders']>(keys.foldersCache);
-        // --- pathMap ---
         if (idbPathMap && typeof idbPathMap === 'object') {
           pathMap = idbPathMap;
         } else {
-          // Миграция из localStorage
           const lsPathMap = readLS<Record<string, string>>(legacyKeys.pathMap);
           if (lsPathMap && typeof lsPathMap === 'object') {
             pathMap = lsPathMap;
@@ -78,7 +64,6 @@ export function createPluginStorage(pluginId: string) {
           }
         }
 
-        // --- foldersCache ---
         if (Array.isArray(idbFoldersCache)) {
           foldersCache = idbFoldersCache;
         } else {
@@ -122,7 +107,6 @@ export function createPluginStorage(pluginId: string) {
   }
 
   return {
-    /** Один раз при старте плагина. */
     load,
 
     getPathMap(): Record<string, string> {
@@ -143,9 +127,6 @@ export function createPluginStorage(pluginId: string) {
       schedulePersist();
     },
 
-    /**
-     * Сливает новые папки в кеш: перезаписывает по id, добавляет отсутствующие.
-     */
     mergeFoldersCache(
       existing: PluginSnapshot['folders'],
       incoming: PluginSnapshot['folders'],
@@ -156,7 +137,6 @@ export function createPluginStorage(pluginId: string) {
       return Array.from(map.values());
     },
 
-    /** Форсирует запись (для beforeunload / disconnect). */
     async flush(): Promise<void> {
       if (writeTimer !== null) {
         clearTimeout(writeTimer);
@@ -165,7 +145,6 @@ export function createPluginStorage(pluginId: string) {
       await persist();
     },
 
-    /** Очищает память, IDB и legacy localStorage. */
     async clear(): Promise<void> {
       pathMap = {};
       foldersCache = null;
@@ -186,3 +165,24 @@ export function createPluginStorage(pluginId: string) {
 }
 
 export type PluginStorage = ReturnType<typeof createPluginStorage>;
+
+/**
+ * Дополняет pathMap из library (folder.id → folder.urlPath).
+ * Гарантирует, что для всех папок плагина в pathMap есть запись,
+ * даже если предыдущий скан не вернул их (recursive: false для loadImpl).
+ *
+ * Централизованная логика — используется в loadImpl, scanFolderImpl и ScanQueue.processNext.
+ */
+export function buildFullPathMap(
+  storage: PluginStorage,
+  writer: LibraryWriter,
+  pluginId: string,
+): Record<string, string> {
+  const base = { ...storage.getPathMap() };
+  for (const f of writer.getFoldersBySource(pluginId)) {
+    if (f.urlPath !== undefined && !base[f.id]) {
+      base[f.id] = f.urlPath ? f.urlPath : '/';
+    }
+  }
+  return base;
+}

@@ -36,11 +36,24 @@ export interface PluginCollectionAction {
   run: (tracks: Track[], ctx: CollectionActionContext) => void | Promise<void>;
 }
 
+export interface PluginFolderView {
+  /** id плагина, к которому относится view. */
+  pluginId: string;
+  /** Проверка, подходит ли urlPath под этот view (например, `logii.` в сегментах). */
+  match: (urlPath: string) => boolean;
+  /** Ленивый импорт компонента. */
+  component: () => Promise<{ default: Component }>;
+  /** Пропсы компонента, вычисляемые из urlPath. */
+  props?: (urlPath: string) => Record<string, unknown>;
+}
+
 export interface PluginExtension {
   menuItems?: PluginMenuItem[];
   routes?: RouteRecordRaw[];
   getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
   collectionActions?: PluginCollectionAction[];
+  /** Кастомные view для папок (переопределяют FolderView). */
+  folderViews?: PluginFolderView[];
 }
 
 export interface PluginManifestOptions {

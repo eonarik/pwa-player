@@ -44,7 +44,7 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
   const unsubscribers: Array<() => void> = [];
   let trackStartedAt: number | null = null;
 
-  async function handleStreamError(track: Track, _error: { src: string; message: string }): Promise<void> {
+  async function handleStreamError(track: Track, error: { src: string; message: string }): Promise<void> {
     const source = track.sources[0];
     if (!source) return;
 
@@ -52,6 +52,8 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
 
     try {
       await apiClient.healthCheck(pluginId);
+      // health-check OK, но аудио упало → это ошибка конкретного файла.
+      toastService.error(error.message || 'Не удалось воспроизвести трек');
       callbacks.skipToNextOnError();
     } catch (err) {
       if (err instanceof AuthError) {
@@ -59,6 +61,7 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
         return;
       }
       console.error('[player] handleStreamError:', err);
+      toastService.error('Сервер недоступен');
       callbacks.skipToNextOnError();
     }
   }

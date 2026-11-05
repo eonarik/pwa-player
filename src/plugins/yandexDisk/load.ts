@@ -4,7 +4,7 @@ import type { PluginSnapshot, LoadOptions, PluginContext } from '../types';
 import type { FolderId } from '@/types/ids';
 import { newFolderId } from '@/types/ids';
 import { scanAll, ROOT_REMOTE_PATH } from './scan';
-import type { PluginStorage } from './storage';
+import { buildFullPathMap, type PluginStorage } from './storage';
 import type { IYandexService } from './types';
 import { getPluginManifest } from '@/plugins/lookup';
 
@@ -20,7 +20,12 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
   const forceRefresh = options?.forceRefresh ?? false;
   const writer = context.writer;
 
-  const currentPathMap = storage.getPathMap();
+  // Всегда дополняем pathMap из library — иначе прямые дети корня
+  // не найдутся при следующем скане (recursive: false возвращает только корень).
+  const basePathMap = buildFullPathMap(storage, writer, pluginId);
+  storage.setPathMap(basePathMap);
+
+  const currentPathMap = basePathMap;
   const cached = !forceRefresh ? storage.getFoldersCache() : null;
   if (cached && cached.length > 0) {
     const rootFolder = cached.find((f) => f.parentId === null);
@@ -52,30 +57,16 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
     (Object.entries(currentPathMap).find(([_, p]) => p === ROOT_REMOTE_PATH)?.[0] as FolderId | undefined) ??
     newFolderId();
 
-  const manifestName = getPluginManifest(pluginId)?.name ?? 'Root';
-
-  // Создаем корневую папку заранее, чтобы setFolderScanState не падал
-  await writer.addFolders(
-    [
-      {
-        id: rootFolderId,
-        parentId: null,
-        name: manifestName,
-        urlPath: '',
-        files: [],
-      },
-    ],
-    pluginId,
-  );
-
+  const manifestName = getPluginManifest(pluginId)?.name ?? 'Корень';
   writer.setFolderScanState(rootFolderId, 'scanning', { progress: { done: 0, total: 0 } });
+
   const { snapshot, pathMap } = await scanAll(pluginId, service, currentPathMap, rootFolderId, ROOT_REMOTE_PATH, {
     recursive: false,
     skipScanned: true,
     startFolderName: manifestName,
     isFolderScanned: (id) => writer.getFolder(id)?.scanState === 'scanned',
   });
-  // ВАЖНО: не подмешиваем newFolderMap (remotePath → folderId) в storage.pathMap (folderId → remotePath).
+
   storage.setPathMap({ ...currentPathMap, ...pathMap });
 
   const rootFolder = {
@@ -90,6 +81,7 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
 
   const fullFolders = [rootFolder, ...childFolders];
   storage.setFoldersCache(storage.mergeFoldersCache(cached ?? [], fullFolders));
+
   await writer.setLibrary({ ...snapshot, folders: fullFolders }, pluginId);
 
   writer.setFolderScanState(rootFolderId, 'scanned');
@@ -107,5 +99,5 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
     onPendingFolders(pendingChildren);
   }
 
-  return { ...snapshot, folders: fullFolders, alreadyApplied: true };
+  return { ...snapshot, folders: fullFolders };
 }
