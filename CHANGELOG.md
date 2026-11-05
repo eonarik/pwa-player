@@ -3,6 +3,46 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.16.3] — Стабилизация после 0.16.2
+
+Мелкий релиз: закрываем хвосты строгого мэтчинга и плагинной границы.
+
+### Added
+
+- **`metadataProviderEnabled: Record<string, boolean>`:** флаги включённости провайдеров метаданных. `undefined` = включён, `false` = выключен.
+- **`isMetadataProviderEnabled(id)`** в `uiSettings`: `enabled[id] !== false`.
+- **UX тоста «Найдено N»:** action «Открыть» (открывает `MetadataCandidatesModal` через `modalService`). `toastService.showPersistent` вместо `info`.
+- **`MetadataProvidersList`:** drag-and-drop сохраняет позицию выключенных провайдеров. Один список, чекбокс = вкл/выкл, без «улетания» в отдельный блок.
+- **`PlaylistMatcher.unicode.spec.ts`:** фиксирует схлопывание диакритики (`ё` → `е`, `é` → `e`, `ä` → `a`, `ß` → `ss`) и сохранение `й` как отдельной буквы.
+- **`BackupService.migration.spec.ts`:** тесты на реальный v1-бэкап (`plugin-activated:yandex-self`) и roundtrip v1 → v2.
+
+### Changed
+
+- **`metadataProviderOrder: string[]`:** хранит **все** id (включая выключенные). Порядок не зависит от `enabled`.
+- **`toggleMetadataProvider(id, false)`:** ставит `enabled[id] = false`, **не** удаляет id из `metadataProviderOrder`.
+- **`toggleMetadataProvider(id, true)`:** удаляет ключ из `enabled` (`undefined` = включён).
+- **`resolve.ts`:** фильтр по `isMetadataProviderEnabled(id)`.
+- **`normalizeMatchString`** в `PlaylistMatcher.ts`:** схлопывает диакритику через `DIACRITICS_MAP` (ё→е, é→e, ä→a, ß→ss, ...), но **не** трогает `й`.
+- **`sourceKey` для `local`:** включает `folderId` (`local|pluginId|handle.name|folderId`). Два разных файла `track.mp3` в разных папках не склеятся.
+- **`local → cloud` fallback:** только при **однозначности** (`findUniqueCloudByFileName` возвращает `null` при 2+ cloud-треках с одинаковым именем файла).
+- **`README.md`:** актуализирован (убраны `CoverBlobCache`, `mutex`, JW из мэтчинга, Zvuk-хардкод, добавлены «Источники метаданных», «Защита от дубликатов», «Мэтчинг треков»).
+- **`ROADMAP.md`:** вычеркнут 0.16.2, добавлен 0.16.3 (стабилизация), 0.17 (переработка `yandex-self`), 0.18/0.19 (бывшие 0.17/0.18).
+
+### Fixed
+
+- **`sourceKey` collision для `local`:** два разных файла `track.mp3` в разных папках больше не склеиваются.
+- **`local → cloud` fallback** больше не склеивает с первым найденным cloud-треком, если таких несколько (создаётся `created`, пользователь решает через кандидата).
+- **UX тоста «Найдено N»:** теперь с action «Открыть» (не нужно искать кнопку-warning).
+- **`MetadataProvidersList` drag-and-drop:** порядок сохраняется при переключении чекбокса (выключенный провайдер остаётся на месте, можно перетащить).
+- **Миграция v1 → v2 (`BackupService`):** корректно конвертирует `Record<string, boolean>` (v1) в `{ localStorage: Record<string, string> }` (v2), с учётом `key.split(':').pop()` для `plugin-activated:yandex-self`.
+- **Миграция legacy `zvuk:fetchMetadata`:** при первом запуске конвертируется в `metadataProviderEnabled` (все провайдеры выключены или дефолт).
+- **Диакритика в `PlaylistMatcher`:** `ё` == `е`, `é` == `e`, `ä` == `a`, `ß` == `ss`. `й` остаётся отдельной буквой.
+
+### Internal
+
+- **Тесты:** `PlaylistMatcher.unicode.spec.ts`, `BackupService.migration.spec.ts`, обновлены `PlaylistMatcher.spec.ts`, `uiSettings.metadataProviderOrder.spec.ts`, `TrackMerger/sourceKey.spec.ts`, `MetadataService.applyCandidate.spec.ts`, `useMetadataSearch.spec.ts`.
+- **E2E:** обновлены `05-metadata.spec.ts`, `07-zvuk-source.spec.ts` (метаданные через `metadataProviderEnabled`/`metadataProviderOrder` вместо `zvuk:fetchMetadata`).
+
 ## [0.16.2] — Строгий мэтчинг и плагинная граница
 
 Релиз посвящён стабилизации после 0.16.1: убраны дубликаты при сканировании, вынесены жёсткие зависимости от плагинов в манифесты, упрощён `PlaylistMatcher`.

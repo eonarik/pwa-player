@@ -1,26 +1,39 @@
-# Roadmap (от 0.15.1 до 1.0.0)
+# Roadmap (от 0.16.2 до 1.0.0)
 
-## [0.16.1] — Стабильная склейка и Кандидаты (Текущий релиз)
+## [0.16.2] — Строгий мэтчинг и плагинная граница (Текущий релиз)
 
-Цель: Исправить склейку, добавить управление кандидатами, устранить дубликаты.
+- [x] Строгий `PlaylistMatcher` (без Jaro-Winkler).
+- [x] `Track.pluginId` синхронизируется с `sources[0]`.
+- [x] `PluginManifest.metadataPriority` + `uiSettings.metadataProviderOrder`.
+- [x] `PluginManifest.backup` (вместо хардкода `PLUGIN_STORAGE_KEYS`).
+- [x] `PluginSnapshot.alreadyApplied` (фикс дублей при сканировании).
+- [x] `sourceKey` в `TrackMerger` (защита от дубликатов).
+- [x] `history.recordPlay` / `dislikes.dislike` — оптимизация (без `merge`, если трек уже в библиотеке).
+- [x] `MetadataMenu` без `issuesCount`, тост «Найдено N».
+- [x] `CoverBlobCache` удалён (`Album.coverBlob` — единый источник).
+- [x] `mutex.ts` удалён (мутаторы синхронные).
+- [x] Двухфазный bootstrap, `alreadyApplied`.
+- [x] Разделение `TrackMetadataService.fetchItunes` / `fetchDeezer`.
+- [x] Legacy-миграция `zvuk:fetchMetadata` → `metadataProviderOrder`.
 
-- [x] Симметричный fuzzy в `findBestMatch`.
-- [x] `merged-soft` создаёт новый трек (`mergeWithTrackId`).
-- [x] `TrackCandidatesModal` (меню трека).
-- [x] `applyCandidate` (слияние треков).
-- [x] Авто-восстановление источника в `playAt`.
-- [x] «Играть всё» (subtree).
-- [x] F5 без повторного скана (`restoreFromCache`).
-- [x] `SCHEMA_VERSION = 1`.
+## [0.16.3] — Стабилизация
 
-## [0.17.0] — Планируется
+- [ ] **`sourceKey` collision:** `local` source с одинаковым `handle.name` в разных папках. Добавить `folderId` в ключ, сохранить `local → cloud` fallback.
+- [ ] **UX тоста «Найдено N»:** добавить action «Открыть» (открывает `MetadataCandidatesModal`).
+- [ ] **`MetadataProvidersList`:** проверить drag-and-drop на touch, при необходимости — `ref` + `watch`.
+- [ ] **Документация:** `README.md` (убрать `CoverBlobCache`, `mutex`, JW, Zvuk-хардкод), `ROADMAP.md` (актуализировать).
+- [ ] **`BackupService` v1 → v2:** прогнать на реальном старом бэкапе.
+- [ ] **`PlaylistMatcher`:** зафиксировать в тестах, что диакритика (`é` vs `e`) — не strict.
 
-- [ ] Групповое редактирование.
-- [ ] Deep Links (плейлисты).
-- [ ] PDF/EPUB.
-- [ ] Module Federation.
+## [0.17] — Переработка yandex-self
 
-## [0.18.0] — Продвинутая работа с файлами и Экосистема
+Цель: сделать `yandex-self` мультифункциональным плагином (ТЗ от владельца проекта).
+
+- [ ] Собрать ТЗ (функции, контракт `LibrarySource`).
+- [ ] Ядро не должно знать о специфике `yandex-self` — только через манифест.
+- [ ] Обратная совместимость: `yandex` (Диск) и `yandex-self` (Логии) не должны ломать друг друга.
+
+## [0.18] — Продвинутая работа с файлами и Экосистема (бывшая 0.17)
 
 Цель: Расширение форматов файлов и внедрение плагинов сторонних разработчиков.
 
@@ -32,7 +45,7 @@
 - [ ] **Эквалайзер (Web Audio API):** 10-полосный с пресетами.
 - [ ] **Синхронизация настроек:** Экспорт/импорт `uiSettings` и `player:state`.
 
-## [0.19.0] — Офлайн и Фоновая работа
+## [0.19] — Офлайн и Фоновая работа (бывшая 0.18)
 
 Цель: Максимальная автономность и стабильность работы с большими библиотеками.
 

@@ -3,8 +3,10 @@
 import { computed, ref, type Ref } from 'vue';
 import { metadataService } from '@/services/metadata/MetadataService';
 import { useLibraryStore } from '@/stores/library';
-import type { Track } from '@/types/track';
 import { toastService } from '@/services/ui/ToastService';
+import { modalService } from '@/services/ui/ModalService';
+import MetadataCandidatesModal from '@/components/library/MetadataCandidatesModal.vue';
+import type { Track } from '@/types/track';
 
 const CONCURRENCY = 3;
 const FLUSH_INTERVAL = 10;
@@ -129,13 +131,30 @@ export function useMetadataSearch(tracks: Ref<Track[]>) {
       bumpVersion();
 
       if (foundIssues.length > 0) {
-        toastService.info(`Найдено кандидатов: ${foundIssues.length}. Проверьте «Проблемные совпадения».`);
+        showCandidatesToast(foundIssues);
       }
     } finally {
       isLoading.value = false;
       progress.value = { done: 0, total: 0 };
       abortController.value = null;
     }
+  }
+
+  function showCandidatesToast(foundIssues: MetadataIssue[]): void {
+    const trackIds = foundIssues.map((i) => i.track.id);
+
+    toastService.showPersistent(`Найдено кандидатов: ${foundIssues.length}`, 'info', {
+      label: 'Открыть',
+      onAction: () => {
+        void modalService.show({
+          title: 'Проблемные совпадения',
+          type: 'custom',
+          component: MetadataCandidatesModal,
+          props: { trackIds },
+          disableBackdropClose: false,
+        });
+      },
+    });
   }
 
   function cancel(): void {

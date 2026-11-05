@@ -2,11 +2,7 @@
 
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
-import {
-  BUILTIN_METADATA_PROVIDERS,
-  BUILTIN_METADATA_PRIORITY,
-  isBuiltinMetadataProvider,
-} from '@/services/metadata/MetadataService/constants';
+import { BUILTIN_METADATA_PROVIDERS } from '@/services/metadata/MetadataService/constants';
 import { consumeLegacyMetadataToggle } from '@/services/metadata/MetadataService/migrations';
 import { getPlugins } from '@/plugins/registry';
 
@@ -26,6 +22,7 @@ interface PersistedUiSettings {
   autoFetchMetadata: boolean;
   autoDownloadTracks: boolean;
   metadataProviderOrder: string[];
+  metadataProviderEnabled: Record<string, boolean>;
 }
 
 function isValidThreshold(value: unknown): value is number {
@@ -45,10 +42,19 @@ function sanitizeProviderOrder(raw: unknown): string[] | null {
   return result;
 }
 
+function sanitizeEnabled(raw: unknown): Record<string, boolean> | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const result: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'boolean') result[key] = value;
+  }
+  return result;
+}
+
 /**
- * Дефолтный порядок провайдеров метаданных:
- * 1. Built-in провайдеры (itunes, deezer) — всегда первыми.
- * 2. Плагины с manifest.metadataPriority — по возрастанию приоритета.
+ * Дефолтный порядок ВСЕХ провайдеров (включённых и выключенных):
+ * 1. Built-in (itunes, deezer).
+ * 2. Плагины с manifest.metadataPriority (по возрастанию).
  */
 function defaultProviderOrder(): string[] {
   const order: string[] = [...BUILTIN_METADATA_PROVIDERS];
@@ -63,17 +69,12 @@ function defaultProviderOrder(): string[] {
       if (!order.includes(id)) order.push(id);
     }
   } catch {
-    // getPlugins может быть недоступен на этапе инициализации (например, в тестах).
     // Fallback — только built-in.
   }
 
   return order;
 }
 
-/**
- * Полный объект дефолтных настроек.
- * Используется, когда localStorage пуст (первый запуск) или не удалось прочитать.
- */
 function defaultValues(): PersistedUiSettings {
   return {
     showSource: false,
@@ -84,13 +85,11 @@ function defaultValues(): PersistedUiSettings {
     autoFetchMetadata: true,
     autoDownloadTracks: false,
     metadataProviderOrder: defaultProviderOrder(),
+    metadataProviderEnabled: {},
   };
 }
 
 function readFromStorage(): PersistedUiSettings | null {
-  // Консультируемся с legacy-флагом ВСЕГДА (один раз, идемпотентно).
-  // Это гарантирует, что после миграции ключ zvuk:fetchMetadata удалён,
-  // и значение корректно сконвертировано, если основного ключа ещё нет.
   const legacy = consumeLegacyMetadataToggle();
 
   let raw: string | null = null;
@@ -104,7 +103,9 @@ function readFromStorage(): PersistedUiSettings | null {
   if (!raw) {
     const base = defaultValues();
     if (legacy === 'disabled-all-plugins') {
-      base.metadataProviderOrder = [...BUILTIN_METADATA_PROVIDERS];
+      const enabled: Record<string, boolean> = {};
+      for (const id of base.metadataProviderOrder) enabled[id] = false;
+      base.metadataProviderEnabled = enabled;
     }
     return base;
   }
@@ -115,10 +116,27 @@ function readFromStorage(): PersistedUiSettings | null {
 
     let metadataProviderOrder = sanitizeProviderOrder(parsed.metadataProviderOrder);
     if (metadataProviderOrder === null) {
+      metadataProviderOrder = defaultProviderOrder();
+    } else {
+      // Миграция старого формата: order содержал только включённые.
+      // Добавляем недостающие (built-in + плагины) в конец.
+      const defaults = defaultProviderOrder();
+      const seen = new Set(metadataProviderOrder);
+      for (const id of defaults) {
+        if (!seen.has(id)) {
+          metadataProviderOrder.push(id);
+          seen.add(id);
+        }
+      }
+    }
+
+    let metadataProviderEnabled = sanitizeEnabled(parsed.metadataProviderEnabled);
+    if (metadataProviderEnabled === null) {
       if (legacy === 'disabled-all-plugins') {
-        metadataProviderOrder = [...BUILTIN_METADATA_PROVIDERS];
+        metadataProviderEnabled = {};
+        for (const id of metadataProviderOrder) metadataProviderEnabled[id] = false;
       } else {
-        metadataProviderOrder = defaultProviderOrder();
+        metadataProviderEnabled = {};
       }
     }
 
@@ -135,6 +153,7 @@ function readFromStorage(): PersistedUiSettings | null {
       autoFetchMetadata: parsed.autoFetchMetadata ?? true,
       autoDownloadTracks: parsed.autoDownloadTracks ?? false,
       metadataProviderOrder,
+      metadataProviderEnabled,
     };
   } catch (err) {
     console.warn('[uiSettings] failed to read from localStorage', err);
@@ -159,6 +178,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
   const autoFetchMetadata = ref(true);
   const autoDownloadTracks = ref(false);
   const metadataProviderOrder = ref<string[]>(defaultProviderOrder());
+  const metadataProviderEnabled = ref<Record<string, boolean>>({});
 
   let isLoaded = false;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -175,6 +195,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       autoFetchMetadata.value = data.autoFetchMetadata;
       autoDownloadTracks.value = data.autoDownloadTracks;
       metadataProviderOrder.value = data.metadataProviderOrder;
+      metadataProviderEnabled.value = data.metadataProviderEnabled;
     }
     isLoaded = true;
   }
@@ -190,6 +211,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       autoFetchMetadata: autoFetchMetadata.value,
       autoDownloadTracks: autoDownloadTracks.value,
       metadataProviderOrder: metadataProviderOrder.value,
+      metadataProviderEnabled: metadataProviderEnabled.value,
     });
   }
 
@@ -220,6 +242,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
       autoFetchMetadata,
       autoDownloadTracks,
       metadataProviderOrder,
+      metadataProviderEnabled,
     ],
     () => {
       save();
@@ -248,37 +271,27 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     metadataProviderOrder.value = sanitized;
   }
 
-  function getProviderPriority(id: string): number | null {
-    if (isBuiltinMetadataProvider(id)) return BUILTIN_METADATA_PRIORITY[id];
-    const manifest = getPlugins().find((m) => m.id === id);
-    return manifest?.metadataPriority ?? null;
+  /**
+   * Проверяет, включён ли провайдер.
+   * По умолчанию (нет ключа в `metadataProviderEnabled`) — включён.
+   * Чтобы исключить несуществующие id (удалённые плагины), используем
+   * отдельную проверку в `resolve`.
+   */
+  function isMetadataProviderEnabled(id: string): boolean {
+    return metadataProviderEnabled.value[id] !== false;
   }
 
   function toggleMetadataProvider(id: string, enabled: boolean): void {
-    const current = metadataProviderOrder.value;
-    const has = current.includes(id);
-
-    if (enabled && !has) {
-      const priority = getProviderPriority(id);
-      const next = [...current];
-
-      if (priority === null) {
-        next.push(id);
-      } else {
-        let insertAt = next.length;
-        for (let i = 0; i < next.length; i++) {
-          const otherPriority = getProviderPriority(next[i]!);
-          if (otherPriority !== null && otherPriority > priority) {
-            insertAt = i;
-            break;
-          }
-        }
-        next.splice(insertAt, 0, id);
-      }
-
-      metadataProviderOrder.value = next;
-    } else if (!enabled && has) {
-      metadataProviderOrder.value = current.filter((x) => x !== id);
+    if (enabled) {
+      // Удаляем ключ — значит "включён по умолчанию".
+      const next = { ...metadataProviderEnabled.value };
+      delete next[id];
+      metadataProviderEnabled.value = next;
+    } else {
+      metadataProviderEnabled.value = {
+        ...metadataProviderEnabled.value,
+        [id]: false,
+      };
     }
   }
 
@@ -291,6 +304,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     searchThreshold,
     playlistMatchThreshold,
     metadataProviderOrder,
+    metadataProviderEnabled,
 
     load,
     flush,
@@ -299,6 +313,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     setSearchThreshold,
     setPlaylistMatchThreshold,
     setMetadataProviderOrder,
+    isMetadataProviderEnabled,
     toggleMetadataProvider,
   };
 });

@@ -35,8 +35,14 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
       }
       localStorage.clear();
       sessionStorage.clear();
-      localStorage.setItem('player:uiSettings', JSON.stringify({ autoFetchMetadata: true }));
-      localStorage.setItem('zvuk:fetchMetadata', 'false');
+      localStorage.setItem(
+        'player:uiSettings',
+        JSON.stringify({
+          autoFetchMetadata: true,
+          metadataProviderOrder: ['itunes', 'deezer', 'zvuk'],
+          metadataProviderEnabled: { zvuk: false },
+        }),
+      );
     });
 
     await page.reload({ waitUntil: 'domcontentloaded' });

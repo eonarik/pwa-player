@@ -1,3 +1,5 @@
+// src/stores/uiSettings.metadataProviderOrder.spec.ts
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useUiSettingsStore } from './uiSettings';
@@ -11,14 +13,14 @@ vi.mock('@/plugins/registry', () => ({
 const UI_SETTINGS_KEY = 'player:uiSettings';
 const LEGACY_KEY = 'zvuk:fetchMetadata';
 
-describe('uiSettings: metadataProviderOrder', () => {
+describe('uiSettings: metadataProviderOrder + metadataProviderEnabled', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     localStorage.clear();
     mockPlugins.length = 0;
   });
 
-  it('default: built-in + плагины с metadataPriority', () => {
+  it('default: built-in + плагины с metadataPriority, все enabled = true', () => {
     mockPlugins.push({ id: 'zvuk', name: 'СберЗвук', metadataPriority: 30 });
     mockPlugins.push({ id: 'other', name: 'Other', metadataPriority: 10 });
 
@@ -26,6 +28,7 @@ describe('uiSettings: metadataProviderOrder', () => {
     ui.load();
 
     expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'other', 'zvuk']);
+    expect(ui.metadataProviderEnabled).toEqual({});
   });
 
   it('default без плагинов: только built-in', () => {
@@ -33,20 +36,26 @@ describe('uiSettings: metadataProviderOrder', () => {
     ui.load();
 
     expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer']);
+    expect(ui.metadataProviderEnabled).toEqual({});
   });
 
-  it('миграция legacy "false": только built-in, ключ удалён', () => {
+  it('миграция legacy "false": все выключены', () => {
     localStorage.setItem(LEGACY_KEY, 'false');
     mockPlugins.push({ id: 'zvuk', name: 'СберЗвук', metadataPriority: 30 });
 
     const ui = useUiSettingsStore();
     ui.load();
 
-    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer']);
+    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'zvuk']);
+    expect(ui.metadataProviderEnabled).toEqual({
+      itunes: false,
+      deezer: false,
+      zvuk: false,
+    });
     expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
   });
 
-  it('миграция legacy "true": default с плагинами', () => {
+  it('миграция legacy "true": все включены (enabled = {})', () => {
     localStorage.setItem(LEGACY_KEY, 'true');
     mockPlugins.push({ id: 'zvuk', name: 'СберЗвук', metadataPriority: 30 });
 
@@ -54,36 +63,45 @@ describe('uiSettings: metadataProviderOrder', () => {
     ui.load();
 
     expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'zvuk']);
+    expect(ui.metadataProviderEnabled).toEqual({});
     expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
   });
 
-  it('toggle off удаляет, toggle on вставляет по приоритету', () => {
+  it('toggle off: не меняет порядок, ставит enabled = false', () => {
     mockPlugins.push({ id: 'zvuk', name: 'СберЗвук', metadataPriority: 30 });
-    mockPlugins.push({ id: 'other', name: 'Other', metadataPriority: 10 });
 
     const ui = useUiSettingsStore();
-    ui.load(); // ['itunes', 'deezer', 'other', 'zvuk']
+    ui.load(); // ['itunes', 'deezer', 'zvuk']
 
     ui.toggleMetadataProvider('zvuk', false);
-    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'other']);
 
-    ui.toggleMetadataProvider('zvuk', true);
-    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'other', 'zvuk']);
-
-    ui.toggleMetadataProvider('other', false);
-    ui.toggleMetadataProvider('other', true);
-    // 'other' priority 10 — между deezer (1) и zvuk (30)
-    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'other', 'zvuk']);
+    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'zvuk']);
+    expect(ui.metadataProviderEnabled.zvuk).toBe(false);
   });
 
-  it('пустой массив сохраняется (все выключены)', () => {
+  it('toggle on: убирает enabled = false', () => {
+    mockPlugins.push({ id: 'zvuk', name: 'СберЗвук', metadataPriority: 30 });
+
     const ui = useUiSettingsStore();
     ui.load();
-    ui.setMetadataProviderOrder([]);
-    ui.flush();
+    ui.toggleMetadataProvider('zvuk', false);
+    ui.toggleMetadataProvider('zvuk', true);
 
-    const saved = JSON.parse(localStorage.getItem(UI_SETTINGS_KEY)!);
-    expect(saved.metadataProviderOrder).toEqual([]);
+    expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'zvuk']);
+    expect(ui.metadataProviderEnabled.zvuk).toBeUndefined();
+  });
+
+  it('setMetadataProviderOrder сохраняет порядок, enabled не трогает', () => {
+    mockPlugins.push({ id: 'zvuk', name: 'СберЗвук', metadataPriority: 30 });
+
+    const ui = useUiSettingsStore();
+    ui.load();
+    ui.toggleMetadataProvider('zvuk', false);
+
+    ui.setMetadataProviderOrder(['zvuk', 'deezer', 'itunes']);
+
+    expect(ui.metadataProviderOrder).toEqual(['zvuk', 'deezer', 'itunes']);
+    expect(ui.metadataProviderEnabled.zvuk).toBe(false);
   });
 
   it('persist/restore', () => {
@@ -91,13 +109,14 @@ describe('uiSettings: metadataProviderOrder', () => {
     const ui1 = useUiSettingsStore();
     ui1.load();
     ui1.setMetadataProviderOrder(['deezer', 'itunes', 'zvuk']);
+    ui1.toggleMetadataProvider('zvuk', false);
     ui1.flush();
 
-    // Новая сессия
     setActivePinia(createPinia());
     const ui2 = useUiSettingsStore();
     ui2.load();
     expect(ui2.metadataProviderOrder).toEqual(['deezer', 'itunes', 'zvuk']);
+    expect(ui2.metadataProviderEnabled.zvuk).toBe(false);
   });
 
   it('битый порядок (не массив) → default', () => {
@@ -108,5 +127,6 @@ describe('uiSettings: metadataProviderOrder', () => {
     ui.load();
 
     expect(ui.metadataProviderOrder).toEqual(['itunes', 'deezer', 'zvuk']);
+    expect(ui.metadataProviderEnabled).toEqual({});
   });
 });

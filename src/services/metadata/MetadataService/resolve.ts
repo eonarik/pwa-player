@@ -25,27 +25,35 @@ export function createMetadataResolve() {
     return resolveParallel(artist, title, threshold, signal);
   }
 
-  function getOrder(): string[] {
-    const uiSettings = useUiSettingsStore();
-    return uiSettings.metadataProviderOrder;
-  }
-
-  function getAvailablePluginIds(): Set<string> {
-    return new Set(
+  function getEnabledProviders(): { id: string; isPlugin: boolean }[] {
+    const ui = useUiSettingsStore();
+    const availablePlugins = new Set(
       getPlugins()
         .filter((m) => m.metadataPriority !== undefined)
         .map((m) => m.id),
     );
+
+    const result: { id: string; isPlugin: boolean }[] = [];
+    for (const id of ui.metadataProviderOrder) {
+      if (!ui.isMetadataProviderEnabled(id)) continue;
+      if (isBuiltinMetadataProvider(id)) {
+        result.push({ id, isPlugin: false });
+      } else if (availablePlugins.has(id)) {
+        result.push({ id, isPlugin: true });
+      }
+    }
+    return result;
   }
 
   async function tryProvider(
     providerId: string,
+    isPlugin: boolean,
     artist: string,
     title: string,
     threshold: number,
     signal?: AbortSignal,
   ): Promise<RemoteResult> {
-    if (isBuiltinMetadataProvider(providerId)) {
+    if (!isPlugin && isBuiltinMetadataProvider(providerId)) {
       const builtin = providerId as BuiltinMetadataProviderId;
       const result =
         builtin === 'itunes'
@@ -97,23 +105,18 @@ export function createMetadataResolve() {
     threshold: number,
     signal?: AbortSignal,
   ): Promise<ResolveResult> {
-    const order = getOrder();
+    const order = getEnabledProviders();
     if (order.length === 0) return { status: 'not-found' };
 
-    const availablePlugins = getAvailablePluginIds();
     const collected: ResolvedCandidate[] = [];
 
-    for (const providerId of order) {
+    for (const provider of order) {
       if (signal?.aborted) return { status: 'aborted' };
 
-      if (!isBuiltinMetadataProvider(providerId) && !availablePlugins.has(providerId)) {
-        continue;
-      }
-
-      const result = await tryProvider(providerId, artist, title, threshold, signal);
+      const result = await tryProvider(provider.id, provider.isPlugin, artist, title, threshold, signal);
       if (result.status === 'aborted') return { status: 'aborted' };
       if (result.status === 'error') {
-        console.warn(`[metadata] provider "${providerId}" failed: ${result.message}`);
+        console.warn(`[metadata] provider "${provider.id}" failed: ${result.message}`);
         continue;
       }
       if (result.status === 'not-found') continue;
@@ -135,13 +138,12 @@ export function createMetadataResolve() {
     threshold: number,
     signal?: AbortSignal,
   ): Promise<ResolveResult> {
-    const order = getOrder();
+    const order = getEnabledProviders();
     if (order.length === 0) return { status: 'not-found' };
 
-    const availablePlugins = getAvailablePluginIds();
-    const filteredOrder = order.filter((id) => isBuiltinMetadataProvider(id) || availablePlugins.has(id));
-
-    const tasks = filteredOrder.map((providerId) => tryProvider(providerId, artist, title, threshold, signal));
+    const tasks = order.map((provider) =>
+      tryProvider(provider.id, provider.isPlugin, artist, title, threshold, signal),
+    );
 
     const results = await Promise.all(tasks);
     if (signal?.aborted) return { status: 'aborted' };

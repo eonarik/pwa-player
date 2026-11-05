@@ -23,10 +23,6 @@ export interface MergeContext {
   libraryIndex: Map<string, Track[]>;
   existingAlbums: Album[];
   threshold: number;
-  /**
-   * Индекс существующих треков по source (для защиты от дубликатов при повторном скане).
-   * Ключ: pluginId|kind|remotePath/handle.name/url.
-   */
   sourceIndex?: Map<string, Track>;
 }
 
@@ -35,10 +31,19 @@ export interface MergeManyResult {
   albums: Album[];
 }
 
+/**
+ * Ключ source для индекса.
+ *
+ * local: pluginId|handle.name|folderId — потому что два файла `track.mp3`
+ * в разных папках — это разные файлы.
+ *
+ * cloud: pluginId|remotePath — remotePath уникален в пределах облака.
+ *
+ * streaming: pluginId|url.
+ */
 export function sourceKey(source: TrackSource): string {
   if (source.kind === 'local') {
-    // handle.name уникален в пределах FS. folderId — не часть идентичности.
-    return `local|${source.pluginId}|${source.handle.name}`;
+    return `local|${source.pluginId}|${source.handle.name}|${source.folderId}`;
   }
   if (source.kind === 'cloud') {
     return `cloud|${source.pluginId}|${source.remotePath}`;
@@ -46,9 +51,33 @@ export function sourceKey(source: TrackSource): string {
   if (source.kind === 'streaming') {
     return `streaming|${source.pluginId}|${source.url}`;
   }
-  // exhaustive
   const _exhaustive: never = source;
   return String(_exhaustive);
+}
+
+/**
+ * Ищет единственный cloud-трек с совпадающим fileName.
+ * Возвращает null, если найдено 0 или >1 (неоднозначность).
+ *
+ * Используется как fallback при `restoreFromLocalFiles`: local-трек
+ * с handle.name='track.mp3' должен склеиться с cloud-треком,
+ * у которого remotePath оканчивается на '/track.mp3', но только
+ * если такой cloud-трек ровно один.
+ */
+function findUniqueCloudByFileName(sourceIndex: Map<string, Track>, fileName: string): Track | null {
+  const matches: Track[] = [];
+  const seen = new Set<TrackId>();
+
+  for (const track of sourceIndex.values()) {
+    if (seen.has(track.id)) continue;
+    const hasMatch = track.sources.some((s) => s.kind === 'cloud' && s.remotePath.split('/').pop() === fileName);
+    if (hasMatch) {
+      seen.add(track.id);
+      matches.push(track);
+    }
+  }
+
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeResult {
@@ -87,22 +116,10 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
       };
     }
 
-    // 2. Специальный случай: local source + существующий cloud source с тем же именем файла
-    //    (например, при restoreFromLocalFiles, когда cloud уже был удалён/отключён, но трек остался)
+    // 2. local → cloud fallback по имени файла (только при однозначности)
     if (source.kind === 'local') {
       const fileName = source.handle.name;
-      let existingByFileName: Track | undefined;
-
-      for (const track of ctx.sourceIndex.values()) {
-        // Ищем трек, у которого есть cloud source с тем же fileName
-        const hasMatchingCloud = track.sources.some(
-          (s) => s.kind === 'cloud' && s.remotePath.split('/').pop() === fileName,
-        );
-        if (hasMatchingCloud) {
-          existingByFileName = track;
-          break;
-        }
-      }
+      const existingByFileName = findUniqueCloudByFileName(ctx.sourceIndex, fileName);
 
       if (existingByFileName) {
         const alreadyHasSource = existingByFileName.sources.some((s) => isSameSource(s, source));
@@ -137,7 +154,6 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
 
   const { track: bestMatch, score } = findBestMatch(incomingProbe, ctx.libraryIndex, ctx.threshold);
 
-  // --- created ---
   if (!bestMatch || score < ctx.threshold) {
     const albumRes = resolveAlbumByName(incoming.album, incoming.artist, incoming.coverUrl, ctx.existingAlbums);
     const albumId: AlbumId | null = albumRes?.album.id ?? null;
@@ -165,7 +181,6 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     };
   }
 
-  // --- merged-strict ---
   if (isStrictMatch(incomingProbe, bestMatch)) {
     const alreadyHasSource = isVoidSource || bestMatch.sources.some((s) => isSameSource(s, source));
     const nextSources = alreadyHasSource
@@ -179,21 +194,14 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
       albumId = albumRes?.album.id ?? null;
     }
 
-    const track: Track = {
-      ...bestMatch,
-      sources: nextSources,
-      albumId,
-    };
-
     return {
-      track,
+      track: { ...bestMatch, sources: nextSources, albumId },
       action: 'merged-strict',
       album: albumRes?.album ?? null,
       matchedTrackId: bestMatch.id,
     };
   }
 
-  // --- merged-soft ---
   const albumRes = resolveAlbumByName(incoming.album, incoming.artist, incoming.coverUrl, ctx.existingAlbums);
   const albumId: AlbumId | null = albumRes?.album.id ?? null;
 
@@ -244,7 +252,6 @@ export function mergeMany(incoming: PluginTrackPayload[], ctx: MergeContext): Me
     libraryIndex.set(key, [...list]);
   }
 
-  // sourceIndex мутируется, чтобы новые created треки тоже попадали в него.
   const sourceIndex = new Map<string, Track>(ctx.sourceIndex ?? []);
 
   for (const payload of incoming) {
@@ -264,7 +271,6 @@ export function mergeMany(incoming: PluginTrackPayload[], ctx: MergeContext): Me
       libraryIndex.set(artistKey, list);
     }
 
-    // Обновляем sourceIndex
     if (result.action === 'created' || result.action === 'merged-soft') {
       if (result.track.sources[0]) {
         sourceIndex.set(sourceKey(result.track.sources[0]), result.track);

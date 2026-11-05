@@ -9,16 +9,72 @@ export interface MatchResult<T = Track> {
 }
 
 /**
+ * Таблица диакритики для схлопывания.
+ *
+ * ВАЖНО:
+ * - "ё" схлопывается в "е" (частая проблема в русских тегах).
+ * - "й" НЕ схлопывается (это отдельная буква русского алфавита).
+ * - Латинские диакритики: é → e, ä → a, ñ → n, ß → ss и т.д.
+ */
+const DIACRITICS_MAP: Record<string, string> = {
+  // Русские (кроме й)
+  ё: 'е',
+
+  // Латинские
+  à: 'a',
+  á: 'a',
+  â: 'a',
+  ã: 'a',
+  ä: 'a',
+  å: 'a',
+  è: 'e',
+  é: 'e',
+  ê: 'e',
+  ë: 'e',
+  ì: 'i',
+  í: 'i',
+  î: 'i',
+  ï: 'i',
+  ò: 'o',
+  ó: 'o',
+  ô: 'o',
+  õ: 'o',
+  ö: 'o',
+  ù: 'u',
+  ú: 'u',
+  û: 'u',
+  ü: 'u',
+  ñ: 'n',
+  ç: 'c',
+  ý: 'y',
+  ÿ: 'y',
+  ß: 'ss',
+};
+
+function stripDiacritics(value: string): string {
+  return Array.from(value)
+    .map((char) => {
+      const lower = char.toLowerCase();
+      const mapped = DIACRITICS_MAP[lower];
+      if (mapped === undefined) return char;
+      return char === lower ? mapped : mapped.toUpperCase();
+    })
+    .join('');
+}
+
+/**
  * Нормализация строки для сравнения:
  * - Unicode NFC (чтобы "й" как одна точка == "й" как "и" + бревис);
  * - trim;
  * - lowercase;
- * - схлопывание множественных пробелов в один.
+ * - схлопывание множественных пробелов;
+ * - схлопывание диакритики (ё → е, é → e, ä → a, ...), НО без й → и.
  *
- * Используется для artist и title в PlaylistMatcher и TrackMerger/utils.
+ * Используется в PlaylistMatcher и TrackMerger/utils.
  */
 export function normalizeMatchString(value: string | null | undefined): string {
-  return (value || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
+  const base = (value || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
+  return stripDiacritics(base);
 }
 
 const SCORE_STRICT = 1.0;
@@ -27,17 +83,14 @@ const SCORE_SOFT = 0.9;
 /**
  * Ищет лучшее совпадение incoming в libraryIndex.
  *
- * Правила (по требованию пользователя):
+ * Правила:
  * 1. artist !== artist → null (score 0).
  * 2. artist === artist && title === title → strict (score 1.0).
  * 3. artist === artist && (title1 — подстрока title2, или наоборот) → soft (score 0.9).
  * 4. artist === artist && title !== title && не подстрока → null (score 0).
  *
- * `threshold` сохранён в сигнатуре для обратной совместимости вызывающего кода.
+ * `threshold` сохранён в сигнатуре для обратной совместимости.
  * Все возвращаемые score уже "прошли" threshold, если track !== null.
- *
- * Если среди нескольких soft-кандидатов есть strict — strict побеждает
- * (не может быть нескольких strict с одинаковым artist+title, но на всякий случай).
  */
 export function findBestMatch<T extends Track>(
   incoming: PlaylistExportTrack | Track,
@@ -49,7 +102,6 @@ export function findBestMatch<T extends Track>(
   const incomingArtist = normalizeMatchString(incoming.artist);
   const incomingTitle = normalizeMatchString(incoming.title);
 
-  // Если нет артиста или тайтла — не склеиваем (created).
   if (!incomingArtist || !incomingTitle) {
     return { track: null, score: 0 };
   }
