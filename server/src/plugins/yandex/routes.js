@@ -181,10 +181,10 @@ yandexRoutes.put('/text', async (req, res, next) => {
 yandexRoutes.use((err, _req, res, _next) => {
   if (err instanceof YandexApiError) {
     const status = Number.isFinite(err.status) ? err.status : 500;
-    console.error(`[yandex] API error ${status}: ${err.message}`);
+    logger.warn(`[yandex] API error ${status}: ${err.message?.slice(0, 200)}`);
     res.status(status).json({ error: err.message });
     return;
   }
-  console.error('[yandex] unexpected error:', err);
+  logger.error('[yandex] unexpected error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });

@@ -2,6 +2,7 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { toastService } from '@/services/ui/ToastService';
+import { simpleHash } from '@/utils/hash';
 
 const SESSION_KEY = 'cuei:lastClipboardHash';
 const TOAST_DURATION_MS = 8000;
@@ -65,7 +66,6 @@ export function useClipboardWatcher() {
   };
 
   onMounted(() => {
-    // Убрали setTimeout
     window.addEventListener('focus', onWindowFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
   });
@@ -74,12 +74,4 @@ export function useClipboardWatcher() {
     window.removeEventListener('focus', onWindowFocus);
     document.removeEventListener('visibilitychange', onVisibilityChange);
   });
-}
-
-function simpleHash(str: string): string {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 33) ^ str.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16);
 }

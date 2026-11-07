@@ -11,7 +11,7 @@
     stroke-linejoin="round"
     aria-hidden="true"
   >
-    <path d="M5 12h14" />
-    <path d="M12 5v14" />
+    <path d="M5 12h14" stroke="currentColor" />
+    <path d="M12 5v14" stroke="currentColor" />
   </svg>
 </template>

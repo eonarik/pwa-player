@@ -104,6 +104,7 @@ function buildTrackItem(folder: FolderRef, tracks: Record<string, Track>, isIntr
 export interface UseLogiiSeasonResult {
   authors: Ref<LogiiAuthorItem[]>;
   tracksByAuthor: Ref<Map<string, LogiiTrackItem[]>>;
+  allTracksByAuthor: Ref<Map<string, Track[]>>;
   authorMeta: Ref<Map<string, LogiiTrackItem>>;
   seasonFolder: Ref<FolderRef | null>;
   isReady: Ref<boolean>;
@@ -147,7 +148,26 @@ export function useLogiiSeason(seasonUrlPath: Ref<string>): UseLogiiSeasonResult
     return map;
   });
 
-  return { authors, tracksByAuthor, authorMeta, seasonFolder, isReady };
+  /**
+   * Плоский список треков по каждому автору: audioTracks из всех
+   * его трек-папок. Intro (файл) сюда не попадает — у него нет аудио.
+   * Нужно для play-all автора в LogiiAuthorsColumn.
+   */
+  const allTracksByAuthor = computed<Map<string, Track[]>>(() => {
+    const map = new Map<string, Track[]>();
+    for (const [authorUrlPath, items] of tracksByAuthor.value.entries()) {
+      const tracks: Track[] = [];
+      for (const item of items) {
+        for (const track of item.audioTracks) {
+          tracks.push(track);
+        }
+      }
+      map.set(authorUrlPath, tracks);
+    }
+    return map;
+  });
+
+  return { authors, tracksByAuthor, allTracksByAuthor, authorMeta, seasonFolder, isReady };
 }
 
 // --- useLogiiTrack ---

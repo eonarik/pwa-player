@@ -17,8 +17,10 @@ const props = defineProps<{
   isSaving: boolean;
   isRefreshing: boolean;
   error: string;
+  canGoToParent: boolean;
   onRetry: () => void;
   onRefresh: () => void;
+  onGoToParent: () => void;
   onPlayTrack: (index: number) => void;
   onPlayAll: () => void;
   onUpdateVibe: (text: string) => Promise<boolean>;
@@ -48,8 +50,10 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
       :track-count="trackCount"
       :chat-count="chatCount"
       :gallery-count="galleryCount"
+      :can-go-to-parent="canGoToParent"
       @update:active-tab="activeTab = $event"
       @refresh="onRefresh()"
+      @go-to-parent="onGoToParent()"
     />
 
     <div class="flex-1 overflow-y-auto">

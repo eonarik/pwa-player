@@ -41,6 +41,7 @@ const isIntroActive = computed(() => Boolean(props.currentAuthorName) && props.c
         class="mb-1 flex w-full items-center gap-2 rounded-btn px-2 py-1.5 text-left text-sm transition"
         :class="isIntroActive ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg'"
         :title="authorIntroFileName"
+        data-testid="logii-folder-intro"
         @click="emit('select-intro')"
       >
         <Icon name="file" w="w-4" h="h-4" class="shrink-0 text-fg-muted" />
@@ -61,6 +62,7 @@ const isIntroActive = computed(() => Boolean(props.currentAuthorName) && props.c
         type="button"
         class="flex w-full items-center gap-2 rounded-btn px-2 py-1.5 text-left text-sm transition"
         :class="currentFolderName === f.folderName ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg'"
+        :data-testid="`logii-folder-${f.folderName}`"
         @click="emit('select', f)"
       >
         <span class="truncate">{{ f.folderName }}</span>

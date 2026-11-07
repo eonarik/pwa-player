@@ -4,10 +4,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
+import { useLibraryStore } from '@/stores/library';
 import { useLogiiSeason, useLogiiTrack, type LogiiAuthorItem, type LogiiTrackItem } from './useLogiiData';
+import { resolveLogiiNavigationAfterRefresh, resolveSeasonParentUrlPath } from './navigation';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
+import { urlPathToSegments } from '@/utils/urlPath';
 import LogiiAuthorsColumn from './LogiiAuthorsColumn.vue';
 import LogiiFoldersColumn from './LogiiFoldersColumn.vue';
 import LogiiPanel from './LogiiPanel.vue';
@@ -19,6 +22,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const player = usePlayerStore();
+const library = useLibraryStore();
 
 // --- Парсинг urlPath ---
 const segments = computed(() => props.urlPath.split('/').filter(Boolean));
@@ -40,7 +44,7 @@ const folderName = computed<string | null>(() => {
 });
 
 // --- Сезон ---
-const { authors, tracksByAuthor, authorMeta, seasonFolder, isReady } = useLogiiSeason(seasonUrlPath);
+const { authors, tracksByAuthor, allTracksByAuthor, authorMeta, seasonFolder, isReady } = useLogiiSeason(seasonUrlPath);
 
 const currentAuthor = computed<LogiiAuthorItem | null>(() => {
   if (!authorName.value) return null;
@@ -63,7 +67,6 @@ const authorIntroFileName = computed(() => authorIntro.value?.logiiFileName ?? n
 const currentFolder = computed<LogiiTrackItem | null>(() => {
   if (!authorName.value) return null;
   if (!folderName.value) {
-    // Уровень автора → Intro (если есть .txt)
     return hasAuthorIntro.value ? authorIntro.value : null;
   }
   return authorFolders.value.find((f) => f.folderName === folderName.value) ?? null;
@@ -86,12 +89,30 @@ const {
 const isAuthorsCollapsed = ref(false);
 const isRefreshing = ref(false);
 
+// --- Кнопка «К папкам» ---
+const canGoToParent = computed(() => {
+  if (!seasonUrlPath.value) return false;
+  return true;
+});
+
+function goToParent(): void {
+  if (!seasonUrlPath.value) {
+    router.push({ name: 'folder', params: { pluginId: 'yandex-self', path: [] } });
+    return;
+  }
+  const parentUrlPath = resolveSeasonParentUrlPath(seasonUrlPath.value, library.folders);
+  router.push({
+    name: 'folder',
+    params: { pluginId: 'yandex-self', path: urlPathToSegments(parentUrlPath) },
+  });
+}
+
 // --- Навигация ---
 function goToAuthor(author: LogiiAuthorItem): void {
   const baseSegments = segments.value.slice(0, seasonIndex.value + 1);
   router.replace({
     name: 'folder',
-    params: { pluginId: 'yandex-self', path: [...baseSegments, author.folderName].join('/') },
+    params: { pluginId: 'yandex-self', path: [...baseSegments, author.folderName] },
   });
 }
 
@@ -101,12 +122,13 @@ function goToIntro(): void {
 }
 
 function goToFolder(folder: LogiiTrackItem): void {
+  if (!authorName.value) return;
   const baseSegments = segments.value.slice(0, seasonIndex.value + 1);
   router.replace({
     name: 'folder',
     params: {
       pluginId: 'yandex-self',
-      path: [...baseSegments, authorName.value, folder.folderName].join('/'),
+      path: [...baseSegments, authorName.value, folder.folderName],
     },
   });
 }
@@ -124,12 +146,27 @@ function playAllAudio(): void {
   player.playAll(tracks);
 }
 
+function playAuthor(author: LogiiAuthorItem): void {
+  const tracks = allTracksByAuthor.value.get(author.urlPath) ?? [];
+  if (tracks.length === 0) return;
+
+  const currentId = player.currentTrack?.id ?? null;
+  const isThisAuthorCurrent = currentId !== null && tracks.some((t) => t.id === currentId);
+
+  if (isThisAuthorCurrent && player.isPlaying) {
+    player.toggle();
+    return;
+  }
+
+  player.playAll(tracks);
+}
+
 // --- Чат ---
 async function onSendComment(text: string): Promise<void> {
   await appendComment(text);
 }
 
-// --- Обновление ---
+// --- Обновление (рекурсивное) ---
 async function onRefresh(): Promise<void> {
   if (!seasonFolder.value) return;
   if (isRefreshing.value) return;
@@ -142,8 +179,30 @@ async function onRefresh(): Promise<void> {
       return;
     }
     const context = createPluginContext('yandex-self');
-    await plugin.scanFolder(context, seasonFolder.value.id, { recursive: false, force: true });
-    // После force scan перечитываем vibe текущего трека (force).
+    await plugin.scanFolder(context, seasonFolder.value.id, { recursive: true, force: true });
+
+    const nav = resolveLogiiNavigationAfterRefresh({
+      seasonUrlPath: seasonUrlPath.value,
+      authorName: authorName.value,
+      folderName: folderName.value,
+      folders: library.folders,
+    });
+
+    if (nav.level === 'root') {
+      toastService.success('Обновлено с облака');
+      router.replace({ name: 'folder', params: { pluginId: 'yandex-self', path: [] } });
+      return;
+    }
+
+    if (nav.level !== 'folder') {
+      toastService.success('Обновлено с облака');
+      router.replace({
+        name: 'folder',
+        params: { pluginId: 'yandex-self', path: urlPathToSegments(nav.urlPath) },
+      });
+      return;
+    }
+
     await reloadTrack(true);
     toastService.success('Обновлено с облака');
   } catch (err) {
@@ -154,24 +213,28 @@ async function onRefresh(): Promise<void> {
   }
 }
 
-// --- Автовыбор ---
+// --- Автовыбор (объединённый) ---
 watch(
-  () => [authors.value.length, authorName.value] as const,
-  ([count, name]) => {
-    if (name) return;
-    if (count === 0) return;
-    goToAuthor(authors.value[0]!);
+  () => [authors.value.length, authorName.value, folderName.value] as const,
+  ([count, author, folder], prev) => {
+    // 1. Первый заход в сезон (author === null, авторы есть) — выбрать первого.
+    if (!author && count > 0) {
+      goToAuthor(authors.value[0]!);
+      return;
+    }
+    // 2. Мы на авторе, папка не выбрана — автовыбор первой папки,
+    //    НО только если раньше тоже не было папки (первый заход на автора).
+    //    Если папка была (prevFolder !== null) и стала null — это refresh удалил
+    //    текущую папку, не автовыбираем.
+    if (author && !folder) {
+      const prevFolder = prev?.[2] ?? null;
+      if (prevFolder !== null) return;
+      if (authorFolders.value.length === 0) return;
+      if (hasAuthorIntro.value) return;
+      goToFolder(authorFolders.value[0]!);
+    }
   },
-);
-
-watch(
-  () => [authorFolders.value.length, folderName.value, hasAuthorIntro.value] as const,
-  ([count, name, hasIntro]) => {
-    if (name) return; // папка уже выбрана
-    if (count === 0) return;
-    if (hasIntro) return; // показываем Intro, не автовыбираем
-    goToFolder(authorFolders.value[0]!);
-  },
+  { immediate: true },
 );
 
 // --- Vibe reload ---
@@ -214,8 +277,10 @@ onMounted(() => {
         :current-author-name="authorName"
         :is-loading="false"
         :is-collapsed="isAuthorsCollapsed"
+        :all-tracks-by-author="allTracksByAuthor"
         @select="goToAuthor"
         @toggle-collapsed="isAuthorsCollapsed = !isAuthorsCollapsed"
+        @play-author="playAuthor"
       />
 
       <LogiiFoldersColumn
@@ -236,8 +301,10 @@ onMounted(() => {
         :is-saving="isSaving"
         :is-refreshing="isRefreshing"
         :error="trackError"
+        :can-go-to-parent="canGoToParent"
         :on-retry="reloadTrack"
         :on-refresh="onRefresh"
+        :on-go-to-parent="goToParent"
         :on-play-track="playTrack"
         :on-play-all="playAllAudio"
         :on-update-vibe="updateVibe"

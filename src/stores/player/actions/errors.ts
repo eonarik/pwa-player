@@ -59,7 +59,7 @@ export function createErrors(
       }
     }
     isPlaying.value = false;
-    import('@/services/audio/AudioService').then(({ audioService }) => audioService.pause());
+    void import('@/services/audio/AudioService').then(({ audioService }) => audioService.pause());
   }
 
   return { handleAuthError, skipToNextOnError };

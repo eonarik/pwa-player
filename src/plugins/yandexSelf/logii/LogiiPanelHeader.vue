@@ -14,11 +14,13 @@ defineProps<{
   trackCount: number;
   chatCount: number;
   galleryCount: number;
+  canGoToParent: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:activeTab', value: LogiiTab): void;
   (e: 'refresh'): void;
+  (e: 'go-to-parent'): void;
 }>();
 
 const TABS: Array<{ id: LogiiTab; label: string }> = [
@@ -34,6 +36,15 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
 
 <template>
   <div class="flex shrink-0 items-center gap-2 border-b border-hover-bg bg-bg px-4 py-2">
+    <IconButton
+      icon="arrow-left"
+      variant="ghost"
+      size="sm"
+      label="К папкам"
+      :disabled="!canGoToParent"
+      @click="emit('go-to-parent')"
+    />
+
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
         <template v-if="authorName && folderName">
@@ -69,6 +80,7 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
         type="button"
         class="rounded-btn px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5"
         :class="activeTab === tab.id ? 'bg-card-bg text-fg' : 'text-fg-muted hover:text-fg'"
+        :aria-label="tab.label"
         @click="emit('update:activeTab', tab.id)"
       >
         <span>{{ tab.label }}</span>

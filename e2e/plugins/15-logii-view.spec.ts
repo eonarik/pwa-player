@@ -7,9 +7,10 @@ import { mockAllApis } from '../mocks/api';
 /**
  * Тест проверяет:
  * 1. Папка с префиксом `logii.` в списке показывается без префикса.
- * 2. Клик на неё открывает `LogiiSeasonView` (а не FolderView).
- * 3. Клик на трек → `LogiiTrackView` (3 колонки: список автора, табы).
- * 4. Таб Chat: отправка комментария.
+ * 2. Клик на неё открывает `LogiiView` (а не FolderView).
+ * 3. Автовыбор автора и его первой папки (после фикса `immediate: true`).
+ * 4. Клик на трек → табы (Трек / Чат / Галерея) в `LogiiView`.
+ * 5. Таб Chat: отправка комментария.
  *
  * Мок Яндекс.Диска:
  *   /logii.2024-11-08/
@@ -103,7 +104,6 @@ test.describe('Logii: read-only (сезон и трек)', () => {
         });
       }
 
-      // PUT — мок (принимаем и эхо)
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -117,8 +117,13 @@ test.describe('Logii: read-only (сезон и трек)', () => {
 
     await page.addInitScript(() => {
       HTMLMediaElement.prototype.play = function () {
+        Object.defineProperty(this, 'paused', { value: false, configurable: true });
         this.dispatchEvent(new Event('play'));
         return Promise.resolve();
+      };
+      HTMLMediaElement.prototype.pause = function () {
+        Object.defineProperty(this, 'paused', { value: true, configurable: true });
+        this.dispatchEvent(new Event('pause'));
       };
     });
 
@@ -144,9 +149,24 @@ test.describe('Logii: read-only (сезон и трек)', () => {
       await selfCard.getByRole('button', { name: 'Подключить' }).click();
     }
     await expect(page).toHaveURL(/\/folder\/yandex-self/);
+
+    // Дожидаемся, пока сканирование корня доложит папки в library
+    await expect
+      .poll(
+        async () => {
+          return page.evaluate(() => {
+            const fn = (window as unknown as { __library?: () => unknown }).__library;
+            if (!fn) return 0;
+            const lib = fn() as { folders: Record<string, unknown> };
+            return Object.keys(lib.folders).length;
+          });
+        },
+        { timeout: 10000 },
+      )
+      .toBeGreaterThan(0);
   });
 
-  test('папка logii. в списке без префикса; клик → LogiiSeasonView', async ({ page }) => {
+  test('папка logii. в списке без префикса; клик → LogiiView', async ({ page }) => {
     // В корне видна папка без префикса
     const seasonRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: '2024-11-08' });
     await expect(seasonRow).toBeVisible();
@@ -161,16 +181,38 @@ test.describe('Logii: read-only (сезон и трек)', () => {
     await seasonRow.click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08$/);
 
-    // LogiiSeasonView показывает авторов (userA, userB) и треки
-    await expect(page.getByText('userA', { exact: true })).toBeVisible();
-    await expect(page.getByText('userB', { exact: true })).toBeVisible();
-    await expect(page.getByText('Есть vibe + чат').first()).toBeVisible();
+    // LogiiView показывает авторов
+    await expect(page.getByText('userA', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('userB', { exact: true }).first()).toBeVisible();
+
+    // Автовыбор автора: уходим на /userA (replace)
+    await expect
+      .poll(async () => page.url(), { timeout: 5000 })
+      .toContain('/folder/yandex-self/logii.2024-11-08/userA');
+
+    // Автовыбор папки (userA без Intro → первая папка "1")
+    await expect
+      .poll(async () => page.url(), { timeout: 5000 })
+      .toContain('/folder/yandex-self/logii.2024-11-08/userA/1');
+
+    // Кнопка «К папкам» доступна
+    await expect(page.getByRole('button', { name: 'К папкам' })).toBeVisible();
+
+    // Табы
+    await expect(page.getByRole('button', { name: 'Трек', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Чат', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Галерея', exact: true })).toBeVisible();
   });
 
-  test('клик по треку → LogiiTrackView (табы, чат)', async ({ page }) => {
+  test('клик по треку → LogiiView (табы, чат)', async ({ page }) => {
     const seasonRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: '2024-11-08' });
     await seasonRow.click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08$/);
+
+    // Дожидаемся автовыбора userA
+    await expect
+      .poll(async () => page.url(), { timeout: 5000 })
+      .toContain('/folder/yandex-self/logii.2024-11-08/userA');
 
     // Кликаем по треку userA
     const trackRow = page.getByText('track1', { exact: false }).first();

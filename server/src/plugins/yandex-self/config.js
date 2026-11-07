@@ -41,8 +41,9 @@ export async function getSelfConfig() {
     cacheTime = now;
     return cachedConfig;
   } catch (err) {
-    console.error('[yandex-self] Failed to load settings', err);
-    // Возвращаем пустую конфигурацию, чтобы сервер не падал
+    // Файла .settings.json может не быть — это ожидаемое состояние,
+    // не ошибка. Логируем кратко, без stack.
+    logger.warn(`[yandex-self] failed to load settings: ${err.message?.slice(0, 100)}`);
     return { contexts: {}, common: null };
   }
 }

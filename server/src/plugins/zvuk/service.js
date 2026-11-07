@@ -3,6 +3,7 @@
 import { ZvukAPI, RateLimitError } from './sberzvuk-api.js';
 import * as fuzzball from 'fuzzball';
 import { getArtistSearchVariants, ARTIST_ALIASES } from '../../shared/aliases.js';
+import { logger } from '../../shared/logger.js';
 
 const USER_TOKEN = process.env.ZVUK_TOKEN;
 
@@ -17,6 +18,22 @@ function getApi() {
     }
   }
   return apiInstance;
+}
+
+/**
+ * Определяет, сетевая ли это ошибка (ECONNRESET, ETIMEDOUT, ENOTFOUND и т.п.).
+ * Для таких не печатаем stack — только код.
+ */
+function isNetworkError(err) {
+  const code = err?.code || err?.cause?.code;
+  return (
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ENOTFOUND' ||
+    code === 'ECONNREFUSED' ||
+    code === 'EAI_AGAIN' ||
+    code === 'ENETUNREACH'
+  );
 }
 
 function titleContainmentScore(a, b) {
@@ -64,7 +81,11 @@ async function queryZvuk(query, types, userToken) {
         }
       } catch (err) {
         if (err instanceof RateLimitError) throw err;
-        console.warn('[zvuk] artist fetch failed', err);
+        if (isNetworkError(err)) {
+          logger.warn(`[zvuk] artist fetch failed (${err.code})`);
+        } else {
+          logger.warn(`[zvuk] artist fetch failed: ${err.message?.slice(0, 100)}`);
+        }
       }
     }
   }
@@ -91,7 +112,11 @@ async function queryZvuk(query, types, userToken) {
         }
       } catch (err) {
         if (err instanceof RateLimitError) throw err;
-        console.warn('[zvuk] release fetch failed', err);
+        if (isNetworkError(err)) {
+          logger.warn(`[zvuk] release fetch failed (${err.code})`);
+        } else {
+          logger.warn(`[zvuk] release fetch failed: ${err.message?.slice(0, 100)}`);
+        }
       }
     }
   }
@@ -180,7 +205,11 @@ export async function searchMetadataStrict(artist, title, userToken) {
       if (err instanceof RateLimitError) {
         throw err;
       }
-      console.warn(`[zvuk] Metadata search failed for "${query}"`, err);
+      if (isNetworkError(err)) {
+        logger.warn(`[zvuk] metadata search failed (${err.code}) for "${query}"`);
+      } else {
+        logger.warn(`[zvuk] metadata search failed for "${query}": ${err.message?.slice(0, 100)}`);
+      }
     }
   }
 

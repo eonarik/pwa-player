@@ -40,7 +40,7 @@ zvukRoutes.get('/metadata', async (req, res) => {
     if (err instanceof RateLimitError) {
       return res.status(429).json({ error: 'Zvuk rate limit' });
     }
-    console.error('[zvuk] metadata search error:', err);
+    logger.warn(`[zvuk] search error: ${err.message?.slice(0, 200)}`);
     res.status(500).json({ error: err.message });
   }
 });

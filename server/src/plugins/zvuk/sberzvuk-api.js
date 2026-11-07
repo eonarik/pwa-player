@@ -98,7 +98,8 @@ export class ZvukAPI {
         });
 
         if (response.data.errors) {
-          console.error(`[zvuk] GraphQL Error for ${operationName}:`, JSON.stringify(response.data.errors, null, 2));
+          const msgs = response.data.errors.map((e) => e.message).join('; ');
+          logger.error(`[zvuk] GraphQL error for ${operationName}: ${msgs.slice(0, 300)}`);
           throw new Error(response.data.errors[0].message);
         }
         return response.data.data;
@@ -110,13 +111,13 @@ export class ZvukAPI {
           attempt++;
 
           if (delay === undefined) {
-            console.warn(
+            logger.warn(
               `[zvuk] anti-bot ${status} for ${operationName}: retries exhausted after ${RETRY_DELAYS_MS.length} attempts`,
             );
             throw new RateLimitError();
           }
 
-          console.warn(
+          logger.info(
             `[zvuk] anti-bot ${status} for ${operationName}: retry ${attempt}/${RETRY_DELAYS_MS.length} in ${delay}ms`,
           );
           await sleep(delay);
@@ -124,7 +125,8 @@ export class ZvukAPI {
         }
 
         if (err.response?.data?.errors) {
-          console.error(`[zvuk] GraphQL Error Response:`, JSON.stringify(err.response.data.errors, null, 2));
+          const msgs = err.response.data.errors.map((e) => e.message).join('; ');
+          logger.error(`[zvuk] GraphQL error response for ${operationName}: ${msgs.slice(0, 300)}`);
         }
         throw err;
       }

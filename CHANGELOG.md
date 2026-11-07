@@ -3,6 +3,62 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.17.1] — 2026-11-09
+
+Доработка Логий (yandex-self): рекурсивное обновление, воспроизведение по автору, навигация «К папкам», e2e-покрытие.
+
+### Added
+
+- **`LogiiAuthorsColumn.vue`:** play/pause кнопка поверх аватара автора. Клик:
+  - если этот же автор сейчас играет → `player.toggle()` (пауза);
+  - иначе (другой автор / пауза / ничего не играет) → `player.playAll(allTracksByAuthor[author])` (очередь пересоздаётся с 0, рекурсивно по всем трек-папкам автора, без Intro).
+- **Уникальный цвет аватара автора** от хэша имени: `authorAvatarColor(folderName)` (`hsl(hue, 60%, 45%)`, `hue = hash % 360`).
+- **`useLogiiSeason.allTracksByAuthor`:** `Map<authorUrlPath, Track[]>` — плоский список аудио-треков автора (без Intro). Используется для play-all.
+- **Кнопка «К папкам»** в `LogiiPanelHeader`: `router.push` в родительскую папку сезона (`library.folders[season.parentId].urlPath`, а если родителя нет — корень `FolderView`).
+- **Утилита `resolveLogiiNavigationAfterRefresh`** (в `logii/navigation.ts`): после рекурсивного refresh возвращает ближайший существующий уровень (`folder` / `author` / `season` / `root`) и `urlPath` для навигации.
+- **Утилита `resolveSeasonParentUrlPath`**: родительский `urlPath` для сезона (`''` для корня `FolderView`).
+- **`authorColor.ts`:** `hashToHue` + `authorAvatarColor` (djb2-хэш из имени автора).
+- **`src/utils/hash.ts`:** `simpleHash` (djb2), вынесен из `useClipboardWatcher.ts`. Переиспользуется в `authorColor.ts` и `useClipboardWatcher.ts`.
+- **e2e (`15-logii-view`, `16-logii-read`, `17-logii-play-author`, `18-logii-refresh-back`):**
+  - read-only (навигация, Intro, Vibe, чат, галерея);
+  - play-all автора (замена очереди, пауза, play после паузы, disabled для пустого автора);
+  - «К папкам» (корень / вложенная папка);
+  - рекурсивный refresh с авто-навигацией;
+  - редактирование Vibe.
+
+### Changed
+
+- **`LogiiView.vue` → `onRefresh`:** `scanFolder({ recursive: true, force: true })` (было `recursive: false`). После скана — `resolveLogiiNavigationAfterRefresh`: если текущая цепочка «сезон → автор → трек-папка» не цела, `router.replace` на ближайший существующий уровень (сезон / автор / корень). `reloadTrack(true)` вызывается только если остались на `folder`.
+- **`LogiiView.vue`:** автовыбор автора и папки объединён в один `watch` с `{ immediate: true }`. Автовыбор папки **не** срабатывает, если раньше папка была выбрана, а после refresh её не стало (`prevFolder !== null` → return). Это убирает редирект на первую попавшуюся папку после refresh.
+- **`goToAuthor` / `goToFolder`:** `params.path` передаётся **массивом** сегментов (без `join('/')`) — Vue Router 4 больше не кодирует `/` в `%2F`. Плюс ранний `if (!authorName.value) return` в `goToFolder` (TS-narrowing `string | null`).
+- **`LogiiPanelHeader.vue`:** `:aria-label="tab.label"` на кнопках табов (доступное имя без счётчика).
+- **`LogiiAuthorsColumn.vue`:** `data-testid="author-row-<name>"` на кнопке автора, `data-testid="author-play-<name>"` на play/pause-кнопке.
+- **`LogiiFoldersColumn.vue`:** `data-testid="logii-folder-<name>"` на кнопках папок, `data-testid="logii-folder-intro"` на кнопке Intro.
+- **`LogiiAuthorsColumn.vue`:** `hasTracks` больше не блокирует `emit('play-author')`; `hasTracks` используется только для `aria-disabled` и визуального `cursor-not-allowed`. Решение «играть / пауза» принимает `LogiiView.playAuthor`.
+
+### Fixed
+
+- **`LogiiView` не выполнял автовыбор** при повторном заходе (URL `/folder/yandex-self/logii.<season>` и `authors` уже непуст на момент монтирования): `watch` без `immediate: true` не срабатывал. Добавлен `immediate: true` + объединение с `folderName`, чтобы видеть `prev`.
+- **После `router.replace` на уровень автора** при refresh удалённой папки-трека автовыбор сразу уводил в первую папку (`/userA/2`). Теперь не уводит (`prevFolder !== null → return`).
+- **Кнопка «К папкам»** ранее отсутствовала; возврат в список сезонов был возможен только через `router.back()`.
+- **Play у автора не заменял существующую очередь** при игре другого автора (было: «играет старая очередь»). Теперь `playAuthor` явно вызывает `player.playAll(tracks)` (если это не тот же автор, что играет).
+
+### Internal
+
+- **`15-logii-view.spec.ts`:** заменён устаревший текст `'Есть vibe + чат'` (удалён вместе с `LogiiSeasonView` в 0.17.0) на проверку авторов и авто-навигации через `expect.poll`.
+- **`16/17/18-logii-*.spec.ts`:** новые e2e. Хелперы (`mockLogii`, `bootstrapLogii`, `openLogiiSeason`, `openAuthor`, `openFolder`, `clickTab`, `readPlayerQueue`, `readIsPlaying`) вынесены в `e2e/plugins/logii-helpers.ts`.
+- **`logii-helpers.ts`:** `mockLogii` сначала вызывает `mockAllApis`, затем — специфичные для `yandex-self` маршруты (`**/api/yandex-self/resources**` и др.). Порядок критичен: `mockAllApis` ставит широкий `**/api/yandex-self/**` → 401, специфичные маршруты должны идти после, чтобы перекрыть его. `bootstrapLogii` мокает `/api/yandex-self/auth/check` → 200, иначе `login()` открывает модалку «Вход в Логии».
+- **`logii-helpers.ts`:** `bootstrapLogii` ждёт появления корня `yandex-self` в `library.folders` (`urlPath === ''`) через `expect.poll`. Раньше тест кликал по `folder-row-*` до завершения `scanAll`, `FolderView` был пуст.
+
+### Backend
+
+- **`server/src/plugins/zvuk/service.js`:** сетевые ошибки (`ECONNRESET`, `ETIMEDOUT`, `ENOTFOUND`, `ECONNREFUSED`, `EAI_AGAIN`, `ENETUNREACH`) логируются через `logger.warn` с `err.code` (без полного stack). Остальные ошибки — `logger.warn` с `err.message.slice(0, 100)`. Убран «шум» в консоли.
+- **`server/src/plugins/zvuk/sberzvuk-api.js`:** `console.error(JSON.stringify(errors, null, 2))` → `logger.error` с краткой строкой (`msgs.slice(0, 300)`). Anti-bot retry — `logger.info` (это ожидаемое поведение, не ошибка).
+- **`server/src/plugins/zvuk/routes.js`:** `console.error` → `logger.warn` с кратким сообщением.
+- **`server/src/plugins/yandex/routes.js`:** `YandexApiError` логируется через `logger.warn` (ожидаемая ошибка API); `unexpected error` — `logger.error` (реальный баг).
+- **`server/src/plugins/yandex-self/config.js`:** отсутствие `.settings.json` (ожидаемое) — `logger.warn` вместо `console.error`, без stack.
+- **`server/src/plugins/yandex-self/routes.js`:** добавлен `logger.warn` в `catch` для `/resources` (раньше — молча 500).
+
 ## [0.17.0] — Логии (yandex-self)
 
 Переработка `yandex-self` в мультифункциональный плагин «Логии». Ядро не знает о специфике Логий — всё через `PluginExtension.folderViews`, `fileHandlers` (в будущем) и `manifest`.

@@ -110,6 +110,7 @@ selfRoutes.get('/resources', async (req, res) => {
 
     res.json(data);
   } catch (err) {
+    logger.warn(`[yandex-self] resources failed for "${rawPath}": ${err.message?.slice(0, 200)}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
