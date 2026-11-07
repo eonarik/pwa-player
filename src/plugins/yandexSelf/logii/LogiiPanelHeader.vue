@@ -15,6 +15,8 @@ defineProps<{
   chatCount: number;
   galleryCount: number;
   canGoToParent: boolean;
+  /** Intro — не показываем табы. */
+  isIntro?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -75,7 +77,7 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
       @click="emit('refresh')"
     />
 
-    <div class="flex shrink-0 gap-1">
+    <div v-if="!isIntro" class="flex shrink-0 gap-1">
       <button
         v-for="tab in TABS"
         :key="tab.id"

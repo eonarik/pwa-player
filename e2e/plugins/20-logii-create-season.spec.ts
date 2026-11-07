@@ -13,6 +13,7 @@ test.describe('Logii: создание сезона', () => {
     await bootstrapLogii(page);
 
     // Кнопка «Сезон» в шапке папки
+    await page.getByTestId('folder-actions-trigger').click();
     await page.getByTestId('folder-action-create-season').click();
 
     // Модалка: поле имени + submit
@@ -43,10 +44,11 @@ test.describe('Logii: создание сезона', () => {
     await mockLogii(page, { diskTree: tree });
     await bootstrapLogii(page);
 
+    await page.getByTestId('folder-actions-trigger').click();
     await page.getByTestId('folder-action-create-season').click();
     await page.getByTestId('create-folder-input').fill('2025-01-01');
     await page.getByTestId('create-folder-submit').click();
 
-    await expect(page.getByText('Папка уже существует')).toBeVisible();
+    await expect(page.getByText('Папка уже существует')).toBeVisible({ timeout: 5000 });
   });
 });

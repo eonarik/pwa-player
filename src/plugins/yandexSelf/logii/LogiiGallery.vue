@@ -4,13 +4,26 @@
 import { ref, computed } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import IconButton from '@/components/ui/IconButton.vue';
+import Spinner from '@/components/ui/Spinner.vue';
+import { toastService } from '@/services/ui/ToastService';
+import { yandexSelfService } from '../YandexSelfService';
+import { loadPlugin } from '@/plugins/registry';
+import { createPluginContext } from '@/plugins/context';
+import type { LogiiTrackItem } from './useLogiiData';
 import type { FolderFile } from '@/types/folder';
 
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
 const props = defineProps<{
+  folder: LogiiTrackItem;
   images: FolderFile[];
 }>();
 
 const fullscreenIndex = ref<number | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const isUploading = ref(false);
+const uploadProgress = ref({ done: 0, total: 0 });
+const deletingIndex = ref<number | null>(null);
 
 const isFullscreen = computed(() => fullscreenIndex.value !== null);
 
@@ -45,33 +58,172 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 window.addEventListener('keydown', onKeydown);
+
+// --- Upload ---
+
+function triggerUpload(): void {
+  if (isUploading.value) return;
+  fileInputRef.value?.click();
+}
+
+async function onFilesSelected(e: Event): Promise<void> {
+  const target = e.target as HTMLInputElement;
+  const fileList = target.files;
+  if (!fileList || fileList.length === 0) return;
+
+  const files = Array.from(fileList);
+  target.value = '';
+
+  // Клиентская проверка размера до отправки.
+  const tooBig = files.find((f) => f.size > MAX_IMAGE_BYTES);
+  if (tooBig) {
+    toastService.error(`Файл «${tooBig.name}» больше 8 МБ`);
+    return;
+  }
+
+  if (!props.folder.urlPath) return;
+
+  isUploading.value = true;
+  uploadProgress.value = { done: 0, total: files.length };
+
+  let uploaded = 0;
+  let failed = 0;
+
+  try {
+    for (const file of files) {
+      try {
+        await yandexSelfService.uploadFile(props.folder.urlPath, file.name, file);
+        uploaded++;
+      } catch (err) {
+        console.warn(`[logii-gallery] upload failed for "${file.name}"`, err);
+        failed++;
+      } finally {
+        uploadProgress.value = {
+          done: uploadProgress.value.done + 1,
+          total: files.length,
+        };
+      }
+    }
+
+    const plugin = await loadPlugin('yandex-self');
+    if (plugin.scanFolder) {
+      const context = createPluginContext('yandex-self');
+      await plugin.scanFolder(context, props.folder.folderId as never, { recursive: false, force: true });
+    }
+
+    if (failed > 0) {
+      toastService.error(`Загружено: ${uploaded}, ошибок: ${failed}`);
+    } else if (uploaded > 0) {
+      toastService.success(`Загружено картинок: ${uploaded}`);
+    }
+  } finally {
+    isUploading.value = false;
+    uploadProgress.value = { done: 0, total: 0 };
+  }
+}
+
+// --- Delete ---
+
+async function onDeleteImage(index: number, e: MouseEvent): Promise<void> {
+  e.stopPropagation();
+  if (deletingIndex.value !== null) return;
+
+  const image = props.images[index];
+  if (!image || !props.folder.urlPath) return;
+
+  const confirmed = window.confirm(`Удалить картинку «${image.name}» с Яндекс.Диска?`);
+  if (!confirmed) return;
+
+  deletingIndex.value = index;
+
+  try {
+    const remotePath = `${props.folder.urlPath}/${image.name}`;
+    await yandexSelfService.removeResource(remotePath);
+
+    const plugin = await loadPlugin('yandex-self');
+    if (plugin.scanFolder) {
+      const context = createPluginContext('yandex-self');
+      await plugin.scanFolder(context, props.folder.folderId as never, { recursive: false, force: true });
+    }
+
+    toastService.success('Картинка удалена');
+  } catch (err) {
+    console.error('[logii-gallery] delete failed', err);
+    toastService.error(err instanceof Error ? err.message : 'Не удалось удалить');
+  } finally {
+    deletingIndex.value = null;
+  }
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-2">
+      <p class="text-xs text-fg-muted">Картинки</p>
+      <button
+        type="button"
+        class="rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50"
+        :disabled="isUploading"
+        data-testid="logii-gallery-upload-trigger"
+        @click="triggerUpload"
+      >
+        <Spinner v-if="isUploading" size="sm" />
+        <template v-else>
+          <Icon name="plus" w="w-3.5" h="h-3.5" class="mr-1 inline" />
+          Загрузить картинки
+        </template>
+        <span v-if="isUploading" class="ml-1">{{ uploadProgress.done }} / {{ uploadProgress.total }}</span>
+      </button>
+      <input
+        ref="fileInputRef"
+        type="file"
+        accept="image/*"
+        multiple
+        class="hidden"
+        data-testid="logii-gallery-upload-input"
+        @change="onFilesSelected"
+      />
+    </div>
+
     <div v-if="images.length === 0" class="py-8 text-center text-xs text-fg-muted">Картинок нет.</div>
 
     <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-      <button
+      <div
         v-for="(img, index) in images"
         :key="img.urlPath"
-        type="button"
-        class="group relative aspect-square overflow-hidden rounded-card bg-card-bg transition hover:opacity-90"
+        class="group relative aspect-square overflow-hidden rounded-card bg-card-bg"
         :data-testid="`logii-gallery-image-${index}`"
-        @click="openImage(index)"
       >
-        <img
-          v-if="img.url"
-          :src="img.url"
-          :alt="img.name"
-          class="h-full w-full object-cover transition group-hover:scale-105"
-          @error="($event.target as HTMLImageElement).style.display = 'none'"
-        />
-        <Icon v-else name="image" w="w-8" h="h-8" class="absolute inset-0 m-auto text-fg-subtle" />
-      </button>
+        <button
+          type="button"
+          class="h-full w-full transition hover:opacity-90"
+          :aria-label="`Открыть ${img.name}`"
+          @click="openImage(index)"
+        >
+          <img
+            v-if="img.url"
+            :src="img.url"
+            :alt="img.name"
+            class="h-full w-full object-cover transition group-hover:scale-105"
+            @error="($event.target as HTMLImageElement).style.display = 'none'"
+          />
+          <Icon v-else name="image" w="w-8" h="h-8" class="text-fg-subtle" />
+        </button>
+
+        <div class="absolute right-1 top-1 opacity-0 transition group-hover:opacity-100">
+          <IconButton
+            icon="trash"
+            variant="danger"
+            size="sm"
+            label="Удалить картинку"
+            :disabled="deletingIndex !== null"
+            :data-testid="`logii-gallery-delete-${index}`"
+            @click="onDeleteImage(index, $event)"
+          />
+        </div>
+      </div>
     </div>
 
-    <!-- Fullscreen -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-200 ease-out"

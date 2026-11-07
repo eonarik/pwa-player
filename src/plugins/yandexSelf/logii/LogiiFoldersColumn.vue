@@ -232,28 +232,26 @@ async function onDeleteFolder(folder: LogiiTrackItem, e: MouseEvent): Promise<vo
         </button>
 
         <div
-          class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100 pr-1"
+          class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pr-1 opacity-0 transition group-hover:opacity-100 bg-bg-elevated/80"
         >
-          <button
-            type="button"
-            class="rounded-btn p-0.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
+          <IconButton
+            icon="pencil"
+            variant="ghost"
+            size="md"
+            label="Переименовать топ"
             :disabled="isWriting"
-            aria-label="Переименовать топ"
             :data-testid="`folder-rename-${f.folderName}`"
             @click="openRenameModal(f, $event)"
-          >
-            <Icon name="pencil" w="w-3" h="h-3" />
-          </button>
-          <button
-            type="button"
-            class="rounded-btn p-0.5 text-fg-subtle transition hover:bg-red-500/10 hover:text-red-400"
+          />
+          <IconButton
+            icon="trash"
+            variant="danger"
+            size="md"
+            label="Удалить топ"
             :disabled="isWriting"
-            aria-label="Удалить топ"
             :data-testid="`folder-delete-${f.folderName}`"
             @click="onDeleteFolder(f, $event)"
-          >
-            <Icon name="trash" w="w-3" h="h-3" />
-          </button>
+          />
         </div>
       </div>
 

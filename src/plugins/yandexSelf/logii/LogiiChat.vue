@@ -7,6 +7,7 @@ import { getNickname, setNickname } from './useLogiiData';
 import IconButton from '@/components/ui/IconButton.vue';
 import Icon from '@/components/ui/Icon.vue';
 import Spinner from '@/components/ui/Spinner.vue';
+import Textarea from '@/components/ui/Textarea.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -27,40 +28,13 @@ const emit = defineEmits<{
 const nickname = ref(getNickname());
 const draft = ref('');
 const scrollRef = ref<HTMLElement | null>(null);
-const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
 // Состояние редактирования: индекс комментария, который сейчас редактируется.
 const editingIndex = ref<number | null>(null);
 const editingText = ref('');
 const editingTextareaRef = ref<HTMLTextAreaElement | null>(null);
 
-const MIN_ROWS = 1;
-const MAX_ROWS = 8;
-
 const canSend = () => nickname.value.trim().length > 0 && draft.value.trim().length > 0 && !props.isSaving;
-
-function autosize(): void {
-  const el = textareaRef.value;
-  if (!el) return;
-  el.style.height = 'auto';
-  const style = window.getComputedStyle(el);
-  const lineHeight = parseFloat(style.lineHeight) || 20;
-  const paddingTop = parseFloat(style.paddingTop) || 0;
-  const paddingBottom = parseFloat(style.paddingBottom) || 0;
-  const borderTop = parseFloat(style.borderTopWidth) || 0;
-  const borderBottom = parseFloat(style.borderBottomWidth) || 0;
-  const rows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, Math.ceil(el.scrollHeight / lineHeight)));
-  const height = rows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
-  el.style.height = `${height}px`;
-  el.style.overflowY = rows >= MAX_ROWS ? 'auto' : 'hidden';
-}
-
-function autosizeEditing(): void {
-  const el = editingTextareaRef.value;
-  if (!el) return;
-  el.style.height = 'auto';
-  el.style.height = `${el.scrollHeight}px`;
-}
 
 function send(): void {
   if (!canSend()) return;
@@ -68,7 +42,6 @@ function send(): void {
   setNickname(trimmedNick);
   emit('send', draft.value.trim());
   draft.value = '';
-  nextTick(() => autosize());
 }
 
 function onKeydown(e: KeyboardEvent): void {
@@ -76,10 +49,6 @@ function onKeydown(e: KeyboardEvent): void {
     e.preventDefault();
     send();
   }
-}
-
-function onInput(): void {
-  autosize();
 }
 
 let nickSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -118,7 +87,6 @@ watch(
 
 onMounted(() => {
   void scrollToBottom();
-  nextTick(() => autosize());
 });
 
 function formatCommentTime(time: string | null): string {
@@ -133,7 +101,6 @@ function startEdit(index: number): void {
   editingIndex.value = index;
   editingText.value = comment.text;
   nextTick(() => {
-    autosizeEditing();
     editingTextareaRef.value?.focus();
   });
 }
@@ -233,13 +200,16 @@ async function removeComment(index: number): Promise<void> {
           </div>
 
           <template v-if="editingIndex === index">
-            <textarea
+            <Textarea
               ref="editingTextareaRef"
               v-model="editingText"
-              class="mt-1 w-full resize-none rounded-btn bg-bg-elevated px-2 py-1.5 text-sm text-fg focus:outline-none"
+              :rows="1"
+              :min-rows="1"
+              :max-rows="10"
+              auto-resize
               :disabled="isSaving"
               data-testid="logii-comment-edit-input"
-              @input="autosizeEditing"
+              class="mt-1"
             />
             <div class="mt-1 flex justify-end gap-2">
               <button
@@ -280,15 +250,16 @@ async function removeComment(index: number): Promise<void> {
     <!-- Ввод -->
     <div class="flex flex-col gap-1">
       <div class="flex items-end gap-2">
-        <textarea
-          ref="textareaRef"
+        <Textarea
           v-model="draft"
-          :rows="MIN_ROWS"
+          :rows="1"
+          :min-rows="1"
+          :max-rows="8"
+          auto-resize
           placeholder="Написать комментарий… (Ctrl+Enter — отправить)"
-          class="flex-1 resize-none rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
+          class="flex-1"
           :disabled="isSaving || isLoading"
           data-testid="logii-comment-new-input"
-          @input="onInput"
           @keydown="onKeydown"
         />
         <IconButton

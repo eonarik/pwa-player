@@ -1,13 +1,14 @@
 <!-- src/plugins/yandexSelf/logii/LogiiPanel.vue -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { LogiiTrackItem } from './useLogiiData';
 import type { LogiiData } from './parseLogii';
 import LogiiPanelHeader, { type LogiiTab } from './LogiiPanelHeader.vue';
 import LogiiTrackTab from './LogiiTrackTab.vue';
 import LogiiChat from './LogiiChat.vue';
 import LogiiGallery from './LogiiGallery.vue';
+import LogiiIntroView from './LogiiIntroView.vue';
 
 const props = defineProps<{
   authorName: string | null;
@@ -39,6 +40,16 @@ const galleryCount = computed(() => images.value.length);
 
 const logiiFileName = computed(() => props.folder?.logiiFileName ?? null);
 const folderName = computed(() => (props.folder && !props.folder.isIntro ? props.folder.folderName : null));
+
+// --- Сброс activeTab при переходе intro ↔ трек ---
+watch(
+  () => props.folder?.isIntro,
+  (isIntro) => {
+    if (isIntro && activeTab.value === 'gallery') {
+      activeTab.value = 'track';
+    }
+  },
+);
 </script>
 
 <template>
@@ -53,6 +64,7 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
       :chat-count="chatCount"
       :gallery-count="galleryCount"
       :can-go-to-parent="canGoToParent"
+      :is-intro="Boolean(folder?.isIntro)"
       @update:active-tab="activeTab = $event"
       @refresh="onRefresh()"
       @go-to-parent="onGoToParent()"
@@ -72,29 +84,43 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
         </div>
 
         <template v-else>
-          <LogiiTrackTab
-            v-if="activeTab === 'track'"
+          <LogiiIntroView
+            v-if="folder.isIntro"
             :folder="folder"
             :data="data"
-            :is-loading-vibe="isLoading"
-            :is-saving="isSaving"
-            :update-vibe="onUpdateVibe"
-            :on-play-track="onPlayTrack"
-            :on-play-all="onPlayAll"
-          />
-
-          <LogiiChat
-            v-else-if="activeTab === 'chat'"
-            :comments="comments"
-            :is-saving="isSaving"
             :is-loading="isLoading"
-            :track-url-path="folder?.urlPath ?? ''"
+            :is-saving="isSaving"
+            :on-update-vibe="onUpdateVibe"
+            :on-send-comment="onSendComment"
             :on-update-comment="onUpdateComment"
             :on-delete-comment="onDeleteComment"
-            @send="onSendComment"
           />
 
-          <LogiiGallery v-else-if="activeTab === 'gallery'" :images="images" />
+          <template v-else>
+            <LogiiTrackTab
+              v-if="activeTab === 'track'"
+              :folder="folder"
+              :data="data"
+              :is-loading-vibe="isLoading"
+              :is-saving="isSaving"
+              :update-vibe="onUpdateVibe"
+              :on-play-track="onPlayTrack"
+              :on-play-all="onPlayAll"
+            />
+
+            <LogiiChat
+              v-else-if="activeTab === 'chat'"
+              :comments="comments"
+              :is-saving="isSaving"
+              :is-loading="isLoading"
+              :track-url-path="folder.urlPath"
+              :on-update-comment="onUpdateComment"
+              :on-delete-comment="onDeleteComment"
+              @send="onSendComment"
+            />
+
+            <LogiiGallery v-else-if="activeTab === 'gallery'" :images="images" :folder="folder" />
+          </template>
         </template>
       </div>
     </div>

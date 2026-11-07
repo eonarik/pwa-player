@@ -295,28 +295,26 @@ async function onDeleteAuthor(author: LogiiAuthorItem, e: MouseEvent): Promise<v
 
           <div
             v-if="!isCollapsed"
-            class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100 pr-1"
+            class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pr-1 opacity-0 transition group-hover:opacity-100 bg-bg-elevated/80"
           >
-            <button
-              type="button"
-              class="rounded-btn p-0.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
+            <IconButton
+              icon="pencil"
+              variant="ghost"
+              size="md"
+              label="Переименовать автора"
               :disabled="isWriting"
-              aria-label="Переименовать автора"
               :data-testid="renameTestId(a)"
               @click="openRenameModal(a, $event)"
-            >
-              <Icon name="pencil" w="w-3" h="h-3" />
-            </button>
-            <button
-              type="button"
-              class="rounded-btn p-0.5 text-fg-subtle transition hover:bg-red-500/10 hover:text-red-400"
+            />
+            <IconButton
+              icon="trash"
+              variant="danger"
+              size="md"
+              label="Удалить автора"
               :disabled="isWriting"
-              aria-label="Удалить автора"
               :data-testid="deleteTestId(a)"
               @click="onDeleteAuthor(a, $event)"
-            >
-              <Icon name="trash" w="w-3" h="h-3" />
-            </button>
+            />
           </div>
         </div>
 

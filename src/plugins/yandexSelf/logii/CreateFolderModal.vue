@@ -4,7 +4,7 @@
 import { ref, computed, nextTick, onMounted } from 'vue';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import FormField from '@/components/ui/FormField.vue';
-import Input from '@/components/ui/Input.vue';
+import InputWithAffix from '@/components/ui/InputWithAffix.vue';
 import Button from '@/components/ui/Button.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import { modalService } from '@/services/ui/ModalService';
@@ -82,19 +82,16 @@ onMounted(async () => {
   <ModalLayout :title="title" max-width="sm" :disable-backdrop-close="isSubmitting" @close="cancel">
     <form class="flex flex-col gap-4" @submit.prevent="submit">
       <FormField :label="label" :error="error ?? undefined">
-        <Input
+        <InputWithAffix
           ref="inputRef"
           v-model="name"
+          :prefix="namePrefix"
           :placeholder="placeholder"
           :disabled="isSubmitting"
-          data-testid="create-folder-input"
+          test-id="create-folder-input"
           @keydown.enter="submit"
         />
       </FormField>
-
-      <p v-if="namePrefix && name.trim()" class="text-xs text-fg-muted">
-        Будет создана: <span class="text-fg">{{ finalName }}</span>
-      </p>
     </form>
 
     <template #footer>

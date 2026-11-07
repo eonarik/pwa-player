@@ -20,9 +20,8 @@ export default {
   folderActions: [
     {
       id: 'create-season',
-      label: 'Сезон',
-      icon: 'plus',
-      tooltip: 'Создать сезон в текущей папке',
+      label: 'Добавить сезон',
+      tooltip: 'Создать сезон Логий в текущей папке',
       shouldShow: (folder) => folder.pluginId === 'yandex-self',
       run: async ({ folder, showToast }) => {
         const created = await modalService.show<string | null>({
@@ -32,7 +31,7 @@ export default {
           props: {
             title: 'Новый сезон',
             label: 'Имя сезона',
-            placeholder: '2024-11-08',
+            placeholder: '',
             namePrefix: 'logii.',
             validateName: (name: string) => {
               if (!name.trim()) return 'Введите имя сезона';

@@ -41,7 +41,7 @@ test.describe('Logii: топы (создание, переименование, 
       )
       .toBe(20);
 
-    expect(diskTree[`${SEASON}/userA`].some((i) => i.name === 'vibe.logii.txt')).toBe(true);
+    expect(diskTree[`${SEASON}/userA`].some((i) => i.name === 'intro.txt')).toBe(true);
 
     await expect(page.getByTestId('logii-folder-1')).toBeVisible();
     await expect(page.getByTestId('logii-folder-20')).toBeVisible();

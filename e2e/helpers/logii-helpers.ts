@@ -158,6 +158,8 @@ export async function mockLogii(page: Page, options: LogiiMockOptions): Promise<
     writes.push({ method: 'POST', path: '/folder', body: { path: clean, name } });
 
     if (!diskTree[clean]) diskTree[clean] = [];
+
+    // Если папка уже есть — 409.
     if (diskTree[clean].some((i) => i.name === name)) {
       return route.fulfill({
         status: 409,
@@ -303,12 +305,17 @@ export async function mockLogii(page: Page, options: LogiiMockOptions): Promise<
     writes.push({ method: 'PUT', path: '/upload', body: { path: clean, name } });
 
     if (!diskTree[clean]) diskTree[clean] = [];
+
+    const audioExts = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus', '.wma'];
+    const lower = name.toLowerCase();
+    const isAudio = audioExts.some((ext) => lower.endsWith(ext));
+
     if (!diskTree[clean].some((i) => i.name === name)) {
       diskTree[clean].push({
         type: 'file',
         name,
         path: clean ? `${clean}/${name}` : name,
-        isAudio: true,
+        isAudio,
       });
     }
 

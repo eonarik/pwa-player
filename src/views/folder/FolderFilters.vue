@@ -13,7 +13,7 @@ import type { Track } from '@/types/track';
 
 const props = defineProps<{
   query: string;
-  tracks: Track[];
+  subtreeTracks: Track[];
   metadataLoading: boolean;
   metadataProgress: { done: number; total: number };
   metadataStats: { found: number; checked: number; total: number };
@@ -40,7 +40,7 @@ const emit = defineEmits<{
 }>();
 
 const hasMetadataEdits = computed(() => {
-  return props.tracks.some((t) => t.hasMetadataEdits);
+  return props.subtreeTracks.some((t) => t.hasMetadataEdits);
 });
 
 function onQueryUpdate(value: string): void {
@@ -57,7 +57,7 @@ function onQueryUpdate(value: string): void {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
-        <MetadataCandidatesButton :tracks="tracks" />
+        <MetadataCandidatesButton :tracks="subtreeTracks" />
 
         <MetadataMenu
           :is-loading="metadataLoading"

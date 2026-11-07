@@ -177,6 +177,7 @@ async function cancelBackgroundScan(): Promise<void> {
       :tracks-count="filteredTracks.length"
       :files-count="allFiles.length"
       :subtree-tracks="subtreeTracks"
+      :current-tracks="currentTracks"
       :is-scanning="isCurrentFolderScanning || isRefreshing"
     />
 
@@ -193,7 +194,7 @@ async function cancelBackgroundScan(): Promise<void> {
       :is-refreshing-from-device="isRefreshingFromDevice"
       :is-shallow-refreshing="isShallowRefreshing"
       :is-scanning="isScanning"
-      :tracks="filteredTracks"
+      :subtree-tracks="subtreeTracks"
       :has-background-scan="hasBackgroundScan"
       @metadata-search="searchMetadata"
       @metadata-cancel="cancelMetadataSearch"

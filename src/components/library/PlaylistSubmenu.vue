@@ -14,7 +14,10 @@ const props = defineProps<{
   tracks: Track[];
   inDropdown?: boolean;
   forceOpen?: boolean;
+  testIdPrefix?: string;
 }>();
+
+const prefix = computed(() => props.testIdPrefix ?? 'playlist');
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -125,7 +128,7 @@ function cancelCreate() {
       v-if="!inDropdown || !isSubmenuOpen"
       type="button"
       class="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-      data-testid="playlist-submenu-toggle"
+      :data-testid="`${prefix}-submenu-toggle`"
       @click="isSubmenuOpen = !isSubmenuOpen"
     >
       <span>Добавить в плейлист</span>
@@ -172,7 +175,7 @@ function cancelCreate() {
         v-if="!isCreatingNew"
         type="button"
         class="block w-full px-4 py-2 text-left text-sm text-active transition hover:bg-hover-bg"
-        data-testid="playlist-create-new"
+        :data-testid="`${prefix}-create-new`"
         @click="startCreate"
       >
         + Создать новый
@@ -185,7 +188,7 @@ function cancelCreate() {
           type="text"
           placeholder="Название плейлиста"
           class="w-full rounded-btn bg-card-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
-          data-testid="playlist-create-input"
+          :data-testid="`${prefix}-create-input`"
           @keydown.esc="cancelCreate"
         />
         <div class="mt-2 flex items-center justify-end gap-2">
@@ -200,7 +203,7 @@ function cancelCreate() {
             type="submit"
             class="rounded-btn bg-accent px-3 py-1 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
             :disabled="!newPlaylistName.trim()"
-            data-testid="playlist-create-submit"
+            :data-testid="`${prefix}-create-submit`"
           >
             Создать
           </button>

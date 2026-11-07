@@ -5,6 +5,7 @@ import { ref, computed, nextTick, onMounted } from 'vue';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import FormField from '@/components/ui/FormField.vue';
 import Input from '@/components/ui/Input.vue';
+import InputWithAffix from '@/components/ui/InputWithAffix.vue';
 import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
 import Spinner from '@/components/ui/Spinner.vue';
@@ -25,7 +26,7 @@ const props = withDefaults(
   {
     hasIntro: false,
     defaultCount: 20,
-    defaultIntroName: 'vibe.logii.txt',
+    defaultIntroName: 'intro',
   },
 );
 
@@ -40,7 +41,7 @@ const parsedCount = computed(() => {
   const n = Number(countInput.value);
   if (!Number.isFinite(n)) return null;
   const int = Math.floor(n);
-  if (int < 1 || int > 100) return null;
+  if (int < 1 || int > 20) return null;
   return int;
 });
 
@@ -54,16 +55,15 @@ async function submit(): Promise<void> {
   if (!canSubmit.value) return;
 
   const count = parsedCount.value!;
-  const trimmedIntro = createIntro.value ? introName.value.trim() : null;
+  const rawIntro = createIntro.value ? introName.value.trim() : '';
 
-  if (createIntro.value && /[\\/:*?"<>|]/.test(trimmedIntro!)) {
+  if (createIntro.value && /[\\/:*?"<>|]/.test(rawIntro)) {
     error.value = 'Имя Intro не должно содержать \\ / : * ? " < > |';
     return;
   }
-  if (createIntro.value && !trimmedIntro!.toLowerCase().endsWith('.txt')) {
-    error.value = 'Имя Intro должно заканчиваться на .txt';
-    return;
-  }
+
+  // Суффикс .txt добавляется здесь; если пользователь ввёл ".txt" — обрезаем.
+  const trimmedIntro = createIntro.value ? rawIntro.replace(/\.txt$/i, '') + '.txt' : null;
 
   isSubmitting.value = true;
   error.value = null;
@@ -97,10 +97,7 @@ onMounted(async () => {
 <template>
   <ModalLayout title="Новые топы" max-width="sm" :disable-backdrop-close="isSubmitting" @close="cancel">
     <form class="flex flex-col gap-4" @submit.prevent="submit">
-      <FormField
-        label="Количество папок (1..100)"
-        :error="parsedCount === null ? 'Введите число от 1 до 100' : undefined"
-      >
+      <FormField label="Количество папок (1..20)" :error="parsedCount === null ? 'Введите число' : undefined">
         <Input
           ref="countRef"
           v-model="countInput"
@@ -121,11 +118,12 @@ onMounted(async () => {
       </div>
 
       <FormField v-if="createIntro" label="Имя Intro">
-        <Input
+        <InputWithAffix
           v-model="introName"
-          placeholder="vibe.logii.txt"
+          placeholder="intro"
+          suffix=".txt"
           :disabled="isSubmitting"
-          data-testid="create-tops-intro-name"
+          test-id="create-tops-intro-name"
         />
       </FormField>
 
@@ -134,7 +132,7 @@ onMounted(async () => {
       <p class="text-xs text-fg-muted">
         Будут созданы папки <span class="text-fg">1..{{ parsedCount ?? '?' }}</span>
         <template v-if="createIntro && introName.trim()">
-          и <span class="text-fg">{{ introName.trim() }}</span> </template
+          и <span class="text-fg">{{ introName.trim().replace(/\.txt$/i, '') }}.txt</span> </template
         >. Существующие папки будут пропущены.
       </p>
     </form>

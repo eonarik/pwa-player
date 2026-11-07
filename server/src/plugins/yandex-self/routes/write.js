@@ -15,7 +15,7 @@ import { logger } from '../../../shared/logger.js';
 export const writeRoutes = Router();
 
 // 30 МБ + запас на заголовки. express.raw парсит body в Buffer.
-const uploadMiddleware = express.raw({ type: 'audio/*', limit: '35mb' });
+const uploadMiddleware = express.raw({ type: '*/*', limit: '35mb' });
 
 /**
  * POST /folder
@@ -132,6 +132,7 @@ writeRoutes.put('/upload', requireAuth, uploadMiddleware, async (req, res) => {
   }
 
   if (!Buffer.isBuffer(req.body)) {
+    logger.warn(`[yandex-self] upload: invalid body for "${name}" (content-type: ${req.headers['content-type']})`);
     res.status(400).json({ error: 'Invalid body' });
     return;
   }

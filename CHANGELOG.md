@@ -3,6 +3,63 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.17.3] — 2026-11-11
+
+UI/UX-ревизия Логий: новая шапка `FolderView`, `FolderActionsMenu`, hover-кнопки, суффикс/префикс в модалках, отдельный `LogiiIntroView`, галерея с загрузкой/удалением, `InputWithAffix`, `Textarea` с авторесайзом, `data-testid` для всех e2e.
+
+### Added
+
+- **`FolderActionsMenu.vue`:** выпадающее меню «Действия» в `FolderHeader`. Содержит:
+  - **`folderActions`** (из `PluginExtension.folderActions`, `data-testid="folder-action-<id>"`);
+  - **`PlaylistSubmenu`** (нерекурсивно — только `currentTracks` текущей папки, `test-id-prefix="folder-playlist"`);
+  - **«Скачать всё»** (рекурсивно — `subtreeTracks`, `data-testid="folder-action-download-all"`).
+- **`PluginExtension.folderActions`:** новый контракт (`PluginFolderAction`, `FolderActionContext`, `FolderActionResult`). Ядро не знает о плагинах, рендерит кнопки из `getExtensionFolderActions()`. `data-testid` формируется как `folder-action-<id>`.
+- **`yandexSelf/extension.ts`:** `folderActions: [{ id: 'create-season', label: 'Добавить сезон', tooltip: 'Создать сезон Логий в текущей папке', ... }]` — через `modalService.show` + `CreateFolderModal` + `createFolder` + `scanFolder(force)` + `router.push`.
+- **`InputWithAffix.vue`:** универсальный `<input>` с неизменяемыми `prefix` / `suffix` (disabled-цвет, `select-none`), prop `testId` для `<input>`. Используется в `CreateFolderModal` (`prefix="logii."` для сезона) и `CreateTopsModal` (`suffix=".txt"` для Intro).
+- **`LogiiVibeBlock.vue`:** вынесенный из `LogiiTrackTab` блок Vibe (редактирование, `isLoading`, `isSaving`, `onUpdateVibe`). Переиспользуется в `LogiiTrackTab` и `LogiiIntroView`.
+- **`LogiiIntroView.vue`:** отдельный view для Intro (`folder.isIntro === true`) — только `LogiiVibeBlock` + `LogiiChat`, **без табов, треков и галереи**. `LogiiPanel` переключает `LogiiIntroView` / `LogiiTrackTab|Chat|Gallery` по `folder.isIntro`.
+- **`LogiiGallery.vue`:** загрузка картинок (`data-testid="logii-gallery-upload-trigger"` + `logii-gallery-upload-input`, лимит 8 МБ) + удаление (`logii-gallery-delete-<index>`, `window.confirm` + `removeResource` + `scanFolder(force)`). `cover.jpg` **не** скрывается.
+- **`Textarea.vue`:** проп `autoResize` — автоувеличение высоты (1..N строк, скролл при превышении). Используется в `LogiiChat` для редактирования комментариев.
+- **`data-testid` для всех интерактивных элементов** (полный список — в `CHANGELOG 0.17.2` + новые):
+  - `folder-actions-trigger`, `folder-action-<id>`, `folder-action-download-all`.
+  - `logii-gallery-upload-trigger`, `logii-gallery-upload-input`, `logii-gallery-delete-<index>`, `logii-gallery-fullscreen`, `logii-gallery-close`, `logii-gallery-fullscreen-image`.
+  - `logii-tab-{track|chat|gallery}`, `logii-refresh`, `logii-go-to-parent`, `logii-panel-title`.
+  - `logii-comment-<index>`, `logii-comment-edit-<index>`, `logii-comment-delete-<index>`, `logii-comment-edit-input`, `logii-comment-save`, `logii-comment-cancel`, `logii-nickname-input`, `logii-comment-new-input`, `logii-comment-send`.
+  - `logii-vibe-edit`, `logii-vibe-textarea`, `logii-vibe-save`, `logii-vibe-cancel`.
+  - `create-tops-count`, `create-tops-intro-name`, `create-tops-submit`.
+
+### Changed
+
+- **`FolderHeader.vue`:** только breadcrumb + счётчик + `FolderActionsMenu` (1 строка). **Строка 2** (search, sort, metadata, sync, settings) — **убрана** (это **дублировало** `FolderFilters`). `FolderFilters` — единственный источник этих функций.
+- **`FolderFilters.vue`:** prop `tracks` → `subtreeTracks` (правильнее — для `MetadataCandidatesButton` и `hasMetadataEdits` нужны все треки поддерева, не только отфильтрованные).
+- **`FolderView.vue`:** `:subtree-tracks` в `<FolderFilters>`, `:current-tracks` в `<FolderHeader>`.
+- **`LogiiAuthorsColumn.vue` / `LogiiFoldersColumn.vue`:** hover-кнопки `rename` / `delete` — `IconButton size="md" variant="ghost"` (`h-8 w-8`, иконка `w-4 h-4`), **только на hover** (`opacity-0 group-hover:opacity-100`). Контейнер кнопок — с **градиентным фоном** (`bg-gradient-to-l from-bg-elevated/80 via-bg-elevated/60 to-transparent`) для читаемости на длинных именах.
+- **`LogiiTrackTab.vue`:** Vibe вынесен в `LogiiVibeBlock`. `<input type="file">` — **вне** `v-if="tracks.length > 0"` (загрузка работает в пустой папке). Шапка «Аудио» — всегда видна.
+- **`CreateFolderModal.vue`:** `InputWithAffix` (prefix `namePrefix`), **без preview** «Будет создана: …» (prefix **виден** в input). `submitLabel` default `'Создать'`.
+- **`CreateTopsModal.vue`:** `InputWithAffix` (`suffix=".txt"`, placeholder `intro`), `defaultIntroName: 'intro'`, `defaultCount: 20`, `parsedCount` — `1..20` (было `1..100`). `onSubmit` — `rawIntro.replace(/\.txt$/i, '') + '.txt'` (idempotent).
+- **`SearchInput.vue`:** prop `testId?: string` (прокидывается в `<input>`, не в обёртку). Используется в `ZvukView` (`test-id="zvuk-search-input"`).
+- **`LogiiChat.vue`:** редактирование/удаление комментариев, `Textarea` с `autoResize`, `data-testid`. Валидация — любой пользователь может редактировать/удалять.
+
+### Fixed
+
+- **`POST /folder` в `mockLogii`:** возвращает **409** `'Папка уже существует'`, если папка есть. Убраны лишние `push(file)` / `audioExts` (копипаст из `PUT /upload`).
+- **`express.raw({ type: 'audio/*' })` для `PUT /upload`:** не парсил `image/*` (картинки) → `req.body` undefined → 400 `'Invalid body'`. Заменено на `type: '*/*'`. Добавлен `logger.warn` для `Invalid body` (content-type в логе).
+- **`renameFolderSubtree` не обновлял `folder.name`:** после переименования в `library.folders` `urlPath` менялся, но `name` оставался старым. Теперь `name` = последний сегмент `newUrlPath`.
+- **`removeResource` (удаление топа) не убирал `sources` у треков:** `refreshAfterWrite` с `recursive: false` покрывал только прямых детей. Теперь `recursive: true`.
+- **`<input type="file">` в `LogiiTrackTab` не рендерился в пустой папке:** был **внутри** `v-if="tracks.length > 0"`. Вынесен.
+- **`folder-sync-trigger` `toHaveCount(0)`:** кнопка **всегда** в DOM (если `canRefresh`). Заменено на `data-syncing` (`true`/`false`) — семантическая проверка «синхронизация не идёт».
+- **`LogiiPanel` `activeTab` не сбрасывался при переходе трек → intro:** если был `'gallery'`, оставался. Теперь `watch` на `folder.isIntro` → сброс в `'track'`.
+- **`LogiiPanelHeader` показывал табы для Intro:** добавлен prop `isIntro?: boolean`, при `true` табы **не** рендерятся.
+- **`<textarea>` редактирования комментария** — узкий, без автоувеличения. Заменён на `Textarea` (общий компонент) с `autoResize`.
+
+### Internal
+
+- **E2E `24-logii-gallery.spec.ts`:** загрузка/удаление картинок (один + два файла), `setInputFiles` с массивом `[{ name, mimeType, buffer }]`.
+- **E2E `22-logii-tops.spec.ts`:** `diskTree` проверяет `intro.txt` (не `vibe.logii.txt` — `defaultIntroName` сменился).
+- **`logii-helpers.ts`:** `mockLogii` `POST /folder` — 409 при существующей; `PUT /upload` — `isAudio` по расширению (audio vs image).
+- **`Button.vue` (если применимо):** если `emit('click')` не пробрасывался — добавлен (иначе `@click="submit"` на `Button` не работал бы).
+- **`Textarea.vue`:** prop `autoResize?: boolean` — автоувеличение (1..N строк, скролл при превышении). Используется в `LogiiChat` и (опционально) в других местах.
+
 ## [0.17.2] — 2026-11-10
 
 Создание и редактирование в Логиях: сезоны, авторы, топы, комментарии, загрузка/удаление треков. Серверный write API для `yandex-self`. Массовая замена хрупких e2e-локаторов на `data-testid`.
