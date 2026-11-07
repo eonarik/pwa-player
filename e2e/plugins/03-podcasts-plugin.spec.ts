@@ -28,17 +28,17 @@ test.describe('Podcasts Plugin', () => {
 
   test('добавление подкаста по RSS-ссылке', async ({ page }) => {
     const podcastsCard = page.locator('[data-plugin-id="podcasts"]');
-    await podcastsCard.getByRole('button', { name: 'Открыть' }).click();
+    await podcastsCard.getByTestId('plugin-open').click();
 
-    await expect(page.getByText('Мои подкасты').first()).toBeVisible();
+    await expect(page.getByTestId('podcasts-my-title')).toBeVisible();
 
-    await page.getByRole('button', { name: 'По ссылке' }).click();
-    await page.getByPlaceholder('https://example.com/podcast/feed.xml').fill('https://example.com/feed.xml');
+    await page.getByTestId('podcasts-add-url').click();
+    await page.getByTestId('podcast-feed-url-input').fill('https://example.com/feed.xml');
 
     // Ждем ответа от прокси (мок отдает XML)
     const responsePromise = page.waitForResponse((response) => response.url().includes('/api/podcasts/proxy'));
 
-    await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+    await page.getByTestId('podcast-add-submit').click();
     await responsePromise;
 
     // Ждем появления подкаста в списке

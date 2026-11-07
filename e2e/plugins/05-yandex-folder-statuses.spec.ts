@@ -23,7 +23,7 @@ test.describe('Yandex Disk: Статусы папок', () => {
     await waitForAppBootstrap(page);
 
     const diskCard = page.locator('[data-plugin-id="yandex"]');
-    await diskCard.getByRole('button', { name: 'Подключить' }).click();
+    await diskCard.getByTestId('plugin-connect').click();
   });
 
   test('отображает статусы папок, блокирует Play и восстанавливается после F5', async ({ page }) => {

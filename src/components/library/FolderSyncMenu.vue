@@ -73,6 +73,8 @@ const deviceDisabled = computed(() => isScanning.value || Boolean(props.isRefres
           :label="label"
           :variant="needsAttention ? 'danger' : 'default'"
           :icon-class="isSpinning ? 'animate-spin' : ''"
+          :data-syncing="isSpinning ? 'true' : 'false'"
+          data-testid="folder-sync-trigger"
           @click="toggle"
         />
 
@@ -89,6 +91,7 @@ const deviceDisabled = computed(() => isScanning.value || Boolean(props.isRefres
         type="button"
         class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="cloudDisabled"
+        data-testid="folder-sync-cloud"
         @click="onRefreshCloud(close)"
       >
         Обновить с облака
@@ -100,6 +103,7 @@ const deviceDisabled = computed(() => isScanning.value || Boolean(props.isRefres
         type="button"
         class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="cloudShallowDisabled"
+        data-testid="folder-sync-cloud-shallow"
         @click="onRefreshCloudShallow(close)"
       >
         Досканировать
@@ -111,6 +115,7 @@ const deviceDisabled = computed(() => isScanning.value || Boolean(props.isRefres
         type="button"
         class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="deviceDisabled"
+        data-testid="folder-sync-device"
         @click="onRefreshDevice(close)"
       >
         Обновить с устройства
@@ -121,6 +126,7 @@ const deviceDisabled = computed(() => isScanning.value || Boolean(props.isRefres
         <button
           type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-red-500/10"
+          data-testid="folder-sync-cancel"
           @click="onCancelScan(close)"
         >
           Отменить синхронизацию

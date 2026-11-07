@@ -4,7 +4,7 @@ import type { Track, TrackSource } from '@/types/track';
 import type { Album } from '@/types/album';
 import type { FolderRef, FolderScanState, FolderScanProgress } from '@/types/folder';
 import type { MetadataCandidate } from '@/types/metadata';
-import type { AlbumId, TrackId, FolderId } from '@/types/ids';
+import type { AlbumId, TrackId, FolderId, TrackSourceId } from '@/types/ids';
 import type { PluginSnapshot, PluginFolderPayload } from '@/types/plugin';
 
 export interface CleanupScope {
@@ -23,7 +23,7 @@ export interface LibraryWriter {
   getAllTracks(): Track[];
   getAllAlbums(): Album[];
 
-  // --- Запись (сериализовано через mutex) ---
+  // --- Запись ---
   setLibrary(snapshot: PluginSnapshot, sourceId: string, opts?: { cleanup?: CleanupScope }): Promise<void>;
   addFolders(folders: PluginFolderPayload[], sourceId: string): Promise<void>;
   removeFolderRef(id: FolderId): Promise<void>;
@@ -37,6 +37,14 @@ export interface LibraryWriter {
   updateTrackSources(id: TrackId, sources: TrackSource[]): Promise<void>;
   updateTrackAlbumId(id: TrackId, albumId: AlbumId | null): Promise<void>;
   updateTrackMetadataCandidates(id: TrackId, candidates: MetadataCandidate[]): Promise<void>;
+
+  /**
+   * Удаляет конкретный source у трека (по source.id).
+   * Используется при удалении файла на Диске (без force-скана).
+   * Если sources станет пустым — трек остаётся в library (сирота),
+   * его почистит cleanupOrphanTracks на старте (если он нигде не используется).
+   */
+  removeTrackSource(id: TrackId, sourceId: TrackSourceId): Promise<void>;
 
   updateTrackMetadata(
     id: TrackId,
@@ -63,6 +71,13 @@ export interface LibraryWriter {
 
   removeCloudSourcesInFolders(subtreeIds: Set<FolderId>): Promise<void>;
   cleanupOrphanAlbums(): Promise<void>;
+
+  /**
+   * После переименования папки на Диске: обновляет urlPath поддерева
+   * (включая files[].urlPath) и remotePath соответствующих cloud-sources.
+   * trackId/folderId не меняются, плейлисты/история/дизлайки остаются валидными.
+   */
+  renameFolderSubtree(oldUrlPath: string, newUrlPath: string): Promise<void>;
 
   setFolderScanState(
     id: FolderId,

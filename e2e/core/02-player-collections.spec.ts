@@ -53,7 +53,7 @@ test.describe('Player & Collections (ядро)', () => {
     await initOPFS(page);
 
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
   });
 
   test('проигрывание трека, добавление в избранное, дизлайк и плейлист', async ({ page }) => {
@@ -119,11 +119,11 @@ test.describe('Player & Collections (ядро)', () => {
     await track2Row.locator('button[aria-label="В избранное"]').click();
 
     // 7. Создаем плейлист
-    await track1Row.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Добавить в плейлист').click();
-    await page.getByText('+ Создать новый').click();
-    await page.getByPlaceholder('Название плейлиста').fill('My Test Playlist');
-    await page.getByRole('button', { name: 'Создать' }).click();
+    await track1Row.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('playlist-submenu-toggle').click();
+    await page.getByTestId('playlist-create-new').click();
+    await page.getByTestId('playlist-create-input').fill('My Test Playlist');
+    await page.getByTestId('playlist-create-submit').click();
 
     // 8. Проверяем сохранение в IDB
     await expect

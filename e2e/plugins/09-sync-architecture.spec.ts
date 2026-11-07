@@ -4,42 +4,16 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { setupPageLogs, waitForAppBootstrap, getIDBValue } from '../helpers/test-utils';
 import { mockAllApis } from '../mocks/api';
 
-/**
- * Сценарии архитектуры синхронизации Яндекс.Диска.
- *
- * Карта:
- *  A. Первичное подключение
- *  B. Повторное открытие (кеш есть / нет)
- *  C. Переход в папки (scanned / pending / scanning / error)
- *  D. Иерархия статусов (scanning пробрасывается вверх, error не пробрасывается)
- *  E. Force scan (пересканирует всё поддерево, чистит «лишнее»)
- *  F. Отмена (глобальная для плагина, reason в error)
- *  G. Локальные совпадения (скачанные файлы)
- *  H. Кеш и F5
- *  I. Конкурентность
- */
-
-// ---------------------------------------------------------------------------
-// Хелперы
-// ---------------------------------------------------------------------------
-
-/** Конфиг одной папки для мока API. */
 interface MockFolder {
-  /** Имя папки (для моков — путь, начиная от корня). */
-  path: string; // 'Music', 'Music/Rock', ...
-  /** Задержка ответа, мс. */
+  path: string;
   delayMs?: number;
-  /** Если задан — ответ с этим HTTP-статусом. */
   errorStatus?: number;
-  /** Файлы в этой папке (имена). */
   files?: string[];
-  /** Подпапки (пути). */
   children?: string[];
 }
 
 interface MockDiskOptions {
   folders: MockFolder[];
-  /** Задержка ответа корня (по умолчанию 0). */
   rootDelayMs?: number;
 }
 
@@ -48,10 +22,6 @@ interface RequestLogEntry {
   timestamp: number;
 }
 
-/**
- * Мок API Яндекс.Диска с настраиваемыми папками, задержками и ошибками.
- * Возвращает лог запросов `listResources` (для проверки «сколько раз запрашивали папку»).
- */
 async function mockYandexDiskConfigurable(
   page: Page,
   options: MockDiskOptions,
@@ -64,7 +34,6 @@ async function mockYandexDiskConfigurable(
     const url = new URL(route.request().url());
     const rawPath = url.searchParams.get('path') ?? '/';
 
-    // Нормализуем путь к виду без ведущего слэша и disk:/
     const cleanPath = rawPath
       .replace(/^disk:\//, '')
       .replace(/^\/+/, '')
@@ -73,7 +42,6 @@ async function mockYandexDiskConfigurable(
 
     requests.push({ path: displayPath, timestamp: Date.now() });
 
-    // Корень
     if (cleanPath === '') {
       if (options.rootDelayMs) await new Promise((r) => setTimeout(r, options.rootDelayMs));
       const rootFolders = options.folders.filter((f) => !f.path.includes('/'));
@@ -124,7 +92,6 @@ async function mockYandexDiskConfigurable(
   return { requests };
 }
 
-/** Дождаться, пока статус папки не станет ожидаемым (читает IDB player:library). */
 async function waitForFolderStatus(page: Page, folderId: string, status: string, timeout = 15_000): Promise<void> {
   await expect
     .poll(
@@ -137,7 +104,6 @@ async function waitForFolderStatus(page: Page, folderId: string, status: string,
     .toBe(status);
 }
 
-/** Прочитать scanState всех папок из IDB player:library. */
 async function getFolderStatuses(page: Page): Promise<Record<string, { status: string; errorMessage?: string }>> {
   return await page.evaluate(() => {
     const lib = (window as any).__library?.();
@@ -150,7 +116,6 @@ async function getFolderStatuses(page: Page): Promise<Record<string, { status: s
   });
 }
 
-/** Найти ID папки по её `urlPath` (из `player:library` в IDB). */
 async function findFolderIdByPath(page: Page, urlPath: string, timeout = 5000): Promise<string> {
   await expect
     .poll(
@@ -177,40 +142,34 @@ async function findFolderIdByPath(page: Page, urlPath: string, timeout = 5000): 
   throw new Error(`[test] folder with urlPath "${urlPath}" not found`);
 }
 
-/** Клик по «Открыть» у плагина yandex. */
 async function openYandex(page: Page): Promise<void> {
   const card = page.locator('[data-plugin-id="yandex"]');
   await expect(card).toBeVisible();
-  await card.getByRole('button', { name: 'Открыть' }).click();
+  await card.getByTestId('plugin-open').click();
 }
 
-/** Клик по «Подключить» у плагина yandex. */
 async function connectYandex(page: Page): Promise<void> {
   const card = page.locator('[data-plugin-id="yandex"]');
   await expect(card).toBeVisible();
-  await card.getByRole('button', { name: 'Подключить' }).click();
+  await card.getByTestId('plugin-connect').click();
 }
 
-/** Клик по папке в списке по имени. */
 async function clickFolderByName(page: Page, name: string): Promise<void> {
   const row = page.locator('[data-testid^="folder-row-"]').filter({ hasText: name }).first();
   await expect(row).toBeVisible();
   await row.click();
 }
 
-/** Проверить, что запросов `listResources` к пути `path` было не больше `max`. */
 function countRequestsForPath(requests: RequestLogEntry[], path: string): number {
   return requests.filter((r) => r.path === path).length;
 }
 
-/** Общий setup: логи, моки всех API, чистка IDB/localStorage, bootstrap. */
 async function setup(page: Page): Promise<void> {
   setupPageLogs(page);
   await mockAllApis(page);
   await page.route('**/fonts.googleapis.com/**', (r) => r.abort());
   await page.route('**/fonts.gstatic.com/**', (r) => r.abort());
 
-  // Мок auth — авторизован (иначе yandex.connect() уйдёт в OAuth)
   await page.route('**/api/auth/me', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) }),
   );
@@ -538,7 +497,7 @@ test.describe('C. Переход в папки', () => {
 
     // Отменяем скан
     await page.locator('button[aria-label^="Синхронизация..."]').first().click();
-    await page.getByText('Отменить синхронизацию').click();
+    await page.getByTestId('folder-sync-cancel').click();
 
     // Проверяем, что Parent сейчас в ошибке (после отмены)
     await waitForFolderStatus(page, parentId, 'error', 5000);
@@ -660,7 +619,7 @@ test.describe('E. Force scan', () => {
     await clickFolderByName(page, 'Parent');
     const refreshBtn = page.locator('button[aria-label="Синхронизация"]').first();
     await refreshBtn.click();
-    await page.getByText('Обновить с облака').click();
+    await page.getByTestId('folder-sync-cloud').click();
 
     await page.waitForTimeout(1500);
     expect(countRequestsForPath(requests, 'Parent')).toBeGreaterThan(beforeParent);
@@ -686,7 +645,7 @@ test.describe('E. Force scan', () => {
     await clickFolderByName(page, 'A');
     const refreshBtn = page.locator('button[aria-label="Синхронизация"]').first();
     await refreshBtn.click();
-    await page.getByText('Обновить с облака').click();
+    await page.getByTestId('folder-sync-cloud').click();
 
     await page.waitForTimeout(1500);
     expect(countRequestsForPath(requests, 'A')).toBeGreaterThan(0);
@@ -713,9 +672,9 @@ test.describe('F. Отмена', () => {
     await page.waitForTimeout(1000);
 
     // Открываем меню синхронизации и нажимаем «Отменить»
-    const refreshBtn = page.locator('button[aria-label="Синхронизация..."]').first();
+    const refreshBtn = page.getByTestId('folder-sync-trigger').first();
     await refreshBtn.click();
-    await page.getByText('Отменить синхронизацию').click();
+    await page.getByTestId('folder-sync-cancel').click();
 
     await page.waitForTimeout(500);
     const statuses = await getFolderStatuses(page);
@@ -725,12 +684,11 @@ test.describe('F. Отмена', () => {
       expect(slow1[1].errorMessage).toContain('Отмена');
     }
 
-    // Нет ни одной папки в статусе 'scanning'.
     const stillScanning = Object.values(statuses).filter((s) => s.status === 'scanning');
     expect(stillScanning).toHaveLength(0);
 
     // Кнопка «Синхронизация...» больше не крутится.
-    await expect(page.locator('button[aria-label="Синхронизация..."]')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.getByTestId('folder-sync-trigger')).toHaveAttribute('data-syncing', 'false', { timeout: 5000 });
   });
 
   test('F2: после отмены «Открыть» запускает доскан error-папок', async ({ page }) => {
@@ -741,16 +699,15 @@ test.describe('F. Отмена', () => {
     await connectYandex(page);
     await page.waitForTimeout(500);
 
-    const refreshBtn = page.locator('button[aria-label="Синхронизация..."]').first();
+    const refreshBtn = page.getByTestId('folder-sync-trigger').first();
     await refreshBtn.click();
-    await page.getByText('Отменить синхронизацию').click();
+    await page.getByTestId('folder-sync-cancel').click();
     await page.waitForTimeout(500);
 
     await page.goto('/');
     await openYandex(page);
     await page.waitForTimeout(500);
 
-    // Папка Slow снова сканируется (или уже scanned, если успела)
     const statuses = await getFolderStatuses(page);
     const slowStatuses = Object.values(statuses).filter(
       (s) => s.status === 'pending' || s.status === 'scanning' || s.status === 'scanned',
@@ -890,17 +847,17 @@ test.describe('I. Конкурентность', () => {
     await clickFolderByName(page, 'Parent');
 
     // Открываем меню синхронизации
-    const refreshBtn = page.locator('button[aria-label="Синхронизация..."]').first();
+    const refreshBtn = page.getByTestId('folder-sync-trigger').first();
     await refreshBtn.click();
 
     // Кнопки «Обновить с облака» / «Обновить с устройства» — disabled
-    const cloudBtn = page.getByText('Обновить с облака').first();
+    const cloudBtn = page.getByTestId('folder-sync-cloud').first();
     const deviceBtn = page.getByText('Обновить с устройства').first();
     await expect(cloudBtn).toBeDisabled();
     await expect(deviceBtn).toBeDisabled();
 
     // Кнопка «Отменить синхронизацию» — доступна
-    await expect(page.getByText('Отменить синхронизацию')).toBeVisible();
+    await expect(page.getByTestId('folder-sync-cancel')).toBeVisible();
   });
 
   test('I2: force scan pending-папки — потомки в очереди не сканируются дважды', async ({ page }) => {
@@ -921,10 +878,10 @@ test.describe('I. Конкурентность', () => {
 
     // Force scan на Parent — пересканирует всё поддерево
     await clickFolderByName(page, 'Parent');
-    const refreshBtn = page.locator('button[aria-label="Синхронизация..."]').first();
+    const refreshBtn = page.getByTestId('folder-sync-trigger').first();
     await refreshBtn.click();
 
-    const cloudBtn = page.getByText('Обновить с облака').first();
+    const cloudBtn = page.getByTestId('folder-sync-cloud').first();
     // Может быть disabled, если Parent ещё scanning. Проверяем:
     const isDisabled = await cloudBtn.isDisabled();
     if (!isDisabled) {
@@ -964,7 +921,7 @@ test.describe('I. Конкурентность', () => {
     await clickFolderByName(page, 'A');
     const refreshBtn = page.locator('button[aria-label="Синхронизация"]').first();
     await refreshBtn.click();
-    await page.getByText('Обновить с облака').click();
+    await page.getByTestId('folder-sync-cloud').click();
 
     // A пересканируется независимо от B
     await expect.poll(() => countRequestsForPath(requests, 'A'), { timeout: 5000 }).toBeGreaterThan(beforeA);

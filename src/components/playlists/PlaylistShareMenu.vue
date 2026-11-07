@@ -149,7 +149,12 @@ function copyFromModal() {
 
 <template>
   <div class="flex items-center gap-2">
-    <IconButton icon="share" label="Поделиться плейлистом" @click="isOpen = true" />
+    <IconButton
+      icon="share"
+      label="Поделиться плейлистом"
+      data-testid="playlist-share-trigger"
+      @click="isOpen = true"
+    />
 
     <ModalLayout v-if="isOpen" title="Поделиться плейлистом" max-width="md" @close="isOpen = false">
       <div class="flex flex-col gap-3">

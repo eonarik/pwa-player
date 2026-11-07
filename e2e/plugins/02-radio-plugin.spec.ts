@@ -28,10 +28,10 @@ test.describe('Radio Plugin', () => {
 
   test('добавление станции из каталога и её воспроизведение', async ({ page }) => {
     const radioCard = page.locator('[data-plugin-id="radio"]');
-    await radioCard.getByRole('button', { name: 'Открыть' }).click();
+    await radioCard.getByTestId('plugin-open').click();
 
     await expect(page.getByText('Мои станции').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Добавить станции' }).click();
+    await page.getByTestId('radio-add-stations').click();
 
     // Ждем, пока пройдет сетевой запрос к радио-браузеру
     // Наш мок в mocks/api/radio.ts отвечает на '**/json/stations/search*'
@@ -43,8 +43,7 @@ test.describe('Radio Plugin', () => {
 
     // Добавляем станцию
     await stationRow.getByTestId('radio-station-add').locator('button').click();
-
-    await page.getByRole('button', { name: 'К выбранным станциям' }).click();
+    await page.getByTestId('catalog-back').click();
 
     const savedStation = page.getByTestId('saved-station-row').first();
     await expect(savedStation).toBeVisible();

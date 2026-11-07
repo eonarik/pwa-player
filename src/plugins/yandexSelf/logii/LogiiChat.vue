@@ -5,6 +5,7 @@ import { ref, nextTick, watch, onMounted } from 'vue';
 import type { LogiiComment } from './parseLogii';
 import { getNickname, setNickname } from './useLogiiData';
 import IconButton from '@/components/ui/IconButton.vue';
+import Icon from '@/components/ui/Icon.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 
 const props = withDefaults(
@@ -13,6 +14,8 @@ const props = withDefaults(
     isSaving: boolean;
     isLoading?: boolean;
     trackUrlPath?: string;
+    onUpdateComment: (index: number, text: string) => Promise<boolean>;
+    onDeleteComment: (index: number) => Promise<boolean>;
   }>(),
   { isLoading: false, trackUrlPath: '' },
 );
@@ -25,6 +28,11 @@ const nickname = ref(getNickname());
 const draft = ref('');
 const scrollRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
+
+// Состояние редактирования: индекс комментария, который сейчас редактируется.
+const editingIndex = ref<number | null>(null);
+const editingText = ref('');
+const editingTextareaRef = ref<HTMLTextAreaElement | null>(null);
 
 const MIN_ROWS = 1;
 const MAX_ROWS = 8;
@@ -45,6 +53,13 @@ function autosize(): void {
   const height = rows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
   el.style.height = `${height}px`;
   el.style.overflowY = rows >= MAX_ROWS ? 'auto' : 'hidden';
+}
+
+function autosizeEditing(): void {
+  const el = editingTextareaRef.value;
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight}px`;
 }
 
 function send(): void {
@@ -81,6 +96,9 @@ watch(
   () => props.trackUrlPath,
   () => {
     nickname.value = getNickname();
+    // Сбрасываем редактирование при смене трека.
+    editingIndex.value = null;
+    editingText.value = '';
   },
 );
 
@@ -106,6 +124,50 @@ onMounted(() => {
 function formatCommentTime(time: string | null): string {
   return time ?? '';
 }
+
+// --- Редактирование ---
+
+function startEdit(index: number): void {
+  const comment = props.comments[index];
+  if (!comment) return;
+  editingIndex.value = index;
+  editingText.value = comment.text;
+  nextTick(() => {
+    autosizeEditing();
+    editingTextareaRef.value?.focus();
+  });
+}
+
+function cancelEdit(): void {
+  editingIndex.value = null;
+  editingText.value = '';
+}
+
+async function saveEdit(index: number): Promise<void> {
+  if (props.isSaving) return;
+  const text = editingText.value.trim();
+  if (!text) return;
+
+  const ok = await props.onUpdateComment(index, text);
+  if (ok) {
+    editingIndex.value = null;
+    editingText.value = '';
+  }
+}
+
+// --- Удаление ---
+
+async function removeComment(index: number): Promise<void> {
+  if (props.isSaving) return;
+  const ok = await props.onDeleteComment(index);
+  if (ok && editingIndex.value === index) {
+    cancelEdit();
+  }
+  // Если удалили комментарий, который был в режиме редактирования — сбрасываем.
+  if (ok && editingIndex.value !== null && index < editingIndex.value) {
+    editingIndex.value -= 1;
+  }
+}
 </script>
 
 <template>
@@ -119,6 +181,7 @@ function formatCommentTime(time: string | null): string {
         placeholder="Как тебя подписать? (сохраняется для всех чатов)"
         class="rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
         :disabled="isSaving"
+        data-testid="logii-nickname-input"
       />
     </div>
 
@@ -137,19 +200,76 @@ function formatCommentTime(time: string | null): string {
         <div
           v-for="(c, index) in comments"
           :key="index"
-          class="flex flex-col gap-0.5 rounded-btn bg-bg-elevated/50 px-3 py-2"
+          class="group flex flex-col gap-0.5 rounded-btn bg-bg-elevated/50 px-3 py-2"
+          :data-testid="`logii-comment-${index}`"
         >
           <div class="flex items-center justify-between gap-2">
             <p class="text-xs font-medium text-active">{{ c.nickname }}</p>
-            <p v-if="c.time" class="text-[10px] text-fg-subtle">{{ formatCommentTime(c.time) }}</p>
+            <div class="flex items-center gap-1">
+              <p v-if="c.time" class="text-[10px] text-fg-subtle">{{ formatCommentTime(c.time) }}</p>
+              <template v-if="editingIndex !== index">
+                <button
+                  type="button"
+                  class="rounded-btn p-0.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-fg group-hover:opacity-100"
+                  :disabled="isSaving"
+                  aria-label="Редактировать комментарий"
+                  :data-testid="`logii-comment-edit-${index}`"
+                  @click="startEdit(index)"
+                >
+                  <Icon name="pencil" w="w-3.5" h="h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  class="rounded-btn p-0.5 text-fg-subtle opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                  :disabled="isSaving"
+                  aria-label="Удалить комментарий"
+                  :data-testid="`logii-comment-delete-${index}`"
+                  @click="removeComment(index)"
+                >
+                  <Icon name="trash" w="w-3.5" h="h-3.5" />
+                </button>
+              </template>
+            </div>
           </div>
-          <p class="whitespace-pre-line text-sm text-fg">{{ c.text }}</p>
+
+          <template v-if="editingIndex === index">
+            <textarea
+              ref="editingTextareaRef"
+              v-model="editingText"
+              class="mt-1 w-full resize-none rounded-btn bg-bg-elevated px-2 py-1.5 text-sm text-fg focus:outline-none"
+              :disabled="isSaving"
+              data-testid="logii-comment-edit-input"
+              @input="autosizeEditing"
+            />
+            <div class="mt-1 flex justify-end gap-2">
+              <button
+                type="button"
+                class="rounded-btn px-2 py-0.5 text-xs text-fg-muted transition hover:text-fg disabled:opacity-50"
+                :disabled="isSaving"
+                data-testid="logii-comment-cancel"
+                @click="cancelEdit"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                class="rounded-btn bg-accent px-2 py-0.5 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
+                :disabled="isSaving || !editingText.trim()"
+                data-testid="logii-comment-save"
+                @click="saveEdit(index)"
+              >
+                <Spinner v-if="isSaving" size="sm" />
+                <span v-else>Сохранить</span>
+              </button>
+            </div>
+          </template>
+
+          <p v-else class="whitespace-pre-line text-sm text-fg">{{ c.text }}</p>
         </div>
       </template>
 
-      <!-- Индикатор отправки (внизу ленты) -->
       <div
-        v-if="isSaving"
+        v-if="isSaving && editingIndex === null"
         class="flex items-center justify-center gap-2 rounded-btn bg-bg-elevated/50 px-3 py-2 text-xs text-fg-muted"
       >
         <Spinner size="sm" />
@@ -167,6 +287,7 @@ function formatCommentTime(time: string | null): string {
           placeholder="Написать комментарий… (Ctrl+Enter — отправить)"
           class="flex-1 resize-none rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
           :disabled="isSaving || isLoading"
+          data-testid="logii-comment-new-input"
           @input="onInput"
           @keydown="onKeydown"
         />
@@ -176,6 +297,7 @@ function formatCommentTime(time: string | null): string {
           variant="active"
           :label="isSaving ? 'Отправляем…' : 'Отправить'"
           :disabled="!canSend()"
+          data-testid="logii-comment-send"
           @click="send"
         />
       </div>

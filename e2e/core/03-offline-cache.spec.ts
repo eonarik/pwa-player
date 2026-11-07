@@ -36,7 +36,7 @@ test.describe('Core: Офлайн-восстановление', () => {
   test('восстанавливает локальную библиотеку при отказе API', async ({ page }) => {
     // 1. Подключаем локальную папку и сканируем
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicRow).toBeVisible();

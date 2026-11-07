@@ -50,7 +50,7 @@ test.describe('Core: Склейка треков из разных папок', 
     await waitForAppBootstrap(page);
 
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
   });
 
   test('один трек из двух разных папок склеивается в один Track с двумя sources', async ({ page }) => {
@@ -180,7 +180,8 @@ test.describe('Core: Склейка треков из разных папок', 
 
     // 1. yandex → Folder A → Track 1
     const yandexCard = page.locator('[data-plugin-id="yandex"]');
-    await yandexCard.getByRole('button', { name: 'Подключить' }).click();
+    await yandexCard.getByTestId('plugin-connect').click();
+
     await expect(page).toHaveURL(/\/folder\/yandex/);
 
     const folderA = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Folder A' });
@@ -204,11 +205,11 @@ test.describe('Core: Склейка треков из разных папок', 
 
     const selfCard = page.locator('[data-plugin-id="yandex-self"]');
     await expect(selfCard).toBeVisible();
-    const selfOpen = selfCard.getByRole('button', { name: 'Открыть' });
+    const selfOpen = selfCard.getByTestId('plugin-open');
     if (await selfOpen.isVisible()) {
       await selfOpen.click();
     } else {
-      await selfCard.getByRole('button', { name: 'Подключить' }).click();
+      await selfCard.getByTestId('plugin-connect').click();
     }
     await expect(page).toHaveURL(/\/folder\/yandex-self/);
 
@@ -353,7 +354,7 @@ test.describe('Core: Склейка треков из разных папок', 
 
     // 1. yandex → Folder A → Track 1 [extended suffix]
     const yandexCard = page.locator('[data-plugin-id="yandex"]');
-    await yandexCard.getByRole('button', { name: 'Подключить' }).click();
+    await yandexCard.getByTestId('plugin-connect').click();
     await expect(page).toHaveURL(/\/folder\/yandex/);
 
     const folderA = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Folder A' });
@@ -377,11 +378,11 @@ test.describe('Core: Склейка треков из разных папок', 
 
     const selfCard = page.locator('[data-plugin-id="yandex-self"]');
     await expect(selfCard).toBeVisible();
-    const selfOpen = selfCard.getByRole('button', { name: 'Открыть' });
+    const selfOpen = selfCard.getByTestId('plugin-open');
     if (await selfOpen.isVisible()) {
       await selfOpen.click();
     } else {
-      await selfCard.getByRole('button', { name: 'Подключить' }).click();
+      await selfCard.getByTestId('plugin-connect').click();
     }
     await expect(page).toHaveURL(/\/folder\/yandex-self/);
 
@@ -408,7 +409,7 @@ test.describe('Core: Склейка треков из разных папок', 
     await page.locator('[aria-label="Проблемные совпадения"]').click();
 
     // 5. Кликаем «Это он».
-    await page.getByText('Это он').first().click();
+    await page.getByTestId('candidate-apply').first().click();
 
     // 6. Один трек, 2 sources.
     await expect

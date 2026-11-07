@@ -174,10 +174,21 @@ async function onFileSelected(e: Event) {
         Введите прямую ссылку на RSS-ленту подкаста (обычно заканчивается на .xml или /feed).
       </p>
       <FormField label="URL RSS-ленты">
-        <Input v-model="feedUrl" type="url" placeholder="https://example.com/podcast/feed.xml" required />
+        <Input
+          v-model="feedUrl"
+          type="url"
+          placeholder="https://example.com/podcast/feed.xml"
+          required
+          data-testid="podcast-feed-url-input"
+        />
       </FormField>
       <div class="mt-2 flex justify-end">
-        <Button type="submit" variant="primary" :disabled="!feedUrl.trim() || isAddingUrl">
+        <Button
+          type="submit"
+          variant="primary"
+          :disabled="!feedUrl.trim() || isAddingUrl"
+          data-testid="podcast-add-submit"
+        >
           {{ isAddingUrl ? 'Загрузка…' : 'Добавить' }}
         </Button>
       </div>

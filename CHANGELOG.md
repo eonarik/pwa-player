@@ -3,6 +3,112 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.17.2] — 2026-11-10
+
+Создание и редактирование в Логиях: сезоны, авторы, топы, комментарии, загрузка/удаление треков. Серверный write API для `yandex-self`. Массовая замена хрупких e2e-локаторов на `data-testid`.
+
+### Added
+
+**UI Логий (создание/редактирование):**
+
+- **`CreateFolderModal.vue`:** универсальная модалка (создание/переименование). Пропсы `namePrefix`, `initialName`, `validateName`, `submitLabel`, `onSubmit`. Через `modalService.confirm/cancel`.
+- **`CreateTopsModal.vue`:** модалка «Новые топы» (кол-во папок 1..100, имя Intro, чекбокс «Создать Intro»).
+- **`useYandexSelfWrites.ts`:** composable `isWriting`, `createSeason`, `renameFolder`, `removeResource`.
+- **`LogiiChat.vue`:** редактирование/удаление комментариев (hover-кнопки, inline `<textarea>`, `isSubmitting` спиннер). Любой пользователь может редактировать/удалять.
+- **`LogiiAuthorsColumn.vue`:** кнопка «+ автор», hover-кнопки «Переименовать» / «Удалить».
+- **`LogiiFoldersColumn.vue`:** кнопка «+ топы» (batch 1..N + Intro), hover-кнопки «Переименовать» / «Удалить».
+- **`LogiiTrackTab.vue`:** кнопка «Загрузить треки» (`<input type="file" multiple>`), кнопка «Удалить с Диска» для каждого трека.
+- **`FolderHeader.vue`:** рендерит кнопки из `PluginExtension.folderActions` (ядро не знает о плагинах).
+
+**Серверный write API (`yandex-self`):**
+
+- **`POST /folder`** — создать папку.
+- **`DELETE /resource?path=...`** — удалить папку/файл (Яндекс рекурсивно удаляет).
+- **`POST /move`** — переименовать/переместить (`/resources/move` в REST API).
+- **`PUT /upload?path=...&name=...`** — загрузить файл (≤ 30 МБ, `express.raw`).
+- **`shared/yandexApi.js`:** `yandexCreateFolder`, `yandexDeleteResource`, `yandexMoveResource`, `yandexGetUploadUrl`.
+
+**Фронт-сервис:**
+
+- **`YandexSelfService`:** `createFolder`, `removeResource`, `moveResource`, `uploadFile` (30 МБ, проверка клиент + 413 от сервера).
+- **`LibraryWriter.removeTrackSource(id, sourceId)`:** точечное удаление `source` у трека (без force-скана).
+- **`LibraryWriter.renameFolderSubtree(oldUrlPath, newUrlPath)`:** обновляет `name` + `urlPath` у переименованной папки и потомков + `remotePath` cloud-sources. `trackId` / `folderId` / `parentId` не меняются.
+- **`PluginExtension.folderActions`:** новый контракт (`PluginFolderAction`, `FolderActionContext`, `FolderActionResult`). Ядро рендерит кнопки из `getExtensionFolderActions()` с `data-testid="folder-action-<id>"`.
+- **`yandexSelf/extension.ts`:** `folderActions: [{ id: 'create-season', ... }]`.
+
+**E2E:**
+
+- **`19-logii-comments.spec.ts`:** редактирование/удаление комментариев.
+- **`20-logii-create-season.spec.ts`:** создание сезона + переход внутрь + 409 (дубликат).
+- **`21-logii-authors.spec.ts`:** полный цикл автор (create → rename → delete).
+- **`22-logii-tops.spec.ts`:** batch create (20) + Intro + rename + delete.
+- **`23-logii-upload-track.spec.ts`:** загрузка / удаление трека / удаление топа.
+- **`logii-helpers.ts`:** stateful-мок (`diskTree` мутируется на `POST/DELETE/move/upload`, `GET /resources` возвращает актуальное состояние), `TINY_PNG` для картинок (мок `download`), `readLibraryFolders` / `readLibraryTracks`, `bootstrapLogii`.
+
+### Changed
+
+- **`cleanupForceScanInternal`:** при `nextSources = []` **не** удаляет трек (`removeTrack`), только `updateTrackSources`. Осиротевшие треки (`sources=[]`) чистит `cleanupOrphanTracks` на старте (если не в плейлистах/истории/дизлайках/очереди).
+- **`LogiiView.vue` → `watch` автовыбора папки:** различает «смена автора» (автовыбор нужен) и «refresh удалил папку» (не нужен). Проверка `prevAuthor !== author`.
+- **`LogiiTrackTab.onDeleteTrack`:** `removeResource` + `writer.removeTrackSource` (**без** force-скана). Быстро, точечно. Трек остаётся в `library` (если есть другие `sources`).
+- **`useYandexSelfWrites.removeResource`:** `scanFolder(recursive: true, force: true)` — чтобы `cleanupForceScanInternal` покрыл **всё поддерево** удалённой папки (автор / топ).
+- **`LogiiTrackTab.vue`:** `<input type="file">` **вынесен** из `v-if="tracks.length > 0"`. Значит, `setInputFiles` работает **и в пустой папке** (было: `<input>` не рендерился).
+- **`LogiiChat.vue`:** «свои» комментарии — **не** определяются по нику. Любой пользователь может редактировать/удалять (по требованию).
+- **`17-logii-play-author.spec.ts`:** клики через `getByTestId('author-play-<name>')` (strict mode violation: `<button>` + вложенный `<span role="button">` матчились).
+- **`15-logii-view.spec.ts` / `09-sync-architecture.spec.ts`:** `plugin-open` / `plugin-connect` / `folder-sync-trigger` / `folder-sync-cancel` вместо `getByRole('button', { name })` / `button[aria-label]`.
+
+### Fixed
+
+- **`renameFolderSubtree` не обновлял `folder.name`:** после переименования в `library.folders` `urlPath` менялся, но `name` оставался старым. UI показывал старое имя, тест `hasOld/hasNew` падал. Теперь `name` = последний сегмент `newUrlPath`.
+- **`removeResource` (удаление топа) не убирал `sources` у треков:** `refreshAfterWrite` с `recursive: false` покрывал только **прямых** детей, `trackScope` не включал внуков. Треки оставались с `cloud-source` в удалённой папке. Теперь `recursive: true`.
+- **`<input type="file">` не рендерился в пустой папке:** кнопка «Загрузить треки» и `<input>` были внутри `v-if="tracks.length > 0"`. Пользователь не мог загрузить первый трек в пустую папку.
+- **`data-testid="folder-sync-trigger"` `toHaveCount(0)` не работал:** `getByTestId` всегда находил 1 кнопку (она **всегда** в DOM, если `canRefresh`). Заменено на `data-syncing` (`true`/`false`) — семантическая проверка «синхронизация не идёт».
+- **`LogiiAuthorsColumn` / `LogiiFoldersColumn`:** `data-testid` на row-обёртке (`author-row-<name>`, `folder-row-<name>`), кнопках (`author-rename-<name>`, `author-delete-<name>`, `folder-rename-<name>`, `folder-delete-<name>`). Устраняет `strict mode violation` (`<button>` + вложенный `<span role="button">`).
+- **`e2e` мок `download` отдавал `audio/mpeg` для картинок:** `<img>` падал с `@error` (не декодировалось), `display: none`. Тест `16` падал на `toBeVisible`. Теперь мок отдаёт `image/png` (валидный `TINY_PNG`) для `.jpg/.jpeg/.png/.webp/.gif`.
+- **`e2e` мок `mockLogii` не был stateful:** после `createFolder` / `removeResource` `GET /resources` возвращал **старый** `diskTree`. Тест `create-season` / `create-author` падал (папки нет в UI). Теперь `diskTree` мутируется на `POST/DELETE/move/upload`.
+
+### Internal
+
+- **Сервер (`yandex-self`) разбит на модули:**
+  - `middleware/auth.js` (`requireAuth`), `middleware/access.js` (`isPathAllowed`, `resolveRequestPath`, `joinDiskPath`).
+  - `routes/auth.js`, `routes/resources.js`, `routes/download.js`, `routes/text.js`, `routes/write.js`.
+  - `index.js` — монтирует все роутеры.
+  - `routes/routes.spec.js` — полное покрытие (auth, folder, resource, move, upload, error cases).
+- **`data-testid` для всех интерактивных элементов** (полный список — см. `e2e/helpers/logii-helpers.ts`, комментарии в компонентах):
+  - `plugin-open`, `plugin-connect`, `plugin-disconnect`, `plugin-open-local`, `plugin-clear`.
+  - `folder-sync-trigger`, `folder-sync-cloud`, `folder-sync-cloud-shallow`, `folder-sync-device`, `folder-sync-cancel`.
+  - `track-actions-trigger`, `track-action-find-metadata`, `track-action-edit-metadata`, `track-action-remove-metadata`.
+  - `playlist-submenu-toggle`, `playlist-create-new`, `playlist-create-input`, `playlist-create-submit`, `playlist-share-trigger`, `playlist-delete-trigger`, `playlists-import`, `import-playlist-submit`.
+  - `modal-confirm`, `modal-cancel`.
+  - `radio-add-stations`, `radio-add-by-url`, `radio-add-url-input`, `radio-add-name-input`, `radio-add-submit`, `catalog-back`.
+  - `podcasts-title`, `podcasts-add-url`, `podcasts-open-catalog`, `podcasts-my-title`, `podcast-feed-url-input`, `podcast-add-submit`.
+  - `zvuk-search-input`.
+  - `track-metadata-title-input`, `track-metadata-save`, `album-select-input`.
+  - `candidate-apply`, `candidate-dismiss`.
+  - `create-folder-input`, `create-folder-submit`, `create-tops-count`, `create-tops-intro-name`, `create-tops-submit`.
+  - `author-add`, `author-row-<name>`, `author-play-<name>`, `author-rename-<name>`, `author-delete-<name>`.
+  - `tops-create`, `folder-row-<name>`, `logii-folder-<name>`, `folder-rename-<name>`, `folder-delete-<name>`, `logii-folder-intro`.
+  - `logii-tab-{track|chat|gallery}`, `logii-refresh`, `logii-go-to-parent`, `logii-panel-title`.
+  - `logii-upload-trigger`, `logii-upload-input`, `logii-delete-track-<id>`, `logii-play-all`.
+  - `logii-comment-<index>`, `logii-comment-edit-<index>`, `logii-comment-delete-<index>`, `logii-comment-edit-input`, `logii-comment-save`, `logii-comment-cancel`.
+  - `logii-nickname-input`, `logii-comment-new-input`, `logii-comment-send`.
+  - `logii-vibe-edit`, `logii-vibe-textarea`, `logii-vibe-save`, `logii-vibe-cancel`.
+  - `logii-gallery-image-<index>`, `logii-gallery-fullscreen`, `logii-gallery-close`, `logii-gallery-fullscreen-image`.
+  - `folder-action-<actionId>` (из `PluginExtension.folderActions`).
+- **`SearchInput.vue`:** prop `testId?: string` — прокидывается в `<input>` (для `zvuk-search-input`).
+- **`LogiiAuthorsColumn.vue`:** `openCreateModal` / `openRenameModal` / `onDeleteAuthor` — `data-testid` на кнопках.
+- **`LogiiFoldersColumn.vue`:** `openCreateTopsModal` / `openRenameModal` / `onDeleteFolder` — `data-testid` на кнопках.
+- **`LogiiTrackTab.vue`:** `<input type="file">` **вне** `v-if`, `data-testid` на все действия.
+- **`LogiiChat.vue`:** `data-testid` на комментарий, кнопки edit/delete, textarea, save, cancel.
+- **`LogiiPanelHeader.vue`:** `data-testid` на табы (`logii-tab-*`), refresh, go-to-parent, title.
+- **`LogiiGallery.vue`:** `data-testid` на превью и fullscreen.
+- **`CreateFolderModal.vue`:** `data-testid="create-folder-input"`, `create-folder-submit`.
+- **`CreateTopsModal.vue`:** `data-testid="create-tops-count"`, `create-tops-intro-name`, `create-tops-submit`.
+- **`ModalHost.vue`:** `data-testid="modal-confirm"`, `modal-cancel`.
+- **`LogiiView.vue`:** `watch` автовыбора папки — проверка `prevAuthor !== author`.
+- **`cleanupForceScanInternal`:** не удаляет трек при пустых `sources`.
+- **`06`, `07`, `09`, `12`, `15`, `23`** — замены `getByRole` / `getByText` / `getByPlaceholder` / `getByLabel` на `getByTestId` (по списку выше).
+- **`23-logii-upload-track.spec.ts`** — `getByRole('button', { name: 'Играть всё' })` → `getByTestId('logii-play-all')`.
+
 ## [0.17.1] — 2026-11-09
 
 Доработка Логий (yandex-self): рекурсивное обновление, воспроизведение по автору, навигация «К папкам», e2e-покрытие.

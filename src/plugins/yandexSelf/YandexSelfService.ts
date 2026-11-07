@@ -14,6 +14,8 @@ import { AuthError } from '@/services/api/errors';
 const API_URL = '/api/yandex-self';
 const DISCONNECTED_KEY = 'yandex-self-disconnected';
 
+const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
+
 export class YandexSelfService implements IYandexService, AuthProvider {
   readonly id = 'yandex-self';
   readonly healthUrl = `${API_URL}/auth/check`;
@@ -188,6 +190,103 @@ export class YandexSelfService implements IYandexService, AuthProvider {
 
     if (!res.ok) throw new Error('Failed to write');
     return res.json() as Promise<YandexWriteResponse>;
+  }
+
+  // --- Write API (0.17.2) ---------------------------------------------
+
+  /**
+   * Создаёт папку `name` внутри `parentPath`.
+   * 400 — нет name, 403 — доступ запрещён, 409 — уже существует.
+   * Возвращает { ok, path } (полный путь на Диске).
+   */
+  async createFolder(parentPath: string, name: string): Promise<{ ok: true; path: string }> {
+    const cleanParent = cleanDiskPath(parentPath);
+
+    const res = await apiClient.fetch(`${API_URL}/folder`, {
+      auth: this.id,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: cleanParent, name }),
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Не удалось создать папку');
+    }
+    return res.json() as Promise<{ ok: true; path: string }>;
+  }
+
+  /**
+   * Удаляет ресурс (файл или папку). Яндекс удаляет папки рекурсивно.
+   * 404 — не найден, 403 — доступ запрещён.
+   */
+  async removeResource(path: string): Promise<{ ok: true }> {
+    const clean = cleanDiskPath(path);
+    const params = new URLSearchParams({ path: clean });
+
+    const res = await apiClient.fetch(`${API_URL}/resource?${params.toString()}`, {
+      auth: this.id,
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Не удалось удалить');
+    }
+    return res.json() as Promise<{ ok: true }>;
+  }
+
+  /**
+   * Переименовывает/перемещает ресурс.
+   * 404 — не найден, 409 — цель уже существует, 403 — доступ запрещён.
+   */
+  async moveResource(fromPath: string, toPath: string): Promise<{ ok: true; fromPath: string; toPath: string }> {
+    const cleanFrom = cleanDiskPath(fromPath);
+    const cleanTo = cleanDiskPath(toPath);
+
+    const res = await apiClient.fetch(`${API_URL}/move`, {
+      auth: this.id,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromPath: cleanFrom, toPath: cleanTo }),
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Не удалось переименовать');
+    }
+    return res.json() as Promise<{ ok: true; fromPath: string; toPath: string }>;
+  }
+
+  /**
+   * Загружает файл в `parentPath` с именем `fileName`.
+   * Ограничение: 30 МБ (клиент + сервер).
+   * 413 — слишком большой (сервер), 403 — доступ запрещён.
+   */
+  async uploadFile(parentPath: string, fileName: string, file: File): Promise<{ ok: true; path: string }> {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error(`Файл «${fileName}» больше 30 МБ`);
+    }
+
+    const cleanParent = cleanDiskPath(parentPath);
+    const params = new URLSearchParams({ path: cleanParent, name: fileName });
+
+    const res = await apiClient.fetch(`${API_URL}/upload?${params.toString()}`, {
+      auth: this.id,
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'audio/mpeg' },
+      body: file,
+    });
+
+    if (res.status === 413) {
+      throw new Error(`Файл «${fileName}» больше 30 МБ`);
+    }
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Не удалось загрузить файл');
+    }
+    return res.json() as Promise<{ ok: true; path: string }>;
   }
 }
 

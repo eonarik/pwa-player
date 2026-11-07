@@ -1,6 +1,6 @@
 // src/stores/library/writer/tracks.ts
 import type { Track, TrackSource } from '@/types/track';
-import type { AlbumId, FolderId, TrackId } from '@/types/ids';
+import type { AlbumId, FolderId, TrackId, TrackSourceId } from '@/types/ids';
 import type { MetadataCandidate } from '@/types/metadata';
 import { librarySaveService } from '@/services/library/LibrarySaveService';
 import { pluginIdFromSource } from '@/plugins/registry';
@@ -85,6 +85,23 @@ export function updateTrackSources(s: LibraryStore, id: TrackId, sources: TrackS
   for (const pid of pluginIds) {
     librarySaveService.scheduleSave(pid);
   }
+}
+
+/**
+ * Удаляет конкретный source у трека (по source.id).
+ *
+ * Используется при удалении файла на Диске (без force-скана).
+ * Если sources станет пустым — трек остаётся в library (сирота),
+ * его почистит cleanupOrphanTracks на старте (если он нигде не используется).
+ */
+export function removeTrackSource(s: LibraryStore, id: TrackId, sourceId: TrackSourceId): void {
+  const track = s.tracks[id];
+  if (!track) return;
+
+  const nextSources = track.sources.filter((src) => src.id !== sourceId);
+  if (nextSources.length === track.sources.length) return;
+
+  updateTrackSources(s, id, nextSources);
 }
 
 export function updateTrackAlbumId(s: LibraryStore, id: TrackId, albumId: AlbumId | null): void {

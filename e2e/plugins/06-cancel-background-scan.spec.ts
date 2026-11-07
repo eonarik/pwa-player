@@ -52,7 +52,7 @@ test.describe('Yandex Disk: Отмена фонового сканировани
     await waitForAppBootstrap(page);
 
     const diskCard = page.locator('[data-plugin-id="yandex"]');
-    await diskCard.getByRole('button', { name: 'Подключить' }).click();
+    await diskCard.getByTestId('plugin-connect').click();
   });
 
   test('отменяет фоновый скан и переводит папки в статус ошибки', async ({ page }) => {
@@ -63,10 +63,10 @@ test.describe('Yandex Disk: Отмена фонового сканировани
     await expect(artistFolderRow.getByText('Синхронизация...')).toBeVisible();
 
     // 2. Открываем меню синхронизации (кнопка обновления)
-    await page.locator('button[aria-label="Синхронизация..."]').click();
+    await page.getByTestId('folder-sync-trigger').click();
 
     // 3. Нажимаем "Отменить синхронизацию"
-    await page.getByText('Отменить синхронизацию').click();
+    await page.getByTestId('folder-sync-cancel').click();
 
     // 4. Проверяем, что статус сменился на "Ошибка синхронизации"
     await expect(artistFolderRow.getByText('Ошибка синхронизации')).toBeVisible();

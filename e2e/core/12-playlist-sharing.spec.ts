@@ -34,7 +34,7 @@ test.describe('Playlist Sharing (CUEI1)', () => {
 
     // Подключаем локальную папку и добавляем трек
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -47,11 +47,11 @@ test.describe('Playlist Sharing (CUEI1)', () => {
     await albumFolder.click();
 
     const trackRow = page.locator('[data-testid^="track-row-"]').first();
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Добавить в плейлист').click();
-    await page.getByText('+ Создать новый').click();
-    await page.getByPlaceholder('Название плейлиста').fill('Test Share');
-    await page.getByRole('button', { name: 'Создать' }).click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('playlist-submenu-toggle').click();
+    await page.getByTestId('playlist-create-new').click();
+    await page.getByTestId('playlist-create-input').fill('Test Share');
+    await page.getByTestId('playlist-create-submit').click();
 
     // Ждем сохранения в IDB
     await expect
@@ -86,7 +86,7 @@ test.describe('Playlist Sharing (CUEI1)', () => {
 
     // 5. Импортируем обратно
     await page.goto('/playlists');
-    await page.getByRole('button', { name: 'Импортировать' }).click();
+    await page.getByTestId('playlists-import').click();
 
     // Жмем "Вставить из буфера"
     await page.getByText('Вставить из буфера').click();
@@ -95,8 +95,7 @@ test.describe('Playlist Sharing (CUEI1)', () => {
     await expect(page.getByText(/Распознан/)).toBeVisible();
 
     // Импортируем (ищем кнопку именно в модалке, так как в шапке тоже есть "Импортировать")
-    const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Импорт плейлиста' });
-    await modal.getByRole('button', { name: 'Импортировать', exact: true }).click();
+    await page.getByTestId('import-playlist-submit').click();
 
     // Проверяем, что плейлист создался
     await expect(page).toHaveURL(/\/playlists\/[^/]+/);

@@ -79,22 +79,22 @@ test.describe('Plugin Yandex: Локальный режим', () => {
 
     // 2. Подключаем yandex
     const card = page.locator('[data-plugin-id="yandex"]');
-    await card.getByRole('button', { name: 'Подключить' }).click();
+    await card.getByTestId('plugin-connect').click();
     await expect(page).toHaveURL(/\/folder\/yandex/);
 
     // 3. Отключаем yandex
     await page.goto('/');
-    await card.getByRole('button', { name: 'Отключить' }).click();
+    await card.getByTestId('plugin-disconnect').click();
 
     // Ждём, пока кнопка "Подключить" снова появится
-    await expect(card.getByRole('button', { name: 'Подключить' })).toBeVisible();
+    await expect(card.getByTestId('plugin-connect')).toBeVisible();
   });
 
   test('появляется кнопка "Открыть локально" и работает навигация', async ({ page }) => {
     const card = page.locator('[data-plugin-id="yandex"]');
 
     // Ждём, пока кнопка "Открыть локально" появится (так как yandex отключен, но hasLocalFiles = true)
-    const openLocalBtn = card.getByRole('button', { name: 'Открыть локально' });
+    const openLocalBtn = card.getByTestId('plugin-open-local');
     await expect(openLocalBtn).toBeVisible({ timeout: 10000 });
 
     // Кликаем

@@ -25,6 +25,8 @@ const props = defineProps<{
   onPlayAll: () => void;
   onUpdateVibe: (text: string) => Promise<boolean>;
   onSendComment: (text: string) => Promise<void>;
+  onUpdateComment: (index: number, text: string) => Promise<boolean>;
+  onDeleteComment: (index: number) => Promise<boolean>;
 }>();
 
 const activeTab = ref<LogiiTab>('track');
@@ -87,6 +89,8 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
             :is-saving="isSaving"
             :is-loading="isLoading"
             :track-url-path="folder?.urlPath ?? ''"
+            :on-update-comment="onUpdateComment"
+            :on-delete-comment="onDeleteComment"
             @send="onSendComment"
           />
 

@@ -64,7 +64,7 @@ test.describe('Metadata: обновление обложки существую�
 
     // Подключаем локальную папку
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicRow).toBeVisible();
@@ -76,13 +76,12 @@ test.describe('Metadata: обновление обложки существую�
     await expect(trackRow).toBeVisible();
 
     // 1. Сначала создаём альбом "Свиридов" БЕЗ обложки (симулируем импорт плейлиста или ручное редактирование)
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Редактировать вручную').click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('track-action-edit-metadata').click();
 
     // Вводим название альбома вручную, обложку не ставим
-    const albumInput = page.locator('input[placeholder="Укажите альбом вручную или выберите из списка"]');
-    await albumInput.fill('Свиридов');
-    await page.getByRole('button', { name: 'Сохранить' }).click();
+    await page.getByTestId('album-select-input').fill('Свиридов');
+    await page.getByTestId('track-metadata-save').click();
 
     // Ждём, пока трек привяжется к новому альбому без обложки
     await expect

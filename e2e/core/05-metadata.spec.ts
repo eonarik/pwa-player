@@ -50,7 +50,7 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
     await initOPFS(page);
 
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -68,10 +68,10 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
     await expect(page.getByTestId('now-playing-title').first()).toHaveText('Track 1');
 
     // Ручной поиск
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Найти в интернете').first().click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('track-action-find-metadata').click();
 
-    const confirmButton = page.getByRole('button', { name: 'Продолжить' });
+    const confirmButton = page.getByTestId('modal-confirm');
     if (await confirmButton.isVisible()) {
       await confirmButton.click();
     }
@@ -107,11 +107,11 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
     await trackRow.click();
 
     // 1. ЯВНО ЗАПУСКАЕМ РУЧНОЙ ПОИСК (так как автопоиск выключен)
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Найти в интернете').click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('track-action-find-metadata').click();
 
     // Подтверждаем перезапись, если выскочит модалка (хотя hasId3Tags=false, модалки не будет)
-    const confirmButton = page.getByRole('button', { name: 'Продолжить' });
+    const confirmButton = page.getByTestId('modal-confirm');
     if (await confirmButton.isVisible()) {
       await confirmButton.click();
     }
@@ -136,9 +136,9 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
       .not.toBeNull();
 
     // 2. РУЧНАЯ ОЧИСТКА
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    page.once('dialog', (dialog) => dialog.accept()); // Подтверждаем window.confirm
-    await page.getByText('Удалить метаданные').click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByTestId('track-action-remove-metadata').click();
 
     // 3. ПРОВЕРКА: Трек вернулся к Track 1
     await expect(page.locator('[data-testid="track-row-title"]').first()).toHaveText('Track 1', { timeout: 10000 });
@@ -237,9 +237,9 @@ test.describe('Core: Метаданные (Все сценарии)', () => {
     });
 
     // Сбрасываем
-    await trackRow.locator('button[aria-label="Действия"]').click();
+    await trackRow.getByTestId('track-actions-trigger').click();
     page.once('dialog', (dialog) => dialog.accept());
-    await page.getByText('Удалить метаданные').click();
+    await page.getByTestId('track-action-remove-metadata').click();
     await expect(page.locator('[data-testid="track-row-title"]').first()).toHaveText('Track 1', { timeout: 10000 });
 
     // Перезапускаем (кликаем снова)

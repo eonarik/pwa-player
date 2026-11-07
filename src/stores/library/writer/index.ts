@@ -10,6 +10,7 @@ import { mergeMany, applyMany, saveCachesForPlugins, sourceKey } from '@/service
 import {
   addTracks,
   removeTrack,
+  removeTrackSource,
   updateTrackSources,
   updateTrackAlbumId,
   updateTrackMetadataCandidates,
@@ -22,17 +23,19 @@ import {
   removeFoldersBySource,
   setFolderScanState,
   updateFolderScanProgress,
+  renameFolderSubtree as renameFolderSubtreeImpl,
 } from './folders';
 import { matchesSource } from './helpers';
 import { useUiSettingsStore } from '@/stores/uiSettings';
 import { telemetry } from '@/services/telemetry';
+import { librarySaveService } from '@/services/library/LibrarySaveService';
 
 function cleanupForceScanInternal(
   s: ReturnType<typeof useLibraryStore>,
   snapshot: PluginSnapshot,
   scope: CleanupScope,
 ): void {
-  // --- 1. Удаляем отсутствующие треки в trackScope ---
+  // --- 1. Убираем отсутствующие cloud-sources в trackScope ---
   const snapshotRemotePaths = new Set<string>();
   for (const t of snapshot.tracks) {
     if (t.source.kind === 'cloud') {
@@ -40,7 +43,6 @@ function cleanupForceScanInternal(
     }
   }
 
-  const tracksToRemove: TrackId[] = [];
   for (const track of Object.values(s.tracks)) {
     let changed = false;
     const nextSources = track.sources.filter((src) => {
@@ -52,16 +54,11 @@ function cleanupForceScanInternal(
     });
 
     if (changed) {
-      if (nextSources.length === 0) {
-        tracksToRemove.push(track.id);
-      } else {
-        updateTrackSources(s, track.id, nextSources);
-      }
+      // ВАЖНО: не удаляем трек, даже если nextSources = [].
+      // Трек может быть в другом источнике / плейлисте / истории / дизлайках.
+      // Осиротевшие треки (sources=[]) почистит cleanupOrphanTracks.
+      updateTrackSources(s, track.id, nextSources);
     }
-  }
-
-  for (const id of tracksToRemove) {
-    removeTrack(s, id);
   }
 
   // --- 2. Удаляем отсутствующие папки в folderScope ---
@@ -121,6 +118,9 @@ export function createLibraryWriter(): LibraryWriter {
     },
     async updateTrackSources(id, sources) {
       updateTrackSources(store(), id, sources);
+    },
+    async removeTrackSource(id, sourceId) {
+      removeTrackSource(store(), id, sourceId);
     },
     async updateTrackAlbumId(id, albumId) {
       updateTrackAlbumId(store(), id, albumId);
@@ -200,6 +200,25 @@ export function createLibraryWriter(): LibraryWriter {
       store().cleanupOrphanAlbums();
     },
 
+    async renameFolderSubtree(oldUrlPath: string, newUrlPath: string) {
+      const s = store();
+      const { updatedTrackIds } = renameFolderSubtreeImpl(s, oldUrlPath, newUrlPath);
+
+      if (updatedTrackIds.size > 0) {
+        const pluginIds = new Set<string>();
+        for (const trackId of updatedTrackIds) {
+          const track = s.tracks[trackId];
+          if (!track) continue;
+          for (const src of track.sources) {
+            pluginIds.add(src.pluginId);
+          }
+        }
+        for (const pid of pluginIds) {
+          librarySaveService.scheduleSave(pid);
+        }
+      }
+    },
+
     async setFolderScanState(id, state, opts) {
       setFolderScanState(store(), id, state, opts);
     },
@@ -236,11 +255,7 @@ function applySetLibrary(
     for (const track of Object.values(s.tracks)) {
       const nextSources = track.sources.filter((src) => !toRemove.has(src.id));
       if (nextSources.length === track.sources.length) continue;
-      if (nextSources.length === 0) {
-        removeTrack(s, track.id);
-      } else {
-        updateTrackSources(s, track.id, nextSources);
-      }
+      updateTrackSources(s, track.id, nextSources);
     }
   }
 
@@ -276,7 +291,6 @@ function applySetLibrary(
 
   const pluginIds = applyMany(mergeResult, { writer });
 
-  // Синхронный cleanup — в той же мутации, чтобы Vue не рендерил промежуточное состояние.
   if (cleanup) {
     cleanupForceScanInternal(s, snapshot, cleanup);
   }

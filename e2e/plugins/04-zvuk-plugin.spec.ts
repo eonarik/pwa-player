@@ -28,14 +28,12 @@ test.describe('Zvuk Plugin', () => {
 
   test('поиск трека в СберЗвуке', async ({ page }) => {
     const zvukCard = page.locator('[data-plugin-id="zvuk"]');
-    await zvukCard.getByRole('button', { name: 'Открыть' }).click();
-
-    await expect(page.getByPlaceholder('Что ищем?')).toBeVisible();
+    await zvukCard.getByTestId('plugin-open').click();
+    await expect(page.getByTestId('zvuk-search-input')).toBeVisible();
 
     // Ждем ответа от API Звука
     const responsePromise = page.waitForResponse((response) => response.url().includes('/api/zvuk/search'));
-
-    await page.getByPlaceholder('Что ищем?').fill('muse');
+    await page.getByTestId('zvuk-search-input').fill('muse');
     await responsePromise;
 
     // Ждем появления результатов

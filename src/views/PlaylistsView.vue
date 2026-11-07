@@ -68,7 +68,13 @@ function onImported(payload: { playlistId: string; stats: unknown }) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <PageHeader title="Плейлисты">
-      <Button v-if="!isCreating" variant="secondary" size="sm" @click="isImportModalOpen = true">
+      <Button
+        v-if="!isCreating"
+        variant="secondary"
+        size="sm"
+        data-testid="playlists-import"
+        @click="isImportModalOpen = true"
+      >
         Импортировать
       </Button>
       <Button v-if="!isCreating" variant="primary" size="sm" @click="startCreate">Создать плейлист</Button>

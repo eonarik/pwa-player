@@ -115,7 +115,13 @@ function isCurrent(track: ZvukTrack): boolean {
 
     <div class="shrink-0 px-4 py-2">
       <div class="mx-auto w-full max-w-3xl flex flex-col gap-3">
-        <SearchInput :model-value="query" always-open placeholder="Что ищем?" @update:model-value="onSearchInput" />
+        <SearchInput
+          :model-value="query"
+          always-open
+          placeholder="Что ищем?"
+          test-id="zvuk-search-input"
+          @update:model-value="onSearchInput"
+        />
 
         <div class="flex items-center gap-4 text-sm">
           <label class="flex items-center gap-2 cursor-pointer text-fg">

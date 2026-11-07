@@ -64,7 +64,7 @@ test.describe('Core: Отключение локального плагина', 
 
   test('трек остается в плейлисте как недоступный, а очередь очищается при отключении', async ({ page }) => {
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -88,11 +88,11 @@ test.describe('Core: Отключение локального плагина', 
       .toBeGreaterThan(0);
 
     // Добавляем в плейлист
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Добавить в плейлист').click();
-    await page.getByText('+ Создать новый').click();
-    await page.getByPlaceholder('Название плейлиста').fill('Test Disconnect');
-    await page.getByRole('button', { name: 'Создать' }).click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('playlist-submenu-toggle').click();
+    await page.getByTestId('playlist-create-new').click();
+    await page.getByTestId('playlist-create-input').fill('Test Disconnect');
+    await page.getByTestId('playlist-create-submit').click();
 
     await expect
       .poll(async () => {
@@ -103,7 +103,7 @@ test.describe('Core: Отключение локального плагина', 
 
     // Отключаем local
     await page.goto('/');
-    await localCard.getByRole('button', { name: 'Отключить' }).click();
+    await localCard.getByTestId('plugin-disconnect').click();
 
     // Очередь очищена
     await expect
@@ -136,7 +136,7 @@ test.describe('Core: Отключение локального плагина', 
 
   test('плеер останавливается при отключении текущего трека', async ({ page }) => {
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -159,7 +159,7 @@ test.describe('Core: Отключение локального плагина', 
 
     // Отключаем local
     await page.goto('/');
-    await localCard.getByRole('button', { name: 'Отключить' }).click();
+    await localCard.getByTestId('plugin-disconnect').click();
 
     // A. Store: плеер остановлен (queue пуст, currentIndex = -1)
     await expect
@@ -185,7 +185,7 @@ test.describe('Core: Отключение локального плагина', 
 
   test('мертвый трек удаляется, если он не в плейлистах', async ({ page }) => {
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -210,7 +210,7 @@ test.describe('Core: Отключение локального плагина', 
     // Возвращаемся на главную и отключаем локальный плагин
     await page.goto('/');
     await expect(localCard).toBeVisible();
-    await localCard.getByRole('button', { name: 'Отключить' }).click();
+    await localCard.getByTestId('plugin-disconnect').click();
 
     // Ждем, пока player:state обновится (очистится)
     await expect

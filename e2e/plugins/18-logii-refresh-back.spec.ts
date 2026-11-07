@@ -1,7 +1,14 @@
 // e2e/plugins/18-logii-refresh-back.spec.ts
 
 import { test, expect } from '@playwright/test';
-import { mockLogii, bootstrapLogii, openLogiiSeason, openAuthor, openFolder, type DiskItem } from '../helpers/logii-helpers';
+import {
+  mockLogii,
+  bootstrapLogii,
+  openLogiiSeason,
+  openAuthor,
+  openFolder,
+  type DiskItem,
+} from '../helpers/logii-helpers';
 
 const SEASON = 'logii.2024-11-08';
 
@@ -32,7 +39,7 @@ test.describe('Logii: "К папкам"', () => {
     await openLogiiSeason(page, '2024-11-08');
     await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/${SEASON.replace('.', '\\.')}$`));
 
-    await page.getByRole('button', { name: 'К папкам' }).click();
+    await page.getByTestId('logii-go-to-parent').click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/?$/);
   });
 
@@ -45,7 +52,7 @@ test.describe('Logii: "К папкам"', () => {
     await openLogiiSeason(page, '2024-11-08');
     await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/Music/${SEASON.replace('.', '\\.')}$`));
 
-    await page.getByRole('button', { name: 'К папкам' }).click();
+    await page.getByTestId('logii-go-to-parent').click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/Music$/);
   });
 });
@@ -71,7 +78,7 @@ test.describe('Logii: refresh (обновление состава папок)',
     await mockLogii(page, { diskTree: mutated });
 
     // Жмём refresh. Текущая папка "1" исчезла → должны уйти на userA
-    await page.getByRole('button', { name: 'Обновить с облака' }).click();
+    await page.getByTestId('logii-refresh').click();
 
     await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/${SEASON.replace('.', '\\.')}/userA$`));
     await expect(page.getByTestId('logii-folder-2')).toBeVisible();
@@ -89,13 +96,11 @@ test.describe('Logii: редактирование vibe', () => {
     await openFolder(page, '1');
 
     // Кнопка "Редактировать" (если vibe пустой — "Написать"; в моке vibe не пустой)
-    await page.getByRole('button', { name: 'Редактировать' }).click();
+    await page.getByTestId('logii-vibe-edit').click();
 
-    const textarea = page.locator('textarea').first();
-    await textarea.fill('Новый текст вайба');
-    await page.getByRole('button', { name: 'Сохранить' }).click();
+    await page.getByTestId('logii-vibe-textarea').fill('Новый текст вайба');
+    await page.getByTestId('logii-vibe-save').click();
 
-    // Проверяем, что текст обновился в DOM
     await expect(page.getByText('Новый текст вайба')).toBeVisible();
   });
 });

@@ -42,11 +42,12 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
       size="sm"
       label="К папкам"
       :disabled="!canGoToParent"
+      data-testid="logii-go-to-parent"
       @click="emit('go-to-parent')"
     />
 
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-medium text-fg">
+      <p class="truncate text-sm font-medium text-fg" data-testid="logii-panel-title">
         <template v-if="authorName && folderName">
           <span class="text-fg-muted">{{ authorName }}</span>
           <span class="text-fg-subtle"> / </span>
@@ -70,6 +71,7 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
       size="sm"
       :label="isRefreshing ? 'Обновляем…' : 'Обновить с облака'"
       :icon-class="isRefreshing ? 'animate-spin' : ''"
+      data-testid="logii-refresh"
       @click="emit('refresh')"
     />
 
@@ -81,6 +83,7 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
         class="rounded-btn px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5"
         :class="activeTab === tab.id ? 'bg-card-bg text-fg' : 'text-fg-muted hover:text-fg'"
         :aria-label="tab.label"
+        :data-testid="`logii-tab-${tab.id}`"
         @click="emit('update:activeTab', tab.id)"
       >
         <span>{{ tab.label }}</span>

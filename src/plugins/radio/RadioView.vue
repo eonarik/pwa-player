@@ -125,7 +125,7 @@ onMounted(() => {
       <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-10">
         <div class="mx-auto flex w-full max-w-3xl items-center justify-between">
           <h1 class="text-lg font-medium text-fg">Радиостанции</h1>
-          <Button variant="primary" size="sm" @click="openCatalog">
+          <Button variant="primary" size="sm" data-testid="radio-add-stations" @click="openCatalog">
             <Icon name="plus" w="w-4" h="h-4" />
             Добавить станции
           </Button>

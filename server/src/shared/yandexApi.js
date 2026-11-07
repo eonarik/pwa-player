@@ -162,3 +162,52 @@ export async function yandexUploadText(accessToken, path, content) {
 
   return true;
 }
+
+/**
+ * Создаёт папку на Диске.
+ * PUT /resources?path=... → 201 Created
+ * Если папка уже есть — Яндекс вернёт 409 (YandexApiError).
+ */
+export async function yandexCreateFolder(accessToken, path) {
+  return yandexFetch(accessToken, '/resources', { path }, { method: 'PUT' });
+}
+
+/**
+ * Удаляет ресурс (файл или папку). Яндекс удаляет папки рекурсивно.
+ * permanently=false — в корзину (безопаснее).
+ * force_async=false — синхронно (ждём завершения для непустых папок).
+ */
+export async function yandexDeleteResource(accessToken, path) {
+  return yandexFetch(
+    accessToken,
+    '/resources',
+    { path, permanently: 'false', force_async: 'false' },
+    { method: 'DELETE' },
+  );
+}
+
+/**
+ * Перемещает/переименовывает ресурс.
+ * POST /resources/move с from/path.
+ * Для непустых папок — 202 (синхронно с force_async=false).
+ */
+export async function yandexMoveResource(accessToken, fromPath, toPath) {
+  return yandexFetch(
+    accessToken,
+    '/resources/move',
+    { from: fromPath, path: toPath, overwrite: 'false', force_async: 'false' },
+    { method: 'POST' },
+  );
+}
+
+/**
+ * Получает upload-URL для загрузки файла.
+ * Возвращает { href, method, templated }.
+ */
+export async function yandexGetUploadUrl(accessToken, path) {
+  const response = await yandexFetch(accessToken, '/resources/upload', {
+    path,
+    overwrite: 'true',
+  });
+  return response.json();
+}

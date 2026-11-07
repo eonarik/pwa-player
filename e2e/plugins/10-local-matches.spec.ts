@@ -99,7 +99,7 @@ test.describe('G. Локальные совпадения', () => {
 
     // 2. Подключаем Яндекс.Диск
     const card = page.locator('[data-plugin-id="yandex"]');
-    await card.getByRole('button', { name: 'Подключить' }).click();
+    await card.getByTestId('plugin-connect').click();
     await expect(page).toHaveURL(/\/folder\/yandex/);
 
     // 3. Ждём, пока Folder1 отсканируется и в ней появятся 2 трека

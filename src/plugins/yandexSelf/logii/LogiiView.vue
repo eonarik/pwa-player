@@ -15,6 +15,7 @@ import LogiiAuthorsColumn from './LogiiAuthorsColumn.vue';
 import LogiiFoldersColumn from './LogiiFoldersColumn.vue';
 import LogiiPanel from './LogiiPanel.vue';
 import Spinner from '@/components/ui/Spinner.vue';
+import type { FolderRef } from '@/types/folder.ts';
 
 const props = defineProps<{
   urlPath: string;
@@ -83,6 +84,8 @@ const {
   error: trackError,
   reload: reloadTrack,
   appendComment,
+  updateComment,
+  deleteComment,
   updateVibe,
 } = useLogiiTrack(currentFolderUrlPath, currentLogiiFileName);
 
@@ -217,18 +220,21 @@ async function onRefresh(): Promise<void> {
 watch(
   () => [authors.value.length, authorName.value, folderName.value] as const,
   ([count, author, folder], prev) => {
-    // 1. Первый заход в сезон (author === null, авторы есть) — выбрать первого.
+    // 1. Первый заход в сезон — выбрать первого автора.
     if (!author && count > 0) {
       goToAuthor(authors.value[0]!);
       return;
     }
-    // 2. Мы на авторе, папка не выбрана — автовыбор первой папки,
-    //    НО только если раньше тоже не было папки (первый заход на автора).
-    //    Если папка была (prevFolder !== null) и стала null — это refresh удалил
-    //    текущую папку, не автовыбираем.
+
+    // 2. Автовыбор папки:
+    //    - если сменился автор (клик на другого) — выбираем первую папку;
+    //    - если автор тот же, а папка стала null (refresh удалил папку) — не выбираем.
     if (author && !folder) {
+      const prevAuthor = prev?.[1] ?? null;
       const prevFolder = prev?.[2] ?? null;
-      if (prevFolder !== null) return;
+
+      if (prevAuthor === author && prevFolder !== null) return;
+
       if (authorFolders.value.length === 0) return;
       if (hasAuthorIntro.value) return;
       goToFolder(authorFolders.value[0]!);
@@ -263,6 +269,14 @@ onMounted(() => {
     }
   }
 });
+
+const currentAuthorFolder = computed<FolderRef | null>(() => {
+  if (!currentAuthor.value) return null;
+  for (const f of Object.values(library.folders)) {
+    if (f.pluginId === 'yandex-self' && f.urlPath === currentAuthor.value.urlPath) return f;
+  }
+  return null;
+});
 </script>
 
 <template>
@@ -278,6 +292,7 @@ onMounted(() => {
         :is-loading="false"
         :is-collapsed="isAuthorsCollapsed"
         :all-tracks-by-author="allTracksByAuthor"
+        :season-folder="seasonFolder"
         @select="goToAuthor"
         @toggle-collapsed="isAuthorsCollapsed = !isAuthorsCollapsed"
         @play-author="playAuthor"
@@ -289,6 +304,8 @@ onMounted(() => {
         :current-author-name="authorName"
         :has-author-intro="hasAuthorIntro"
         :author-intro-file-name="authorIntroFileName"
+        :author-folder="currentAuthorFolder"
+        :season-folder="seasonFolder"
         @select="goToFolder"
         @select-intro="goToIntro"
       />
@@ -309,6 +326,8 @@ onMounted(() => {
         :on-play-all="playAllAudio"
         :on-update-vibe="updateVibe"
         :on-send-comment="onSendComment"
+        :on-update-comment="updateComment"
+        :on-delete-comment="deleteComment"
       />
     </template>
   </div>

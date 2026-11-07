@@ -88,12 +88,13 @@ function onKeydown(e: KeyboardEvent) {
           <Button
             v-if="options.cancelLabel !== undefined || options.type !== 'confirm'"
             variant="ghost"
+            data-testid="modal-cancel"
             @click="onCancel"
           >
             {{ options.cancelLabel ?? 'Отмена' }}
           </Button>
 
-          <Button type="submit" variant="primary">
+          <Button type="submit" variant="primary" data-testid="modal-confirm">
             {{ options.confirmLabel ?? 'OK' }}
           </Button>
         </div>

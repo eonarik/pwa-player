@@ -110,6 +110,7 @@ function onDismiss(trackId: TrackId, candidateId: string) {
               <button
                 type="button"
                 class="rounded-btn px-2 py-1 text-[10px] font-medium text-active transition hover:bg-active/10"
+                data-testid="candidate-apply"
                 @click="onApply(track.id, candidate.id)"
               >
                 Это он
@@ -117,6 +118,7 @@ function onDismiss(trackId: TrackId, candidateId: string) {
               <button
                 type="button"
                 class="rounded-btn px-2 py-1 text-[10px] text-fg-muted transition hover:bg-red-500/10 hover:text-red-400"
+                data-testid="candidate-dismiss"
                 @click="onDismiss(track.id, candidate.id)"
               >
                 Не он

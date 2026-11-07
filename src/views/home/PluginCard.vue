@@ -71,6 +71,7 @@ const statusText = computed(() => {
           type="button"
           class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isChecking || isOpening"
+          data-testid="plugin-open"
           @click="emit('open')"
         >
           Открыть
@@ -80,6 +81,7 @@ const statusText = computed(() => {
           type="button"
           class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isChecking"
+          data-testid="plugin-clear"
           @click="emit('disconnect')"
         >
           Очистить
@@ -91,6 +93,7 @@ const statusText = computed(() => {
           type="button"
           class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isChecking || isOpening"
+          data-testid="plugin-open"
           @click="emit('open')"
         >
           Открыть
@@ -99,6 +102,7 @@ const statusText = computed(() => {
           type="button"
           class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isBusy || isChecking"
+          data-testid="plugin-disconnect"
           @click="emit('disconnect')"
         >
           Отключить
@@ -110,6 +114,7 @@ const statusText = computed(() => {
           type="button"
           class="rounded-btn bg-card-bg px-3 py-2 text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isChecking || isOpening"
+          data-testid="plugin-open-local"
           @click="emit('open-local')"
         >
           Открыть локально
@@ -118,6 +123,7 @@ const statusText = computed(() => {
           type="button"
           class="rounded-btn bg-accent px-4 py-2 text-sm font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isBusy || isChecking"
+          data-testid="plugin-connect"
           @click="emit('connect')"
         >
           {{ isBusy ? 'Подключение…' : 'Подключить' }}
@@ -129,6 +135,7 @@ const statusText = computed(() => {
         type="button"
         class="rounded-btn bg-card-bg px-4 py-2 text-sm text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="!plugin.available || isBusy || isChecking"
+        data-testid="plugin-connect"
         @click="emit('connect')"
       >
         {{ isBusy ? 'Подключение…' : 'Подключить' }}

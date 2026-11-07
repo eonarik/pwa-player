@@ -24,6 +24,13 @@ const emit = defineEmits<{
   <div class="flex items-center gap-2">
     <BatchDownloadButton :tracks="resolvedTracks" />
     <PlaylistShareMenu :playlist="playlist" />
-    <IconButton v-if="!isFavorites" icon="trash" variant="danger" label="Удалить плейлист" @click="emit('delete')" />
+    <IconButton
+      v-if="!isFavorites"
+      icon="trash"
+      variant="danger"
+      label="Удалить плейлист"
+      data-testid="playlist-delete-trigger"
+      @click="emit('delete')"
+    />
   </div>
 </template>

@@ -34,7 +34,7 @@ test.describe('Orphan cleanup + reconcileFolderTrackIds', () => {
     await initOPFS(page);
 
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -129,7 +129,7 @@ test.describe('Orphan cleanup + reconcileFolderTrackIds', () => {
     // Отключаем local
     await page.goto('/');
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Отключить' }).click();
+    await localCard.getByTestId('plugin-disconnect').click();
 
     // После disconnect: removeBySource → sources = [], затем reconcileFolderTrackIds
     // → folder.trackIds очищаются (у треков нет source с folderId).

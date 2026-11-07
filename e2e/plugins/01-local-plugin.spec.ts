@@ -39,7 +39,7 @@ test.describe('Local Plugin', () => {
 
   test('подключение папки, сканирование и проверка архитектуры', async ({ page }) => {
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     // Ждем появления папки Music
     const musicRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });

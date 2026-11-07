@@ -40,7 +40,7 @@ test.describe('Albums CRUD', () => {
     await initOPFS(page);
 
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });
     await expect(musicFolder).toBeVisible();
@@ -57,14 +57,12 @@ test.describe('Albums CRUD', () => {
     const trackRow = page.locator('[data-testid^="track-row-"]').first();
     await expect(trackRow).toBeVisible();
 
-    await trackRow.locator('button[aria-label="Действия"]').click();
-    await page.getByText('Редактировать вручную').click();
+    await trackRow.getByTestId('track-actions-trigger').click();
+    await page.getByTestId('track-action-edit-metadata').click();
 
     // Вводим имя альбома напрямую в input (новый альбом)
-    const albumInput = page.locator('input[placeholder="Укажите альбом вручную или выберите из списка"]');
-    await albumInput.fill('New Test Album');
-
-    await page.getByRole('button', { name: 'Сохранить' }).click();
+    await page.getByTestId('album-select-input').fill('New Test Album');
+    await page.getByTestId('track-metadata-save').click();
 
     // Ждём, что альбом создан в IDB
     await expect

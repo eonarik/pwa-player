@@ -45,7 +45,7 @@ test.describe('Core: Суммаризация тостов', () => {
   test('одинаковые ошибки суммируются в один тост со счетчиком', async ({ page }) => {
     // 1. Подключаем локальную папку
     const localCard = page.locator('[data-plugin-id="local"]');
-    await localCard.getByRole('button', { name: 'Подключить' }).click();
+    await localCard.getByTestId('plugin-connect').click();
 
     // 2. Заходим в папку с треками
     const musicFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Music' });

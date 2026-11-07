@@ -77,7 +77,7 @@ test.describe('Yandex Disk: Прогрессивный рендеринг', () =
     await waitForAppBootstrap(page);
 
     const diskCard = page.locator('[data-plugin-id="yandex"]');
-    await diskCard.getByRole('button', { name: 'Подключить' }).click();
+    await diskCard.getByTestId('plugin-connect').click();
   });
 
   test('показывает папки внутри Music сразу после их получения, не дожидаясь конца скана', async ({ page }) => {

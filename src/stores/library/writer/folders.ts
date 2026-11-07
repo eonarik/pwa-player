@@ -1,6 +1,6 @@
 // src/stores/library/writer/folders.ts
 
-import type { FolderId } from '@/types/ids';
+import type { FolderId, TrackId } from '@/types/ids';
 import type { PluginFolderPayload } from '@/types/plugin';
 import type { FolderScanState } from '@/types/folder';
 import type { useLibraryStore } from '../store';
@@ -56,10 +56,6 @@ export function removeFoldersBySource(s: LibraryStore, sourceId: string): void {
   }
 }
 
-/**
- * Устанавливает статус сканирования папки.
- * Это единственный способ изменить статус (все остальные — обёртки над ним).
- */
 export function setFolderScanState(
   s: LibraryStore,
   id: FolderId,
@@ -71,7 +67,6 @@ export function setFolderScanState(
     console.warn('[setFolderScanState] FOLDER NOT FOUND', id, 'existing folders:', Object.keys(s.folders));
     return;
   }
-  // Если статус не меняется и это просто обновление прогресса — не трогаем updatedAt
   const isStateChange = folder.scanState !== state;
 
   s.folders[id] = {
@@ -83,9 +78,6 @@ export function setFolderScanState(
   };
 }
 
-/**
- * Обновляет только прогресс, если папка в статусе 'scanning'.
- */
 export function updateFolderScanProgress(
   s: LibraryStore,
   id: FolderId,
@@ -96,4 +88,103 @@ export function updateFolderScanProgress(
   if (folder.scanState !== 'scanning') return;
 
   s.folders[id] = { ...folder, scanProgress: progress };
+}
+
+/**
+ * После переименования папки на Диске: обновляет name+urlPath поддерева
+ * (включая files[].urlPath) и remotePath соответствующих cloud-sources.
+ * trackId/folderId не меняются, плейлисты/история/дизлайки остаются валидными.
+ *
+ * `oldUrlPath` / `newUrlPath` — без ведущего слэша (как в library).
+ * Если `oldUrlPath === ''` (корень плагина) — no-op (корень не переименовывается).
+ */
+export function renameFolderSubtree(
+  s: LibraryStore,
+  oldUrlPath: string,
+  newUrlPath: string,
+): { updatedFolderIds: Set<FolderId>; updatedTrackIds: Set<TrackId> } {
+  const updatedFolderIds = new Set<FolderId>();
+  const updatedTrackIds = new Set<TrackId>();
+
+  if (!oldUrlPath || oldUrlPath === newUrlPath) {
+    return { updatedFolderIds, updatedTrackIds };
+  }
+
+  const oldPrefix = oldUrlPath + '/';
+  const newPrefix = newUrlPath + '/';
+  const newName = newUrlPath.split('/').pop() ?? newUrlPath;
+
+  // 1. Обновляем name + urlPath у папки и всех потомков + files[].urlPath.
+  for (const folder of Object.values(s.folders)) {
+    let nextUrlPath: string | null = null;
+    let nextName = folder.name;
+
+    if (folder.urlPath === oldUrlPath) {
+      nextUrlPath = newUrlPath;
+      // Обновляем имя переименованной папки (последний сегмент).
+      nextName = newName;
+    } else if (folder.urlPath.startsWith(oldPrefix)) {
+      nextUrlPath = newPrefix + folder.urlPath.slice(oldPrefix.length);
+      // У потомков имя не меняется (последний сегмент urlPath тот же).
+    }
+
+    if (nextUrlPath === null) continue;
+
+    const nextFiles = folder.files?.map((f) => {
+      if (f.urlPath === oldUrlPath) return { ...f, urlPath: newUrlPath };
+      if (f.urlPath.startsWith(oldPrefix)) {
+        return { ...f, urlPath: newPrefix + f.urlPath.slice(oldPrefix.length) };
+      }
+      return f;
+    });
+
+    s.folders[folder.id] = {
+      ...folder,
+      name: nextName,
+      urlPath: nextUrlPath,
+      files: nextFiles ?? folder.files,
+    };
+    updatedFolderIds.add(folder.id);
+  }
+
+  if (updatedFolderIds.size === 0) {
+    return { updatedFolderIds, updatedTrackIds };
+  }
+
+  // 2. Обновляем remotePath у cloud-sources в поддереве.
+  for (const track of Object.values(s.tracks)) {
+    let changed = false;
+
+    const nextSources = track.sources.map((src) => {
+      if (src.kind !== 'cloud') return src;
+      if (!updatedFolderIds.has(src.folderId)) return src;
+
+      const oldRemote = src.remotePath;
+      const hadDiskPrefix = oldRemote.startsWith('disk:/');
+      const normalized = oldRemote.replace(/^disk:\//, '').replace(/^\/+/, '');
+
+      let nextRemote: string;
+      if (normalized === oldUrlPath) {
+        nextRemote = newUrlPath;
+      } else if (normalized.startsWith(oldPrefix)) {
+        nextRemote = newPrefix + normalized.slice(oldPrefix.length);
+      } else {
+        return src;
+      }
+
+      if (hadDiskPrefix) {
+        nextRemote = `disk:/${nextRemote}`;
+      }
+
+      changed = true;
+      return { ...src, remotePath: nextRemote };
+    });
+
+    if (changed) {
+      s.tracks[track.id] = { ...track, sources: nextSources };
+      updatedTrackIds.add(track.id);
+    }
+  }
+
+  return { updatedFolderIds, updatedTrackIds };
 }

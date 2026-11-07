@@ -57,6 +57,7 @@ window.addEventListener('keydown', onKeydown);
         :key="img.urlPath"
         type="button"
         class="group relative aspect-square overflow-hidden rounded-card bg-card-bg transition hover:opacity-90"
+        :data-testid="`logii-gallery-image-${index}`"
         @click="openImage(index)"
       >
         <img
@@ -83,6 +84,7 @@ window.addEventListener('keydown', onKeydown);
         <div
           v-if="isFullscreen"
           class="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
+          data-testid="logii-gallery-fullscreen"
           @click.self="closeFullscreen"
         >
           <IconButton
@@ -91,6 +93,7 @@ window.addEventListener('keydown', onKeydown);
             size="lg"
             label="Назад"
             class="absolute left-4 top-4 !text-white"
+            data-testid="logii-gallery-close"
             @click="closeFullscreen"
           />
 
@@ -109,6 +112,7 @@ window.addEventListener('keydown', onKeydown);
             :src="currentUrl()!"
             :alt="images[fullscreenIndex!]?.name ?? ''"
             class="max-h-[90vh] max-w-[90vw] object-contain"
+            data-testid="logii-gallery-fullscreen-image"
             @click.stop
           />
 

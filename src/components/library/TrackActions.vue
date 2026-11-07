@@ -248,7 +248,7 @@ function removeFromQueue(close: () => void): void {
     <DropdownMenu :width="256">
       <template #trigger="{ toggle, setTriggerRef }">
         <div :ref="setTriggerRef">
-          <IconButton icon="dots" label="Действия" @click="toggle" />
+          <IconButton icon="dots" label="Действия" data-testid="track-actions-trigger" @click="toggle" />
         </div>
       </template>
 
@@ -263,6 +263,7 @@ function removeFromQueue(close: () => void): void {
             type="button"
             class="block w-full px-4 py-1.5 text-left text-sm text-fg transition hover:bg-hover-bg hover:text-fg-muted disabled:opacity-50"
             :disabled="isSearchingMetadata"
+            data-testid="track-action-find-metadata"
             @click="findMetadata(close)"
           >
             <span v-if="isSearchingMetadata">Поиск…</span>
@@ -273,6 +274,7 @@ function removeFromQueue(close: () => void): void {
             <button
               type="button"
               class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+              data-testid="track-action-edit-metadata"
               @click="openMetadataEditor(close)"
             >
               Редактировать метаданные
@@ -281,6 +283,7 @@ function removeFromQueue(close: () => void): void {
               v-if="!isStreaming"
               type="button"
               class="block w-full px-4 py-1.5 text-left text-xs text-red-400 transition hover:bg-hover-bg"
+              data-testid="track-action-remove-metadata"
               @click="removeMetadata(close)"
             >
               Удалить метаданные
@@ -291,6 +294,7 @@ function removeFromQueue(close: () => void): void {
             <button
               type="button"
               class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
+              data-testid="track-action-edit-metadata"
               @click="openMetadataEditor(close)"
             >
               Редактировать вручную

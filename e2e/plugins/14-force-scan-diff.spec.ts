@@ -100,7 +100,7 @@ async function setupYandex(page: Page, folders: MockFolder[]): Promise<void> {
   await waitForAppBootstrap(page);
 
   const card = page.locator('[data-plugin-id="yandex"]');
-  await card.getByRole('button', { name: 'Подключить' }).click();
+  await card.getByTestId('plugin-connect').click();
   await expect(page).toHaveURL(/\/folder\/yandex/);
 }
 
@@ -147,11 +147,11 @@ async function findFolderIdByPath(page: Page, urlPath: string): Promise<string |
 
 /** Открыть меню синхронизации и нажать «Обновить с облака». */
 async function triggerForceScan(page: Page): Promise<void> {
-  const refreshBtn = page.locator('button[aria-label="Синхронизация"]').first();
+  const refreshBtn = page.getByTestId('folder-sync-trigger').first();
   await expect(refreshBtn).toBeVisible();
   await refreshBtn.click();
 
-  const cloudBtn = page.getByText('Обновить с облака').first();
+  const cloudBtn = page.getByTestId('folder-sync-cloud').first();
   await expect(cloudBtn).toBeVisible();
   await cloudBtn.click();
 }

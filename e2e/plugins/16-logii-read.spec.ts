@@ -96,7 +96,6 @@ test.describe('Logii: read-only (навигация + intro + vibe + чат + г
 
     // Галерея
     await clickTab(page, 'Галерея');
-    // В галерее должен быть хотя бы один <img> (cover.jpg)
-    await expect(page.locator('img').first()).toBeVisible();
+    await expect(page.getByTestId('logii-gallery-image-0')).toBeVisible();
   });
 });

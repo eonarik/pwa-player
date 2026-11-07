@@ -153,6 +153,7 @@ watch(isOpen, async (v) => {
         :value="modelValue"
         placeholder="Укажите альбом вручную или выберите из списка"
         class="min-w-0 flex-1 rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle transition focus:bg-hover-bg focus:outline-none"
+        data-testid="album-select-input"
         @input="onInputChange"
       />
       <button

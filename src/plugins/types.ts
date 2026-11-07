@@ -52,8 +52,9 @@ export interface PluginExtension {
   routes?: RouteRecordRaw[];
   getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
   collectionActions?: PluginCollectionAction[];
-  /** Кастомные view для папок (переопределяют FolderView). */
   folderViews?: PluginFolderView[];
+  /** Кастомные действия в шапке папки. */
+  folderActions?: PluginFolderAction[];
 }
 
 export interface PluginManifestOptions {
@@ -239,6 +240,30 @@ export interface ModalOptions {
   props?: Record<string, unknown>;
   disableBackdropClose?: boolean;
 }
+
+/**
+ * Действие, доступное в шапке папки (FolderHeader).
+ * Ядро не знает о конкретных плагинах — рендерит кнопки из
+ * `getExtensionFolderActions()`, а плагин решает, показывать ли действие
+ * и что делать.
+ */
+export interface PluginFolderAction {
+  id: string;
+  label: string;
+  icon?: IconName;
+  tooltip?: string;
+  /** Показывать ли действие для этой папки. */
+  shouldShow: (folder: FolderRef) => boolean;
+  /** Выполнить действие. Возвращает навигацию (или noop). */
+  run: (ctx: FolderActionContext) => Promise<FolderActionResult>;
+}
+
+export interface FolderActionContext {
+  folder: FolderRef;
+  showToast: (message: string, type?: 'info' | 'success' | 'error') => void;
+}
+
+export type FolderActionResult = { kind: 'noop' } | { kind: 'navigate'; pluginId: string; urlPath: string };
 
 export type {
   Track,

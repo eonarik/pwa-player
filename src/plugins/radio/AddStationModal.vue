@@ -56,18 +56,23 @@ async function submit() {
 
     <form class="flex flex-col gap-4" @submit.prevent="submit">
       <FormField label="Ссылка на поток (URL) *">
-        <Input v-model="url" type="url" placeholder="https://..." required />
+        <Input v-model="url" type="url" placeholder="https://..." required data-testid="radio-add-url-input" />
       </FormField>
 
       <FormField label="Название станции" hint="Опционально, по умолчанию — домен">
-        <Input v-model="name" type="text" placeholder="Моя любимая радиостанция" />
+        <Input v-model="name" type="text" placeholder="Моя любимая радиостанция" data-testid="radio-add-name-input" />
       </FormField>
     </form>
 
     <template #footer>
       <div class="flex items-center justify-end gap-2">
         <Button variant="ghost" @click="emit('close')">Отмена</Button>
-        <Button variant="primary" :disabled="!url.trim() || isSubmitting" @click="submit">
+        <Button
+          variant="primary"
+          :disabled="!url.trim() || isSubmitting"
+          data-testid="radio-add-submit"
+          @click="submit"
+        >
           {{ isSubmitting ? 'Добавление…' : 'Добавить' }}
         </Button>
       </div>

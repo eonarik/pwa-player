@@ -8,6 +8,7 @@ const props = withDefaults(
   defineProps<{
     alwaysOpen?: boolean;
     placeholder?: string;
+    testId?: string;
   }>(),
   { alwaysOpen: false, placeholder: 'Поиск…' },
 );
@@ -59,6 +60,7 @@ onMounted(async () => {
       type="text"
       :placeholder="placeholder"
       class="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none"
+      :data-testid="testId"
       @keydown.esc="clear"
     />
     <button
@@ -100,6 +102,7 @@ onMounted(async () => {
           type="text"
           :placeholder="placeholder"
           class="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none"
+          :data-testid="testId"
           @blur="close"
           @keydown.esc="onSearchClose()"
         />

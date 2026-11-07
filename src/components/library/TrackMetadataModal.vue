@@ -297,7 +297,7 @@ onUnmounted(() => {
 
       <!-- 2. Ручное редактирование -->
       <FormField label="Название">
-        <Input v-model="title" type="text" placeholder="Введите название..." />
+        <Input v-model="title" type="text" placeholder="Введите название..." data-testid="track-metadata-title-input" />
       </FormField>
 
       <FormField label="Артист">
@@ -318,7 +318,9 @@ onUnmounted(() => {
     <template #footer>
       <div class="flex items-center justify-end gap-2">
         <Button variant="ghost" @click="cancel">Отмена</Button>
-        <Button variant="primary" :disabled="!title.trim()" @click="save">Сохранить</Button>
+        <Button variant="primary" :disabled="!title.trim()" data-testid="track-metadata-save" @click="save"
+          >Сохранить</Button
+        >
       </div>
     </template>
   </ModalLayout>

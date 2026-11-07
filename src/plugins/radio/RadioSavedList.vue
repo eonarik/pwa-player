@@ -39,7 +39,7 @@ function onRemove(station: SavedStation, e: Event): void {
     <div class="mx-auto w-full max-w-3xl py-2 pt-4">
       <div class="flex items-center justify-between px-4 pb-2">
         <SectionTitle text="Мои станции" padding-x="none" padding-bottom="none" />
-        <Button variant="secondary" size="sm" @click="emit('add-by-url')">
+        <Button variant="secondary" size="sm" data-testid="radio-add-by-url" @click="emit('add-by-url')">
           <Icon name="link" w="w-3.5" h="h-3.5" />
           По URL
         </Button>

@@ -74,7 +74,7 @@ test.describe('Yandex Disk: Глубокая вложенность', () => {
     await waitForAppBootstrap(page);
 
     const diskCard = page.locator('[data-plugin-id="yandex"]');
-    await diskCard.getByRole('button', { name: 'Подключить' }).click();
+    await diskCard.getByTestId('plugin-connect').click();
   });
 
   test('корректно сканирует глубокую вложенность без зависаний', async ({ page }) => {

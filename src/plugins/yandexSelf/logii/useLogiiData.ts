@@ -179,6 +179,8 @@ export interface UseLogiiTrackResult {
   error: Ref<string>;
   reload: (forceRefresh?: boolean) => Promise<void>;
   appendComment: (text: string) => Promise<boolean>;
+  updateComment: (index: number, text: string) => Promise<boolean>;
+  deleteComment: (index: number) => Promise<boolean>;
   updateVibe: (text: string) => Promise<boolean>;
 }
 
@@ -251,6 +253,24 @@ export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<stri
     return save({ vibe: text.trim(), comments: data.value.comments });
   }
 
+  async function updateComment(index: number, text: string): Promise<boolean> {
+    if (!data.value) return false;
+    if (index < 0 || index >= data.value.comments.length) return false;
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+
+    const nextComments = data.value.comments.map((c, i) => (i === index ? { ...c, text: trimmed } : c));
+    return save({ vibe: data.value.vibe, comments: nextComments });
+  }
+
+  async function deleteComment(index: number): Promise<boolean> {
+    if (!data.value) return false;
+    if (index < 0 || index >= data.value.comments.length) return false;
+
+    const nextComments = data.value.comments.filter((_, i) => i !== index);
+    return save({ vibe: data.value.vibe, comments: nextComments });
+  }
+
   return {
     data,
     isLoading,
@@ -258,6 +278,8 @@ export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<stri
     error,
     reload,
     appendComment,
+    updateComment,
+    deleteComment,
     updateVibe,
   };
 }

@@ -4,22 +4,6 @@ import { test, expect } from '@playwright/test';
 import { setupPageLogs, waitForAppBootstrap } from '../helpers/test-utils';
 import { mockAllApis } from '../mocks/api';
 
-/**
- * Тест проверяет:
- * 1. Папка с префиксом `logii.` в списке показывается без префикса.
- * 2. Клик на неё открывает `LogiiView` (а не FolderView).
- * 3. Автовыбор автора и его первой папки (после фикса `immediate: true`).
- * 4. Клик на трек → табы (Трек / Чат / Галерея) в `LogiiView`.
- * 5. Таб Chat: отправка комментария.
- *
- * Мок Яндекс.Диска:
- *   /logii.2024-11-08/
- *     userA/
- *       1/  → track1.mp3, cover.jpg, vibe.logii.txt
- *     userB/
- *       1/  → track2.mp3, vibe.logii.txt
- */
-
 interface DiskItem {
   type: 'dir' | 'file';
   name: string;
@@ -55,6 +39,11 @@ const VIBE_CONTENT = `Вайб трека
 
 userA (2024-11-08 20:15):
 Первый комментарий`;
+
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+);
 
 test.describe('Logii: read-only (сезон и трек)', () => {
   test.beforeEach(async ({ page }) => {
@@ -111,9 +100,17 @@ test.describe('Logii: read-only (сезон и трек)', () => {
       });
     });
 
-    await page.route('**/api/yandex-self/download**', (route) =>
-      route.fulfill({ status: 200, contentType: 'audio/mpeg', body: 'dummy' }),
-    );
+    await page.route('**/api/yandex-self/download**', (route) => {
+      const url = new URL(route.request().url());
+      const rawPath = url.searchParams.get('path') ?? '';
+      const ext = rawPath.split('.').pop()?.toLowerCase() ?? '';
+
+      if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+        return route.fulfill({ status: 200, contentType: 'image/png', body: TINY_PNG });
+      }
+
+      return route.fulfill({ status: 200, contentType: 'audio/mpeg', body: 'dummy' });
+    });
 
     await page.addInitScript(() => {
       HTMLMediaElement.prototype.play = function () {
@@ -139,69 +136,58 @@ test.describe('Logii: read-only (сезон и трек)', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitForAppBootstrap(page);
 
-    // Подключаем yandex-self
     const selfCard = page.locator('[data-plugin-id="yandex-self"]');
     await expect(selfCard).toBeVisible();
-    const selfOpen = selfCard.getByRole('button', { name: 'Открыть' });
+    const selfOpen = selfCard.getByTestId('plugin-open');
     if (await selfOpen.isVisible()) {
       await selfOpen.click();
     } else {
-      await selfCard.getByRole('button', { name: 'Подключить' }).click();
+      await selfCard.getByTestId('plugin-connect').click();
     }
     await expect(page).toHaveURL(/\/folder\/yandex-self/);
 
-    // Дожидаемся, пока сканирование корня доложит папки в library
     await expect
       .poll(
         async () => {
           return page.evaluate(() => {
             const fn = (window as unknown as { __library?: () => unknown }).__library;
             if (!fn) return 0;
-            const lib = fn() as { folders: Record<string, unknown> };
-            return Object.keys(lib.folders).length;
+            const lib = fn() as { folders: Record<string, { pluginId: string; urlPath: string }> };
+            return Object.values(lib.folders).filter((f) => f.pluginId === 'yandex-self' && f.urlPath === '').length;
           });
         },
         { timeout: 10000 },
       )
-      .toBeGreaterThan(0);
+      .toBe(1);
   });
 
   test('папка logii. в списке без префикса; клик → LogiiView', async ({ page }) => {
-    // В корне видна папка без префикса
     const seasonRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: '2024-11-08' });
     await expect(seasonRow).toBeVisible();
-    // Префикс `logii.` в тексте не показывается
     await expect(seasonRow).not.toContainText('logii.');
 
-    // Обычная папка остаётся как есть
     const usualFolder = page.locator('[data-testid^="folder-row-"]').filter({ hasText: 'Обычная папка' });
     await expect(usualFolder).toBeVisible();
 
-    // Кликаем на сезон
     await seasonRow.click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08$/);
 
-    // LogiiView показывает авторов
     await expect(page.getByText('userA', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('userB', { exact: true }).first()).toBeVisible();
 
-    // Автовыбор автора: уходим на /userA (replace)
     await expect
       .poll(async () => page.url(), { timeout: 5000 })
       .toContain('/folder/yandex-self/logii.2024-11-08/userA');
 
-    // Автовыбор папки (userA без Intro → первая папка "1")
     await expect
       .poll(async () => page.url(), { timeout: 5000 })
       .toContain('/folder/yandex-self/logii.2024-11-08/userA/1');
 
-    // Кнопка «К папкам» доступна
-    await expect(page.getByRole('button', { name: 'К папкам' })).toBeVisible();
+    await expect(page.getByTestId('logii-go-to-parent')).toBeVisible();
 
-    // Табы
-    await expect(page.getByRole('button', { name: 'Трек', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Чат', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Галерея', exact: true })).toBeVisible();
+    await expect(page.getByTestId('logii-tab-track')).toBeVisible();
+    await expect(page.getByTestId('logii-tab-chat')).toBeVisible();
+    await expect(page.getByTestId('logii-tab-gallery')).toBeVisible();
   });
 
   test('клик по треку → LogiiView (табы, чат)', async ({ page }) => {
@@ -209,36 +195,28 @@ test.describe('Logii: read-only (сезон и трек)', () => {
     await seasonRow.click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08$/);
 
-    // Дожидаемся автовыбора userA
     await expect
       .poll(async () => page.url(), { timeout: 5000 })
       .toContain('/folder/yandex-self/logii.2024-11-08/userA');
 
-    // Кликаем по треку userA
     const trackRow = page.getByText('track1', { exact: false }).first();
     await expect(trackRow).toBeVisible();
     await trackRow.click();
 
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08\/userA\/1$/);
 
-    // Три таба
-    await expect(page.getByRole('button', { name: 'Трек', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Чат', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Галерея', exact: true })).toBeVisible();
+    await expect(page.getByTestId('logii-tab-track')).toBeVisible();
+    await expect(page.getByTestId('logii-tab-chat')).toBeVisible();
+    await expect(page.getByTestId('logii-tab-gallery')).toBeVisible();
 
-    // Vibe виден на табе «Трек»
     await expect(page.getByText('Вайб трека')).toBeVisible();
 
-    // Переключаемся на «Чат»
-    await page.getByRole('button', { name: 'Чат', exact: true }).click();
+    await page.getByTestId('logii-tab-chat').click();
     await expect(page.getByText('Первый комментарий')).toBeVisible();
 
-    // Отправляем новый
-    const textarea = page.locator('textarea[placeholder*="Написать комментарий"]');
-    await textarea.fill('Привет из теста');
-    await page.getByRole('button', { name: 'Отправить' }).click();
+    await page.getByTestId('logii-comment-new-input').fill('Привет из теста');
+    await page.getByTestId('logii-comment-send').click();
 
-    // Проверяем, что комментарий появился в DOM (оптимистично)
     await expect(page.getByText('Привет из теста')).toBeVisible();
   });
 });

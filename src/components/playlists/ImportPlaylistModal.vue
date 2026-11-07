@@ -196,7 +196,12 @@ watch(rawText, (val) => {
       </div>
 
       <div class="mt-2 flex justify-end gap-2">
-        <Button variant="primary" :disabled="!parsed || isImporting" @click="doImport">
+        <Button
+          variant="primary"
+          :disabled="!parsed || isImporting"
+          data-testid="import-playlist-submit"
+          @click="doImport"
+        >
           {{ isImporting ? 'Импорт...' : 'Импортировать' }}
         </Button>
       </div>

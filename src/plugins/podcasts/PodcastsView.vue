@@ -119,12 +119,12 @@ onMounted(() => {
   <div class="flex h-full flex-col overflow-hidden">
     <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-10">
       <div class="mx-auto flex w-full max-w-3xl items-center justify-between">
-        <h1 class="text-lg font-medium text-fg">Подкасты</h1>
+        <h1 class="text-lg font-medium text-fg" data-testid="podcasts-title">Подкасты</h1>
         <div class="flex items-center gap-2">
-          <Button variant="secondary" size="sm" @click="isAddOpen = true">
+          <Button variant="secondary" size="sm" data-testid="podcasts-add-url" @click="isAddOpen = true">
             <Icon name="link" w="w-4" h="h-4" />По ссылке
           </Button>
-          <Button variant="primary" size="sm" @click="openCatalog">
+          <Button variant="primary" size="sm" data-testid="podcasts-open-catalog" @click="openCatalog">
             <Icon name="plus" w="w-4" h="h-4" />Каталог
           </Button>
         </div>
@@ -133,7 +133,7 @@ onMounted(() => {
 
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl py-2">
-        <SectionTitle text="Мои подкасты" />
+        <SectionTitle text="Мои подкасты" data-testid="podcasts-my-title" />
 
         <EmptyState
           v-if="subscriptions.length === 0"

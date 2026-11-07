@@ -1,7 +1,13 @@
 // src/plugins/extensions.ts
 
 import { getPlugins, isPluginActivated } from './registry';
-import type { PluginMenuItem, PluginManifest, PluginCollectionAction, PluginFolderView } from './types';
+import type {
+  PluginMenuItem,
+  PluginManifest,
+  PluginCollectionAction,
+  PluginFolderView,
+  PluginFolderAction,
+} from './types';
 import type { RouteRecordRaw } from 'vue-router';
 import type { PluginSettingsSchema } from './settingsTypes';
 import { loadRemotePlugins } from './remoteLoader';
@@ -14,6 +20,7 @@ interface LoadedExtension {
   runSettingsAction: ((id: string, payload?: unknown) => void | Promise<void>) | null;
   collectionActions: PluginCollectionAction[];
   folderViews: PluginFolderView[];
+  folderActions: PluginFolderAction[];
 }
 
 let extensions: LoadedExtension[] = [];
@@ -32,6 +39,7 @@ export async function loadExtensions(): Promise<void> {
       getSettings?: () => PluginSettingsSchema | Promise<PluginSettingsSchema>;
       collectionActions?: PluginCollectionAction[];
       folderViews?: PluginFolderView[];
+      folderActions?: PluginFolderAction[];
     } | null = null;
 
     if (manifest.extension) {
@@ -54,6 +62,7 @@ export async function loadExtensions(): Promise<void> {
         runSettingsAction: manifest.runSettingsAction ?? null,
         collectionActions: ext?.collectionActions ?? [],
         folderViews: ext?.folderViews ?? [],
+        folderActions: ext?.folderActions ?? [],
       });
     }
   }
@@ -71,17 +80,14 @@ export function getCollectionActions(): PluginCollectionAction[] {
   return extensions.flatMap((e) => e.collectionActions);
 }
 
-/**
- * Все кастомные view для папок.
- */
 export function getExtensionFolderViews(): PluginFolderView[] {
   return extensions.flatMap((e) => e.folderViews);
 }
 
-/**
- * Найти подходящий view для папки (pluginId + urlPath).
- * Возвращает первый match (порядок регистрации в extension).
- */
+export function getExtensionFolderActions(): PluginFolderAction[] {
+  return extensions.flatMap((e) => e.folderActions);
+}
+
 export function findFolderView(pluginId: string, urlPath: string): PluginFolderView | null {
   for (const ext of extensions) {
     if (ext.pluginId !== pluginId) continue;

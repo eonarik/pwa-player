@@ -50,6 +50,7 @@ const emit = defineEmits<{
           <button
             type="button"
             class="flex items-center gap-1 rounded-btn text-xs font-medium text-fg-muted transition hover:text-fg"
+            data-testid="catalog-back"
             @click="emit('back')"
           >
             <Icon name="arrow-left" w="w-4" h="h-4" />
