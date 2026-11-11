@@ -19,7 +19,7 @@ import { initTelemetry } from '@/services/telemetry';
 
 import './assets/main.css';
 import { usePlaylistsStore } from './stores/playlists';
-import { useLibraryStore } from './stores/library';
+import { useLibraryStore, createLibraryWriter } from './stores/library';
 import { usePlayerStore } from './stores/player';
 import { downloadOrchestrator } from './services/download/DownloadOrchestrator';
 import { syncService } from './services/download/SyncService';
@@ -30,13 +30,26 @@ import { useDislikesStore } from './stores/dislikes';
 import { useUiSettingsStore } from './stores/uiSettings';
 import { initTooltip, tooltip } from './directives/tooltip';
 import { getExtensionRoutes, loadExtensions } from './plugins/extensions';
+import { setPluginContextDeps } from './plugins/contextDeps';
 import { themeService } from './services/ui/ThemeService';
 import { metadataService } from './services/metadata/MetadataService';
 import { setupFileHandlers } from '@/services/files/setupHandlers';
 import { albumService } from './services/persistence/AlbumService.ts';
 import { flushLibrary } from './stores/library/store/persist.ts';
+import { logger } from '@/utils/logger';
 
 async function bootstrap() {
+  // Composition root: внедряем зависимости ядра в контексты плагинов.
+  // plugins/context.ts не импортирует stores/* напрямую — это разрывает
+  // рантайм-цикл в графе импортов.
+  setPluginContextDeps({
+    createWriter: () => createLibraryWriter(),
+    getDownloadDir: async (pluginId) => {
+      if (!downloadSpaceService.hasSpace.value) return null;
+      return downloadSpaceService.getPluginDir(pluginId);
+    },
+  });
+
   if (import.meta.env.VITE_TELEMETRY === 'true') {
     initTelemetry();
   }
@@ -44,18 +57,16 @@ async function bootstrap() {
   themeService.load();
 
   try {
-    const wasCleared = await schemaService.ensureCompatible();
-    if (wasCleared) {
-    }
+    await schemaService.ensureCompatible();
   } catch (err) {
-    console.error('[app] schema check failed', err);
+    logger.error('[app] schema check failed', err);
   }
 
   if (navigator.storage && navigator.storage.persist) {
     try {
       await navigator.storage.persist();
     } catch (err) {
-      console.warn('[storage] Failed to request persistent storage', err);
+      logger.warn('[storage] Failed to request persistent storage', err);
     }
   }
 
@@ -65,7 +76,7 @@ async function bootstrap() {
   const app = createApp(App);
 
   app.config.errorHandler = (err, _instance, info) => {
-    console.error('[Vue Global Error]', err, info);
+    logger.error('[Vue Global Error]', err, info);
   };
 
   app.use(createPinia());
@@ -126,11 +137,11 @@ async function bootstrap() {
 }
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('[Unhandled Rejection]', event.reason);
+  logger.error('[Unhandled Rejection]', event.reason);
 });
 
 bootstrap().catch((err) => {
-  console.error('[Bootstrap Fatal Error]', err);
+  logger.error('[Bootstrap Fatal Error]', err);
 
   const textEl = document.getElementById('app-boot-loader-text');
   if (textEl) {

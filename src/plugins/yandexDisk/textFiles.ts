@@ -4,6 +4,7 @@ import type { PluginContext, TextFileRef } from '../types';
 import type { FolderId } from '@/types/ids';
 import type { IYandexService } from './types';
 import type { PluginStorage } from './storage';
+import { logger } from '@/utils/logger';
 
 export function createTextFileMethods(pluginId: string, service: IYandexService, storage: PluginStorage) {
   async function getTextFiles(context: PluginContext, folderId: FolderId): Promise<TextFileRef[]> {
@@ -22,7 +23,7 @@ export function createTextFileMethods(pluginId: string, service: IYandexService,
           path: item.name,
         }));
     } catch (err) {
-      console.error(`[${pluginId}] getTextFiles failed`, err);
+      logger.error(`[${pluginId}] getTextFiles failed`, err);
       return [];
     }
   }
@@ -32,7 +33,7 @@ export function createTextFileMethods(pluginId: string, service: IYandexService,
       const result = await service.readTextFile(remotePath);
       return result ? { content: result.content, modified: result.modified } : null;
     } catch (err) {
-      console.error(`[${pluginId}] readTextFile failed`, err);
+      logger.error(`[${pluginId}] readTextFile failed`, err);
       return null;
     }
   }

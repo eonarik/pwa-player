@@ -31,7 +31,7 @@ jobs:
         env:
           GIT_HASH: ${{ github.sha }}
 
-      # 1. Копируем dist (фронтенд)
+      # 1. Статика фронтенда
       - name: Copy dist to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -43,7 +43,7 @@ jobs:
           strip_components: 1
           rm: true
 
-      # 2. Копируем только папку server (бэкенд)
+      # 2. Исходники бэкенда + Dockerfile + compose
       - name: Copy server code to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -55,18 +55,38 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # 3. Устанавливаем зависимости и перезапускаем PM2
-      - name: Deploy backend and reload PM2
+      - name: Copy Docker files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: 'Dockerfile,docker-compose.yml'
+          target: '/var/www/cuei-player/pwa-player/'
+          overwrite: true
+
+      # 3. .env из секрета
+      - name: Write .env on server
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /var/www/cuei-player/pwa-player/server
-            export YARN_CACHE_FOLDER=/tmp/yarn-cache
-            yarn install --frozen-lockfile --production
-            pm2 delete cuei-backend || true
-            pm2 start src/index.mjs --name cuei-backend
-            pm2 save
-            rm -rf /tmp/yarn-cache
+            cat > /var/www/cuei-player/pwa-player/server/.env <<'EOF'
+            ${{ secrets.SERVER_ENV_FILE }}
+            EOF
+            chmod 600 /var/www/cuei-player/pwa-player/server/.env
+
+      # 4. Пересборка и запуск бэкенда
+      - name: Deploy backend with Docker Compose
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /var/www/cuei-player/pwa-player
+            docker compose down
+            docker compose up -d --build
+            docker image prune -f

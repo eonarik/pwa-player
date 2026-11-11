@@ -7,6 +7,7 @@ import {
   type RadioSortOrder,
   type RadioStation,
 } from './RadioBrowserClient';
+import { logger } from '@/utils/logger';
 
 export type { RadioCountry, RadioTag, RadioSortOrder, RadioStation };
 
@@ -56,7 +57,7 @@ function writeResultCache(storageKey: string, key: string, data: TopStationsResu
     const payload: PersistedResultCache = { key, data, fetchedAt: Date.now() };
     localStorage.setItem(storageKey, JSON.stringify(payload));
   } catch (err) {
-    console.warn('[radio] failed to persist result cache', storageKey, err);
+    logger.warn('[radio] failed to persist result cache', storageKey, err);
   }
 }
 
@@ -95,7 +96,7 @@ class RadioService {
       });
       return this.filterInvalid(stations);
     } catch (err) {
-      console.error('[radio] searchByTag failed', err);
+      logger.error('[radio] searchByTag failed', err);
       return [];
     }
   }
@@ -110,7 +111,7 @@ class RadioService {
     const cached = readResultCache(SEARCH_STORAGE_KEY, key);
 
     if (cached?.fresh) {
-      if (import.meta.env.DEV) console.debug('[radio] search HIT (fresh)', key);
+      if (import.meta.env.DEV) logger.debug('[radio] search HIT (fresh)', key);
       return cached.data;
     }
 
@@ -118,7 +119,7 @@ class RadioService {
     if (inFlight) return inFlight;
 
     if (import.meta.env.DEV) {
-      console.debug('[radio] search MISS', key, cached ? '(stale, refreshing)' : '(no cache)');
+      logger.debug('[radio] search MISS', key, cached ? '(stale, refreshing)' : '(no cache)');
     }
 
     const promise = (async () => {
@@ -145,12 +146,12 @@ class RadioService {
         writeResultCache(SEARCH_STORAGE_KEY, key, result);
         return result;
       } catch (err) {
-        console.error('[radio] searchByName failed', err);
+        logger.error('[radio] searchByName failed', err);
         this.lastError = err instanceof Error ? err.message : 'Неизвестная ошибка';
 
         if (cached) {
           this.isStale = true;
-          console.warn('[radio] search failed, using stale cache');
+          logger.warn('[radio] search failed, using stale cache');
           return cached.data;
         }
 
@@ -180,7 +181,7 @@ class RadioService {
     const cached = readResultCache(TOP_STORAGE_KEY, key);
 
     if (cached?.fresh) {
-      if (import.meta.env.DEV) console.debug('[radio] top HIT (fresh)', key);
+      if (import.meta.env.DEV) logger.debug('[radio] top HIT (fresh)', key);
       return cached.data;
     }
 
@@ -188,7 +189,7 @@ class RadioService {
     if (inFlight) return inFlight;
 
     if (import.meta.env.DEV) {
-      console.debug('[radio] top MISS', key, cached ? '(stale, refreshing)' : '(no cache)');
+      logger.debug('[radio] top MISS', key, cached ? '(stale, refreshing)' : '(no cache)');
     }
 
     const promise = (async () => {
@@ -215,12 +216,12 @@ class RadioService {
         writeResultCache(TOP_STORAGE_KEY, key, result);
         return result;
       } catch (err) {
-        console.error('[radio] getTopStations failed', err);
+        logger.error('[radio] getTopStations failed', err);
         this.lastError = err instanceof Error ? err.message : 'Неизвестная ошибка';
 
         if (cached) {
           this.isStale = true;
-          console.warn('[radio] top failed, using stale cache');
+          logger.warn('[radio] top failed, using stale cache');
           return cached.data;
         }
 

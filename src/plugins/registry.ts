@@ -39,6 +39,9 @@ for (const [path, mod] of Object.entries(manifestModules)) {
 const disconnectedCache = new Map<string, boolean>();
 const disconnectedVersion = ref(0);
 
+/** Префикс флага активации плагина в localStorage. */
+const ACTIVATED_KEY_PREFIX = 'plugin-activated:';
+
 export function getPlugins(): PluginManifest[] {
   return Array.from(registry.values())
     .map((p) => p.manifest)
@@ -83,6 +86,9 @@ export function resetPlugin(id: string): void {
 }
 
 export function isPluginDisconnected(pluginId: string): boolean {
+  // Reactive pin: disconnectedCache — plain Map, Vue не отслеживает .get().
+  // bumpedVersion++ в setPluginDisconnected — этот void подписывает computed
+  // (useTrackPlayability, isAnyPluginDisconnected) на изменения.
   void disconnectedVersion.value;
   return disconnectedCache.get(pluginId) ?? false;
 }
@@ -108,27 +114,32 @@ export function isPluginActivated(id: string): boolean {
   const manifest = registry.get(id)?.manifest;
   if (!manifest) return false;
   if (!manifest.requiresActivation) return true;
-  return localStorage.getItem(`plugin-activated:${id}`) === 'true';
+  return localStorage.getItem(ACTIVATED_KEY_PREFIX + id) === 'true';
 }
 
 /**
  * Активирует плагин по секретному коду из его манифеста.
  *
- * Ядро не хранит коды активации — они лежат в `manifest.activationCode`.
- * Проверка: манифест существует, `requiresActivation: true`, код совпадает.
+ * Ядро не хранит коды активации и не знает id «секретных» плагинов:
+ * код объявлен в `manifest.activationCode`, а перебор делает ядро.
+ * UI передаёт только введённый пользователем код.
  *
- * При успехе записывает флаг в localStorage; `isPluginActivated` начнёт
- * возвращать true, и плагин появится на главной.
+ * Возвращает id активированного плагина (для сообщения пользователю) или null.
  */
-export function activatePlugin(id: string, code: string): boolean {
-  const manifest = registry.get(id)?.manifest;
-  if (!manifest) return false;
-  if (!manifest.requiresActivation) return false;
-  if (!manifest.activationCode) return false;
-  if (code.trim() !== manifest.activationCode) return false;
+export function activatePluginByCode(code: string): string | null {
+  const normalized = code.trim();
+  if (!normalized) return null;
 
-  localStorage.setItem(`plugin-activated:${id}`, 'true');
-  return true;
+  for (const { manifest } of registry.values()) {
+    if (!manifest.requiresActivation) continue;
+    if (!manifest.activationCode) continue;
+    if (normalized !== manifest.activationCode) continue;
+
+    localStorage.setItem(ACTIVATED_KEY_PREFIX + manifest.id, 'true');
+    return manifest.id;
+  }
+
+  return null;
 }
 
 export function isLiveStream(pluginId: string): boolean {

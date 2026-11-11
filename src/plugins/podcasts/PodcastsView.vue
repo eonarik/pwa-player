@@ -12,8 +12,7 @@ import Button from '@/components/ui/Button.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import AddPodcastModal from './AddPodcastModal.vue';
-import { newTrackId, newTrackSourceId } from '@/types/ids';
-import type { Track } from '@/types/track';
+import { episodeToTrack } from './episodeTrack';
 
 const router = useRouter();
 const player = usePlayerStore();
@@ -44,34 +43,6 @@ async function unsubscribe(sub: Subscription, e: Event): Promise<void> {
   await refresh();
 }
 
-function episodeToTrack(
-  ep: { id: string; podcastId: string; title: string; audioUrl: string; image: string; durationSec: number | null },
-  podcastTitle: string,
-): Track {
-  const id = newTrackId();
-  return {
-    id,
-    pluginId: PLUGIN_ID,
-    artist: podcastTitle,
-    title: ep.title,
-    albumId: null,
-    coverUrl: ep.image || null,
-    sources: [
-      {
-        id: newTrackSourceId(),
-        pluginId: PLUGIN_ID,
-        priority: 30,
-        kind: 'streaming',
-        url: ep.audioUrl,
-      },
-    ],
-    metadataCandidates: [],
-    raw: null,
-    hasId3Tags: false,
-    duration: ep.durationSec ?? undefined,
-  };
-}
-
 function isPodcastPlaying(sub: Subscription): boolean {
   if (!isPlaying.value || !currentTrackId.value) return false;
   const t = player.currentTrack;
@@ -95,17 +66,7 @@ function playAllEpisodes(sub: Subscription, e: Event): void {
   }
 
   const tracks = sub.episodes.map((ep) =>
-    episodeToTrack(
-      {
-        id: ep.id,
-        podcastId: ep.podcastId || sub.podcast.id,
-        title: ep.title,
-        audioUrl: ep.audioUrl,
-        image: ep.image,
-        durationSec: ep.durationSec,
-      },
-      sub.podcast.title,
-    ),
+    episodeToTrack(ep, { podcastTitle: sub.podcast.title, fallbackCover: null, pluginId: PLUGIN_ID }),
   );
   player.playAll(tracks);
 }

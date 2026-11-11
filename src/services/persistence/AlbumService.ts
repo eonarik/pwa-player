@@ -5,6 +5,7 @@ import { deepToRaw } from '@/utils/deepToRaw';
 import type { Album } from '@/types/album';
 import type { AlbumId } from '@/types/ids';
 import { telemetry } from '@/services/telemetry';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'player:albums';
 const SAVE_DEBOUNCE_MS = 500;
@@ -27,7 +28,7 @@ export class AlbumService {
       const data = await get<Record<AlbumId, Album>>(STORAGE_KEY);
       return data ?? ({} as Record<AlbumId, Album>);
     } catch (err) {
-      console.error('[albums] failed to load', err);
+      logger.error('[albums] failed to load', err);
       return {} as Record<AlbumId, Album>;
     }
   }
@@ -65,7 +66,7 @@ export class AlbumService {
 
       await set(STORAGE_KEY, plain);
     } catch (err) {
-      console.error('[albums] failed to save', err);
+      logger.error('[albums] failed to save', err);
     }
   }
 

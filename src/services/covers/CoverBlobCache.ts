@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { AlbumId } from '@/types/ids';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'player:coverBlobs';
 
@@ -46,7 +47,7 @@ class CoverBlobCacheService {
         }
         this.isLoaded = true;
       } catch (err) {
-        console.error('[coverBlobCache] failed to load', err);
+        logger.error('[coverBlobCache] failed to load', err);
         this.isLoaded = true;
       } finally {
         this.loadPromise = null;
@@ -91,7 +92,7 @@ class CoverBlobCacheService {
     try {
       await this.persist();
     } catch (err) {
-      console.warn('[coverBlobCache] failed to persist', err);
+      logger.warn('[coverBlobCache] failed to persist', err);
     }
   }
 
@@ -108,7 +109,7 @@ class CoverBlobCacheService {
     try {
       await this.persist();
     } catch (err) {
-      console.warn('[coverBlobCache] failed to persist (delete)', err);
+      logger.warn('[coverBlobCache] failed to persist (delete)', err);
     }
   }
 
@@ -122,7 +123,7 @@ class CoverBlobCacheService {
     try {
       await del(STORAGE_KEY);
     } catch (err) {
-      console.warn('[coverBlobCache] failed to clear', err);
+      logger.warn('[coverBlobCache] failed to clear', err);
     }
   }
 

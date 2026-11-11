@@ -2,6 +2,7 @@
 
 import { get, set, clear } from 'idb-keyval';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './schema';
+import { logger } from '@/utils/logger';
 
 export class SchemaService {
   private static instance: SchemaService | null = null;
@@ -19,7 +20,7 @@ export class SchemaService {
     try {
       savedVersion = await get<number>(SCHEMA_VERSION_KEY);
     } catch (err) {
-      console.warn('[SchemaService] failed to read schema version', err);
+      logger.warn('[SchemaService] failed to read schema version', err);
     }
 
     if (savedVersion === undefined) {
@@ -31,7 +32,7 @@ export class SchemaService {
       return false;
     }
 
-    console.warn(`[SchemaService] schema changed: ${savedVersion} → ${SCHEMA_VERSION}. Clearing IDB.`);
+    logger.warn(`[SchemaService] schema changed: ${savedVersion} → ${SCHEMA_VERSION}. Clearing IDB.`);
     await this.clearAll();
     await this.writeVersion();
     return true;
@@ -41,7 +42,7 @@ export class SchemaService {
     try {
       await clear();
     } catch (err) {
-      console.warn('[SchemaService] failed to clear store', err);
+      logger.warn('[SchemaService] failed to clear store', err);
     }
   }
 
@@ -49,7 +50,7 @@ export class SchemaService {
     try {
       await set(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
     } catch (err) {
-      console.error('[SchemaService] failed to write schema version', err);
+      logger.error('[SchemaService] failed to write schema version', err);
     }
   }
 }

@@ -5,7 +5,7 @@ import { setActivePinia, createPinia } from 'pinia';
 import { parsePlaylistText, importPlaylist } from './ImportService';
 import { useLibraryStore } from '@/stores/library';
 import { usePlaylistsStore } from '@/stores/playlists';
-import { newTrackId } from '@/types/ids';
+import { asFolderId, asTrackSourceId, newTrackId } from '@/types/ids';
 import type { Track } from '@/types/track';
 
 vi.mock('@/plugins/registry', () => ({
@@ -23,12 +23,12 @@ function makeTrack(artist: string, title: string, albumId = null): Track {
     coverUrl: null,
     sources: [
       {
-        id: 'src-1' as never,
+        id: asTrackSourceId('src-1'),
         pluginId: 'local',
         priority: 10,
         kind: 'local',
         handle: {} as FileSystemFileHandle,
-        folderId: 'f1' as never,
+        folderId: asFolderId('f1'),
       },
     ],
     metadataCandidates: [],

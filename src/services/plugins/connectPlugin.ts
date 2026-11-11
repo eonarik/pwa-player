@@ -2,6 +2,7 @@
 
 import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
+import { logger } from '@/utils/logger';
 
 export interface ConnectOptions {
   /** После connect вызвать load(), чтобы подтянуть библиотеку. */
@@ -35,7 +36,7 @@ export async function connectPlugin(pluginIdOrSource: string, options: ConnectOp
     try {
       await plugin.load(context, { forceRefresh: options.forceRefresh ?? false });
     } catch (err) {
-      console.warn(`[connectPlugin] load after connect failed for "${pluginId}"`, err);
+      logger.warn(`[connectPlugin] load after connect failed for "${pluginId}"`, err);
     }
   }
 

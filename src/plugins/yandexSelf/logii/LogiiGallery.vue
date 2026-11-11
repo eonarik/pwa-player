@@ -11,6 +11,7 @@ import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import type { LogiiTrackItem } from './useLogiiData';
 import type { FolderFile } from '@/types/folder';
+import { logger } from '@/utils/logger';
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -95,7 +96,7 @@ async function onFilesSelected(e: Event): Promise<void> {
         await yandexSelfService.uploadFile(props.folder.urlPath, file.name, file);
         uploaded++;
       } catch (err) {
-        console.warn(`[logii-gallery] upload failed for "${file.name}"`, err);
+        logger.warn(`[logii-gallery] upload failed for "${file.name}"`, err);
         failed++;
       } finally {
         uploadProgress.value = {
@@ -108,7 +109,7 @@ async function onFilesSelected(e: Event): Promise<void> {
     const plugin = await loadPlugin('yandex-self');
     if (plugin.scanFolder) {
       const context = createPluginContext('yandex-self');
-      await plugin.scanFolder(context, props.folder.folderId as never, { recursive: false, force: true });
+      await plugin.scanFolder(context, props.folder.folderId, { recursive: false, force: true });
     }
 
     if (failed > 0) {
@@ -143,12 +144,12 @@ async function onDeleteImage(index: number, e: MouseEvent): Promise<void> {
     const plugin = await loadPlugin('yandex-self');
     if (plugin.scanFolder) {
       const context = createPluginContext('yandex-self');
-      await plugin.scanFolder(context, props.folder.folderId as never, { recursive: false, force: true });
+      await plugin.scanFolder(context, props.folder.folderId, { recursive: false, force: true });
     }
 
     toastService.success('Картинка удалена');
   } catch (err) {
-    console.error('[logii-gallery] delete failed', err);
+    logger.error('[logii-gallery] delete failed', err);
     toastService.error(err instanceof Error ? err.message : 'Не удалось удалить');
   } finally {
     deletingIndex.value = null;

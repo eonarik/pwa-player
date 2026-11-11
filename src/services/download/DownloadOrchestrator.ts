@@ -1,39 +1,40 @@
 // src/services/download/DownloadOrchestrator.ts
 
-import { ref, shallowRef } from 'vue';
-import type { Track, TrackSource } from '@/types/track';
-import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
-import { createPluginContext } from '@/plugins/context';
-import { createLibraryWriter } from '@/stores/library';
-import { downloadSpaceService } from './DownloadSpaceService';
-import { DownloadError, type TrackDownloadState } from './types';
-import { metadataWorkerService } from '../metadata/MetadataWorkerService';
-import { metadataService } from '../metadata/MetadataService';
-import { newTrackSourceId } from '@/types/ids';
+import type { Track } from '@/types/track';
+import type { ScanResult } from '@/plugins/types';
+import type { TrackId } from '@/types/ids';
+import { logger } from '@/utils/logger';
+import { createActiveDownloads, type ActiveDownloads, type DownloadProgress } from './active-downloads';
+import { downloadTrackInternal } from './single-track';
+import { createBatchRunner, type BatchProgress, type BatchResult } from './batch';
+import { removeDownloaded, scanDownloads } from './manage';
 
-export interface BatchResult {
-  succeeded: number;
-  failed: number;
-  skipped: number;
-  errors: Array<{ track: Track; message: string }>;
-  aborted: boolean;
-}
+export type { BatchProgress, BatchResult, DownloadProgress };
 
-export interface BatchProgress {
-  done: number;
-  total: number;
-  currentName: string;
-}
+/** Пауза перед повторной попыткой скачать трек. */
+const RETRY_DELAY_MS = 2000;
 
+/**
+ * Оркестратор скачивания треков из облака в локальное хранилище.
+ *
+ * Фасад над модулями:
+ * - `active-downloads` — учёт текущих загрузок и их прогресс (реактивный);
+ * - `single-track` — скачивание одного трека с повторами;
+ * - `batch` — последовательный пакетный режим;
+ * - `manage` — удаление скачанного и сверка папки загрузок.
+ */
 class DownloadOrchestrator {
   private static instance: DownloadOrchestrator | null = null;
 
-  private states = shallowRef<Map<string, TrackDownloadState>>(new Map());
-  readonly version = ref(0);
+  private active: ActiveDownloads = createActiveDownloads();
+  private batch = createBatchRunner((track, signal) =>
+    downloadTrackInternal(track, signal, { active: this.active, retryDelayMs: RETRY_DELAY_MS }),
+  );
 
-  readonly isBatchDownloading = ref(false);
-  readonly batchProgress = shallowRef<BatchProgress | null>(null);
-  private batchAbort: AbortController | null = null;
+  /** Пин для подписки на прогресс: см. `active-downloads`. */
+  readonly version = this.active.version;
+  readonly isBatchDownloading = this.batch.isBatchDownloading;
+  readonly batchProgress = this.batch.batchProgress;
 
   static getInstance(): DownloadOrchestrator {
     if (!DownloadOrchestrator.instance) {
@@ -42,267 +43,46 @@ class DownloadOrchestrator {
     return DownloadOrchestrator.instance;
   }
 
-  isDownloading(trackId: string): boolean {
-    void this.version.value;
-    return this.states.value.has(trackId);
+  isDownloading(trackId: TrackId): boolean {
+    return this.active.has(trackId);
   }
 
-  getProgress(trackId: string): { written: number; total: number } | null {
-    void this.version.value;
-    const state = this.states.value.get(trackId);
-    if (!state) return null;
-    return { written: state.written, total: state.total };
+  getProgress(trackId: TrackId): DownloadProgress | null {
+    return this.active.progressOf(trackId);
   }
 
+  cancel(trackId: TrackId): void {
+    this.active.abortControllerOf(trackId)?.abort();
+  }
+
+  /** Одиночное скачивание: false, если трек уже качается или что-то пошло не так. */
   async downloadTrack(track: Track): Promise<boolean> {
     if (this.isDownloading(track.id)) return false;
     try {
-      await this.downloadTrackInternal(track, null);
+      await downloadTrackInternal(track, null, { active: this.active, retryDelayMs: RETRY_DELAY_MS });
       return true;
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-      } else {
-        console.error(`[download] failed for "${track.title}"`, err);
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        logger.error(`[download] failed for "${track.title}"`, err);
       }
       return false;
     }
   }
 
-  private async downloadTrackInternal(track: Track, externalSignal: AbortSignal | null): Promise<void> {
-    const cloudSource = track.sources.find((s) => s.kind === 'cloud');
-    if (!cloudSource) {
-      throw new Error(`Track "${track.id}" has no cloud source to download`);
-    }
-
-    const pluginId = pluginIdFromSource(cloudSource.pluginId);
-    const plugin = await loadPlugin(pluginId);
-    if (!plugin.canDownload || !plugin.downloadTrack) {
-      throw new Error(`Plugin "${pluginId}" does not support download`);
-    }
-
-    const targetDir = await downloadSpaceService.getPluginDir(pluginId);
-    const pluginContext = createPluginContext(pluginId);
-
-    const abort = new AbortController();
-    if (externalSignal) {
-      if (externalSignal.aborted) throw new DOMException('Aborted', 'AbortError');
-      externalSignal.addEventListener('abort', () => abort.abort(), { once: true });
-    }
-
-    const state: TrackDownloadState = {
-      trackId: track.id,
-      written: 0,
-      total: 0,
-      abort,
-    };
-    this.states.value.set(track.id, state);
-    this.version.value++;
-
-    let attempt = 0;
-    const MAX_ATTEMPTS = 3;
-
-    try {
-      while (attempt < MAX_ATTEMPTS) {
-        try {
-          const result = await plugin.downloadTrack(pluginContext, track, cloudSource, {
-            targetDir,
-            signal: abort.signal,
-            onProgress: (written, total) => {
-              const s = this.states.value.get(track.id);
-              if (s) {
-                s.written = written;
-                s.total = total;
-                this.version.value++;
-              }
-            },
-          });
-
-          const writer = createLibraryWriter();
-          const localSource: TrackSource = {
-            id: newTrackSourceId(),
-            pluginId,
-            priority: 10,
-            kind: 'local',
-            handle: result.handle,
-            folderId: (cloudSource as { folderId: string }).folderId as never,
-          };
-          const nextSources = [localSource, ...track.sources.filter((s) => s.kind !== 'local')].sort(
-            (a, b) => a.priority - b.priority,
-          );
-          writer.updateTrackSources(track.id, nextSources);
-
-          if (track.sources[0]?.kind !== 'local') {
-            try {
-              const file = await result.handle.getFile();
-              const parsed = await metadataWorkerService.parse(file);
-              if (parsed && parsed.metadata.artist) {
-                metadataService.applyFromFile(track.id, parsed.metadata, parsed.coverBlob);
-              }
-            } catch (err) {
-              console.warn('[download] failed to parse tags after download', err);
-            }
-          }
-
-          if (plugin.saveCache) {
-            await plugin.saveCache(pluginContext);
-          }
-          return;
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') {
-            throw err;
-          }
-
-          const isBrokenFile = err instanceof DownloadError && (err.status === 404 || err.status === 410);
-          if (isBrokenFile) {
-            throw err;
-          }
-
-          attempt++;
-          console.warn(`[download] attempt ${attempt} failed for "${track.title}":`, err);
-
-          if (attempt >= MAX_ATTEMPTS) {
-            throw err;
-          }
-
-          const s = this.states.value.get(track.id);
-          if (s) {
-            s.written = 0;
-            s.total = 0;
-            this.version.value++;
-          }
-
-          await new Promise((resolve, reject) => {
-            const timer = setTimeout(resolve, 2000);
-            abort.signal.addEventListener(
-              'abort',
-              () => {
-                clearTimeout(timer);
-                reject(new DOMException('Aborted', 'AbortError'));
-              },
-              { once: true },
-            );
-          });
-        }
-      }
-    } finally {
-      this.states.value.delete(track.id);
-      this.version.value++;
-    }
-  }
-
-  cancel(trackId: string): void {
-    const state = this.states.value.get(trackId);
-    if (state) state.abort.abort();
-  }
-
-  async downloadMany(tracks: Track[]): Promise<BatchResult> {
-    if (this.isBatchDownloading.value) {
-      return { succeeded: 0, failed: 0, skipped: 0, errors: [], aborted: false };
-    }
-
-    const toDownload = tracks.filter((t) => {
-      const hasLocal = t.sources.some((s) => s.kind === 'local');
-      return !hasLocal && t.sources.some((s) => s.kind === 'cloud');
-    });
-    const skipped = tracks.length - toDownload.length;
-
-    if (toDownload.length === 0) {
-      return { succeeded: 0, failed: 0, skipped, errors: [], aborted: false };
-    }
-
-    this.isBatchDownloading.value = true;
-    this.batchProgress.value = { done: 0, total: toDownload.length, currentName: '' };
-    this.batchAbort = new AbortController();
-
-    const errors: Array<{ track: Track; message: string }> = [];
-    let succeeded = 0;
-    let aborted = false;
-
-    try {
-      for (const track of toDownload) {
-        if (this.batchAbort.signal.aborted) {
-          aborted = true;
-          break;
-        }
-
-        this.batchProgress.value = {
-          done: succeeded + errors.length,
-          total: toDownload.length,
-          currentName: track.title,
-        };
-
-        try {
-          await this.downloadTrackInternal(track, this.batchAbort.signal);
-          succeeded++;
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') {
-            aborted = true;
-            break;
-          }
-          errors.push({
-            track,
-            message: err instanceof Error ? err.message : String(err),
-          });
-        }
-
-        this.batchProgress.value = {
-          done: succeeded + errors.length,
-          total: toDownload.length,
-          currentName: track.title,
-        };
-      }
-    } finally {
-      this.isBatchDownloading.value = false;
-      this.batchProgress.value = null;
-      this.batchAbort = null;
-    }
-
-    return { succeeded, failed: errors.length, skipped, errors, aborted };
+  downloadMany(tracks: Track[]): Promise<BatchResult> {
+    return this.batch.downloadMany(tracks);
   }
 
   cancelBatch(): void {
-    this.batchAbort?.abort();
+    this.batch.cancelBatch();
   }
 
-  async removeDownloaded(track: Track): Promise<boolean> {
-    const localSource = track.sources.find((s) => s.kind === 'local');
-    if (!localSource) return false;
-
-    const pluginId = pluginIdFromSource(localSource.pluginId);
-    const plugin = await loadPlugin(pluginId);
-    if (!plugin.removeDownloaded) {
-      throw new Error(`Plugin "${pluginId}" does not support removing downloads`);
-    }
-
-    const targetDir = await downloadSpaceService.getPluginDir(pluginId);
-    const pluginContext = createPluginContext(pluginId);
-
-    await plugin.removeDownloaded(pluginContext, track, localSource, targetDir);
-
-    const writer = createLibraryWriter();
-    const nextSources = track.sources.filter((s) => s.kind !== 'local');
-    writer.updateTrackSources(track.id, nextSources);
-
-    if (plugin.saveCache) {
-      await plugin.saveCache(pluginContext);
-    }
-
-    return true;
+  removeDownloaded(track: Track): Promise<boolean> {
+    return removeDownloaded(track);
   }
 
-  async scan(pluginId: string): Promise<import('@/plugins/types').ScanResult | null> {
-    const plugin = await loadPlugin(pluginIdFromSource(pluginId));
-    if (!plugin.scanDownloadDir) return null;
-
-    const targetDir = await downloadSpaceService.getPluginDir(pluginId);
-    const pluginContext = createPluginContext(pluginIdFromSource(pluginId));
-
-    try {
-      return await plugin.scanDownloadDir(pluginContext, targetDir);
-    } catch (err) {
-      console.error(`[download] scan failed for "${pluginId}"`, err);
-      return null;
-    }
+  scan(pluginId: string): Promise<ScanResult | null> {
+    return scanDownloads(pluginId);
   }
 }
 

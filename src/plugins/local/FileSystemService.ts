@@ -8,6 +8,7 @@ import { guessMetadataFromFilename } from '@/utils/parseFilename';
 import { compareStrings } from '@/utils/sort';
 import { findCoverInDirectory } from '@/services/covers/findCoverInDirectory';
 import { isAudioFile } from '@/shared/audioExtensions';
+import { logger } from '@/utils/logger';
 
 const HANDLES_KEY = 'player:directoryHandles';
 
@@ -32,7 +33,7 @@ export class FileSystemService {
       const handles = await get<FileSystemDirectoryHandle[]>(HANDLES_KEY);
       return handles ?? [];
     } catch (err) {
-      console.error('[local-plugin] failed to get handles', err);
+      logger.error('[local-plugin] failed to get handles', err);
       return [];
     }
   }
@@ -41,7 +42,7 @@ export class FileSystemService {
     try {
       await set(HANDLES_KEY, handles);
     } catch (err) {
-      console.error('[local-plugin] failed to save handles', err);
+      logger.error('[local-plugin] failed to save handles', err);
     }
   }
 
@@ -93,7 +94,7 @@ export class FileSystemService {
       const result = await handle.requestPermission(options);
       return result === 'granted';
     } catch (err) {
-      console.warn('[local-plugin] permission request needs user gesture', err);
+      logger.warn('[local-plugin] permission request needs user gesture', err);
       return false;
     }
   }

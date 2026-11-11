@@ -14,6 +14,7 @@ import { getPlugins, loadPlugin, isPluginActivated } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { sortService } from '@/services/sort/SortService';
 import { reconciliationService } from '@/services/library/ReconciliationService';
+import { logger } from '@/utils/logger';
 
 export function useAppBootstrap() {
   const isBootstrapping = ref(true);
@@ -40,7 +41,7 @@ export function useAppBootstrap() {
       await library.restore();
       library.reconcileFolderTrackIds();
     } catch (err) {
-      console.error('[app] bootstrap (fast phase) failed', err);
+      logger.error('[app] bootstrap (fast phase) failed', err);
     } finally {
       // UI открывается сразу после библиотеки.
       isBootstrapping.value = false;
@@ -78,11 +79,11 @@ export function useAppBootstrap() {
                   await context.writer.setLibrary(snapshot, manifest.id);
                 }
               } catch (err) {
-                console.warn(`[app] failed to load source "${manifest.id}"`, err);
+                logger.warn(`[app] failed to load source "${manifest.id}"`, err);
               }
             }
           } catch (err) {
-            console.warn(`[app] failed to restore source "${manifest.id}"`, err);
+            logger.warn(`[app] failed to restore source "${manifest.id}"`, err);
           }
         }
 
@@ -90,7 +91,7 @@ export function useAppBootstrap() {
         library.cleanupOrphanAlbums();
 
         const playerRestored = await player.restore();
-        if (playerRestored) console.log('[player] restored');
+        if (playerRestored) logger.log('[player] restored');
 
         // cleanupOrphanTracks — строго после player.restore (нужна очередь).
         library.cleanupOrphanTracks(
@@ -100,7 +101,7 @@ export function useAppBootstrap() {
           unref(player.queue) ?? [],
         );
       } catch (err) {
-        console.error('[app] bootstrap (background phase) failed', err);
+        logger.error('[app] bootstrap (background phase) failed', err);
       }
     })();
   });

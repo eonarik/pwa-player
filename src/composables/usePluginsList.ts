@@ -4,6 +4,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { getPlugins, loadPlugin, setPluginDisconnected, isPluginActivated } from '@/plugins/registry';
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import type { PluginManifest, LibrarySource } from '@/plugins/types';
+import { logger } from '@/utils/logger';
 
 export type SessionStatus = 'checking' | 'ok' | 'expired' | 'unavailable';
 
@@ -128,7 +129,7 @@ export function usePluginsList() {
           isDisconnected: plugin.isDisconnected?.() ?? false,
         });
       } catch (err) {
-        console.warn(`[home] failed to load plugin ${manifest.id}`, err);
+        logger.warn(`[home] failed to load plugin ${manifest.id}`, err);
       }
     }
 
@@ -156,7 +157,7 @@ export function usePluginsList() {
         if (isUnmounted) return;
         if (hasLocal) customDataMap.value[meta.manifest.id] = true;
       } catch (err) {
-        console.warn(`[home] failed to check local files for ${meta.manifest.id}`, err);
+        logger.warn(`[home] failed to check local files for ${meta.manifest.id}`, err);
       }
     }
 

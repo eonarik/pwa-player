@@ -1,4 +1,5 @@
 // src/composables/useSoftTtlCache.ts
+import { logger } from '@/utils/logger';
 
 export interface CacheEntry<T> {
   key: string;
@@ -58,7 +59,7 @@ export function useSoftTtlCache<T>(options: SoftTtlCacheOptions): SoftTtlCache<T
       const payload: CacheEntry<T> = { key, data, fetchedAt: Date.now() };
       localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
-      console.warn(`[cache:${storageKey}] failed to write`, err);
+      logger.warn(`[cache:${storageKey}] failed to write`, err);
     }
   }
 

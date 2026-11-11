@@ -1,0 +1,623 @@
+.
+├── e2e
+│   ├── core
+│   │   ├── 01-bootstrap.spec.ts
+│   │   ├── 02-player-collections.spec.ts
+│   │   ├── 03-offline-cache.spec.ts
+│   │   ├── 05-metadata.spec.ts
+│   │   ├── 06-multi-source-merge.spec.ts
+│   │   ├── 07-local-disconnect.spec.ts
+│   │   ├── 08-zvuk-source.spec.ts
+│   │   ├── 09-cleanup-orphans.spec.ts
+│   │   ├── 10-albums-crud.spec.ts
+│   │   ├── 11-toasts.spec.ts
+│   │   ├── 12-playlist-sharing.spec.ts
+│   │   └── 13-clipboard-watcher.spec.ts
+│   ├── fixtures
+│   │   └── mp3_15s_sample_file_236KB.mp3
+│   ├── helpers
+│   │   ├── api-mock.ts
+│   │   ├── fs-mock.ts
+│   │   ├── logii-helpers.ts
+│   │   └── test-utils.ts
+│   ├── mocks
+│   │   └── api
+│   │       ├── auth.ts
+│   │       ├── index.ts
+│   │       ├── metadata.ts
+│   │       ├── podcasts.ts
+│   │       ├── radio.ts
+│   │       ├── yandex-disk.ts
+│   │       ├── yandex.ts
+│   │       └── zvuk.ts
+│   └── plugins
+│       ├── 01-local-plugin.spec.ts
+│       ├── 02-radio-plugin.spec.ts
+│       ├── 03-podcasts-plugin.spec.ts
+│       ├── 04-zvuk-plugin.spec.ts
+│       ├── 05-yandex-folder-statuses.spec.ts
+│       ├── 06-cancel-background-scan.spec.ts
+│       ├── 07-yandex-progressive.spec.ts
+│       ├── 08-deep-nesting-scan.spec.ts
+│       ├── 09-sync-architecture.spec.ts
+│       ├── 10-local-matches.spec.ts
+│       ├── 11-metadata-album-cover.spec.ts
+│       ├── 12-local-only-mode.spec.ts
+│       ├── 14-force-scan-diff.spec.ts
+│       ├── 15-logii-view.spec.ts
+│       ├── 16-logii-read.spec.ts
+│       ├── 17-logii-play-author.spec.ts
+│       ├── 18-logii-refresh-back.spec.ts
+│       ├── 19-logii-comments.spec.ts
+│       ├── 20-logii-create-season.spec.ts
+│       ├── 21-logii-authors.spec.ts
+│       ├── 22-logii-tops.spec.ts
+│       ├── 23-logii-upload-track.spec.ts
+│       └── 24-logii-gallery.spec.ts
+├── public
+│   ├── apple-touch-icon-180x180.png
+│   ├── favicon.ico
+│   ├── logo.webp
+│   ├── maskable-icon-512x512.png
+│   ├── pwa-192x192.png
+│   ├── pwa-512x512.png
+│   └── pwa-64x64.png
+├── server
+│   ├── src
+│   │   ├── core
+│   │   │   ├── middleware
+│   │   │   ├── providers
+│   │   │   ├── index.js
+│   │   │   ├── passport.js
+│   │   │   ├── routes.js
+│   │   │   └── session.js
+│   │   ├── metadata
+│   │   │   ├── jaroWinkler.js
+│   │   │   ├── parseTitle.js
+│   │   │   ├── routes.js
+│   │   │   ├── similarity.js
+│   │   │   └── similarity.spec.js
+│   │   ├── plugins
+│   │   │   ├── feedback
+│   │   │   ├── hls-proxy
+│   │   │   ├── podcasts
+│   │   │   ├── telemetry
+│   │   │   ├── yandex
+│   │   │   ├── yandex-self
+│   │   │   └── zvuk
+│   │   ├── shared
+│   │   │   ├── aliases.js
+│   │   │   ├── audio.js
+│   │   │   ├── errors.js
+│   │   │   ├── logger.js
+│   │   │   ├── paths.js
+│   │   │   └── yandexApi.js
+│   │   ├── index.mjs
+│   │   └── modules.js
+│   ├── package.json
+│   └── tsconfig.json
+├── src
+│   ├── assets
+│   │   ├── fallback-barbie-cover.jpg
+│   │   ├── fallback-default-cover.webp
+│   │   ├── fallback-neon-cover.webp
+│   │   ├── fallback-radio-cover.png
+│   │   ├── fallback-tiffany-cover.jpg
+│   │   ├── fluffy-clouds.jpg
+│   │   ├── main.css
+│   │   ├── sber-zvuk.png
+│   │   ├── theme-barbie.css
+│   │   ├── theme-neon.css
+│   │   ├── theme-radio.css
+│   │   ├── theme-tiffany.css
+│   │   ├── tiffany-floral-corner.png
+│   │   ├── tiffany-gold-foil.webp
+│   │   ├── tiffany-marble-bg.avif
+│   │   └── yandex-disk.png
+│   ├── components
+│   │   ├── catalog
+│   │   │   └── CatalogLayout.vue
+│   │   ├── download
+│   │   │   └── SpacePermissionModal.vue
+│   │   ├── icons
+│   │   │   ├── IconAlbum.vue
+│   │   │   ├── IconAlertTriangle.vue
+│   │   │   ├── IconArrowDown.vue
+│   │   │   ├── IconArrowLeft.vue
+│   │   │   ├── IconArrowUp.vue
+│   │   │   ├── IconArtist.vue
+│   │   │   ├── IconCheck.vue
+│   │   │   ├── IconChevronDown.vue
+│   │   │   ├── IconChevronLeft.vue
+│   │   │   ├── IconChevronRight.vue
+│   │   │   ├── IconCloudCheck.vue
+│   │   │   ├── IconDots.vue
+│   │   │   ├── IconDownload.vue
+│   │   │   ├── IconEyeOff.vue
+│   │   │   ├── IconFeedback.vue
+│   │   │   ├── IconFile.vue
+│   │   │   ├── IconFilter.vue
+│   │   │   ├── IconFolder.vue
+│   │   │   ├── IconGrid.vue
+│   │   │   ├── IconHeart.vue
+│   │   │   ├── IconHistory.vue
+│   │   │   ├── IconHome.vue
+│   │   │   ├── IconLink.vue
+│   │   │   ├── IconListPlay.vue
+│   │   │   ├── IconList.vue
+│   │   │   ├── IconMaximize.vue
+│   │   │   ├── IconMenu.vue
+│   │   │   ├── IconMinimize.vue
+│   │   │   ├── IconNext.vue
+│   │   │   ├── IconPause.vue
+│   │   │   ├── IconPencil.vue
+│   │   │   ├── IconPlaylist.vue
+│   │   │   ├── IconPlay.vue
+│   │   │   ├── IconPlus.vue
+│   │   │   ├── IconPrev.vue
+│   │   │   ├── IconRadio.vue
+│   │   │   ├── IconRefresh.vue
+│   │   │   ├── IconRepeat.vue
+│   │   │   ├── IconSearch.vue
+│   │   │   ├── IconSettings.vue
+│   │   │   ├── IconShare.vue
+│   │   │   ├── IconShuffle.vue
+│   │   │   ├── IconSpinner.vue
+│   │   │   ├── Icons.stories.ts
+│   │   │   ├── IconThumbsDown.vue
+│   │   │   ├── IconTrash.vue
+│   │   │   ├── IconVolumeMute.vue
+│   │   │   ├── IconVolume.vue
+│   │   │   ├── IconWarning.vue
+│   │   │   ├── IconX.vue
+│   │   │   └── index.ts
+│   │   ├── layout
+│   │   │   ├── AppDrawer.vue
+│   │   │   └── AppLoader.vue
+│   │   ├── library
+│   │   │   ├── AlbumSelect.vue
+│   │   │   ├── BatchAddToPlaylistButton.vue
+│   │   │   ├── BatchDownloadButton.vue
+│   │   │   ├── CoverPicker.vue
+│   │   │   ├── FileListItem.vue
+│   │   │   ├── FileLocationFilter.vue
+│   │   │   ├── FolderActionsMenu.vue
+│   │   │   ├── FolderBreadcrumbs.vue
+│   │   │   ├── FolderListItem.vue
+│   │   │   ├── FolderList.vue
+│   │   │   ├── FolderSettingsMenu.stories.ts
+│   │   │   ├── FolderSettingsMenu.vue
+│   │   │   ├── FolderSortMenu.vue
+│   │   │   ├── FolderSyncMenu.vue
+│   │   │   ├── ImagePreviewModal.vue
+│   │   │   ├── MetadataCandidatesButton.vue
+│   │   │   ├── MetadataCandidatesModal.vue
+│   │   │   ├── MetadataMenu.vue
+│   │   │   ├── PlaylistSubmenu.vue
+│   │   │   ├── SyncIssuesModal.vue
+│   │   │   ├── TextEditorModal.vue
+│   │   │   ├── TrackActions.vue
+│   │   │   ├── TrackListItem.vue
+│   │   │   ├── TrackListPage.vue
+│   │   │   ├── TrackList.vue
+│   │   │   ├── TrackMetadataModal.vue
+│   │   │   ├── TrackResolvedItem.vue
+│   │   │   └── TrackRow.vue
+│   │   ├── player
+│   │   │   ├── FullPlayer.vue
+│   │   │   ├── NowPlayingInfo.vue
+│   │   │   ├── PlayerControls.stories.ts
+│   │   │   ├── PlayerControls.vue
+│   │   │   ├── PlayerProgressBar.stories.ts
+│   │   │   └── PlayerProgressBar.vue
+│   │   ├── playlists
+│   │   │   ├── ImportPlaylistModal.vue
+│   │   │   └── PlaylistShareMenu.vue
+│   │   ├── settings
+│   │   │   ├── fields
+│   │   │   └── PluginSettingsSection.vue
+│   │   └── ui
+│   │       ├── AddRemoveButton.vue
+│   │       ├── AlphabetIndex.vue
+│   │       ├── AutocompleteInput.vue
+│   │       ├── Avatar.vue
+│   │       ├── Badge.stories.ts
+│   │       ├── Badge.vue
+│   │       ├── Button.stories.ts
+│   │       ├── Button.vue
+│   │       ├── Checkbox.stories.ts
+│   │       ├── Checkbox.vue
+│   │       ├── CoverImage.stories.ts
+│   │       ├── CoverImage.vue
+│   │       ├── CoverPicker.vue
+│   │       ├── DislikeButton.vue
+│   │       ├── Divider.vue
+│   │       ├── DropdownMenu.stories.ts
+│   │       ├── DropdownMenu.vue
+│   │       ├── EmptyState.stories.ts
+│   │       ├── EmptyState.vue
+│   │       ├── FavoriteButton.vue
+│   │       ├── FeedbackModal.vue
+│   │       ├── FormField.stories.ts
+│   │       ├── FormField.vue
+│   │       ├── IconButton.stories.ts
+│   │       ├── IconButton.vue
+│   │       ├── Icon.vue
+│   │       ├── Input.stories.ts
+│   │       ├── Input.vue
+│   │       ├── InputWithAffix.vue
+│   │       ├── Label.vue
+│   │       ├── LinkButton.vue
+│   │       ├── ListContainer.stories.ts
+│   │       ├── ListContainer.vue
+│   │       ├── ListRow.stories.ts
+│   │       ├── ListRow.vue
+│   │       ├── MarkdownText.vue
+│   │       ├── ModalHost.stories.ts
+│   │       ├── ModalHost.vue
+│   │       ├── ModalLayout.stories.ts
+│   │       ├── ModalLayout.vue
+│   │       ├── PageHeader.stories.ts
+│   │       ├── PageHeader.vue
+│   │       ├── PlayingIndicator.stories.ts
+│   │       ├── PlayingIndicator.vue
+│   │       ├── ProgressBar.vue
+│   │       ├── SearchInput.vue
+│   │       ├── SectionTitle.stories.ts
+│   │       ├── SectionTitle.vue
+│   │       ├── Select.stories.ts
+│   │       ├── Select.vue
+│   │       ├── SettingsActionRow.vue
+│   │       ├── ShowSourceCheckbox.vue
+│   │       ├── Spinner.stories.ts
+│   │       ├── Spinner.vue
+│   │       ├── Textarea.stories.ts
+│   │       ├── Textarea.vue
+│   │       ├── ToastHost.stories.ts
+│   │       ├── ToastHost.vue
+│   │       ├── Toggle.stories.ts
+│   │       ├── Toggle.vue
+│   │       ├── Toolbar.stories.ts
+│   │       ├── Toolbar.vue
+│   │       ├── TrackCover.vue
+│   │       ├── TrackReactionButtons.vue
+│   │       ├── ViewToggle.vue
+│   │       ├── VirtualGrid.types.ts
+│   │       └── VirtualGrid.vue
+│   ├── composables
+│   │   ├── useAlbumCover.ts
+│   │   ├── useAppBootstrap.ts
+│   │   ├── useAutoActions.spec.ts
+│   │   ├── useAutoActions.ts
+│   │   ├── useBatchDownload.ts
+│   │   ├── useButtonAs.ts
+│   │   ├── useClipboardWatcher.spec.ts
+│   │   ├── useClipboardWatcher.ts
+│   │   ├── useCollectionView.ts
+│   │   ├── useDocumentTitle.ts
+│   │   ├── useDominantColor.ts
+│   │   ├── useDownloadOrchestrator.ts
+│   │   ├── useFolderSync.ts
+│   │   ├── useItemHeight.ts
+│   │   ├── useKeyboardShortcuts.ts
+│   │   ├── useLibrarySearch.ts
+│   │   ├── useMediaSession.ts
+│   │   ├── useMenu.ts
+│   │   ├── useMetadataSearch.spec.ts
+│   │   ├── useMetadataSearch.ts
+│   │   ├── usePluginActions.ts
+│   │   ├── usePluginsList.ts
+│   │   ├── usePwaUpdate.ts
+│   │   ├── useSoftTtlCache.ts
+│   │   ├── useTrackDisplay.ts
+│   │   ├── useTrackDownload.ts
+│   │   ├── useTrackEndOnVisibility.ts
+│   │   ├── useTrackPlayability.ts
+│   │   └── useVirtualList.ts
+│   ├── directives
+│   │   └── tooltip.ts
+│   ├── navigation
+│   │   ├── menu.ts
+│   │   └── title.ts
+│   ├── plugins
+│   │   ├── demo
+│   │   │   ├── DemoView.vue
+│   │   │   ├── extension.ts
+│   │   │   ├── index.ts
+│   │   │   └── manifest.ts
+│   │   ├── local
+│   │   │   ├── FileSystemService.ts
+│   │   │   ├── index.ts
+│   │   │   ├── manifest.ts
+│   │   │   ├── persistence.ts
+│   │   │   ├── settings.ts
+│   │   │   └── types.ts
+│   │   ├── podcasts
+│   │   │   ├── AddPodcastModal.vue
+│   │   │   ├── constants.ts
+│   │   │   ├── extension.ts
+│   │   │   ├── index.ts
+│   │   │   ├── manifest.ts
+│   │   │   ├── parseOpml.ts
+│   │   │   ├── PodcastCatalog.vue
+│   │   │   ├── PodcastRoute.vue
+│   │   │   ├── PodcastService.ts
+│   │   │   ├── PodcastStorage.ts
+│   │   │   ├── PodcastsView.vue
+│   │   │   └── types.ts
+│   │   ├── radio
+│   │   │   ├── AddStationModal.vue
+│   │   │   ├── constants.ts
+│   │   │   ├── extension.ts
+│   │   │   ├── index.ts
+│   │   │   ├── manifest.ts
+│   │   │   ├── RadioBrowserClient.ts
+│   │   │   ├── RadioCatalog.vue
+│   │   │   ├── RadioFilters.vue
+│   │   │   ├── RadioSavedList.vue
+│   │   │   ├── RadioService.ts
+│   │   │   └── RadioView.vue
+│   │   ├── yandexDisk
+│   │   │   ├── backgroundScan.ts
+│   │   │   ├── concurrency.ts
+│   │   │   ├── constants.ts
+│   │   │   ├── createPlugin.ts
+│   │   │   ├── download.ts
+│   │   │   ├── index.ts
+│   │   │   ├── load.ts
+│   │   │   ├── localMatches.ts
+│   │   │   ├── localRestore.ts
+│   │   │   ├── manifest.ts
+│   │   │   ├── persistence.ts
+│   │   │   ├── scanFolder.spec.ts
+│   │   │   ├── scanFolder.ts
+│   │   │   ├── ScanQueue.spec.ts
+│   │   │   ├── ScanQueue.ts
+│   │   │   ├── scan.ts
+│   │   │   ├── storage.ts
+│   │   │   ├── textFiles.ts
+│   │   │   ├── types.ts
+│   │   │   └── YandexDiskService.ts
+│   │   ├── yandexSelf
+│   │   │   ├── logii
+│   │   │   ├── extension.ts
+│   │   │   ├── index.ts
+│   │   │   ├── manifest.ts
+│   │   │   └── YandexSelfService.ts
+│   │   ├── zvuk
+│   │   │   ├── extension.ts
+│   │   │   ├── index.ts
+│   │   │   ├── manifest.ts
+│   │   │   ├── restoreUnavailable.ts
+│   │   │   ├── ZvukService.ts
+│   │   │   └── ZvukView.vue
+│   │   ├── context.ts
+│   │   ├── extensions.spec.ts
+│   │   ├── extensions.ts
+│   │   ├── lookup.spec.ts
+│   │   ├── lookup.ts
+│   │   ├── registry.ts
+│   │   ├── remoteLoader.ts
+│   │   ├── settingsTypes.ts
+│   │   ├── storage.ts
+│   │   └── types.ts
+│   ├── router
+│   │   └── index.ts
+│   ├── services
+│   │   ├── api
+│   │   │   ├── ApiClient.ts
+│   │   │   └── errors.ts
+│   │   ├── audio
+│   │   │   ├── AudioService
+│   │   │   ├── resolveTrackSource.ts
+│   │   │   ├── toPlayableUrl.ts
+│   │   │   └── types.ts
+│   │   ├── auth
+│   │   │   └── AuthService.ts
+│   │   ├── backup
+│   │   │   ├── BackupService.migration.spec.ts
+│   │   │   ├── BackupService.spec.ts
+│   │   │   └── BackupService.ts
+│   │   ├── collections
+│   │   │   └── ensureTrackInLibrary.ts
+│   │   ├── covers
+│   │   │   ├── CoverBlobCache.ts
+│   │   │   └── findCoverInDirectory.ts
+│   │   ├── download
+│   │   │   ├── DownloadOrchestrator.ts
+│   │   │   ├── DownloadSpaceService.ts
+│   │   │   ├── downloadUrlToFile.ts
+│   │   │   ├── getFileFromPath.ts
+│   │   │   ├── PermissionService.ts
+│   │   │   ├── scanDirectory.ts
+│   │   │   ├── SyncService.ts
+│   │   │   └── types.ts
+│   │   ├── files
+│   │   │   ├── FileHandlerRegistry.ts
+│   │   │   └── setupHandlers.ts
+│   │   ├── library
+│   │   │   ├── TrackMerger
+│   │   │   ├── EntityGraph.ts
+│   │   │   ├── LibrarySaveService.ts
+│   │   │   ├── LibraryWriter.race.spec.ts
+│   │   │   ├── LibraryWriter.ts
+│   │   │   ├── ReconciliationService.ts
+│   │   │   ├── selectors.spec.ts
+│   │   │   └── selectors.ts
+│   │   ├── markdown
+│   │   │   ├── index.ts
+│   │   │   ├── simpleRenderer.ts
+│   │   │   └── types.ts
+│   │   ├── metadata
+│   │   │   ├── MetadataService
+│   │   │   ├── AutoFetchRegistry.ts
+│   │   │   ├── MetadataService.applyCandidate.spec.ts
+│   │   │   ├── MetadataService.applyRemote.spec.ts
+│   │   │   ├── MetadataService.spec.ts
+│   │   │   ├── MetadataWorkerService.ts
+│   │   │   ├── runAutoFetch.ts
+│   │   │   ├── TrackMetadataService.ts
+│   │   │   └── types.ts
+│   │   ├── persistence
+│   │   │   ├── AlbumService.ts
+│   │   │   ├── DislikesPersistenceService.ts
+│   │   │   ├── HistoryPersistenceService.ts
+│   │   │   ├── MetadataPersistenceService.ts
+│   │   │   ├── PersistenceService.ts
+│   │   │   ├── PlaylistPersistenceService.ts
+│   │   │   ├── restore.ts
+│   │   │   ├── SchemaService.ts
+│   │   │   ├── schema.ts
+│   │   │   └── types.ts
+│   │   ├── playlists
+│   │   │   ├── ImportService.spec.ts
+│   │   │   ├── ImportService.ts
+│   │   │   ├── PlaylistMatcher.spec.ts
+│   │   │   ├── PlaylistMatcher.ts
+│   │   │   └── PlaylistMatcher.unicode.spec.ts
+│   │   ├── plugins
+│   │   │   └── connectPlugin.ts
+│   │   ├── pwa
+│   │   │   └── PwaService.ts
+│   │   ├── sort
+│   │   │   └── SortService.ts
+│   │   ├── telemetry
+│   │   │   ├── autoFlush.ts
+│   │   │   ├── counters.ts
+│   │   │   ├── index.ts
+│   │   │   ├── instrument.ts
+│   │   │   ├── patches.ts
+│   │   │   ├── sampler.ts
+│   │   │   ├── TelemetryService.ts
+│   │   │   └── types.ts
+│   │   └── ui
+│   │       ├── ModalService.ts
+│   │       ├── ThemeService.spec.ts
+│   │       ├── ThemeService.ts
+│   │       ├── ToastService.spec.ts
+│   │       └── ToastService.ts
+│   ├── shared
+│   │   ├── audioExtensions.spec.ts
+│   │   ├── audioExtensions.ts
+│   │   ├── paths.spec.ts
+│   │   └── paths.ts
+│   ├── stores
+│   │   ├── library
+│   │   │   ├── store
+│   │   │   ├── writer
+│   │   │   └── index.ts
+│   │   ├── player
+│   │   │   ├── actions
+│   │   │   ├── events.ts
+│   │   │   ├── index.ts
+│   │   │   ├── playerHelpers.ts
+│   │   │   ├── playerPersistence.ts
+│   │   │   ├── playerRestore.ts
+│   │   │   └── timeLoop.ts
+│   │   ├── collections.ts
+│   │   ├── dislikes.ts
+│   │   ├── history.spec.ts
+│   │   ├── history.ts
+│   │   ├── playlists.ts
+│   │   ├── uiSettings.metadataProviderOrder.spec.ts
+│   │   └── uiSettings.ts
+│   ├── test
+│   │   ├── audioMockState.ts
+│   │   ├── mockAudio.ts
+│   │   └── withSetup.ts
+│   ├── types
+│   │   ├── album.ts
+│   │   ├── collection.ts
+│   │   ├── filter.ts
+│   │   ├── folder.ts
+│   │   ├── ids.ts
+│   │   ├── index.ts
+│   │   ├── library.ts
+│   │   ├── metadata.ts
+│   │   ├── persistence.ts
+│   │   ├── playability.ts
+│   │   ├── plugin.ts
+│   │   ├── track.ts
+│   │   └── transfer.ts
+│   ├── utils
+│   │   ├── artists.ts
+│   │   ├── deepToRaw.ts
+│   │   ├── dominantColor.ts
+│   │   ├── downloadFile.ts
+│   │   ├── folderStatus.ts
+│   │   ├── formatDuration.spec.ts
+│   │   ├── formatDuration.ts
+│   │   ├── formatRelativeTime.spec.ts
+│   │   ├── formatRelativeTime.ts
+│   │   ├── fuzzyMatch.spec.ts
+│   │   ├── fuzzyMatch.ts
+│   │   ├── hash.spec.ts
+│   │   ├── hash.ts
+│   │   ├── layout.spec.ts
+│   │   ├── layout.ts
+│   │   ├── logger.ts
+│   │   ├── mergeText.spec.ts
+│   │   ├── mergeText.ts
+│   │   ├── parseFilename.spec.ts
+│   │   ├── parseFilename.ts
+│   │   ├── playlistBlueprint.spec.ts
+│   │   ├── playlistBlueprint.ts
+│   │   ├── playlistParser.spec.ts
+│   │   ├── playlistParser.ts
+│   │   ├── pluralize.ts
+│   │   ├── sort.ts
+│   │   └── urlPath.ts
+│   ├── views
+│   │   ├── folder
+│   │   │   ├── FolderContent.vue
+│   │   │   ├── FolderFilters.vue
+│   │   │   └── FolderHeader.vue
+│   │   ├── home
+│   │   │   └── PluginCard.vue
+│   │   ├── playlist
+│   │   │   └── PlaylistHeader.vue
+│   │   ├── settings
+│   │   │   ├── MetadataProvidersList.vue
+│   │   │   ├── SettingsAbout.vue
+│   │   │   ├── SettingsData.vue
+│   │   │   ├── SettingsGeneral.vue
+│   │   │   └── SettingsPlugins.vue
+│   │   ├── AlbumsView.vue
+│   │   ├── AlbumView.vue
+│   │   ├── ArtistsView.vue
+│   │   ├── ArtistView.vue
+│   │   ├── DislikesView.vue
+│   │   ├── FolderRoute.vue
+│   │   ├── FolderView.vue
+│   │   ├── HistoryView.vue
+│   │   ├── HomeView.vue
+│   │   ├── PlaylistRoute.vue
+│   │   ├── PlaylistsView.vue
+│   │   ├── QueueView.vue
+│   │   ├── SearchView.vue
+│   │   └── SettingsView.vue
+│   ├── workers
+│   │   └── metadata.worker.ts
+│   ├── App.vue
+│   ├── globals.d.ts
+│   ├── main.ts
+│   └── version.ts
+├── add-path-comments.sh
+├── CHANGELOG.md
+├── env.d.ts
+├── eslint.config.ts
+├── index.html
+├── package.json
+├── playwright.config.ts
+├── README.md
+├── ROADMAP.md
+├── SCTRUCTURE.md
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── tsconfig.vitest.json
+├── vite.config.ts
+├── vitest.config.ts
+└── vitest.setup.ts
+
+88 directories, 533 files

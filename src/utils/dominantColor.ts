@@ -1,4 +1,5 @@
 // src/utils/dominantColor.ts
+import { logger } from '@/utils/logger';
 
 export interface Rgb {
   r: number;
@@ -62,7 +63,7 @@ export async function extractDominantColor(src: string): Promise<Rgb | null> {
     return color;
   } catch (err) {
     // CORS, сеть, битый URL — не шумим, просто кэшируем null
-    console.warn('[dominantColor] failed for', src, err);
+    logger.warn('[dominantColor] failed for', src, err);
     cacheSet(src, null);
     return null;
   }

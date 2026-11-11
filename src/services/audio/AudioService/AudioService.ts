@@ -5,6 +5,7 @@ import { HlsController } from './hls';
 import { ResourceHolder } from './resources';
 import { bindNativeEvents, type NativeEventHandlers } from './events';
 import { telemetry } from '@/services/telemetry';
+import { logger } from '@/utils/logger';
 
 export class AudioService {
   private static instance: AudioService | null = null;
@@ -53,7 +54,7 @@ export class AudioService {
       try {
         listener(payload);
       } catch (err) {
-        console.error(`[AudioService] listener error on "${event}"`, err);
+        logger.error(`[AudioService] listener error on "${event}"`, err);
       }
     });
   }
@@ -149,7 +150,7 @@ export class AudioService {
 
       const message = err instanceof Error ? err.message : 'Unknown play() error';
       telemetry.event('audio.play.error', { msg: message.slice(0, 200), ms: Math.round(performance.now() - startTs) });
-      console.error('[audio] play() rejected', err);
+      logger.error('[audio] play() rejected', err);
       this.emit('error', { message, src: this.audio.src });
       this.emit('pause', undefined as void);
       throw err;

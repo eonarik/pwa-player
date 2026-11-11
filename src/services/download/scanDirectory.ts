@@ -1,4 +1,5 @@
 // src/services/download/scanDirectory.ts
+import { logger } from '@/utils/logger';
 
 export interface ScannedFile {
   handle: FileSystemFileHandle;
@@ -21,7 +22,7 @@ export async function scanDirectory(dir: FileSystemDirectoryHandle, prefix = '')
         const path = prefix ? `${prefix}/${entry.name}` : entry.name;
         result.set(path, { handle: entry, size: file.size });
       } catch (err) {
-        console.warn(`[scan] failed to read file "${entry.name}"`, err);
+        logger.warn(`[scan] failed to read file "${entry.name}"`, err);
       }
     } else if (entry.kind === 'directory') {
       const childPrefix = prefix ? `${prefix}/${entry.name}` : entry.name;

@@ -8,6 +8,7 @@ import Button from './Button.vue';
 import FormField from './FormField.vue';
 import Input from './Input.vue';
 import Textarea from './Textarea.vue';
+import { logger } from '@/utils/logger';
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -49,7 +50,7 @@ async function submit() {
     toastService.success('Сообщение отправлено');
     emit('close');
   } catch (err) {
-    console.error('[feedback] send failed', err);
+    logger.error('[feedback] send failed', err);
     toastService.error('Не удалось отправить');
   } finally {
     isSending.value = false;

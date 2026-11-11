@@ -4,6 +4,7 @@ import { get, set } from 'idb-keyval';
 import { ref, watch } from 'vue';
 import { compareStrings } from '@/utils/sort';
 import type { Track } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 export type SortField = 'artist' | 'title' | 'duration';
 export type SortDir = 'asc' | 'desc';
@@ -49,7 +50,7 @@ class SortService {
         if (raw.dir === 'asc' || raw.dir === 'desc') this.dir.value = raw.dir;
       }
     } catch (err) {
-      console.warn('[sort] failed to load', err);
+      logger.warn('[sort] failed to load', err);
     } finally {
       this.loaded = true;
     }
@@ -63,7 +64,7 @@ class SortService {
         dir: this.dir.value,
       });
     } catch (err) {
-      console.warn('[sort] failed to save', err);
+      logger.warn('[sort] failed to save', err);
     }
   }
 

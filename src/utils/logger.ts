@@ -18,4 +18,7 @@ export const logger = {
     // Ошибки выводим всегда (и в тестах тоже, если это не Vitest-специфичные моки)
     console.error(...args);
   },
+  debug: (...args: unknown[]) => {
+    if (isDev && !isTest) console.debug(...args);
+  },
 };

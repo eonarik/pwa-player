@@ -3,6 +3,7 @@
 import { audioService } from '@/services/audio/AudioService';
 import { toastService } from '@/services/ui/ToastService';
 import type { PlayerActionsRefs, PlayerActionsCallbacks } from './types';
+import { logger } from '@/utils/logger';
 
 export function createPlayback(refs: PlayerActionsRefs, callbacks: PlayerActionsCallbacks) {
   const { queue, originalQueue, currentTrack, isPlaying, duration, currentTime, repeatMode } = refs;
@@ -21,7 +22,7 @@ export function createPlayback(refs: PlayerActionsRefs, callbacks: PlayerActions
       return;
     }
     audioService.play().catch((err) => {
-      console.error('[player] play rejected', err);
+      logger.error('[player] play rejected', err);
     });
   }
 

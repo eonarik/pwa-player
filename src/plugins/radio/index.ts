@@ -3,6 +3,7 @@
 import type { LibrarySource, PluginContext, PluginSnapshot } from '../types';
 import type { TrackSource } from '@/types/track';
 import { PLUGIN_ID, PLUGIN_NAME, PLUGIN_ICON } from './constants';
+import { logger } from '@/utils/logger';
 
 export interface SavedStation {
   id: string;
@@ -33,7 +34,7 @@ function persistSavedStations(stations: SavedStation[]): boolean {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stations));
     return true;
   } catch (err) {
-    console.warn('[radio] failed to persist saved stations', err);
+    logger.warn('[radio] failed to persist saved stations', err);
     return false;
   }
 }

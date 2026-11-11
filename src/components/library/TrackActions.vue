@@ -1,32 +1,20 @@
 <!-- src/components/library/TrackActions.vue -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useLibraryStore } from '@/stores/library';
+import { computed } from 'vue';
 import { usePlaylistsStore } from '@/stores/playlists';
-import { metadataService } from '@/services/metadata/MetadataService';
-import { toastService } from '@/services/ui/ToastService';
-import { modalService } from '@/services/ui/ModalService';
-import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
-import {
-  pluginCanDownload,
-  isLiveStream,
-  isLinearContent,
-  isStreamingPlugin,
-  pluginIdFromSource,
-} from '@/plugins/registry';
-import { hasLocalSource } from '@/services/library/selectors';
+import { toPlaylistId } from '@/types/ids';
+import type { Track } from '@/types/track';
 import TrackReactionButtons from '../ui/TrackReactionButtons.vue';
 import DropdownMenu from '@/components/ui/DropdownMenu.vue';
 import IconButton from '@/components/ui/IconButton.vue';
-import Icon from '@/components/ui/Icon.vue';
-import TrackMetadataModal from './TrackMetadataModal.vue';
-import type { Track } from '@/types/track';
 import PlaylistSubmenu from './PlaylistSubmenu.vue';
 import Divider from '../ui/Divider.vue';
-import { DownloadError } from '@/services/download/types.ts';
-import MetadataCandidatesModal from './MetadataCandidatesModal.vue';
+import TrackMetadataMenu from './TrackMetadataMenu.vue';
+import TrackDownloadItem from './TrackDownloadItem.vue';
+import { useTrackCapabilities } from '@/composables/useTrackCapabilities';
+import { useTrackMetadataActions } from '@/composables/useTrackMetadataActions';
+import { useTrackDownloadAction } from '@/composables/useTrackDownloadAction';
 
 const props = defineProps<{
   track: Track;
@@ -39,197 +27,29 @@ const emit = defineEmits<{
   (e: 'removed-from-queue'): void;
 }>();
 
-const library = useLibraryStore();
 const playlists = usePlaylistsStore();
 
-const isSearchingMetadata = ref(false);
+const track = computed(() => props.track);
 
-const primaryPluginId = computed(() =>
-  props.track.sources[0] ? pluginIdFromSource(props.track.sources[0].pluginId) : '',
-);
+const { isLinear, isLive, isStreaming, canDownload } = useTrackCapabilities(track);
 
-const isLinear = computed(() => isLinearContent(primaryPluginId.value));
-const isLive = computed(() => isLiveStream(primaryPluginId.value));
-const isStreaming = computed(() => isStreamingPlugin(primaryPluginId.value));
+const {
+  isSearchingMetadata,
+  hasMetadataEdits,
+  libraryTrack,
+  candidateCount,
+  openMetadataEditor,
+  openCandidates,
+  removeMetadata,
+  findMetadata,
+} = useTrackMetadataActions(track, { isStreaming });
 
-const hasMetadataEdits = computed(() => Boolean(props.track.hasMetadataEdits));
-
-const libraryTrack = computed<Track | null>(() => library.getTrack(props.track.id));
-
-const candidateCount = computed(() => libraryTrack.value?.metadataCandidates?.length ?? 0);
-
-function openMetadataEditor(close: () => void): void {
-  const libTrack = library.getTrack(props.track.id);
-  if (!libTrack) {
-    toastService.error('Трек не найден в библиотеке');
-    close();
-    return;
-  }
-  close();
-  void modalService.show({
-    title: 'Редактировать метаданные',
-    type: 'custom',
-    component: TrackMetadataModal,
-    props: { track: libTrack },
-    disableBackdropClose: true,
-  });
-}
-
-function openCandidates(close: () => void): void {
-  const t = libraryTrack.value;
-  if (!t) return;
-  close();
-  void modalService.show({
-    title: 'Альтернативные совпадения',
-    type: 'custom',
-    component: MetadataCandidatesModal,
-    props: { trackIds: [t.id] },
-    disableBackdropClose: true,
-  });
-}
-
-async function removeMetadata(close: () => void): Promise<void> {
-  if (isStreaming.value) return;
-
-  if (!confirm('Удалить метаданные и вернуть исходные значения?')) return;
-
-  const libTrack = library.getTrack(props.track.id);
-  if (!libTrack) {
-    toastService.error('Трек не найден в библиотеке');
-    close();
-    return;
-  }
-
-  await metadataService.reset(props.track.id);
-
-  toastService.success('Метаданные удалены');
-  close();
-}
-
-async function findMetadata(close: () => void): Promise<void> {
-  if (isSearchingMetadata.value) return;
-
-  const libTrack = library.getTrack(props.track.id);
-  if (!libTrack) {
-    toastService.error('Трек не найден в библиотеке');
-    close();
-    return;
-  }
-
-  if (libTrack.hasId3Tags) {
-    const confirmed = await modalService.show({
-      title: 'Перезаписать метаданные?',
-      message: 'У трека есть ID3-теги. Поиск в интернете может заменить их ненадежными данными.',
-      type: 'confirm',
-      confirmLabel: 'Продолжить',
-      cancelLabel: 'Отмена',
-    });
-    if (!confirmed) {
-      close();
-      return;
-    }
-  }
-
-  isSearchingMetadata.value = true;
-  close();
-
-  try {
-    const result = await metadataService.fetchAndApply(libTrack.id, undefined, true);
-
-    if (result.status === 'applied') {
-      toastService.success('Метаданные обновлены');
-    } else if (result.status === 'candidates') {
-      toastService.info('Найдены похожие варианты. Проверьте «Проблемные совпадения».');
-    } else if (result.status === 'not-found') {
-      toastService.info('Метаданные не найдены');
-    } else if (result.status === 'error') {
-      toastService.error(`Ошибка поиска: ${result.message}`);
-    }
-  } catch (err) {
-    console.error('[track-actions] find metadata failed', err);
-    toastService.error('Не удалось найти метаданные');
-  } finally {
-    isSearchingMetadata.value = false;
-  }
-}
-
-// --- Скачивание ---
-
-const isDownloading = computed(() => downloadOrchestrator.isDownloading(props.track.id));
-const downloadProgress = computed(() => {
-  if (!isDownloading.value) return null;
-  const p = downloadOrchestrator.getProgress(props.track.id);
-  if (!p || p.total <= 0) return null;
-  return Math.round((p.written / p.total) * 100);
-});
-
-const downloadLabel = computed(() => {
-  if (isDownloading.value) {
-    return downloadProgress.value !== null
-      ? `Скачивание… ${downloadProgress.value}% · Отменить`
-      : 'Отменить скачивание';
-  }
-  const t = libraryTrack.value;
-  if (!t) return 'Скачать';
-  return hasLocalSource(t) ? 'Удалить с устройства' : 'Скачать';
-});
-
-const canDownload = computed(() => {
-  if (isLive.value) return false;
-  if (isStreaming.value) return false;
-  const pid = primaryPluginId.value;
-  if (!pid) return false;
-  if (!pluginCanDownload(pid)) return false;
-  return true;
-});
-
-async function onDownload(close: () => void) {
-  close();
-  const t = libraryTrack.value;
-  if (!t) return;
-
-  if (isDownloading.value) {
-    downloadOrchestrator.cancel(t.id);
-    return;
-  }
-
-  if (hasLocalSource(t)) {
-    try {
-      await downloadOrchestrator.removeDownloaded(t);
-      toastService.success('Файл удалён с устройства');
-    } catch (err) {
-      console.error('[track-actions] remove failed', err);
-      toastService.error(err instanceof Error ? err.message : 'Не удалось удалить');
-    }
-    return;
-  }
-
-  try {
-    if (!downloadSpaceService.hasSpace.value) {
-      const ok = await downloadSpaceService.pickSpace();
-      if (!ok) return;
-    }
-    const success = await downloadOrchestrator.downloadTrack(t);
-    if (success) {
-      toastService.success('Скачивание завершено');
-    } else {
-      toastService.error('Не удалось скачать трек');
-    }
-  } catch (err) {
-    console.error('[track-actions] download failed', err);
-    if (err instanceof DownloadError && (err.status === 404 || err.status === 410)) {
-      toastService.error(`Файл "${t.title}" не найден на Диске`);
-    } else if (err instanceof Error) {
-      toastService.error(err.message);
-    } else {
-      toastService.error('Не удалось скачать');
-    }
-  }
-}
+const { isDownloading, isDownloaded, downloadLabel, onDownload } = useTrackDownloadAction(track, libraryTrack);
 
 function removeFromPlaylist(close: () => void): void {
-  if (!props.playlistId) return;
-  playlists.removeTrackFromPlaylist(props.playlistId as never, props.track.id);
+  const playlistId = toPlaylistId(props.playlistId);
+  if (!playlistId) return;
+  playlists.removeTrackFromPlaylist(playlistId, props.track.id);
   emit('removed-from-playlist');
   close();
 }
@@ -258,66 +78,24 @@ function removeFromQueue(close: () => void): void {
           <Divider />
         </template>
 
-        <template v-if="!isLive && !isLinear">
-          <button
-            type="button"
-            class="block w-full px-4 py-1.5 text-left text-sm text-fg transition hover:bg-hover-bg hover:text-fg-muted disabled:opacity-50"
-            :disabled="isSearchingMetadata"
-            data-testid="track-action-find-metadata"
-            @click="findMetadata(close)"
-          >
-            <span v-if="isSearchingMetadata">Поиск…</span>
-            <span v-else>Найти в интернете<br /><span class="text-fg-subtle text-xs">сбросит ручные правки</span></span>
-          </button>
-
-          <template v-if="hasMetadataEdits">
-            <button
-              type="button"
-              class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-              data-testid="track-action-edit-metadata"
-              @click="openMetadataEditor(close)"
-            >
-              Редактировать метаданные
-            </button>
-            <button
-              v-if="!isStreaming"
-              type="button"
-              class="block w-full px-4 py-1.5 text-left text-xs text-red-400 transition hover:bg-hover-bg"
-              data-testid="track-action-remove-metadata"
-              @click="removeMetadata(close)"
-            >
-              Удалить метаданные
-            </button>
-          </template>
-
-          <template v-else>
-            <button
-              type="button"
-              class="block w-full px-4 py-2.5 text-left text-sm text-fg transition hover:bg-hover-bg"
-              data-testid="track-action-edit-metadata"
-              @click="openMetadataEditor(close)"
-            >
-              Редактировать вручную
-            </button>
-          </template>
-        </template>
-
-        <button
-          v-if="candidateCount > 0"
-          type="button"
-          class="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-amber-400 transition hover:bg-hover-bg"
-          @click="openCandidates(close)"
-        >
-          <span>Альтернативные совпадения</span>
-          <span class="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
-            {{ candidateCount }}
-          </span>
-        </button>
+        <TrackMetadataMenu
+          :is-live="isLive"
+          :is-linear="isLinear"
+          :is-searching="isSearchingMetadata"
+          :has-metadata-edits="hasMetadataEdits"
+          :is-streaming="isStreaming"
+          :candidate-count="candidateCount"
+          @find="findMetadata(close)"
+          @edit="openMetadataEditor(close)"
+          @remove="removeMetadata(close)"
+          @candidates="openCandidates(close)"
+        />
 
         <button
           v-if="playlistId"
           type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
+          data-testid="track-action-remove-from-playlist"
           @click="removeFromPlaylist(close)"
         >
           Убрать из плейлиста
@@ -327,32 +105,20 @@ function removeFromQueue(close: () => void): void {
           v-if="queueIndex !== undefined"
           type="button"
           class="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-hover-bg"
+          data-testid="track-action-remove-from-queue"
           @click="removeFromQueue(close)"
         >
           Убрать из очереди
         </button>
 
-        <button
+        <TrackDownloadItem
           v-if="canDownload"
-          type="button"
-          class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition"
-          :class="
-            libraryTrack && !hasLocalSource(libraryTrack) && !isDownloading
-              ? 'text-fg hover:bg-hover-bg'
-              : 'text-fg-muted hover:bg-hover-bg hover:text-red-400'
-          "
+          :is-known="libraryTrack !== null"
+          :is-downloaded="isDownloaded"
+          :is-downloading="isDownloading"
+          :label="downloadLabel"
           @click="onDownload(close)"
-        >
-          <Icon
-            v-if="libraryTrack && !hasLocalSource(libraryTrack) && !isDownloading"
-            name="download"
-            w="w-4"
-            h="h-4"
-          />
-          <Icon v-else-if="libraryTrack && hasLocalSource(libraryTrack)" name="cloud-check" w="w-4" h="h-4" />
-          <Icon v-else-if="isDownloading" name="x" w="w-4" h="h-4" />
-          <span class="truncate">{{ downloadLabel }}</span>
-        </button>
+        />
       </template>
     </DropdownMenu>
   </div>

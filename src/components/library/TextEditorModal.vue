@@ -11,6 +11,7 @@ import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Button from '@/components/ui/Button.vue';
 import type { TextFileRef, LibrarySource } from '@/plugins/types';
 import { mergeText } from '@/utils/mergeText';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   file: TextFileRef;
@@ -42,7 +43,7 @@ async function resolvePlugin(): Promise<LibrarySource | null> {
     plugin.value = p;
     return p;
   } catch (err) {
-    console.error('[text-editor] failed to load plugin', err);
+    logger.error('[text-editor] failed to load plugin', err);
     toastService.error('Не удалось загрузить плагин');
     modalService.cancel();
     return null;

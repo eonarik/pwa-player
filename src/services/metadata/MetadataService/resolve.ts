@@ -8,6 +8,7 @@ import { newMetadataCandidateId } from '@/types/ids';
 import type { ResolveMode, ResolveResult, RemoteResult, ResolvedCandidate } from './types';
 import { isBuiltinMetadataProvider, type BuiltinMetadataProviderId } from './constants';
 import { useUiSettingsStore } from '@/stores/uiSettings';
+import { logger } from '@/utils/logger';
 
 export function createMetadataResolve() {
   async function resolveCandidates(
@@ -116,7 +117,7 @@ export function createMetadataResolve() {
       const result = await tryProvider(provider.id, provider.isPlugin, artist, title, threshold, signal);
       if (result.status === 'aborted') return { status: 'aborted' };
       if (result.status === 'error') {
-        console.warn(`[metadata] provider "${provider.id}" failed: ${result.message}`);
+        logger.warn(`[metadata] provider "${provider.id}" failed: ${result.message}`);
         continue;
       }
       if (result.status === 'not-found') continue;
@@ -151,7 +152,7 @@ export function createMetadataResolve() {
     const collected: ResolvedCandidate[] = [];
     for (const result of results) {
       if (result.status === 'error') {
-        console.warn(`[metadata] parallel provider failed: ${result.message}`);
+        logger.warn(`[metadata] parallel provider failed: ${result.message}`);
         continue;
       }
       if (result.status === 'not-found') continue;

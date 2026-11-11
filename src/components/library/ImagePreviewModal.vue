@@ -10,6 +10,7 @@ import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import IconButton from '@/components/ui/IconButton.vue';
 import type { TextFileRef } from '@/plugins/types';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   file: TextFileRef;
@@ -40,7 +41,7 @@ async function loadImage() {
 
     imageUrl.value = url;
   } catch (err) {
-    console.error('[image-preview] failed to load', err);
+    logger.error('[image-preview] failed to load', err);
     toastService.error('Ошибка загрузки изображения');
     modalService.cancel();
   } finally {

@@ -5,17 +5,16 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
 import { useLibraryStore } from '@/stores/library';
-import { useLogiiSeason, useLogiiTrack, type LogiiAuthorItem, type LogiiTrackItem } from './useLogiiData';
-import { resolveLogiiNavigationAfterRefresh, resolveSeasonParentUrlPath } from './navigation';
-import { loadPlugin } from '@/plugins/registry';
-import { createPluginContext } from '@/plugins/context';
-import { toastService } from '@/services/ui/ToastService';
-import { urlPathToSegments } from '@/utils/urlPath';
+import { useLogiiSeason, useLogiiTrack } from './useLogiiData';
+import { useLogiiRoute } from './composables/useLogiiRoute';
+import { useLogiiSelection } from './composables/useLogiiSelection';
+import { useLogiiNavigation } from './composables/useLogiiNavigation';
+import { useLogiiPlayback } from './composables/useLogiiPlayback';
+import { useLogiiRefresh } from './composables/useLogiiRefresh';
 import LogiiAuthorsColumn from './LogiiAuthorsColumn.vue';
 import LogiiFoldersColumn from './LogiiFoldersColumn.vue';
 import LogiiPanel from './LogiiPanel.vue';
 import Spinner from '@/components/ui/Spinner.vue';
-import type { FolderRef } from '@/types/folder.ts';
 
 const props = defineProps<{
   urlPath: string;
@@ -25,58 +24,18 @@ const router = useRouter();
 const player = usePlayerStore();
 const library = useLibraryStore();
 
-// --- Парсинг urlPath ---
-const segments = computed(() => props.urlPath.split('/').filter(Boolean));
-const seasonIndex = computed(() => segments.value.findIndex((s) => s.startsWith('logii.')));
+const folders = computed(() => library.folders);
 
-const seasonUrlPath = computed(() => {
-  if (seasonIndex.value === -1) return '';
-  return segments.value.slice(0, seasonIndex.value + 1).join('/');
+const route = useLogiiRoute(computed(() => props.urlPath));
+const season = useLogiiSeason(route.seasonUrlPath);
+const selection = useLogiiSelection(season, route, folders);
+const navigation = useLogiiNavigation({ route, currentAuthor: selection.currentAuthor, folders, router });
+const playback = useLogiiPlayback({
+  currentFolder: selection.currentFolder,
+  allTracksByAuthor: season.allTracksByAuthor,
+  player,
 });
 
-const authorName = computed<string | null>(() => {
-  if (seasonIndex.value === -1) return null;
-  return segments.value[seasonIndex.value + 1] ?? null;
-});
-
-const folderName = computed<string | null>(() => {
-  if (seasonIndex.value === -1) return null;
-  return segments.value[seasonIndex.value + 2] ?? null;
-});
-
-// --- Сезон ---
-const { authors, tracksByAuthor, allTracksByAuthor, authorMeta, seasonFolder, isReady } = useLogiiSeason(seasonUrlPath);
-
-const currentAuthor = computed<LogiiAuthorItem | null>(() => {
-  if (!authorName.value) return null;
-  return authors.value.find((a) => a.folderName === authorName.value) ?? null;
-});
-
-const authorFolders = computed<LogiiTrackItem[]>(() => {
-  if (!currentAuthor.value) return [];
-  return tracksByAuthor.value.get(currentAuthor.value.urlPath) ?? [];
-});
-
-const authorIntro = computed<LogiiTrackItem | null>(() => {
-  if (!currentAuthor.value) return null;
-  return authorMeta.value.get(currentAuthor.value.urlPath) ?? null;
-});
-
-const hasAuthorIntro = computed(() => Boolean(authorIntro.value?.logiiFileName));
-const authorIntroFileName = computed(() => authorIntro.value?.logiiFileName ?? null);
-
-const currentFolder = computed<LogiiTrackItem | null>(() => {
-  if (!authorName.value) return null;
-  if (!folderName.value) {
-    return hasAuthorIntro.value ? authorIntro.value : null;
-  }
-  return authorFolders.value.find((f) => f.folderName === folderName.value) ?? null;
-});
-
-const currentFolderUrlPath = computed(() => currentFolder.value?.urlPath ?? '');
-const currentLogiiFileName = computed(() => currentFolder.value?.logiiFileName ?? null);
-
-// --- Трек ---
 const {
   data: logiiData,
   isLoading: isLoadingTrack,
@@ -87,134 +46,31 @@ const {
   updateComment,
   deleteComment,
   updateVibe,
-} = useLogiiTrack(currentFolderUrlPath, currentLogiiFileName);
+} = useLogiiTrack(selection.currentFolderUrlPath, selection.currentLogiiFileName);
 
-const isAuthorsCollapsed = ref(false);
-const isRefreshing = ref(false);
-
-// --- Кнопка «К папкам» ---
-const canGoToParent = computed(() => {
-  if (!seasonUrlPath.value) return false;
-  return true;
+const { isRefreshing, onRefresh } = useLogiiRefresh({
+  seasonFolder: season.seasonFolder,
+  route,
+  folders,
+  router,
+  reloadTrack,
 });
 
-function goToParent(): void {
-  if (!seasonUrlPath.value) {
-    router.push({ name: 'folder', params: { pluginId: 'yandex-self', path: [] } });
-    return;
-  }
-  const parentUrlPath = resolveSeasonParentUrlPath(seasonUrlPath.value, library.folders);
-  router.push({
-    name: 'folder',
-    params: { pluginId: 'yandex-self', path: urlPathToSegments(parentUrlPath) },
-  });
-}
+const { authors, allTracksByAuthor, seasonFolder, isReady } = season;
+const {
+  authorFolders,
+  hasAuthorIntro,
+  authorIntroFileName,
+  currentFolder,
+  currentFolderUrlPath,
+  currentLogiiFileName,
+  currentAuthorFolder,
+} = selection;
+const { canGoToParent, goToParent, goToAuthor, goToIntro, goToFolder } = navigation;
+const { playTrack, playAllAudio, playAuthor } = playback;
+const { authorName, folderName } = route;
 
-// --- Навигация ---
-function goToAuthor(author: LogiiAuthorItem): void {
-  const baseSegments = segments.value.slice(0, seasonIndex.value + 1);
-  router.replace({
-    name: 'folder',
-    params: { pluginId: 'yandex-self', path: [...baseSegments, author.folderName] },
-  });
-}
-
-function goToIntro(): void {
-  if (!currentAuthor.value) return;
-  goToAuthor(currentAuthor.value);
-}
-
-function goToFolder(folder: LogiiTrackItem): void {
-  if (!authorName.value) return;
-  const baseSegments = segments.value.slice(0, seasonIndex.value + 1);
-  router.replace({
-    name: 'folder',
-    params: {
-      pluginId: 'yandex-self',
-      path: [...baseSegments, authorName.value, folder.folderName],
-    },
-  });
-}
-
-// --- Плеер ---
-function playTrack(index: number): void {
-  const tracks = currentFolder.value?.audioTracks ?? [];
-  if (tracks.length === 0) return;
-  player.setQueue(tracks, index);
-}
-
-function playAllAudio(): void {
-  const tracks = currentFolder.value?.audioTracks ?? [];
-  if (tracks.length === 0) return;
-  player.playAll(tracks);
-}
-
-function playAuthor(author: LogiiAuthorItem): void {
-  const tracks = allTracksByAuthor.value.get(author.urlPath) ?? [];
-  if (tracks.length === 0) return;
-
-  const currentId = player.currentTrack?.id ?? null;
-  const isThisAuthorCurrent = currentId !== null && tracks.some((t) => t.id === currentId);
-
-  if (isThisAuthorCurrent && player.isPlaying) {
-    player.toggle();
-    return;
-  }
-
-  player.playAll(tracks);
-}
-
-// --- Чат ---
-async function onSendComment(text: string): Promise<void> {
-  await appendComment(text);
-}
-
-// --- Обновление (рекурсивное) ---
-async function onRefresh(): Promise<void> {
-  if (!seasonFolder.value) return;
-  if (isRefreshing.value) return;
-
-  isRefreshing.value = true;
-  try {
-    const plugin = await loadPlugin('yandex-self');
-    if (!plugin.scanFolder) {
-      toastService.error('Плагин не поддерживает сканирование');
-      return;
-    }
-    const context = createPluginContext('yandex-self');
-    await plugin.scanFolder(context, seasonFolder.value.id, { recursive: true, force: true });
-
-    const nav = resolveLogiiNavigationAfterRefresh({
-      seasonUrlPath: seasonUrlPath.value,
-      authorName: authorName.value,
-      folderName: folderName.value,
-      folders: library.folders,
-    });
-
-    if (nav.level === 'root') {
-      toastService.success('Обновлено с облака');
-      router.replace({ name: 'folder', params: { pluginId: 'yandex-self', path: [] } });
-      return;
-    }
-
-    if (nav.level !== 'folder') {
-      toastService.success('Обновлено с облака');
-      router.replace({
-        name: 'folder',
-        params: { pluginId: 'yandex-self', path: urlPathToSegments(nav.urlPath) },
-      });
-      return;
-    }
-
-    await reloadTrack(true);
-    toastService.success('Обновлено с облака');
-  } catch (err) {
-    console.error('[logii] refresh failed', err);
-    toastService.error('Не удалось обновить');
-  } finally {
-    isRefreshing.value = false;
-  }
-}
+const isAuthorsCollapsed = ref(false);
 
 // --- Автовыбор (объединённый) ---
 watch(
@@ -270,13 +126,10 @@ onMounted(() => {
   }
 });
 
-const currentAuthorFolder = computed<FolderRef | null>(() => {
-  if (!currentAuthor.value) return null;
-  for (const f of Object.values(library.folders)) {
-    if (f.pluginId === 'yandex-self' && f.urlPath === currentAuthor.value.urlPath) return f;
-  }
-  return null;
-});
+// --- Чат ---
+async function onSendComment(text: string): Promise<void> {
+  await appendComment(text);
+}
 </script>
 
 <template>

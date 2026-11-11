@@ -33,11 +33,7 @@ test.describe('Radio Plugin', () => {
     await expect(page.getByText('Мои станции').first()).toBeVisible();
     await page.getByTestId('radio-add-stations').click();
 
-    // Ждем, пока пройдет сетевой запрос к радио-браузеру
-    // Наш мок в mocks/api/radio.ts отвечает на '**/json/stations/search*'
-    await page.waitForResponse((response) => response.url().includes('/json/stations/search'));
-
-    // Ждем появления станции
+    // Ждем появления станции (запрос к радио-браузеру перехватывается моком)
     const stationRow = page.getByTestId('radio-station-row').first();
     await expect(stationRow).toBeVisible();
 

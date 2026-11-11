@@ -95,6 +95,22 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
       service.setDisconnected?.(true);
     },
 
+    /**
+     * OAuth-возврат принадлежит нам, если мы его ждали: были отключены,
+     * а серверная сессия после редиректа жива. Флаги подключения лежат
+     * в localStorage нашего сервиса — ядро про них не знает.
+     */
+    async handleAuthCallback(): Promise<boolean> {
+      if (!service.isDisconnected?.()) return false;
+
+      const status = service.checkSession ? await service.checkSession() : 'unavailable';
+      if (status !== 'ok') return false;
+
+      service.setConnected?.(true);
+      service.setDisconnected?.(false);
+      return true;
+    },
+
     async connect(): Promise<void> {
       if (service.setDisconnected) service.setDisconnected(false);
       if (service.setCancelled) service.setCancelled(false);

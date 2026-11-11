@@ -3,6 +3,7 @@
 import { get, set, del } from 'idb-keyval';
 import type { PersistedPlayback, PersistedState, PersistedTrack } from './types';
 import type { Track } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 const STATE_KEY = 'player:state';
 const PLAYBACK_KEY = 'player:playback';
@@ -38,7 +39,7 @@ export class PersistenceService {
       try {
         await set(STATE_KEY, toSave);
       } catch (err) {
-        console.error('[PersistenceService] failed to save state', err);
+        logger.error('[PersistenceService] failed to save state', err);
       }
     }, STATE_DEBOUNCE_MS);
   }
@@ -52,7 +53,7 @@ export class PersistenceService {
     try {
       await set(STATE_KEY, state);
     } catch (err) {
-      console.error('[PersistenceService] failed to save state (now)', err);
+      logger.error('[PersistenceService] failed to save state (now)', err);
     }
   }
 
@@ -61,7 +62,7 @@ export class PersistenceService {
       const state = await get<PersistedState>(STATE_KEY);
       return state ?? null;
     } catch (err) {
-      console.error('[PersistenceService] failed to load state', err);
+      logger.error('[PersistenceService] failed to load state', err);
       return null;
     }
   }
@@ -78,7 +79,7 @@ export class PersistenceService {
       try {
         await set(PLAYBACK_KEY, toSave);
       } catch (err) {
-        console.error('[PersistenceService] failed to save playback', err);
+        logger.error('[PersistenceService] failed to save playback', err);
       }
     }, PLAYBACK_DEBOUNCE_MS);
   }
@@ -92,7 +93,7 @@ export class PersistenceService {
     try {
       await set(PLAYBACK_KEY, playback);
     } catch (err) {
-      console.error('[PersistenceService] failed to save playback (now)', err);
+      logger.error('[PersistenceService] failed to save playback (now)', err);
     }
   }
 
@@ -101,7 +102,7 @@ export class PersistenceService {
       const playback = await get<PersistedPlayback>(PLAYBACK_KEY);
       return playback ?? null;
     } catch (err) {
-      console.error('[PersistenceService] failed to load playback', err);
+      logger.error('[PersistenceService] failed to load playback', err);
       return null;
     }
   }

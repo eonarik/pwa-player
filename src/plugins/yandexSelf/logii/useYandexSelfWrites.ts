@@ -6,6 +6,7 @@ import { createPluginContext } from '@/plugins/context';
 import { yandexSelfService } from '../YandexSelfService';
 import { toastService } from '@/services/ui/ToastService';
 import type { FolderId } from '@/types/ids';
+import { logger } from '@/utils/logger';
 
 export function useYandexSelfWrites() {
   const isWriting = ref(false);
@@ -50,7 +51,7 @@ export function useYandexSelfWrites() {
       toastService.success(`Сезон «${name}» создан`);
       return fullPath;
     } catch (err) {
-      console.error('[create-season] failed', err);
+      logger.error('[create-season] failed', err);
       toastService.error(err instanceof Error ? err.message : 'Не удалось создать сезон');
       return null;
     } finally {
@@ -75,7 +76,7 @@ export function useYandexSelfWrites() {
       toastService.success('Переименовано');
       return true;
     } catch (err) {
-      console.error('[rename-folder] failed', err);
+      logger.error('[rename-folder] failed', err);
       toastService.error(err instanceof Error ? err.message : 'Не удалось переименовать');
       return false;
     } finally {
@@ -105,7 +106,7 @@ export function useYandexSelfWrites() {
       toastService.success('Удалено');
       return true;
     } catch (err) {
-      console.error('[remove-resource] failed', err);
+      logger.error('[remove-resource] failed', err);
       toastService.error(err instanceof Error ? err.message : 'Не удалось удалить');
       return false;
     } finally {

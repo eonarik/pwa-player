@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { TrackId } from '@/types/ids';
+import { logger } from '@/utils/logger';
 
 const HISTORY_KEY = 'player:history';
 const SAVE_DEBOUNCE_MS = 500;
@@ -59,7 +60,7 @@ export class HistoryPersistenceService {
       };
       await set(HISTORY_KEY, payload);
     } catch (err) {
-      console.error('[HistoryPersistenceService] failed to save', err);
+      logger.error('[HistoryPersistenceService] failed to save', err);
     }
   }
 
@@ -80,7 +81,7 @@ export class HistoryPersistenceService {
       const data = await get<PersistedHistory>(HISTORY_KEY);
       return data?.entries ?? null;
     } catch (err) {
-      console.error('[HistoryPersistenceService] failed to load', err);
+      logger.error('[HistoryPersistenceService] failed to load', err);
       return null;
     }
   }

@@ -2,6 +2,7 @@
 
 import { ref, type Ref } from 'vue';
 import { registerSW } from 'virtual:pwa-register';
+import { logger } from '@/utils/logger';
 
 const LAST_CHECK_KEY = 'pwa:lastUpdateCheck';
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -51,7 +52,7 @@ class PwaServiceImpl implements PwaService {
         document.addEventListener('visibilitychange', this.onVisibilityChange);
       },
       onRegisterError: (err) => {
-        console.error('[pwa] register error', err);
+        logger.error('[pwa] register error', err);
       },
     });
 
@@ -67,7 +68,7 @@ class PwaServiceImpl implements PwaService {
       await reg.update();
       this.markChecked();
     } catch (err) {
-      console.warn('[pwa] checkForUpdates failed', err);
+      logger.warn('[pwa] checkForUpdates failed', err);
     }
   }
 

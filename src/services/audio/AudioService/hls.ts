@@ -1,6 +1,7 @@
 // src/services/audio/audioService/hls.ts
 
 import Hls from 'hls.js';
+import { logger } from '@/utils/logger';
 
 /**
  * Контроллер HLS-воспроизведения.
@@ -35,7 +36,7 @@ export class HlsController {
     this.hls.on(Hls.Events.ERROR, (_event, data) => {
       if (!data.fatal) return;
 
-      console.warn('[audio] HLS fatal error', data.type, data.details);
+      logger.warn('[audio] HLS fatal error', data.type, data.details);
 
       this.failed = true;
       audio.pause();

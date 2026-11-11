@@ -9,6 +9,7 @@ import { hasLocalSource, hasStreamingSource } from '@/services/library/selectors
 import type { Track } from '@/types/track';
 import type { MetadataCandidate } from '@/types/metadata';
 import { newFolderId, newMetadataCandidateId, newTrackId, newTrackSourceId } from '@/types/ids';
+import type { TrackId } from '@/types/ids';
 
 // Мокаем loadPlugin.
 // Для 'zvuk' по умолчанию возвращаем плагин, который добавляет source (для сценариев D и E).
@@ -21,9 +22,9 @@ vi.mock('@/plugins/registry', async (importOriginal) => {
       if (pluginId === 'zvuk') {
         return {
           id: 'zvuk',
-          applyCandidate: async (trackId: string, extMetadata: Record<string, unknown>) => {
+          applyCandidate: async (trackId: TrackId, extMetadata: Record<string, unknown>) => {
             const library = useLibraryStore();
-            const track = library.getTrack(trackId as never);
+            const track = library.getTrack(trackId);
             if (!track) return;
             const zvukTrackId = typeof extMetadata.trackId === 'string' ? extMetadata.trackId : undefined;
             if (!zvukTrackId) return;
@@ -34,7 +35,7 @@ vi.mock('@/plugins/registry', async (importOriginal) => {
               kind: 'streaming' as const,
               url: `/api/zvuk/stream?id=${encodeURIComponent(zvukTrackId)}`,
             };
-            createLibraryWriter().updateTrackSources(trackId as never, [newSource]);
+            createLibraryWriter().updateTrackSources(trackId, [newSource]);
           },
         };
       }

@@ -10,6 +10,7 @@ import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import { modalService } from '@/services/ui/ModalService';
+import { logger } from '@/utils/logger';
 
 export interface CreateTopsResult {
   count: number;
@@ -77,7 +78,7 @@ async function submit(): Promise<void> {
       isSubmitting.value = false;
     }
   } catch (err) {
-    console.error('[create-tops] submit failed', err);
+    logger.error('[create-tops] submit failed', err);
     error.value = err instanceof Error ? err.message : 'Не удалось создать топы';
     isSubmitting.value = false;
   }

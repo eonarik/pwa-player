@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { PersistedLocalLibrary } from './types';
+import { logger } from '@/utils/logger';
 
 const LIBRARY_KEY = 'player:library:local';
 
@@ -22,7 +23,7 @@ export class LocalPersistenceService {
         savedAt: Date.now(),
       });
     } catch (err) {
-      console.error('[local-plugin] failed to save library', err);
+      logger.error('[local-plugin] failed to save library', err);
       throw err;
     }
   }
@@ -32,7 +33,7 @@ export class LocalPersistenceService {
       const data = await get<PersistedLocalLibrary>(LIBRARY_KEY);
       return data ?? null;
     } catch (err) {
-      console.error('[local-plugin] failed to load library', err);
+      logger.error('[local-plugin] failed to load library', err);
       return null;
     }
   }

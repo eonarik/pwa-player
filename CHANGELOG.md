@@ -3,6 +3,57 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [0.17.4] — 2026-11-11
+
+Архитектурный рефакторинг: разрыв циклических зависимостей ядро ↔ плагины, DI через composition root, типизированная шина событий, дробление модулей >300 строк, брендовый ID, архитектурный тест графа импортов. Миграция деплоя на Docker Compose.
+
+### Added
+
+- **`services/events/bus.ts`:** типизированная шина событий (`CoreEventMap`, `createBus()`, синглтон `eventBus`). События: `track:metadata-updated` (TrackId), `download:space-selected` (void). Заменила прямые связи `MetadataService → usePlayerStore`, `DownloadSpaceService → SyncService`.
+- **`plugins/contextDeps.ts`:** интерфейс `PluginContextDeps` (`createWriter()`, `getDownloadDir(pluginId)`) + `setPluginContextDeps` / `getPluginContextDeps`. `main.ts` — composition root: первым шагом инициализирует deps, разрывая рантайм-цикл `plugins/* ↔ stores/*`.
+- **`src/architecture.spec.ts`:** тест графа импортов — Tarjan SCC (итеративный стек). Два теста: без циклов на runtime-импортах, без циклов с учётом type-only.
+- **`types/ids.ts`:** брендовый ID — `BrandedId`, `parseBrandedId` (для route-параметров/JSON/IDB), `brandBrandedId` (для констант/тестов), `toTrackId`/`asTrackId` и аналоги для Album/Folder/TrackSource/MetadataCandidate/Playlist. `types/ids.spec.ts`.
+- **`LibrarySource.handleAuthCallback?()`:** новый контракт — ядро не знает о `yandex` и его localStorage-ключах; `HomeView` при `/?auth=ok` опрашивает плагины по очереди. Реализация в `yandexDisk/createPlugin.ts`.
+- **`activatePluginByCode(code): string | null`:** UI не передаёт id «секретного» плагина; перебор манифестов делает ядро.
+- **Docker-инфраструктура:** `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `server/ecosystem.config.js`. CI/CD (`.github/workflows/deploy.yml`): миграция с PM2 на Docker Compose (`docker compose up -d --build`).
+- **`utils/logger.ts`:** метод `debug` (только dev, не в тестах).
+
+### Changed
+
+- **`uiSettings`:** store (319 строк) → пакет `stores/uiSettings/`: `schema.ts` (ключ, дефолты, санитайзеры, миграции), `index.ts` (реактивное состояние, debounce 300 мс, `flush`, API).
+- **`types/library.ts` удалён:** неиспользуемый `LibraryState` + реэкспорт «для совместимости» схлопнут. Импорты идут напрямую в `types/track|album|folder|...`.
+- **`plugins/context.ts`:** больше не импортирует `@/stores/library` и `DownloadSpaceService` — через `getPluginContextDeps()`. Убран мёртвый `readonly proxyUrl`.
+- **`plugins/registry.ts`:** `activatePlugin(id, code)` → `activatePluginByCode(code)`. `isPluginDisconnected` — реактивный пин `void disconnectedVersion.value`.
+- **`MetadataService/apply.ts`** (361 строк) → каталог `apply/`: `index.ts`, `candidate.ts`, `id3.ts`, `manual.ts`, `remote.ts`, `merge.ts`, `shared.ts`.
+- **`DownloadOrchestrator.ts`** (−320) → `active-downloads.ts` (реестр + `version++` для shallowRef), `single-track.ts`, `batch.ts`, `manage.ts`. Оркестратор — фасад, типы реэкспортируются.
+- **`BackupService.ts`** (−388) → `collect.ts`, `restore.ts`, `schema.ts` (+ спеки).
+- **`RadioBrowserClient.ts`** (−281) → `radio/browser/{api,client,types}`.
+- **`PodcastCatalog.vue`** (−397) → `podcasts/components/{PodcastCatalogRow,PodcastFilters}.vue` + `podcasts/composables/{usePodcastCatalog,usePodcastPlayback,usePodcastSubscriptions}`.
+- **`LogiiView.vue`** (−229), `LogiiAuthorsColumn.vue` (−269) → `logii/composables/{useLogiiNavigation,useLogiiPlayback,useLogiiRefresh,useLogiiRoute,useLogiiSelection}`, `LogiiAuthorRow.vue`, `useLogiiAuthorsCrud`, `useAuthorTrackState`.
+- **`TrackActions.vue`** (−322), `TrackMetadataModal.vue` (−283), `TrackListPage.vue` (−199) → `TrackDownloadItem`, `TrackListHeader`, `TrackMetadataMenu`, `TrackSearchResults`, `metadata/{MetadataCandidateDropdown, candidateLabels, useFloatingDropdown, useMetadataCandidates, useMetadataForm}`.
+- **`composables/useTrackDownload.ts`** (−87), `useDownloadOrchestrator.ts` → `useTrackDownloadAction.ts`, `useTrackCapabilities.ts`, `useTrackFilter.ts`, `useCollectionActions.ts`.
+- **`directives/tooltip.ts`:** переписан (−139 строк).
+- **Массовая замена `console.*` → `logger.*`** по всему коду.
+- **`main.ts`:** composition root (`setPluginContextDeps` первым шагом), убрана мёртвая ветка `if (wasCleared)`.
+- **`MetadataService/reset.ts`:** `syncPlayerQueue()` / `usePlayerStore()` → `eventBus.emit('track:metadata-updated', trackId)`; подписка в `stores/player/index.ts`.
+- **`DownloadSpaceService`:** `void syncService.syncAll()` → `emit('download:space-selected')`, `SyncService` подписывается сам.
+
+### Removed
+
+- **`stores/uiSettings.ts`** → пакет `stores/uiSettings/`.
+- **`types/library.ts`** (неиспользуемый `LibraryState` + реэкспорт).
+- **`MetadataService/apply.ts`** → каталог `apply/`.
+- **`composables/useTrackDownload.ts`**, **`composables/useDownloadOrchestrator.ts`** → новые модули.
+- **`plugins/remoteLoader.ts`** (заглушка, возвращавшая `[]`).
+- **PM2-деплой** → Docker Compose.
+
+### Internal
+
+- **Новые модули + спеки:** `plugins/contextDeps.spec.ts`, `plugins/registry.spec.ts`, `directives/tooltip.spec.ts`, `utils/logger.spec.ts`, `types/ids.spec.ts`, `services/backup/schema.spec.ts`, `services/download/{active-downloads,batch,manage,single-track}.spec.ts`, `composables/{useCollectionActions,useTrackCapabilities,useTrackDownloadAction,useTrackFilter,useTrackMetadataActions}.spec.ts`, `plugins/podcasts/episodeTrack.spec.ts`, `plugins/yandexSelf/logii/{useAuthorTrackState,useLogiiAuthorsCrud}.spec.ts`, `stores/library/store/subtreeTracks.spec.ts`, `stores/library/writer/tracks.spec.ts`.
+- **`ROADMAP.md`:** блоки 0.16.3 / 0.17.0 / 0.17.1 схлопнуты в `## done`, актуализирован `## Планируется`.
+- **`SCTRUCTURE.md`:** структура дерева проекта (обновлён).
+- **`package.json`:** добавлен скрипт `tree-generate`.
+
 ## [0.17.3] — 2026-11-11
 
 UI/UX-ревизия Логий: новая шапка `FolderView`, `FolderActionsMenu`, hover-кнопки, суффикс/префикс в модалках, отдельный `LogiiIntroView`, галерея с загрузкой/удалением, `InputWithAffix`, `Textarea` с авторесайзом, `data-testid` для всех e2e.

@@ -8,6 +8,7 @@ import { metadataService } from '@/services/metadata/MetadataService';
 import { newTrackSourceId } from '@/types/ids';
 import type { Track, TrackSource } from '@/types/track';
 import type { CollectionActionContext } from '../types';
+import { logger } from '@/utils/logger';
 
 const ZVUK_PLUGIN_ID = 'zvuk';
 const ZVUK_SOURCE_PRIORITY = 30;
@@ -91,7 +92,7 @@ export async function restoreUnavailableTracksInZvuk(tracks: Track[], ctx: Colle
           toastService.error('Звук ограничил доступ. Подождите несколько минут и попробуйте снова.');
           return;
         }
-        console.warn(`[zvuk-restore] failed for "${track.title}"`, err);
+        logger.warn(`[zvuk-restore] failed for "${track.title}"`, err);
       } finally {
         processed++;
         ctx.setProgress({ done: processed, total: candidates.length, found });

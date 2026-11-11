@@ -15,6 +15,7 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import { PLUGIN_ID } from './constants';
 import { newTrackId, newTrackSourceId } from '@/types/ids';
 import type { Track } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -97,7 +98,7 @@ async function refresh(): Promise<void> {
       updatedAt: Date.now(),
     };
   } catch (err) {
-    console.error('[podcasts] refresh failed', err);
+    logger.error('[podcasts] refresh failed', err);
     error.value = 'Не удалось обновить ленту';
   } finally {
     isRefreshing.value = false;

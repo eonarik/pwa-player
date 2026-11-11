@@ -11,6 +11,7 @@ import { audioService } from '@/services/audio/AudioService';
 import type { PluginManifest, PluginSnapshot } from '@/plugins/types';
 import type { FolderRef } from '@/types/folder';
 import { urlPathToSegments } from '@/utils/urlPath';
+import { logger } from '@/utils/logger';
 
 export interface OpenPluginOptions {
   localOnly?: boolean;
@@ -115,14 +116,14 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
         audioService.releaseCurrent();
       }
     } catch (err) {
-      console.error('[plugin-actions] disconnect failed', err);
+      logger.error('[plugin-actions] disconnect failed', err);
       toastService.error(err instanceof Error ? err.message : 'Не удалось отключить источник');
     } finally {
       // Всегда перечитываем список плагинов — даже при ошибке.
       try {
         await onReload();
       } catch (reloadErr) {
-        console.warn('[plugin-actions] onReload after disconnect failed', reloadErr);
+        logger.warn('[plugin-actions] onReload after disconnect failed', reloadErr);
       }
       isLoading.value = null;
     }

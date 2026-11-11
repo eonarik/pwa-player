@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import { yandexSelfService } from '../YandexSelfService';
+import { logger } from '@/utils/logger';
 
 const DEFAULT_LOGII_FILE_NAME = 'vibe.logii.txt';
 const VIBE_TTL_MS = 5 * 60 * 1000;
@@ -57,7 +58,7 @@ async function writeCache(
     };
     await set(cacheKey(trackUrlPath, fileName), entry);
   } catch (err) {
-    console.warn('[logii] cache write failed', err);
+    logger.warn('[logii] cache write failed', err);
   }
 }
 
@@ -105,7 +106,7 @@ export async function readLogiiFile(
     };
   } catch (err) {
     // 404/500 — файла нет, не ошибка.
-    console.warn('[logii] readLogiiFile failed, treating as missing', err);
+    logger.warn('[logii] readLogiiFile failed, treating as missing', err);
     return null;
   }
 }
@@ -136,6 +137,6 @@ export async function clearLogiiCache(trackUrlPath: string): Promise<void> {
     const toDelete = allKeys.filter((k) => typeof k === 'string' && k.startsWith(prefix));
     await Promise.all(toDelete.map((k) => del(k)));
   } catch (err) {
-    console.warn('[logii] clearLogiiCache failed', err);
+    logger.warn('[logii] clearLogiiCache failed', err);
   }
 }

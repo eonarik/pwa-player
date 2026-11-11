@@ -1,6 +1,6 @@
 {
   "name": "cuei-player",
-  "version": "0.17.3",
+  "version": "0.17.4",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -19,7 +19,8 @@
     "format:check": "prettier --check --experimental-cli .",
     "generate:logo": "npx pwa-assets-generator --preset minimal-2023",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "tree-generate": "tree -L 4 --dirsfirst -I 'node_modules|dist|build|coverage|.git|.vscode|.idea|.sessions|test-results|playwright-report|yarn.lock' > SCTRUCTURE.md"
   },
   "dependencies": {
     "@module-federation/enhanced": "^2.9.2",

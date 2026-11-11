@@ -77,7 +77,7 @@ export function installPatches(): void {
   }) as typeof window.clearTimeout;
 
   window.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
-    const id = orig.setInterval(handler as never, timeout, ...args);
+    const id = orig.setInterval(handler, timeout, ...args);
     activeIntervals.add(id);
     incTimers();
     return id;

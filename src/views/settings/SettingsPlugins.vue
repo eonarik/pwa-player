@@ -3,12 +3,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { activatePlugin } from '@/plugins/registry';
+import { activatePluginByCode } from '@/plugins/registry';
 import { getAllSettingsSchemas, type PluginSettingsEntry } from '@/plugins/extensions';
 import { toastService } from '@/services/ui/ToastService';
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import type { PluginManifest } from '@/plugins/types';
+import { logger } from '@/utils/logger';
 
 const router = useRouter();
 
@@ -32,7 +33,7 @@ async function onPluginAction(
   try {
     await runAction(actionId, payload);
   } catch (err) {
-    console.error('[settings] plugin action failed', err);
+    logger.error('[settings] plugin action failed', err);
     toastService.error('Не удалось выполнить действие');
   } finally {
     isPluginActionRunning.value = false;
@@ -50,9 +51,10 @@ const activationCode = ref('');
 function handleActivation(): void {
   if (!activationCode.value.trim()) return;
 
-  const success = activatePlugin('yandex-self', activationCode.value);
+  // Код сверяется с манифестами в реестре — конкретный ID плагина здесь не нужен.
+  const pluginId = activatePluginByCode(activationCode.value);
 
-  if (success) {
+  if (pluginId !== null) {
     toastService.success('Плагин активирован! Он появится на главной.');
     activationCode.value = '';
     router.push('/');

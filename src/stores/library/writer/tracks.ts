@@ -3,14 +3,11 @@ import type { Track, TrackSource } from '@/types/track';
 import type { AlbumId, FolderId, TrackId, TrackSourceId } from '@/types/ids';
 import type { MetadataCandidate } from '@/types/metadata';
 import { librarySaveService } from '@/services/library/LibrarySaveService';
+import { isFolderSource } from '@/services/library/selectors';
 import { pluginIdFromSource } from '@/plugins/registry';
 import type { useLibraryStore } from '../store';
 
 type LibraryStore = ReturnType<typeof useLibraryStore>;
-
-function isFolderSource(source: TrackSource): source is TrackSource & { folderId: FolderId } {
-  return source.kind === 'local' || source.kind === 'cloud';
-}
 
 function syncFolderTrackIds(s: LibraryStore, track: Track, action: 'add' | 'remove'): void {
   for (const source of track.sources) {
@@ -45,14 +42,56 @@ function normalizeSources(sources: TrackSource[]): { sources: TrackSource[]; plu
   return { sources: sorted, pluginId };
 }
 
+/**
+ * Пакетная привязка треков к папкам.
+ *
+ * Сканирование папки приносит тысячи треков за один вызов, а пооперационный
+ * `trackIds.includes(...)` (как в syncFolderTrackIds) дал бы O(N²) на большой папке.
+ * Здесь множество участников каждой папки строится один раз.
+ */
+function linkTracksToFolders(s: LibraryStore, tracks: Track[]): void {
+  const members = new Map<FolderId, Set<TrackId>>();
+  const nextTrackIds = new Map<FolderId, TrackId[]>();
+
+  for (const track of tracks) {
+    for (const source of track.sources) {
+      if (!isFolderSource(source)) continue;
+
+      const folder = s.folders[source.folderId];
+      if (!folder) continue;
+
+      let seen = members.get(source.folderId);
+      if (!seen) {
+        seen = new Set(folder.trackIds);
+        members.set(source.folderId, seen);
+        nextTrackIds.set(source.folderId, [...folder.trackIds]);
+      }
+
+      if (seen.has(track.id)) continue;
+      seen.add(track.id);
+      nextTrackIds.get(source.folderId)?.push(track.id);
+    }
+  }
+
+  for (const [folderId, trackIds] of nextTrackIds) {
+    const folder = s.folders[folderId];
+    if (folder) folder.trackIds = trackIds;
+  }
+}
+
 export function addTracks(s: LibraryStore, tracks: Track[], sourceId: string): void {
+  const stored: Track[] = [];
+
   for (const track of tracks) {
     const { sources, pluginId } = normalizeSources(track.sources);
     const normalized: Track = { ...track, sources, pluginId };
 
     s.tracks[normalized.id] = normalized;
-    syncFolderTrackIds(s, normalized, 'add');
+    stored.push(normalized);
   }
+
+  linkTracksToFolders(s, stored);
+
   if (sourceId) {
     librarySaveService.scheduleSave(sourceId);
   }

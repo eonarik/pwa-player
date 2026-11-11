@@ -3,7 +3,8 @@
 import { get, set, del } from 'idb-keyval';
 import { ref } from 'vue';
 import { queryPermission, requestPermission, type PermissionState } from './PermissionService';
-import { syncService } from './SyncService';
+import { eventBus } from '@/services/events/bus';
+import { logger } from '@/utils/logger';
 
 const SPACE_KEY = 'player:downloadSpace';
 
@@ -42,7 +43,7 @@ class DownloadSpaceService {
         await this.refreshPermissionState();
       }
     } catch (err) {
-      console.error('[download-space] failed to load', err);
+      logger.error('[download-space] failed to load', err);
     }
   }
 
@@ -57,8 +58,9 @@ class DownloadSpaceService {
       this.needsPermission.value = false;
       await set(SPACE_KEY, handle);
 
-      // Запускаем сканирование в фоне
-      void syncService.syncAll();
+      // SyncService сам подписывается на это событие — так DownloadSpaceService
+      // не знает о существовании SyncService и цикл разрывается.
+      eventBus.emit('download:space-selected', undefined);
 
       return handle;
     } catch (err) {

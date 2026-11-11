@@ -3,6 +3,7 @@
 import { onMounted, onUnmounted } from 'vue';
 import { toastService } from '@/services/ui/ToastService';
 import { simpleHash } from '@/utils/hash';
+import { logger } from '@/utils/logger';
 
 const SESSION_KEY = 'cuei:lastClipboardHash';
 const TOAST_DURATION_MS = 8000;
@@ -49,7 +50,7 @@ export function useClipboardWatcher() {
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
         return;
       }
-      console.debug('[clipboard-watcher] read ignored', err);
+      logger.debug('[clipboard-watcher] read ignored', err);
     } finally {
       isChecking = false;
     }

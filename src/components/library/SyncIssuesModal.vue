@@ -7,6 +7,7 @@ import { useLibraryStore } from '@/stores/library';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
+import { getPluginName } from '@/plugins/lookup';
 import type { SelectedIssues } from '@/services/download/types';
 import type { TrackId } from '@/types/ids';
 
@@ -52,10 +53,13 @@ function isMissingSelected(pluginId: string, trackId: TrackId): boolean {
   return selected.missing.has(`${pluginId}:${trackId}`);
 }
 
+/**
+ * Отображаемое имя плагина берётся из его манифеста (через lookup),
+ * а не зашито здесь: ядро не должно знать конкретных плагинов.
+ * Неизвестный id показываем как есть — это отладочная подсказка для пользователя.
+ */
 function pluginName(pluginId: string): string {
-  if (pluginId === 'yandex') return 'Яндекс.Диск';
-  if (pluginId === 'local') return 'Локальная папка';
-  return pluginId;
+  return getPluginName(pluginId, pluginId);
 }
 
 function missingTrackTitle(trackId: TrackId): string {

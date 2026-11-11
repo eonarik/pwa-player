@@ -2,6 +2,7 @@
 
 import { get, set } from 'idb-keyval';
 import type { PersistedSubscriptions, Podcast, Subscription } from './types';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'podcasts:subscriptions'; // idb-keyval под капотом использует другое хранилище
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -22,7 +23,7 @@ async function write(data: PersistedSubscriptions): Promise<void> {
   try {
     await set(STORAGE_KEY, { ...data, savedAt: Date.now() });
   } catch (err) {
-    console.error('[podcasts] failed to persist subscriptions in IDB', err);
+    logger.error('[podcasts] failed to persist subscriptions in IDB', err);
     throw err; // пробрасываем дальше, чтобы вызывающий знал
   }
 }
@@ -70,7 +71,7 @@ export async function clearAll(): Promise<void> {
   try {
     await set(STORAGE_KEY, { subscriptions: [], savedAt: Date.now() });
   } catch (err) {
-    console.error('[podcasts] failed to clear subscriptions', err);
+    logger.error('[podcasts] failed to clear subscriptions', err);
   }
 }
 
@@ -112,7 +113,7 @@ function writeCache<T>(storageKey: string, key: string, data: T): void {
     const payload: PersistedResultCache<T> = { key, data, fetchedAt: Date.now() };
     localStorage.setItem(storageKey, JSON.stringify(payload));
   } catch (err) {
-    console.warn('[podcasts] failed to persist cache', storageKey, err);
+    logger.warn('[podcasts] failed to persist cache', storageKey, err);
   }
 }
 

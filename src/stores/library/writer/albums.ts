@@ -8,17 +8,7 @@ type LibraryStore = ReturnType<typeof useLibraryStore>;
 
 export function addAlbums(s: LibraryStore, albums: Album[]): void {
   for (const album of albums) {
-    const existing = s.albums[album.id];
-    if (existing) {
-      s.albums[album.id] = {
-        ...existing,
-        ...album,
-        coverBlob: existing.coverBlob ?? album.coverBlob,
-        coverUrl: existing.coverUrl || album.coverUrl || null,
-      };
-    } else {
-      s.albums[album.id] = album;
-    }
+    addOrUpdateAlbum(s, album);
   }
 }
 

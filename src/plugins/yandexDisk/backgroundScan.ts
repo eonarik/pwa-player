@@ -3,6 +3,7 @@
 import type { PluginContext, PluginSnapshot } from '../types';
 import type { FolderId } from '@/types/ids';
 import { needsScan } from '@/utils/folderStatus';
+import { logger } from '@/utils/logger';
 
 export interface BackgroundScanOptions {
   pluginId: string;
@@ -25,10 +26,10 @@ export async function backgroundScanPending(options: BackgroundScanOptions): Pro
       try {
         await scanFolder(context, folder.id, { recursive: true });
       } catch (err) {
-        console.warn(`[${pluginId}] background scan failed for folder "${folder.name}"`, err);
+        logger.warn(`[${pluginId}] background scan failed for folder "${folder.name}"`, err);
       }
     }
   } catch (err) {
-    console.warn(`[${pluginId}] background scan aborted`, err);
+    logger.warn(`[${pluginId}] background scan aborted`, err);
   }
 }

@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { TrackId } from '@/types/ids';
+import { logger } from '@/utils/logger';
 
 const DISLIKES_KEY = 'player:dislikes';
 const SAVE_DEBOUNCE_MS = 500;
@@ -59,7 +60,7 @@ export class DislikesPersistenceService {
       };
       await set(DISLIKES_KEY, payload);
     } catch (err) {
-      console.error('[DislikesPersistenceService] failed to save', err);
+      logger.error('[DislikesPersistenceService] failed to save', err);
     }
   }
 
@@ -80,7 +81,7 @@ export class DislikesPersistenceService {
       const data = await get<PersistedDislikes>(DISLIKES_KEY);
       return data?.entries ?? null;
     } catch (err) {
-      console.error('[DislikesPersistenceService] failed to load', err);
+      logger.error('[DislikesPersistenceService] failed to load', err);
       return null;
     }
   }

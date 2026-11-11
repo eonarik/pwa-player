@@ -3,6 +3,7 @@
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { pluginIdFromSource } from '@/plugins/registry';
+import { logger } from '@/utils/logger';
 
 const DEBOUNCE_MS = 2000;
 
@@ -48,7 +49,7 @@ class LibrarySaveService {
       const context = createPluginContext(normalized);
       await plugin.saveCache(context);
     } catch (err) {
-      console.warn(`[library-save] failed to save for "${normalized}"`, err);
+      logger.warn(`[library-save] failed to save for "${normalized}"`, err);
     }
   }
 

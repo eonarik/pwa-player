@@ -8,6 +8,7 @@ import { toastService } from '@/services/ui/ToastService';
 import { findPlayableIndex } from '../playerHelpers';
 import type { Track } from '@/types/track';
 import type { PlayerActionsRefs } from './types';
+import { logger } from '@/utils/logger';
 
 export function createErrors(
   refs: PlayerActionsRefs,
@@ -37,7 +38,7 @@ export function createErrors(
             const idx = currentIndex.value;
             if (idx >= 0) await callPlayAt(idx);
           } catch (err) {
-            console.error('[player] handleAuthError: connectPlugin failed', err);
+            logger.error('[player] handleAuthError: connectPlugin failed', err);
             toastService.error('Не удалось подключить источник');
           }
         })();

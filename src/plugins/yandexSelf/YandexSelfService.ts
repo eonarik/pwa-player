@@ -10,6 +10,7 @@ import { modalService } from '@/services/ui/ModalService';
 import { cleanDiskPath } from '@/shared/paths';
 import { apiClient, type AuthProvider } from '@/services/api/ApiClient';
 import { AuthError } from '@/services/api/errors';
+import { logger } from '@/utils/logger';
 
 const API_URL = '/api/yandex-self';
 const DISCONNECTED_KEY = 'yandex-self-disconnected';
@@ -136,7 +137,7 @@ export class YandexSelfService implements IYandexService, AuthProvider {
         credentials: 'include',
       });
     } catch (err) {
-      console.warn('[yandex-self] logout failed', err);
+      logger.warn('[yandex-self] logout failed', err);
     } finally {
       this.setDisconnected(true);
     }

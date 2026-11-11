@@ -1,21 +1,20 @@
 <!-- src/components/library/TrackListPage.vue -->
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
 import { useUiSettingsStore } from '@/stores/uiSettings';
-import { getPluginName } from '@/plugins/lookup';
-import { pluginIdFromSource } from '@/plugins/registry';
-import { getCollectionActions } from '@/plugins/extensions';
-import type { PluginCollectionAction, CollectionActionProgress } from '@/plugins/types';
 import { useLibrarySearch } from '@/composables/useLibrarySearch';
+import { useTrackFilter } from '@/composables/useTrackFilter';
+import { useCollectionActions } from '@/composables/useCollectionActions';
 import SearchInput from '@/components/ui/SearchInput.vue';
 import FileLocationFilter from './FileLocationFilter.vue';
-import type { FilterOption } from '@/types/filter';
 import TrackListItem from './TrackListItem.vue';
 import TrackActions from './TrackActions.vue';
+import TrackListHeader from './TrackListHeader.vue';
+import TrackSearchResults from './TrackSearchResults.vue';
 import BatchAddToPlaylistButton from './BatchAddToPlaylistButton.vue';
 import MetadataCandidatesButton from './MetadataCandidatesButton.vue';
 import Button from '@/components/ui/Button.vue';
@@ -23,6 +22,7 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import ListContainer from '@/components/ui/ListContainer.vue';
 import Icon from '@/components/ui/Icon.vue';
 import type { Track } from '@/types/track';
+import type { PluginCollectionAction } from '@/plugins/types';
 
 const props = withDefaults(
   defineProps<{
@@ -57,37 +57,20 @@ const player = usePlayerStore();
 const uiSettings = useUiSettingsStore();
 const { currentTrack, isPlaying } = storeToRefs(player);
 
-const sourceFilter = ref<string>('all');
+const currentTrackId = computed(() => currentTrack.value?.id ?? null);
 
-const baseTracks = computed<Track[]>(() => props.tracks);
+function isCurrent(trackId: string) {
+  return currentTrackId.value === trackId;
+}
 
-const preFilteredTracks = computed(() => {
-  if (!props.preFilter) return baseTracks.value;
-  return baseTracks.value.filter(props.preFilter);
-});
+// --- Filtering ---
 
-const filterOptions = computed<FilterOption[]>(() => {
-  const plugins = new Set<string>();
-  for (const t of preFilteredTracks.value) {
-    const pid = t.pluginId;
-    if (pid && pid !== 'imported') {
-      plugins.add(pluginIdFromSource(pid));
-    }
-  }
-  return Array.from(plugins).map((id) => ({
-    id,
-    label: getPluginName(id),
-  }));
-});
+const { sourceFilter, filterOptions, filteredTracks } = useTrackFilter(
+  computed(() => props.tracks),
+  props.preFilter,
+);
 
-const filteredTracks = computed(() => {
-  if (sourceFilter.value === 'all') return preFilteredTracks.value;
-  return preFilteredTracks.value.filter((t) => {
-    const pid = pluginIdFromSource(t.pluginId);
-    if (pid === 'imported') return false;
-    return pid === sourceFilter.value;
-  });
-});
+// --- Search ---
 
 const searchableTracks = computed<Track[]>(() => {
   return filteredTracks.value.filter((t) => Boolean(library.getTrack(t.id)));
@@ -109,11 +92,7 @@ const currentQuery = computed({
 
 const searchFlatTracks = computed<Track[]>(() => result.value.tracks);
 
-const currentTrackId = computed(() => currentTrack.value?.id ?? null);
-
-function isCurrent(trackId: string) {
-  return currentTrackId.value === trackId;
-}
+// --- Player actions ---
 
 function playAll() {
   if (filteredTracks.value.length === 0) return;
@@ -137,99 +116,27 @@ function onSelectSearch(trackId: string) {
 
 // --- Collection actions ---
 
-const allCollectionActions = getCollectionActions();
-const visibleCollectionActions = ref<PluginCollectionAction[]>([]);
-const actionProgress = ref<Record<string, CollectionActionProgress | null>>({});
-let actionCheckId = 0;
+const { visibleCollectionActions, actionProgress, runAction } = useCollectionActions(filteredTracks);
 
-async function refreshVisibleActions(tracks: Track[]): Promise<void> {
-  const id = ++actionCheckId;
-  const result: PluginCollectionAction[] = [];
-
-  for (const action of allCollectionActions) {
-    try {
-      const ok = await action.shouldShow(tracks);
-      if (ok) result.push(action);
-    } catch (err) {
-      console.warn(`[collectionActions] shouldShow failed for "${action.id}"`, err);
-    }
-  }
-
-  if (id === actionCheckId) {
-    visibleCollectionActions.value = result;
-  }
-}
-
-watch(
-  filteredTracks,
-  (tracks) => {
-    void refreshVisibleActions(tracks);
-  },
-  { immediate: true },
-);
-
-async function runAction(action: PluginCollectionAction): Promise<void> {
-  if (actionProgress.value[action.id]) return; // уже выполняется
-
-  const ctx = {
-    setProgress: (p: CollectionActionProgress | null) => {
-      actionProgress.value = { ...actionProgress.value, [action.id]: p };
-    },
-  };
-
-  try {
-    await action.run(filteredTracks.value, ctx);
-  } catch (err) {
-    console.error(`[collectionActions] run failed for "${action.id}"`, err);
-  } finally {
-    actionProgress.value = { ...actionProgress.value, [action.id]: null };
-  }
-}
-
-function actionLabel(action: PluginCollectionAction): string {
-  const progress = actionProgress.value[action.id];
-  if (progress) {
-    const foundPart = typeof progress.found === 'number' ? ` · найдено ${progress.found}` : '';
-    return `${action.label}: ${progress.done}/${progress.total}${foundPart}`;
-  }
-  return action.label;
-}
-
-function isActionBusy(action: PluginCollectionAction): boolean {
-  return Boolean(actionProgress.value[action.id]);
+async function onRunCollectionAction(action: PluginCollectionAction) {
+  await runAction(action, filteredTracks.value);
 }
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-hover-bg bg-bg z-30">
-      <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
-        <div class="min-w-0">
-          <h1 class="truncate text-lg font-medium text-fg">{{ title }}</h1>
-          <p v-if="subtitle" class="text-xs text-fg-muted">{{ subtitle }}</p>
-        </div>
-
-        <div class="flex shrink-0 items-center gap-2">
-          <!-- Кнопки от плагинов -->
-          <button
-            v-for="action in visibleCollectionActions"
-            :key="action.id"
-            type="button"
-            class="flex items-center gap-1 rounded-btn bg-card-bg px-3 py-1.5 text-xs text-fg transition hover:bg-hover-bg disabled:cursor-not-allowed disabled:opacity-60"
-            :title="action.tooltip ?? action.label"
-            :disabled="isActionBusy(action)"
-            @click="runAction(action)"
-          >
-            <Icon v-if="action.icon && !isActionBusy(action)" :name="action.icon" w="w-3.5" h="h-3.5" />
-            <Icon v-else-if="isActionBusy(action)" name="spinner" w="w-3.5" h="h-3.5" class="animate-spin" />
-            {{ actionLabel(action) }}
-          </button>
-
-          <MetadataCandidatesButton :tracks="filteredTracks" />
-          <slot name="header-actions" />
-        </div>
-      </div>
-    </div>
+    <TrackListHeader
+      :title="title"
+      :subtitle="subtitle"
+      :visible-collection-actions="visibleCollectionActions"
+      :action-progress="actionProgress"
+      @run-action="onRunCollectionAction"
+    >
+      <template #header-actions>
+        <MetadataCandidatesButton :tracks="filteredTracks" />
+        <slot name="header-actions" />
+      </template>
+    </TrackListHeader>
 
     <div
       v-if="showSearch || showFilter || showPlayAll || showBatchAdd"
@@ -268,34 +175,20 @@ function isActionBusy(action: PluginCollectionAction): boolean {
             </template>
           </EmptyState>
 
-          <div v-else class="flex flex-col gap-4">
-            <div v-for="group in result.groups" :key="group.artist">
-              <p class="px-5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
-                {{ group.artist }}
-              </p>
-              <ListContainer max-width="lg">
-                <TrackListItem
-                  v-for="track in group.tracks"
-                  :key="track.id"
-                  :track="track"
-                  :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
-                  :is-current="isCurrent(track.id)"
-                  :is-playing="isPlaying"
-                  @select="() => onSelectSearch(track.id)"
-                >
-                  <template #actions>
-                    <slot
-                      name="track-actions"
-                      :track="track"
-                      :index="searchFlatTracks.findIndex((t) => t.id === track.id)"
-                    >
-                      <TrackActions :track="track" />
-                    </slot>
-                  </template>
-                </TrackListItem>
-              </ListContainer>
-            </div>
-          </div>
+          <TrackSearchResults
+            v-else
+            :groups="result.groups"
+            :flat-tracks="searchFlatTracks"
+            :is-current="isCurrent"
+            :is-playing="isPlaying"
+            @select-track="onSelectSearch"
+          >
+            <template #track-actions="{ track, index }">
+              <slot name="track-actions" :track="track" :index="index">
+                <TrackActions :track="track" />
+              </slot>
+            </template>
+          </TrackSearchResults>
         </template>
 
         <ListContainer v-else max-width="lg">

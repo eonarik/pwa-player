@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button.vue';
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue';
 import TrackListPage from '@/components/library/TrackListPage.vue';
 import type { Track } from '@/types/track';
+import type { TrackId } from '@/types/ids';
 
 const dislikes = useDislikesStore();
 const library = useLibraryStore();
@@ -24,8 +25,8 @@ const tracks = computed<Track[]>(() => {
 
 const isEmpty = computed(() => tracks.value.length === 0);
 
-function getDislikedAt(trackId: string): number | null {
-  return dislikes.dislikes.dislikedAt[trackId as never] ?? null;
+function getDislikedAt(trackId: TrackId): number | null {
+  return dislikes.dislikes.dislikedAt[trackId] ?? null;
 }
 
 function clearDislikes() {

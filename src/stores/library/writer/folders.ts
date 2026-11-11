@@ -4,6 +4,7 @@ import type { FolderId, TrackId } from '@/types/ids';
 import type { PluginFolderPayload } from '@/types/plugin';
 import type { FolderScanState } from '@/types/folder';
 import type { useLibraryStore } from '../store';
+import { logger } from '@/utils/logger';
 
 type LibraryStore = ReturnType<typeof useLibraryStore>;
 
@@ -64,7 +65,7 @@ export function setFolderScanState(
 ): void {
   const folder = s.folders[id];
   if (!folder) {
-    console.warn('[setFolderScanState] FOLDER NOT FOUND', id, 'existing folders:', Object.keys(s.folders));
+    logger.warn('[setFolderScanState] FOLDER NOT FOUND', id, 'existing folders:', Object.keys(s.folders));
     return;
   }
   const isStateChange = folder.scanState !== state;

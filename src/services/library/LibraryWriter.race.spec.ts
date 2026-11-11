@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import type { PluginSnapshot } from '@/types/plugin';
+import { asFolderId } from '@/types/ids';
 
 // Используем importOriginal, чтобы сохранить реальный pluginIdFromSource
 vi.mock('@/plugins/registry', async (importOriginal) => {
@@ -39,7 +40,7 @@ describe('LibraryWriter: Race Condition (Альбомы)', () => {
             priority: 10,
             kind: 'local',
             handle: { name: 'file1.mp3' } as FileSystemFileHandle,
-            folderId: 'folder-1' as never,
+            folderId: asFolderId('folder-1'),
           },
         },
       ],
@@ -59,7 +60,7 @@ describe('LibraryWriter: Race Condition (Альбомы)', () => {
             priority: 10,
             kind: 'local',
             handle: { name: 'file2.mp3' } as FileSystemFileHandle,
-            folderId: 'folder-1' as never,
+            folderId: asFolderId('folder-1'),
           },
         },
       ],

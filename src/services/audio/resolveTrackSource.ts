@@ -4,6 +4,7 @@ import { apiClient } from '@/services/api/ApiClient';
 import { pluginIdFromSource } from '@/plugins/registry';
 import { loadPlugin } from '@/plugins/registry';
 import type { Track, TrackSource } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 /**
  * Возвращает источник для `<audio>` для КОНКРЕТНОГО TrackSource:
@@ -18,7 +19,7 @@ export async function resolveTrackSource(track: Track, source: TrackSource): Pro
       const file = await source.handle.getFile();
       return file;
     } catch (err) {
-      console.error('[resolveTrackSource] Failed to get file:', err);
+      logger.error('[resolveTrackSource] Failed to get file:', err);
       throw err;
     }
   }

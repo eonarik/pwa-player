@@ -15,6 +15,7 @@ import Checkbox from '@/components/ui/Checkbox.vue';
 import Button from '@/components/ui/Button.vue';
 import SettingsActionRow from '@/components/ui/SettingsActionRow.vue';
 import { useLibraryStore } from '@/stores/library';
+import { logger } from '@/utils/logger';
 
 const history = useHistoryStore();
 const dislikes = useDislikesStore();
@@ -69,7 +70,7 @@ async function resetAll(): Promise<void> {
 
     indexedDB.deleteDatabase('cuei-plugins');
   } catch (err) {
-    console.error('[resetAll] failed to clear data', err);
+    logger.error('[resetAll] failed to clear data', err);
   } finally {
     toastService.success('Данные сброшены. Перезагрузка...');
     setTimeout(() => {
@@ -91,7 +92,7 @@ async function exportBackup(): Promise<void> {
     downloadTextFile(filename, JSON.stringify(backup, null, 2), 'application/json');
     toastService.success('Бэкап скачан');
   } catch (err) {
-    console.error('[settings] export failed', err);
+    logger.error('[settings] export failed', err);
     toastService.error('Не удалось создать бэкап');
   } finally {
     isExporting.value = false;
@@ -122,7 +123,7 @@ async function onFileSelected(e: Event): Promise<void> {
     const parsed = JSON.parse(text);
     await backupService.importAll(parsed, selectedDomains.value);
   } catch (err) {
-    console.error('[settings] import failed', err);
+    logger.error('[settings] import failed', err);
     toastService.error(err instanceof Error ? err.message : 'Не удалось импортировать бэкап');
   } finally {
     isImporting.value = false;

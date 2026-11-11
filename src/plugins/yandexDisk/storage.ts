@@ -3,6 +3,7 @@
 import { get, set, del } from 'idb-keyval';
 import type { PluginSnapshot } from '../types';
 import type { LibraryWriter } from '@/services/library/LibraryWriter';
+import { logger } from '@/utils/logger';
 
 export interface PluginStorageKeys {
   pathMap: string;
@@ -77,7 +78,7 @@ export function createPluginStorage(pluginId: string) {
 
         loaded = true;
       } catch (err) {
-        console.error(`[yandex:${pluginId}] storage.load failed`, err);
+        logger.error(`[yandex:${pluginId}] storage.load failed`, err);
         loaded = true;
       } finally {
         loadPromise = null;
@@ -102,7 +103,7 @@ export function createPluginStorage(pluginId: string) {
         await set(keys.foldersCache, foldersCache);
       }
     } catch (err) {
-      console.warn(`[yandex:${pluginId}] storage.persist failed`, err);
+      logger.warn(`[yandex:${pluginId}] storage.persist failed`, err);
     }
   }
 
@@ -156,7 +157,7 @@ export function createPluginStorage(pluginId: string) {
       try {
         await Promise.all([del(keys.pathMap), del(keys.foldersCache)]);
       } catch (err) {
-        console.warn(`[yandex:${pluginId}] storage.clear (IDB) failed`, err);
+        logger.warn(`[yandex:${pluginId}] storage.clear (IDB) failed`, err);
       }
       removeLS(legacyKeys.pathMap);
       removeLS(legacyKeys.foldersCache);

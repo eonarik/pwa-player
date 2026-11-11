@@ -6,6 +6,7 @@ import { albumService } from '@/services/persistence/AlbumService';
 import { telemetry } from '@/services/telemetry';
 import { deepToRaw } from '@/utils/deepToRaw';
 import type { LibraryRefs } from './state';
+import { logger } from '@/utils/logger';
 
 const LIBRARY_KEY = 'player:library';
 
@@ -19,7 +20,7 @@ function writeNow(): void {
   try {
     void set(LIBRARY_KEY, data);
   } catch (err) {
-    console.warn('[library] failed to persist library', err);
+    logger.warn('[library] failed to persist library', err);
   }
 }
 
@@ -48,7 +49,7 @@ export function setupPersistence(refs: LibraryRefs): void {
         const sizeKB = Math.round(JSON.stringify(pendingData).length / 1024);
         telemetry.event('idb.write.pending', { key: LIBRARY_KEY, sizeKB });
       } catch (err) {
-        console.warn('[library] failed to snapshot library', err);
+        logger.warn('[library] failed to snapshot library', err);
         return;
       }
 

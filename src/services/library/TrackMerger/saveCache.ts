@@ -2,6 +2,7 @@
 
 import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
+import { logger } from '@/utils/logger';
 
 export async function saveCachesForPlugins(pluginIds: string[]): Promise<void> {
   await Promise.all(
@@ -15,7 +16,7 @@ export async function saveCachesForPlugins(pluginIds: string[]): Promise<void> {
           await plugin.saveCache(context);
         }
       } catch (err) {
-        console.warn(`[TrackMerger] failed to save cache for ${pid}`, err);
+        logger.warn(`[TrackMerger] failed to save cache for ${pid}`, err);
       }
     }),
   );

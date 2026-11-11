@@ -8,6 +8,7 @@ import type { Track } from '@/types/track';
 import type { RemoteTrackMetadata } from '../TrackMetadataService';
 import type { TrackId } from '@/types/ids';
 import type { ManualPatch } from './types';
+import { logger } from '@/utils/logger';
 
 const FLUSH_DEBOUNCE_MS = 500;
 
@@ -64,7 +65,7 @@ export function createMetadataPersistence() {
             await plugin.saveCache(context);
           }
         } catch (err) {
-          console.warn(`[metadata] failed to save cache for ${pluginId}`, err);
+          logger.warn(`[metadata] failed to save cache for ${pluginId}`, err);
         }
       }
     })();

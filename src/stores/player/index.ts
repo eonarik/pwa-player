@@ -4,6 +4,7 @@ import { defineStore } from 'pinia';
 import { ref, computed, shallowRef, watch } from 'vue';
 import { audioService } from '@/services/audio/AudioService';
 import { persistenceService } from '@/services/persistence/PersistenceService';
+import { eventBus } from '@/services/events/bus';
 import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 import { createLibraryWriter, useLibraryStore } from '../library';
@@ -166,10 +167,18 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  // Метаданные трека меняются в сервисе метаданных (автопоиск, ID3, ручная
+  // правка, сброс). Плеер подписывается сам — так MetadataService не зависит
+  // от стора плеера и граф импортов остаётся ацикличным.
+  const unsubMetadataUpdate = eventBus.on('track:metadata-updated', (trackId) => {
+    updateTrackInQueue(trackId);
+  });
+
   function $dispose(): void {
     timeLoop.stop();
     events.unsubscribeAll();
     unsubFlush();
+    unsubMetadataUpdate();
   }
 
   return {

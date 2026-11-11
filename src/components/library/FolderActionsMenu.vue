@@ -15,6 +15,7 @@ import type { Track } from '@/types/track';
 import type { PluginFolderAction } from '@/plugins/types';
 import Divider from '../ui/Divider.vue';
 import IconButton from '../ui/IconButton.vue';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   folder: FolderRef | null;
@@ -34,7 +35,7 @@ const visibleFolderActions = computed<PluginFolderAction[]>(() => {
     try {
       return a.shouldShow(props.folder!);
     } catch (err) {
-      console.warn('[FolderActionsMenu] shouldShow failed', err);
+      logger.warn('[FolderActionsMenu] shouldShow failed', err);
       return false;
     }
   });
@@ -76,7 +77,7 @@ async function runFolderAction(action: PluginFolderAction): Promise<void> {
       });
     }
   } catch (err) {
-    console.error(`[FolderActionsMenu] action "${action.id}" failed`, err);
+    logger.error(`[FolderActionsMenu] action "${action.id}" failed`, err);
     toastService.error(err instanceof Error ? err.message : 'Не удалось выполнить действие');
   } finally {
     runningActionId.value = null;

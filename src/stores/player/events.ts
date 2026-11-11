@@ -7,6 +7,7 @@ import { isLiveStream } from '@/plugins/registry';
 import { telemetry } from '@/services/telemetry';
 import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
+import { logger } from '@/utils/logger';
 
 export interface AudioEventsRefs {
   queue: Ref<Track[]>;
@@ -108,7 +109,7 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
         srcKind: src.startsWith('blob:') ? 'blob' : src.includes('/api/') ? 'api' : 'url',
       });
 
-      console.error('[player] audio error:', message);
+      logger.error('[player] audio error:', message);
       isPlaying.value = false;
       callbacks.stopTimeLoop();
 

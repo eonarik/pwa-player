@@ -12,6 +12,7 @@ import { exportToM3U, exportToJSON } from '@/utils/playlistParser';
 import { downloadTextFile } from '@/utils/downloadFile';
 import { encodeBlueprint, type BlueprintData, type BlueprintTrack } from '@/utils/playlistBlueprint';
 import type { Playlist, PlaylistExportTrack } from '@/types/collection';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{ playlist: Playlist }>();
 
@@ -88,7 +89,7 @@ async function onPrimaryAction() {
       return;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.warn('Share failed', err);
+      logger.warn('Share failed', err);
     }
   }
 

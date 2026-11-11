@@ -1,0 +1,11 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cuei-backend
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    ports:
+      - "127.0.0.1:3000:3000"

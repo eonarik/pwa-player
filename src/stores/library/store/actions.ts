@@ -7,6 +7,7 @@ import type { FolderRef } from '@/types/folder';
 import type { AlbumId, FolderId, TrackId } from '@/types/ids';
 import { albumService } from '@/services/persistence/AlbumService';
 import type { LibraryRefs } from './state';
+import { logger } from '@/utils/logger';
 
 const LIBRARY_KEY = 'player:library';
 
@@ -65,7 +66,7 @@ export function createLibraryActions(refs: LibraryRefs) {
         folders.value = restoredFolders;
       }
     } catch (err) {
-      console.error('[library] failed to restore library from IDB', err);
+      logger.error('[library] failed to restore library from IDB', err);
     }
   }
 

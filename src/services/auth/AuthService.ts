@@ -1,4 +1,5 @@
 // src/services/auth/AuthService.ts
+import { logger } from '@/utils/logger';
 
 const PROXY_URL = '';
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -54,7 +55,7 @@ export class AuthService {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
-      console.warn('[auth] logout failed', err);
+      logger.warn('[auth] logout failed', err);
     }
   }
 }

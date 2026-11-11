@@ -7,6 +7,7 @@ import { usePluginsList } from '@/composables/usePluginsList';
 import { usePluginActions } from '@/composables/usePluginActions';
 import PluginCard from './home/PluginCard.vue';
 import type { PluginManifest } from '@/plugins/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,18 +34,32 @@ function onDisconnect(row: { manifest: PluginManifest }) {
   void disconnectPlugin(row);
 }
 
+/**
+ * Кому принадлежит OAuth-возврат `/?auth=ok`.
+ *
+ * Ядро не знает провайдеров авторизации и ключи localStorage плагинов —
+ * оно опрашивает их по очереди. Первый признавший callback своим — победитель.
+ */
+async function findAuthCallbackOwner(): Promise<PluginManifest | null> {
+  for (const row of plugins.value) {
+    try {
+      if (await row.plugin.handleAuthCallback?.()) return row.manifest;
+    } catch (err) {
+      logger.warn(`[home] handleAuthCallback failed for "${row.manifest.id}"`, err);
+    }
+  }
+  return null;
+}
+
 onMounted(async () => {
   await loadPlugins();
 
-  if (route.query.auth === 'ok') {
-    await router.replace({ path: route.path });
-    const yandexManifest = plugins.value.find((p) => p.manifest.id === 'yandex')?.manifest;
-    if (yandexManifest) {
-      localStorage.setItem('yandex-connected', 'true');
-      localStorage.removeItem('yandex-disconnected');
-      onConnect({ manifest: yandexManifest });
-    }
-  }
+  if (route.query.auth !== 'ok') return;
+
+  await router.replace({ path: route.path });
+
+  const owner = await findAuthCallbackOwner();
+  if (owner) onConnect({ manifest: owner });
 });
 </script>
 

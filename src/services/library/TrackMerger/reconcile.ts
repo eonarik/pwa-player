@@ -4,6 +4,7 @@ import type { TrackId } from '@/types/ids';
 import type { LibraryWriter } from '@/services/library/LibraryWriter';
 import { merge } from './merge';
 import { buildLibraryIndex, isSameSource, trackToPayload } from './utils';
+import { logger } from '@/utils/logger';
 
 export interface ReconcileDeps {
   writer: LibraryWriter;
@@ -26,7 +27,7 @@ export async function reconcile(deps: ReconcileDeps): Promise<void> {
 
   for (const v of virtual) {
     if (v.sources.length === 0) {
-      console.warn(`[reconcile] skipping track "${v.id}" with no sources`);
+      logger.warn(`[reconcile] skipping track "${v.id}" with no sources`);
       continue;
     }
 

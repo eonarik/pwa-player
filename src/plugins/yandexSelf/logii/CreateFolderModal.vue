@@ -8,6 +8,7 @@ import InputWithAffix from '@/components/ui/InputWithAffix.vue';
 import Button from '@/components/ui/Button.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import { modalService } from '@/services/ui/ModalService';
+import { logger } from '@/utils/logger';
 
 const props = withDefaults(
   defineProps<{
@@ -61,7 +62,7 @@ async function submit(): Promise<void> {
       isSubmitting.value = false;
     }
   } catch (err) {
-    console.error('[create-folder] submit failed', err);
+    logger.error('[create-folder] submit failed', err);
     error.value = err instanceof Error ? err.message : 'Не удалось создать';
     isSubmitting.value = false;
   }

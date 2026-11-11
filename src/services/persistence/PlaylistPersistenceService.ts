@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { Playlist } from '@/types/collection';
+import { logger } from '@/utils/logger';
 
 const PLAYLISTS_KEY = 'player:playlists';
 const SAVE_DEBOUNCE_MS = 500;
@@ -51,7 +52,7 @@ export class PlaylistPersistenceService {
       const payload: PersistedPlaylists = { playlists, savedAt: Date.now() };
       await set(PLAYLISTS_KEY, payload);
     } catch (err) {
-      console.error('[PlaylistPersistenceService] failed to save', err);
+      logger.error('[PlaylistPersistenceService] failed to save', err);
     }
   }
 
@@ -72,7 +73,7 @@ export class PlaylistPersistenceService {
       const data = await get<PersistedPlaylists>(PLAYLISTS_KEY);
       return data?.playlists ?? null;
     } catch (err) {
-      console.error('[PlaylistPersistenceService] failed to load', err);
+      logger.error('[PlaylistPersistenceService] failed to load', err);
       return null;
     }
   }

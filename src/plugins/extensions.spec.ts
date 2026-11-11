@@ -3,6 +3,7 @@
 // oxlint-disable vitest/require-mock-type-parameters
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Component } from 'vue';
 import {
   loadExtensions,
   getAllSettingsSchemas,
@@ -106,7 +107,7 @@ describe('extensions', () => {
         extension: async () => ({
           default: {
             menuItems: [{ id: 'm', label: 'M', icon: '', routeName: 'm' }],
-            routes: [{ path: '/m', name: 'm', component: {} as never }],
+            routes: [{ path: '/m', name: 'm', component: {} as Component }],
           },
         }),
       }),

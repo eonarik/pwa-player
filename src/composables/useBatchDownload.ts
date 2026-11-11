@@ -7,6 +7,7 @@ import { pluginCanDownload } from '@/plugins/registry';
 import { toastService } from '@/services/ui/ToastService';
 import { hasLocalSource } from '@/services/library/selectors';
 import type { Track } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 export function useBatchDownload(tracks: Ref<Track[]>) {
   const isDownloading = computed(() => downloadOrchestrator.isBatchDownloading.value);
@@ -63,7 +64,7 @@ export function useBatchDownload(tracks: Ref<Track[]>) {
         toastService.info(`Все ${result.skipped} треков уже скачаны`);
       }
     } catch (err) {
-      console.error('[download] batch failed', err);
+      logger.error('[download] batch failed', err);
       toastService.error(err instanceof Error ? err.message : 'Не удалось скачать');
     }
   }

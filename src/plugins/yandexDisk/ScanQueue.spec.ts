@@ -1,6 +1,7 @@
 // src/plugins/yandexDisk/ScanQueue.spec.ts
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { asFolderId } from '@/types/ids';
 import { ScanQueue } from './ScanQueue';
 import * as scanModule from './scan';
 
@@ -88,12 +89,12 @@ describe('ScanQueue', () => {
         }),
     );
 
-    const folderId = 'folder-1';
+    const folderId = asFolderId('folder-1');
     mockFolders.set(folderId, makeFolder(folderId, 'pending'));
 
-    queue.enqueue(folderId as never);
-    queue.enqueue(folderId as never);
-    queue.enqueue(folderId as never);
+    queue.enqueue(folderId);
+    queue.enqueue(folderId);
+    queue.enqueue(folderId);
 
     expect(vi.mocked(scanModule.scanAll)).toHaveBeenCalledTimes(1);
 
@@ -103,42 +104,42 @@ describe('ScanQueue', () => {
   });
 
   it('защита от рекурсии: если во время скана папка добавляется снова, она не дублируется', async () => {
-    const folderId = 'folder-1';
+    const folderId = asFolderId('folder-1');
     mockFolders.set(folderId, makeFolder(folderId, 'pending'));
 
     vi.mocked(scanModule.scanAll).mockImplementation(async () => {
-      queue.enqueue(folderId as never);
+      queue.enqueue(folderId);
       return { snapshot: { folders: [], tracks: [] }, newFolderMap: {}, pathMap: {} };
     });
 
-    queue.enqueue(folderId as never);
+    queue.enqueue(folderId);
     await new Promise((r) => setTimeout(r, 10));
 
     expect(vi.mocked(scanModule.scanAll)).toHaveBeenCalledTimes(1);
   });
 
   it('обрабатывает ошибку сканирования и помечает папку как error', async () => {
-    const folderId = 'folder-1';
+    const folderId = asFolderId('folder-1');
     mockFolders.set(folderId, makeFolder(folderId, 'pending'));
 
     vi.mocked(scanModule.scanAll).mockRejectedValue(new Error('Network error'));
 
-    queue.enqueue(folderId as never);
+    queue.enqueue(folderId);
     await new Promise((r) => setTimeout(r, 10));
 
     expect(mockFolders.get(folderId)?.scanState).toBe('error');
   });
 
   it('при cancelAll помечает все папки (в очереди и в процессе) как error', async () => {
-    const folder1 = 'folder-1';
-    const folder2 = 'folder-2';
+    const folder1 = asFolderId('folder-1');
+    const folder2 = asFolderId('folder-2');
     mockFolders.set(folder1, makeFolder(folder1, 'pending'));
     mockFolders.set(folder2, makeFolder(folder2, 'pending'));
 
     vi.mocked(scanModule.scanAll).mockImplementationOnce(() => new Promise(() => {}));
 
-    queue.enqueue(folder1 as never);
-    queue.enqueue(folder2 as never);
+    queue.enqueue(folder1);
+    queue.enqueue(folder2);
 
     await new Promise((r) => setTimeout(r, 10));
 

@@ -17,6 +17,7 @@ import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import type { LogiiTrackItem } from './useLogiiData';
 import type { FolderRef } from '@/types/folder';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   folders: LogiiTrackItem[];
@@ -93,7 +94,7 @@ async function openCreateTopsModal(): Promise<void> {
 
         if (errors.length > 0) {
           toastService.error(`Создано с ошибками: ${errors.length}`);
-          console.warn('[create-tops] errors', errors);
+          logger.warn('[create-tops] errors', errors);
           return false;
         }
 

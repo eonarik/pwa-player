@@ -20,6 +20,7 @@ import FolderContent from './folder/FolderContent.vue';
 import FileLocationFilter from '@/components/library/FileLocationFilter.vue';
 import type { Track } from '@/types/track';
 import type { FolderFile } from '@/types/folder';
+import { logger } from '@/utils/logger';
 
 const library = useLibraryStore();
 const player = usePlayerStore();
@@ -163,7 +164,7 @@ async function cancelBackgroundScan(): Promise<void> {
       toastService.info('Фоновая синхронизация отменена');
     }
   } catch (err) {
-    console.error('[FolderView] failed to cancel background scan', err);
+    logger.error('[FolderView] failed to cancel background scan', err);
     toastService.error('Не удалось отменить синхронизацию');
   }
 }

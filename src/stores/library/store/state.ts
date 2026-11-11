@@ -15,6 +15,11 @@ export interface LibraryRefs {
 
 export function createLibraryRefs(): LibraryRefs {
   return {
+    // deep ref: computed свойства полагаются на реактивность при
+    // s.tracks[id] = track / delete s.tracks[id].
+    // Host-объекты (FileSystemFileHandle) пропускаются Vue — не вызывают ошибок.
+    // Переход на shallowRef потребовал бы замены ~40 мутаций на spread-присваивание;
+    // нецелесообразно — нет подтверждённых проблем с производительностью.
     tracks: ref({} as Record<TrackId, Track>),
     albums: ref({} as Record<AlbumId, Album>),
     folders: ref({} as Record<FolderId, FolderRef>),

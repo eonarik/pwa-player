@@ -46,6 +46,8 @@ export interface IYandexService {
   logout?(): void;
   isDisconnected?(): boolean;
   setDisconnected?(val: boolean): void;
+  /** Отмечает «пользователь авторизован» (флаг в localStorage сервиса). */
+  setConnected?(val: boolean): void;
   isCancelled?(): boolean;
   setCancelled?(val: boolean): void;
   checkSession?(): Promise<'ok' | 'expired' | 'unavailable'>;

@@ -8,10 +8,12 @@ import { downloadOrchestrator } from './DownloadOrchestrator';
 import { downloadSpaceService } from './DownloadSpaceService';
 import { getFileHandleFromPath } from './getFileFromPath';
 import { toastService } from '@/services/ui/ToastService';
+import { eventBus } from '@/services/events/bus';
 import type { SyncReport, SyncIssues, SelectedIssues } from './types';
 import type { TrackSource } from '@/types/track';
 import { newTrackSourceId } from '@/types/ids';
 import type { TrackId } from '@/types/ids';
+import { logger } from '@/utils/logger';
 
 class SyncService {
   private static instance: SyncService | null = null;
@@ -19,6 +21,14 @@ class SyncService {
   readonly isSyncing = ref(false);
   readonly issues = shallowRef<SyncIssues[]>([]);
   readonly issueCount = ref(0);
+
+  private constructor() {
+    // Реакция на выбор хранилища. DownloadSpaceService не знает о нас —
+    // направление зависимости «SyncService → DownloadSpaceService» сохраняется.
+    eventBus.on('download:space-selected', () => {
+      void this.syncAll();
+    });
+  }
 
   static getInstance(): SyncService {
     if (!SyncService.instance) {
@@ -78,7 +88,7 @@ class SyncService {
         await plugin.saveCache(context);
       }
     } catch (err) {
-      console.warn(`[sync] failed to scan plugin "${pluginId}"`, err);
+      logger.warn(`[sync] failed to scan plugin "${pluginId}"`, err);
     }
   }
 
@@ -169,7 +179,7 @@ class SyncService {
             await plugin.saveCache(createPluginContext(manifest.id));
           }
         } catch (err) {
-          console.warn(`[sync] failed for plugin "${manifest.id}"`, err);
+          logger.warn(`[sync] failed for plugin "${manifest.id}"`, err);
         }
       }
 
@@ -219,7 +229,7 @@ class SyncService {
           await plugin.saveCache(context);
         }
       } catch (err) {
-        console.error(`[sync] failed to create local tracks for "${pluginId}"`, err);
+        logger.error(`[sync] failed to create local tracks for "${pluginId}"`, err);
       }
     }
 

@@ -4,6 +4,7 @@ import type { Meta, StoryObj } from '@storybook/vue3';
 import ToastHost from './ToastHost.vue';
 import { toastService } from '@/services/ui/ToastService';
 import Button from './Button.vue';
+import { logger } from '@/utils/logger';
 
 const meta: Meta<typeof ToastHost> = {
   title: 'UI/ToastHost',
@@ -23,7 +24,7 @@ export const AllTypes: Story = {
       const showAction = () =>
         toastService.showPersistent('Доступно обновление', 'info', {
           label: 'Перезагрузить',
-          onAction: () => console.log('Reload clicked'),
+          onAction: () => logger.log('Reload clicked'),
         });
       return { showInfo, showSuccess, showError, showAction };
     },

@@ -19,6 +19,7 @@ import {
 import { hasLocalSource } from '@/services/library/selectors';
 import { guessMetadataFromFilename } from '@/utils/parseFilename';
 import { isProcessed, markProcessed, resetProcessedTrack } from '@/services/metadata/AutoFetchRegistry';
+import { logger } from '@/utils/logger';
 
 export function useAutoActions() {
   const player = usePlayerStore();
@@ -55,7 +56,7 @@ export function useAutoActions() {
       if (!libTrack) return;
 
       const localSource = libTrack.sources.find((s) => s.kind === 'local');
-      if (localSource && localSource.kind === 'local' && !libTrack.hasId3Tags) {
+      if (localSource && !libTrack.hasId3Tags) {
         try {
           const file = await localSource.handle.getFile();
           const parsed = await metadataWorkerService.parse(file);
@@ -68,7 +69,7 @@ export function useAutoActions() {
               try {
                 await runAutoFetch(updated);
               } catch (err) {
-                console.warn('[auto-actions] runAutoFetch failed (local), will retry next time', err);
+                logger.warn('[auto-actions] runAutoFetch failed (local), will retry next time', err);
                 resetProcessedTrack(track.id);
               }
             }
@@ -90,13 +91,13 @@ export function useAutoActions() {
             try {
               await runAutoFetch(updated);
             } catch (err) {
-              console.warn('[auto-actions] runAutoFetch failed (local), will retry next time', err);
+              logger.warn('[auto-actions] runAutoFetch failed (local), will retry next time', err);
               resetProcessedTrack(track.id);
             }
           }
           return;
         } catch (err) {
-          console.error('[auto-actions] failed to parse local track metadata', err);
+          logger.error('[auto-actions] failed to parse local track metadata', err);
           resetProcessedTrack(track.id);
         }
       }
@@ -104,7 +105,7 @@ export function useAutoActions() {
       try {
         await runAutoFetch(libTrack);
       } catch (err) {
-        console.warn('[auto-actions] runAutoFetch failed, will retry next time', err);
+        logger.warn('[auto-actions] runAutoFetch failed, will retry next time', err);
         resetProcessedTrack(track.id);
       }
 
@@ -119,7 +120,7 @@ export function useAutoActions() {
 
       if (isWaitingForDownload && downloadSpaceService.hasSpace.value && !downloadSpaceService.needsPermission.value) {
         void downloadOrchestrator.downloadTrack(libTrack).catch((err) => {
-          console.warn('[auto-actions] auto-download failed', err);
+          logger.warn('[auto-actions] auto-download failed', err);
         });
       }
     },

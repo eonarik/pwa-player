@@ -8,6 +8,7 @@ import { buildFullPathMap, type PluginStorage } from './storage';
 import type { IYandexService } from './types';
 import { applyLocalMatchesForFolders } from './localMatches';
 import { getPluginManifest } from '@/plugins/lookup';
+import { logger } from '@/utils/logger';
 
 export interface ScanFolderDeps {
   pluginId: string;
@@ -103,7 +104,7 @@ export async function scanFolderImpl(
   if (isForce) {
     const folder = writer.getFolder(folderId);
     if (folder?.scanState === 'scanning') {
-      console.warn(`[${pluginId}] force scan skipped: folder "${folderId}" is already scanning`);
+      logger.warn(`[${pluginId}] force scan skipped: folder "${folderId}" is already scanning`);
       return { folders: [], tracks: [] };
     }
     if (service.setCancelled) {

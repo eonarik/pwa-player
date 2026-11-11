@@ -8,6 +8,7 @@ import { syncService } from '@/services/download/SyncService';
 import { toastService } from '@/services/ui/ToastService';
 import type { FolderRef } from '@/types/folder';
 import type { LibrarySource } from '@/plugins/types';
+import { logger } from '@/utils/logger';
 
 export interface UseFolderSyncReturn {
   canRefresh: Ref<boolean>;
@@ -141,7 +142,7 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
 
       toastService.success('Обновлено с облака');
     } catch (err) {
-      console.error('[folder-sync] cloud refresh failed', err);
+      logger.error('[folder-sync] cloud refresh failed', err);
       needsAttention.value = true;
       toastService.error('Не удалось обновить с облака. Требуется ручная синхронизация.');
     } finally {
@@ -191,7 +192,7 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
 
       toastService.success('Досканировано');
     } catch (err) {
-      console.error('[folder-sync] shallow refresh failed', err);
+      logger.error('[folder-sync] shallow refresh failed', err);
       needsAttention.value = true;
       toastService.error('Не удалось досканировать');
     } finally {
@@ -214,7 +215,7 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
         toastService.info('Сканирование устройства завершено');
       }
     } catch (err) {
-      console.error('[folder-sync] device refresh failed', err);
+      logger.error('[folder-sync] device refresh failed', err);
       needsAttention.value = true;
       toastService.error('Не удалось обновить с устройства.');
     } finally {

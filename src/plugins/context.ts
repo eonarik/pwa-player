@@ -1,30 +1,33 @@
 // src/plugins/context.ts
 
 import { createPluginStorage } from './storage';
-import { createLibraryWriter } from '@/stores/library';
+import { getPluginContextDeps } from './contextDeps';
 import { modalService } from '@/services/ui/ModalService';
 import { toastService } from '@/services/ui/ToastService';
-import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import type { PluginContext } from './types';
 
 const contexts = new Map<string, PluginContext>();
 
+/**
+ * Создаёт (или возвращает кешированный) контекст плагина.
+ *
+ * Writer и папка скачиваний берутся из `contextDeps`, а не импортируются
+ * напрямую: это держит `plugins/*` свободным от зависимостей на `stores/*`
+ * и `services/download/*` и не даёт графу импортов замкнуться в цикл.
+ * Инициализация deps — в composition root (`main.ts`).
+ */
 export function createPluginContext(pluginId: string): PluginContext {
   const cached = contexts.get(pluginId);
   if (cached) return cached;
 
   const context: PluginContext = {
-    writer: createLibraryWriter(),
+    writer: getPluginContextDeps().createWriter(),
     storage: createPluginStorage(pluginId),
     showModal: (options) => modalService.show(options),
     showToast: (message, type = 'info') => {
       toastService.show(message, type);
     },
-    proxyUrl: '',
-    getDownloadDir: async () => {
-      if (!downloadSpaceService.hasSpace.value) return null;
-      return downloadSpaceService.getPluginDir(pluginId);
-    },
+    getDownloadDir: () => getPluginContextDeps().getDownloadDir(pluginId),
   };
 
   contexts.set(pluginId, context);

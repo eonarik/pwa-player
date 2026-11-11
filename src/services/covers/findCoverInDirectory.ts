@@ -1,4 +1,5 @@
 // src/services/covers/findCoverInDirectory.ts
+import { logger } from '@/utils/logger';
 
 const PRIORITY = ['folder.jpg', 'folder.png', 'cover.jpg', 'cover.png'];
 
@@ -27,7 +28,7 @@ export async function findCoverInDirectory(dirHandle: FileSystemDirectoryHandle)
   try {
     return await best.handle.getFile();
   } catch (err) {
-    console.warn(`[covers] failed to read cover ${best.handle.name}`, err);
+    logger.warn(`[covers] failed to read cover ${best.handle.name}`, err);
     return null;
   }
 }

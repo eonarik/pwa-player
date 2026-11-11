@@ -10,7 +10,7 @@ import type {
 } from './types';
 import type { RouteRecordRaw } from 'vue-router';
 import type { PluginSettingsSchema } from './settingsTypes';
-import { loadRemotePlugins } from './remoteLoader';
+import { logger } from '@/utils/logger';
 
 interface LoadedExtension {
   pluginId: string;
@@ -29,10 +29,8 @@ export async function loadExtensions(): Promise<void> {
   extensions = [];
 
   const localPlugins = getPlugins();
-  const remotePlugins = await loadRemotePlugins();
-  const allPlugins = [...localPlugins, ...remotePlugins];
 
-  for (const manifest of allPlugins) {
+  for (const manifest of localPlugins) {
     let ext: {
       menuItems?: PluginMenuItem[];
       routes?: RouteRecordRaw[];
@@ -47,7 +45,7 @@ export async function loadExtensions(): Promise<void> {
         const mod = await manifest.extension();
         ext = mod.default;
       } catch (err) {
-        console.error(`[extensions] Failed to load extension for ${manifest.id}`, err);
+        logger.error(`[extensions] Failed to load extension for ${manifest.id}`, err);
       }
     }
 
@@ -123,7 +121,7 @@ export async function getAllSettingsSchemas(): Promise<PluginSettingsEntry[]> {
         runAction: ext.runSettingsAction,
       });
     } catch (err) {
-      console.error(`[extensions] failed to load settings for ${manifest.id}`, err);
+      logger.error(`[extensions] failed to load settings for ${manifest.id}`, err);
     }
   }
 

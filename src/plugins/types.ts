@@ -158,6 +158,18 @@ export interface LibrarySource {
   load(context: PluginContext, options?: LoadOptions): Promise<PluginSnapshot>;
   restoreFromCache(context: PluginContext): Promise<PluginSnapshot | null>;
 
+  /**
+   * Обработка OAuth-возврата на главную (`/?auth=ok`).
+   *
+   * Ядро не знает, какой провайдер авторизации за каким плагином стоит:
+   * оно опрашивает плагины по очереди, и первый, признавший callback своим
+   * (вернувший true), применяет своё состояние подключения. Ключи
+   * localStorage и id провайдера остаются внутри плагина.
+   *
+   * Метод должен быть идемпотентным и дешёвым: опрос идёт для всех плагинов.
+   */
+  handleAuthCallback?(): Promise<boolean>;
+
   scanFolder?(context: PluginContext, folderId: FolderId, options: ScanFolderOptions): Promise<PluginSnapshot>;
 
   canForceScan?(folderId: FolderId): boolean;
@@ -217,7 +229,6 @@ export interface PluginContext {
   showModal<T>(options: ModalOptions): Promise<T>;
   showToast(message: string, type?: 'info' | 'success' | 'error'): void;
   readonly storage: PluginStorage;
-  readonly proxyUrl: string;
   getDownloadDir(): Promise<FileSystemDirectoryHandle | null>;
 }
 

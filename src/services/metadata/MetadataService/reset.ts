@@ -1,18 +1,15 @@
 // src/services/metadata/MetadataService/reset.ts
 
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
-import { usePlayerStore } from '@/stores/player';
 import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService';
 import { resolveAlbumByName } from '@/services/library/EntityGraph';
+import { eventBus } from '@/services/events/bus';
 import { resetProcessedTrack } from '../AutoFetchRegistry';
 import type { TrackId } from '@/types/ids';
 import type { MetadataPersistence } from './persistence';
+import { logger } from '@/utils/logger';
 
 export function createMetadataReset(persistence: MetadataPersistence) {
-  function syncPlayerQueue(trackId: TrackId): void {
-    usePlayerStore().updateTrackInQueue(trackId);
-  }
-
   async function reset(trackId: TrackId): Promise<void> {
     const library = useLibraryStore();
     const track = library.getTrack(trackId);
@@ -22,7 +19,7 @@ export function createMetadataReset(persistence: MetadataPersistence) {
 
     if (!track.raw) {
       // Если raw нет (старый трек), сбрасываем флаги, чтобы автопоиск сработал заново
-      console.warn(`[reset] track "${trackId}" has no raw metadata, forcing reset flags`);
+      logger.warn(`[reset] track "${trackId}" has no raw metadata, forcing reset flags`);
       writer.updateTrackMetadata(trackId, {
         albumId: null,
         coverUrl: null,
@@ -65,7 +62,7 @@ export function createMetadataReset(persistence: MetadataPersistence) {
     await metadataPersistenceService.flush();
 
     persistence.saveCacheForTrack(track);
-    syncPlayerQueue(trackId);
+    eventBus.emit('track:metadata-updated', trackId);
 
     resetProcessedTrack(trackId);
   }

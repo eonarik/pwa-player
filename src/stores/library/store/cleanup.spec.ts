@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useLibraryStore, createLibraryWriter } from '../index';
-import { newAlbumId, newFolderId, newTrackId } from '@/types/ids';
+import { asFolderId, asTrackSourceId, newAlbumId, newFolderId, newTrackId } from '@/types/ids';
 import type { Album } from '@/types/album';
 import type { Track } from '@/types/track';
 
@@ -172,7 +172,7 @@ describe('cleanupOrphanTracks', () => {
     const track = makeTrack({
       sources: [
         {
-          id: 'src-1' as never,
+          id: asTrackSourceId('src-1'),
           pluginId: 'local',
           priority: 10,
           kind: 'local',
@@ -194,7 +194,7 @@ describe('cleanupOrphanTracks', () => {
     const track = makeTrack({
       sources: [
         {
-          id: 'src-1' as never,
+          id: asTrackSourceId('src-1'),
           pluginId: 'zvuk',
           priority: 30,
           kind: 'streaming',
@@ -215,7 +215,7 @@ describe('cleanupOrphanTracks', () => {
     const track = makeTrack({
       sources: [
         {
-          id: 'src-1' as never,
+          id: asTrackSourceId('src-1'),
           pluginId: 'zvuk',
           priority: 30,
           kind: 'streaming',
@@ -236,12 +236,12 @@ describe('cleanupOrphanTracks', () => {
     const track = makeTrack({
       sources: [
         {
-          id: 'src-1' as never,
+          id: asTrackSourceId('src-1'),
           pluginId: 'local',
           priority: 10,
           kind: 'local',
           handle: {} as FileSystemFileHandle,
-          folderId: 'folder-1' as never,
+          folderId: asFolderId('folder-1'),
         },
       ],
     });

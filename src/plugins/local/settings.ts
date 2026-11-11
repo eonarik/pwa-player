@@ -5,6 +5,7 @@ import { localPersistenceService } from './persistence';
 import { createLibraryWriter } from '@/stores/library';
 import { toastService } from '@/services/ui/ToastService';
 import type { PluginSettingsFolderEntry, PluginSettingsSchema } from '@/plugins/settingsTypes';
+import { logger } from '@/utils/logger';
 
 const PLUGIN_ID = 'local';
 
@@ -83,7 +84,7 @@ async function addFolder(): Promise<void> {
     toastService.success(`Папка «${handle.name}» добавлена`);
     await rebuildAndSave();
   } catch (err) {
-    console.error('[local-settings] add folder failed', err);
+    logger.error('[local-settings] add folder failed', err);
     toastService.error('Не удалось добавить папку');
   }
 }
@@ -106,7 +107,7 @@ async function rescanFolder(name: string): Promise<void> {
     await rebuildAndSave();
     toastService.success(`Папка «${name}» обновлена`);
   } catch (err) {
-    console.error('[local-settings] rescan failed', err);
+    logger.error('[local-settings] rescan failed', err);
     toastService.error('Не удалось обновить папку');
   }
 }
@@ -120,7 +121,7 @@ async function removeFolder(name: string): Promise<void> {
     await rebuildAndSave();
     toastService.success(`Папка «${name}» удалена`);
   } catch (err) {
-    console.error('[local-settings] remove failed', err);
+    logger.error('[local-settings] remove failed', err);
     toastService.error('Не удалось удалить папку');
   }
 }

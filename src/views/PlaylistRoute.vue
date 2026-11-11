@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePlaylistsStore } from '@/stores/playlists';
 import { useLibraryStore } from '@/stores/library';
 import { FAVORITES_PLAYLIST_ID } from '@/types/collection';
+import { toPlaylistId } from '@/types/ids';
 import PlaylistHeader from './playlist/PlaylistHeader.vue';
 import TrackListPage from '@/components/library/TrackListPage.vue';
 import type { Track } from '@/types/track';
@@ -15,8 +16,9 @@ const router = useRouter();
 const playlists = usePlaylistsStore();
 const library = useLibraryStore();
 
-const playlistId = computed(() => String(route.params.id ?? ''));
-const playlist = computed(() => playlists.getPlaylist(playlistId.value as never));
+// route.params — внешние данные: бренд навешиваем только после проверки строки.
+const playlistId = computed(() => toPlaylistId(route.params.id));
+const playlist = computed(() => (playlistId.value ? playlists.getPlaylist(playlistId.value) : undefined));
 const isFavorites = computed(() => playlistId.value === FAVORITES_PLAYLIST_ID);
 
 const resolvedTracks = computed<Track[]>(() => {

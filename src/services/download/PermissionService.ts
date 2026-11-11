@@ -1,4 +1,5 @@
 // src/services/download/PermissionService.ts
+import { logger } from '@/utils/logger';
 
 export type PermissionState = 'granted' | 'prompt' | 'denied';
 
@@ -13,7 +14,7 @@ export async function queryPermission(
   try {
     return (await handle.queryPermission({ mode })) as PermissionState;
   } catch (err) {
-    console.warn('[permission] queryPermission failed', err);
+    logger.warn('[permission] queryPermission failed', err);
     return 'prompt';
   }
 }
@@ -30,7 +31,7 @@ export async function requestPermission(
   try {
     return (await handle.requestPermission({ mode })) as PermissionState;
   } catch (err) {
-    console.warn('[permission] requestPermission failed', err);
+    logger.warn('[permission] requestPermission failed', err);
     return 'denied';
   }
 }

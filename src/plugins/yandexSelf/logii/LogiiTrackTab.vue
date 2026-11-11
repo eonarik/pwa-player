@@ -17,6 +17,7 @@ import LogiiVibeBlock from './LogiiVibeBlock.vue';
 import type { LogiiTrackItem } from './useLogiiData';
 import type { LogiiData } from './parseLogii';
 import type { Track } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   folder: LogiiTrackItem;
@@ -73,7 +74,7 @@ async function onFilesSelected(e: Event): Promise<void> {
         await yandexSelfService.uploadFile(props.folder.urlPath, file.name, file);
         uploaded++;
       } catch (err) {
-        console.warn(`[logii] upload failed for "${file.name}"`, err);
+        logger.warn(`[logii] upload failed for "${file.name}"`, err);
         failed++;
       } finally {
         uploadProgress.value = {
@@ -86,7 +87,7 @@ async function onFilesSelected(e: Event): Promise<void> {
     const plugin = await loadPlugin('yandex-self');
     if (plugin.scanFolder) {
       const context = createPluginContext('yandex-self');
-      await plugin.scanFolder(context, props.folder.folderId as never, { recursive: false, force: true });
+      await plugin.scanFolder(context, props.folder.folderId, { recursive: false, force: true });
     }
 
     if (failed > 0) {
@@ -138,7 +139,7 @@ async function onDeleteTrack(track: Track): Promise<void> {
 
     toastService.success('Трек удалён');
   } catch (err) {
-    console.error('[logii] delete track failed', err);
+    logger.error('[logii] delete track failed', err);
     toastService.error(err instanceof Error ? err.message : 'Не удалось удалить трек');
   } finally {
     deletingTrackId.value = null;

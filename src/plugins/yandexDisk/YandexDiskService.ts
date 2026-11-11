@@ -4,6 +4,7 @@ import { compareStrings } from '@/utils/sort';
 import { apiClient, type AuthProvider } from '@/services/api/ApiClient';
 import { AuthError } from '@/services/api/errors';
 import type { YandexResourcesResponse, YandexResourceItem } from './types';
+import { logger } from '@/utils/logger';
 
 const PROXY_URL = '';
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -146,7 +147,7 @@ export class YandexDiskService implements AuthProvider {
       return (await res.json()) as TextFileResponse;
     } catch (err) {
       if (err instanceof AuthError) throw err;
-      console.error(`[yandex] readTextFile failed for "${remotePath}"`, err);
+      logger.error(`[yandex] readTextFile failed for "${remotePath}"`, err);
       return null;
     }
   }

@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { PersistedYandexLibrary } from './types';
+import { logger } from '@/utils/logger';
 
 export const YANDEX_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -26,7 +27,7 @@ export class YandexPersistenceService {
         savedAt: Date.now(),
       });
     } catch (err) {
-      console.error(`[${pluginId}] failed to save library`, err);
+      logger.error(`[${pluginId}] failed to save library`, err);
       throw err;
     }
   }
@@ -36,7 +37,7 @@ export class YandexPersistenceService {
       const data = await get<PersistedYandexLibrary>(this.getKey(pluginId));
       return data ?? null;
     } catch (err) {
-      console.error(`[${pluginId}] failed to load library`, err);
+      logger.error(`[${pluginId}] failed to load library`, err);
       return null;
     }
   }

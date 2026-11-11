@@ -11,6 +11,7 @@ import { shuffleArray, findPlayableIndex, findFirstPlayableIndex } from '../play
 import type { PlayerActionsRefs } from './types';
 import type { Helpers } from './helpers';
 import type { Errors } from './errors';
+import { logger } from '@/utils/logger';
 
 export function createNavigation(refs: PlayerActionsRefs, helpers: Helpers, errors: Errors) {
   const {
@@ -51,7 +52,7 @@ export function createNavigation(refs: PlayerActionsRefs, helpers: Helpers, erro
           }
         }
       } catch (err) {
-        console.warn('[player] auto-restore source failed', err);
+        logger.warn('[player] auto-restore source failed', err);
       }
     }
 
@@ -92,11 +93,11 @@ export function createNavigation(refs: PlayerActionsRefs, helpers: Helpers, erro
           return;
         }
         lastError = err instanceof Error ? err : new Error(String(err));
-        console.warn(`[player] Source ${source.id} failed, trying next...`, err);
+        logger.warn(`[player] Source ${source.id} failed, trying next...`, err);
       }
     }
 
-    console.error('[player] All sources failed for track', track.id, lastError);
+    logger.error('[player] All sources failed for track', track.id, lastError);
     toastService.error('Не удалось воспроизвести трек (все источники недоступны)');
 
     skipToNextOnError();

@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button.vue';
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue';
 import TrackListPage from '@/components/library/TrackListPage.vue';
 import type { Track } from '@/types/track';
+import type { TrackId } from '@/types/ids';
 
 const history = useHistoryStore();
 const library = useLibraryStore();
@@ -23,8 +24,8 @@ const tracks = computed<Track[]>(() => {
   return uniqueHistory.value.map((e) => library.getTrack(e.trackId)).filter((t): t is Track => Boolean(t));
 });
 
-function getPlayedAt(trackId: string): number | null {
-  return history.history.playedAt[trackId as never] ?? null;
+function getPlayedAt(trackId: TrackId): number | null {
+  return history.history.playedAt[trackId] ?? null;
 }
 
 function clearHistory() {

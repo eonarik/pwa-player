@@ -12,6 +12,7 @@ import Input from '@/components/ui/Input.vue';
 import Button from '@/components/ui/Button.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
+import { logger } from '@/utils/logger';
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -54,7 +55,7 @@ async function submitUrl() {
     emit('added');
     emit('close');
   } catch (err) {
-    console.error('[podcasts] add by url failed', err);
+    logger.error('[podcasts] add by url failed', err);
     toastService.error(err instanceof Error ? err.message : 'Не удалось сохранить подкаст');
   } finally {
     isAddingUrl.value = false;
@@ -84,7 +85,7 @@ async function onFileSelected(e: Event) {
     const text = await file.text();
     feeds = parseOpml(text);
   } catch (err) {
-    console.error('[podcasts] parse opml failed', err);
+    logger.error('[podcasts] parse opml failed', err);
     toastService.error('Не удалось прочитать OPML');
     return;
   }
@@ -116,7 +117,7 @@ async function onFileSelected(e: Event) {
         await addSubscription({ podcast, episodes, updatedAt: Date.now() });
         importedCount.value++;
       } catch (err) {
-        console.warn(`[podcasts] failed to import "${feed.feedUrl}"`, err);
+        logger.warn(`[podcasts] failed to import "${feed.feedUrl}"`, err);
         skippedCount.value++;
       } finally {
         importProgress.value = { done: importProgress.value.done + 1, total: unique.length };

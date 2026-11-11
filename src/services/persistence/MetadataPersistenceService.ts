@@ -1,6 +1,7 @@
 // src/services/persistence/MetadataPersistenceService.ts
 
 import { get, set, del } from 'idb-keyval';
+import { logger } from '@/utils/logger';
 
 const METADATA_KEY = 'player:metadata';
 
@@ -41,7 +42,7 @@ export class MetadataPersistenceService {
       }
       this.isLoaded = true;
     } catch (err) {
-      console.error('[MetadataPersistence] failed to load', err);
+      logger.error('[MetadataPersistence] failed to load', err);
     }
   }
 
@@ -96,7 +97,7 @@ export class MetadataPersistenceService {
     try {
       await del(METADATA_KEY);
     } catch (err) {
-      console.error('[MetadataPersistence] failed to clear', err);
+      logger.error('[MetadataPersistence] failed to clear', err);
     }
   }
 
@@ -112,7 +113,7 @@ export class MetadataPersistenceService {
       }
       await set(METADATA_KEY, obj);
     } catch (err) {
-      console.error('[MetadataPersistence] failed to persist', err);
+      logger.error('[MetadataPersistence] failed to persist', err);
     }
   }
 }

@@ -3,6 +3,7 @@
 import type { TrackMetadata, ParsedId3 } from './types';
 import type { WorkerOutput } from '@/workers/metadata.worker';
 import { telemetry } from '@/services/telemetry';
+import { logger } from '@/utils/logger';
 
 interface QueueItem {
   file: File;
@@ -56,7 +57,7 @@ class MetadataWorkerService {
             current.resolve({ metadata, coverBlob });
           }
         } else {
-          console.warn('[metadata-worker] failed to parse:', e.data.message);
+          logger.warn('[metadata-worker] failed to parse:', e.data.message);
           telemetry.event('metadata.worker.error', {
             ms: Math.round(performance.now() - current.startTs),
             sizeKB: current.sizeKB,
@@ -72,12 +73,12 @@ class MetadataWorkerService {
       this.worker.onerror = (err) => {
         const current = this.queue.shift();
         current?.resolve(null);
-        console.error('[metadata-worker] critical error:', err);
+        logger.error('[metadata-worker] critical error:', err);
         this.isProcessing = false;
         this.processQueue();
       };
     } catch (err) {
-      console.error('[metadata-worker] failed to initialize', err);
+      logger.error('[metadata-worker] failed to initialize', err);
     }
   }
 

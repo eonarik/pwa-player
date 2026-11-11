@@ -6,6 +6,7 @@ import type { TrackId } from '@/types/ids';
 import { newTrackSourceId } from '@/types/ids';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import { pluginIdFromSource } from '@/plugins/registry';
+import { logger } from '@/utils/logger';
 
 const ZVUK_PLUGIN_ID = 'zvuk';
 const ZVUK_SOURCE_PRIORITY = 30;
@@ -70,7 +71,7 @@ const zvukPlugin: LibrarySource = {
       if (err instanceof Error && err.message === 'ZVUK_RATE_LIMIT') {
         throw err; // пробрасываем для restoreUnavailable
       }
-      console.warn('[zvuk] failed to fetch metadata', err);
+      logger.warn('[zvuk] failed to fetch metadata', err);
       return null;
     }
   },

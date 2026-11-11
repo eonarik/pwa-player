@@ -13,7 +13,7 @@ export type { FolderRef, FolderFile } from './folder';
 export type { RawMetadata, MetadataCandidate } from './metadata';
 export type { Playlist, HistoryCollection, DislikesCollection, CollectionsState } from './collection';
 export { FAVORITES_PLAYLIST_ID } from './collection';
-export type { LibraryState } from './library';
+
 export type { PluginTrackPayload, PluginFolderPayload, PluginSnapshot } from './plugin';
 export type { Playability } from './playability';
 export type { TransferState } from './transfer';

@@ -8,6 +8,7 @@ import { guessMetadataFromFilename } from '@/utils/parseFilename';
 import { mapWithConcurrency } from './concurrency';
 import { compareStrings } from '@/utils/sort';
 import { telemetry } from '@/services/telemetry';
+import { logger } from '@/utils/logger';
 
 export const ROOT_REMOTE_PATH = '/';
 
@@ -133,7 +134,7 @@ export async function scanAll(
           });
           lastChunkTs = performance.now();
         } catch (err) {
-          console.warn(`[${pluginId}] onChunk failed`, err);
+          logger.warn(`[${pluginId}] onChunk failed`, err);
         }
       });
       await chunkPromise;
@@ -258,7 +259,7 @@ export async function scanAll(
       }
     } catch (err) {
       if (service.isCancelled?.()) return;
-      console.error(`[${pluginId}] scan: failed to scan "${remotePath}"`, err);
+      logger.error(`[${pluginId}] scan: failed to scan "${remotePath}"`, err);
       progress?.onError(currentFolderId, err);
       hasError = true;
 

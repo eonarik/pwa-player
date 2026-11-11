@@ -1,7 +1,15 @@
 // src/services/library/selectors.ts
 
-import type { Track } from '@/types/track';
+import type { CloudTrackSource, LocalTrackSource, Track, TrackSource } from '@/types/track';
 import type { Playability } from '@/types/playability';
+
+/**
+ * Источник привязан к папке: локальный файл или файл в облаке.
+ * У streaming-источника папки нет, поэтому `folderId` есть не у всех вариантов union.
+ */
+export function isFolderSource(source: TrackSource): source is LocalTrackSource | CloudTrackSource {
+  return source.kind === 'local' || source.kind === 'cloud';
+}
 
 /**
  * Есть ли у трека локальный источник (handle).

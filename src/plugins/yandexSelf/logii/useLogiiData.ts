@@ -5,7 +5,9 @@ import { useLibraryStore } from '@/stores/library';
 import { parseLogii, stringifyLogii, type LogiiData } from './parseLogii';
 import { readLogiiFile, writeLogiiFile } from './logiiApi';
 import type { FolderRef, FolderFile } from '@/types/folder';
+import type { FolderId } from '@/types/ids';
 import type { Track } from '@/types/track';
+import { logger } from '@/utils/logger';
 
 const NICKNAME_KEY = 'logii:nickname';
 
@@ -40,7 +42,7 @@ export interface LogiiAuthorItem {
 export interface LogiiTrackItem {
   folderName: string;
   urlPath: string;
-  folderId: string;
+  folderId: FolderId;
   isIntro: boolean;
   audioTracks: Track[];
   imageFiles: FolderFile[];
@@ -209,7 +211,7 @@ export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<stri
       effectiveFileName.value = file.fileName;
       data.value = parseLogii(file.content);
     } catch (err) {
-      console.error('[logii] reload failed', err);
+      logger.error('[logii] reload failed', err);
       error.value = 'Не удалось загрузить трек';
     } finally {
       isLoading.value = false;
@@ -226,7 +228,7 @@ export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<stri
       data.value = next;
       return true;
     } catch (err) {
-      console.error('[logii] save failed', err);
+      logger.error('[logii] save failed', err);
       error.value = 'Не удалось сохранить';
       return false;
     } finally {

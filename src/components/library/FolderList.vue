@@ -12,6 +12,7 @@ import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
 import FolderListItem from './FolderListItem.vue';
 import type { FolderRef } from '@/types/folder';
+import { logger } from '@/utils/logger';
 
 const router = useRouter();
 const library = useLibraryStore();
@@ -29,7 +30,7 @@ async function openFolder(folder: FolderRef): Promise<void> {
         await plugin.scanFolder(context, folder.id, { recursive: true, force: true });
       }
     } catch (err) {
-      console.warn('[FolderList] failed to scan pending folder', err);
+      logger.warn('[FolderList] failed to scan pending folder', err);
     }
   }
 
@@ -50,7 +51,7 @@ async function retryFolder(folder: FolderRef): Promise<void> {
     const context = createPluginContext(pluginId);
     await plugin.scanFolder(context, folder.id, { recursive: true });
   } catch (err) {
-    console.error('[FolderList] retry failed', err);
+    logger.error('[FolderList] retry failed', err);
     toastService.error('Не удалось обновить папку');
   }
 }

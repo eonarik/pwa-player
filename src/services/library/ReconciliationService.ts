@@ -10,6 +10,7 @@ import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import type { TrackId } from '@/types/ids';
 import { toastService } from '../ui/ToastService';
+import { logger } from '@/utils/logger';
 
 class ReconciliationService {
   private static instance: ReconciliationService | null = null;
@@ -78,12 +79,12 @@ class ReconciliationService {
               await plugin.saveCache(context);
             }
           } catch (err) {
-            console.warn(`[reconcile] failed to save cache for ${pluginId}`, err);
+            logger.warn(`[reconcile] failed to save cache for ${pluginId}`, err);
           }
         },
       });
     } catch (err) {
-      console.error('[reconciliation] failed', err);
+      logger.error('[reconciliation] failed', err);
     } finally {
       this.isRunning = false;
     }

@@ -2,6 +2,7 @@
 
 import { ref, watch, type Ref } from 'vue';
 import { extractDominantColor, FALLBACK_RGB, type Rgb } from '@/utils/dominantColor';
+import { logger } from '@/utils/logger';
 
 /**
  * Реактивно извлекает доминирующий цвет из src.
@@ -30,7 +31,7 @@ export function useDominantColor(src: Ref<string | null | undefined>): Ref<Rgb> 
       } catch (err) {
         // extractDominantColor не должен бросать, но на всякий случай
         if (token !== requestToken) return;
-        console.warn('[useDominantColor] extract failed', err);
+        logger.warn('[useDominantColor] extract failed', err);
         color.value = FALLBACK_RGB;
       }
     },

@@ -75,7 +75,8 @@ test.describe('Logii: read-only (навигация + intro + vibe + чат + г
     await openAuthor(page, 'userA');
     await page.getByText('intro.logii.txt', { exact: true }).first().click();
 
-    await clickTab(page, 'Чат');
+    // В intro-режиме табы не рендерятся (LogiiPanel.vue: `v-if="!isIntro"`).
+    // Чат встроен в LogiiIntroView — проверяем комментарии напрямую.
     await expect(page.getByText('Привет!')).toBeVisible();
     await expect(page.getByText('Первый комментарий')).toHaveCount(0);
   });

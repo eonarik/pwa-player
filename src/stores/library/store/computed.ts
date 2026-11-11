@@ -8,7 +8,7 @@ import { sortService } from '@/services/sort/SortService';
 import type { LibraryRefs } from './state';
 
 export function createLibraryComputed(refs: LibraryRefs) {
-  const { tracks, albums, folders, currentFolderId } = refs;
+  const { tracks, folders, currentFolderId } = refs;
 
   const tracksByAlbumId = computed<Record<AlbumId, TrackId[]>>(() => {
     const index: Record<AlbumId, TrackId[]> = {} as Record<AlbumId, TrackId[]>;
@@ -50,71 +50,97 @@ export function createLibraryComputed(refs: LibraryRefs) {
     return map;
   });
 
-  const subtreeTracksMap = computed<Map<FolderId, Track[]>>(() => {
-    const map = new Map<FolderId, Track[]>();
-    const allFolders = Object.values(folders.value);
+  /**
+   * Плоский список папок поддерева в порядке «от листьев к корню».
+   *
+   * Обход итеративный: рекурсия по вложенности папок упиралась в потолок стека,
+   * а `push(...childTracks)` — в RangeError на больших поддеревьях.
+   * `completed` — папки, уже посчитанные предыдущими проходами: они не раскрываются
+   * повторно, поэтому суммарная стоимость всех проходов линейна.
+   * Циклы в `parentId` (повреждённые данные) не приводят к зависанию благодаря `seen`.
+   */
+  const postOrderFolders = (rootId: FolderId, completed: Set<FolderId>): FolderId[] => {
+    const order: FolderId[] = [];
+    const stack: FolderId[] = [rootId];
+    const seen = new Set<FolderId>();
 
-    const collectTracks = (folderId: FolderId, visited: Set<FolderId>): Track[] => {
-      if (visited.has(folderId)) return [];
-      visited.add(folderId);
+    while (stack.length > 0) {
+      const id = stack.pop();
+      if (id === undefined || seen.has(id) || completed.has(id)) continue;
+      seen.add(id);
+      order.push(id);
 
-      if (map.has(folderId)) return map.get(folderId)!;
-
-      const result: Track[] = [];
-      const folder = folders.value[folderId];
-      if (!folder) return result;
-
-      for (const trackId of folder.trackIds) {
-        const track = tracks.value[trackId];
-        if (track) result.push(track);
+      const children = childFoldersMap.value.get(id);
+      if (children) {
+        for (const child of children) {
+          stack.push(child.id);
+        }
       }
-
-      const children = childFoldersMap.value.get(folderId) || [];
-      for (const child of children) {
-        result.push(...collectTracks(child.id, visited));
-      }
-
-      map.set(folderId, result);
-      return result;
-    };
-
-    for (const folder of allFolders) {
-      collectTracks(folder.id, new Set());
     }
 
-    return map;
+    return order.reverse();
+  };
+
+  const subtreeTracksMap = computed<Map<FolderId, Track[]>>(() => {
+    const cache = new Map<FolderId, Track[]>();
+    const completed = new Set<FolderId>();
+
+    for (const root of Object.values(folders.value)) {
+      for (const folderId of postOrderFolders(root.id, completed)) {
+        const folder = folders.value[folderId];
+        const result: Track[] = [];
+
+        for (const trackId of folder?.trackIds ?? []) {
+          const track = tracks.value[trackId];
+          if (track) result.push(track);
+        }
+
+        // Дети уже в cache (пост-ордер), добавляем их треки без spread.
+        const children = childFoldersMap.value.get(folderId);
+        if (children) {
+          for (const child of children) {
+            const childTracks = cache.get(child.id);
+            if (!childTracks) continue;
+            for (const track of childTracks) result.push(track);
+          }
+        }
+
+        cache.set(folderId, result);
+        completed.add(folderId);
+      }
+    }
+
+    return cache;
   });
 
   const folderStats = computed(() => {
     const stats = new Map<FolderId, { folders: number; tracks: number }>();
     const allFolders = Object.values(folders.value);
 
-    const count = (folderId: FolderId, visited: Set<FolderId>): { folders: number; tracks: number } => {
-      if (visited.has(folderId)) return { folders: 0, tracks: 0 };
-      visited.add(folderId);
+    // Тот же пост-ордер, что и для subtreeTracksMap: дети посчитаны до родителя,
+    // каждая папка попадает в stats ровно один раз.
+    const completed = new Set<FolderId>();
 
-      if (stats.has(folderId)) return stats.get(folderId)!;
+    for (const root of allFolders) {
+      for (const folderId of postOrderFolders(root.id, completed)) {
+        const folder = folders.value[folderId];
+        let folderCount = 0;
+        let trackCount = folder?.trackIds.length ?? 0;
 
-      const folder = folders.value[folderId];
-      if (!folder) return { folders: 0, tracks: 0 };
+        const children = childFoldersMap.value.get(folderId);
+        if (children) {
+          for (const child of children) {
+            const childRes = stats.get(child.id);
+            if (childRes) {
+              folderCount += 1 + childRes.folders;
+              trackCount += childRes.tracks;
+            }
+          }
+        }
 
-      let folderCount = 0;
-      let trackCount = folder.trackIds.length;
-
-      const children = childFoldersMap.value.get(folderId) || [];
-      for (const child of children) {
-        const childRes = count(child.id, visited);
-        folderCount += 1 + childRes.folders;
-        trackCount += childRes.tracks;
+        stats.set(folderId, { folders: folderCount, tracks: trackCount });
+        completed.add(folderId);
       }
-
-      const res = { folders: folderCount, tracks: trackCount };
-      stats.set(folderId, res);
-      return res;
-    };
-
-    for (const folder of allFolders) {
-      count(folder.id, new Set());
     }
 
     return stats;
@@ -162,8 +188,6 @@ export function createLibraryComputed(refs: LibraryRefs) {
   });
 
   const hasLibrary = computed(() => Object.keys(tracks.value).length > 0 || Object.keys(folders.value).length > 0);
-
-  void albums;
 
   return {
     tracksByAlbumId,

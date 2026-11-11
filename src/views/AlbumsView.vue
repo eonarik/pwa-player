@@ -18,6 +18,7 @@ import AlphabetIndex from '@/components/ui/AlphabetIndex.vue';
 import ViewToggle from '@/components/ui/ViewToggle.vue';
 import SearchInput from '@/components/ui/SearchInput.vue';
 import type { Album } from '@/types/album';
+import type { AlbumId } from '@/types/ids';
 
 const router = useRouter();
 const library = useLibraryStore();
@@ -51,9 +52,9 @@ const { viewMode, gridRef, setItems, sections, letters, onLetterSelect } = useCo
 
 watch(allAlbums, (val) => setItems(val), { immediate: true });
 
-function playAlbum(albumId: string, e: Event) {
+function playAlbum(albumId: AlbumId, e: Event) {
   e.stopPropagation();
-  const ids = library.tracksByAlbumId[albumId as never] ?? [];
+  const ids = library.tracksByAlbumId[albumId] ?? [];
   const tracks = ids
     .map((id) => library.getTrack(id))
     .filter((t): t is NonNullable<typeof t> => Boolean(t))

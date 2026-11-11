@@ -2,6 +2,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import type { PluginStorage } from './types';
+import { logger } from '@/utils/logger';
 
 // Префикс, чтобы не пересекаться с ключами ядра (например, player:state)
 const PREFIX = 'plugin:';
@@ -23,7 +24,7 @@ export function createPluginStorage(pluginId: string): PluginStorage {
       try {
         return await get<T>(makeKey(key));
       } catch (err) {
-        console.error(`[plugin:${pluginId}] storage.get failed`, err);
+        logger.error(`[plugin:${pluginId}] storage.get failed`, err);
         return undefined;
       }
     },
@@ -32,7 +33,7 @@ export function createPluginStorage(pluginId: string): PluginStorage {
       try {
         await set(makeKey(key), value);
       } catch (err) {
-        console.error(`[plugin:${pluginId}] storage.set failed`, err);
+        logger.error(`[plugin:${pluginId}] storage.set failed`, err);
         throw err;
       }
     },
@@ -41,7 +42,7 @@ export function createPluginStorage(pluginId: string): PluginStorage {
       try {
         await del(makeKey(key));
       } catch (err) {
-        console.error(`[plugin:${pluginId}] storage.del failed`, err);
+        logger.error(`[plugin:${pluginId}] storage.del failed`, err);
       }
     },
 
@@ -60,7 +61,7 @@ export function createPluginStorage(pluginId: string): PluginStorage {
 
         await Promise.all(toDelete.map((k) => del(k)));
       } catch (err) {
-        console.error(`[plugin:${pluginId}] storage.clear failed`, err);
+        logger.error(`[plugin:${pluginId}] storage.clear failed`, err);
       }
     },
   };
