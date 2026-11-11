@@ -25,6 +25,7 @@ function makeExistingTrack(overrides: Partial<Track> = {}): Track {
       },
     ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: true,
     ...overrides,
@@ -68,7 +69,7 @@ describe('TrackMerger', () => {
       expect(result.track.sources).toHaveLength(1);
     });
 
-    it('НЕ должен склеивать "Song" и "Song (Remaster)" как strict (но отправит в candidates)', () => {
+    it('НЕ должен склеивать "Song" и "Song (Remaster)" как strict (но создаст linked-duplicate)', () => {
       const existing = makeExistingTrack({ artist: 'The Beatles', title: 'Song' });
       const incoming = makeIncomingPayload({ artist: 'The Beatles', title: 'Song (Remaster)' });
 
@@ -79,10 +80,11 @@ describe('TrackMerger', () => {
       };
       const result = merge(incoming, ctx);
 
-      // Разные title → strict не срабатывает. Score проходит — candidate.
-      expect(result.action).toBe('merged-soft');
+      // Разные title → strict не срабатывает. Score проходит — linked-duplicate.
+      expect(result.action).toBe('linked-duplicate');
       expect(result.matchedTrackId).toBe(existing.id);
-      expect(result.track.metadataCandidates).toHaveLength(1);
+      expect(result.track.duplicateTrackIds).toHaveLength(1);
+      expect(result.track.duplicateTrackIds).toContain(existing.id);
     });
   });
 
@@ -123,8 +125,8 @@ describe('TrackMerger', () => {
     });
   });
 
-  describe('Мягкий мёрж (merged-soft)', () => {
-    it('НЕ ДОЛЖЕН отправлять "Karma Polise" в metadataCandidates', () => {
+  describe('Связывание дубликатов (linked-duplicate)', () => {
+    it('НЕ ДОЛЖЕН отправлять "Karma Polise" в duplicateTrackIds', () => {
       const existing = makeExistingTrack({ artist: 'Radiohead', title: 'Karma Police' });
       const incoming = makeIncomingPayload({ artist: 'Radiohead', title: 'Karma Polise' });
 
@@ -140,7 +142,7 @@ describe('TrackMerger', () => {
       expect(result.matchedTrackId).toBeNull();
     });
 
-    it('НЕ ДОЛЖЕН отправлять "Track 2" в metadataCandidates (разные тайтлы)', () => {
+    it('НЕ ДОЛЖЕН отправлять "Track 2" в duplicateTrackIds (разные тайтлы)', () => {
       const existing = makeExistingTrack({ artist: 'Artist A', title: 'Track 1' });
       const incoming = makeIncomingPayload({ artist: 'Artist A', title: 'Track 2' });
 
@@ -155,7 +157,7 @@ describe('TrackMerger', () => {
       expect(result.matchedTrackId).toBeNull();
     });
 
-    it('ДОЛЖЕН отправлять "Song" в metadataCandidates, если это "Song (Remaster)" (подстрока)', () => {
+    it('ДОЛЖЕН связать "Song" и "Song (Remaster)" через duplicateTrackIds', () => {
       const existing = makeExistingTrack({ artist: 'The Beatles', title: 'Song' });
       const incoming = makeIncomingPayload({ artist: 'The Beatles', title: 'Song (Remaster)' });
 
@@ -166,10 +168,11 @@ describe('TrackMerger', () => {
       };
       const result = merge(incoming, ctx);
 
-      // "song" — подстрока "song (remaster)" → кандидат
-      expect(result.action).toBe('merged-soft');
+      // "song" — подстрока "song (remaster)" → дубликат
+      expect(result.action).toBe('linked-duplicate');
       expect(result.matchedTrackId).toBe(existing.id);
-      expect(result.track.metadataCandidates).toHaveLength(1);
+      expect(result.track.duplicateTrackIds).toEqual([existing.id]);
+      expect(result.track.metadataCandidates).toHaveLength(0);
     });
   });
 });

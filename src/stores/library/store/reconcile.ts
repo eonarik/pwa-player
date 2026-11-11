@@ -56,8 +56,7 @@ export function createLibraryReconcile(refs: LibraryRefs) {
       const nextTrackIds = trackIdsByFolder.get(folder.id) ?? [];
       const currentIds = folder.trackIds;
 
-      const same =
-        currentIds.length === nextTrackIds.length && currentIds.every((id, i) => id === nextTrackIds[i]);
+      const same = currentIds.length === nextTrackIds.length && currentIds.every((id, i) => id === nextTrackIds[i]);
       if (same) continue;
 
       folders.value[folder.id] = { ...folder, trackIds: nextTrackIds };

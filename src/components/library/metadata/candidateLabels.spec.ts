@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from 'vitest';
 import type { MetadataCandidate } from '@/types/metadata';
-import { candidateAlbumLabel, candidateSourceLabel, selectedCandidateLabel, NO_CANDIDATE_LABEL } from './candidateLabels';
+import {
+  candidateAlbumLabel,
+  candidateSourceLabel,
+  selectedCandidateLabel,
+  NO_CANDIDATE_LABEL,
+} from './candidateLabels';
 
 function c(overrides: Partial<MetadataCandidate> = {}): MetadataCandidate {
   return {

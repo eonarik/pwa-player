@@ -39,6 +39,7 @@ function trackStub(over: Partial<Track> = {}): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...over,
@@ -71,7 +72,10 @@ describe('useTrackMetadataActions', () => {
     vi.clearAllMocks();
     h.show.mockImplementation(async () => true);
     h.fetchAndApply.mockImplementation(async () => ({ status: 'applied' }));
-    vi.stubGlobal('confirm', vi.fn(() => true));
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
   });
 
   describe('производные состояния', () => {
@@ -155,7 +159,10 @@ describe('useTrackMetadataActions', () => {
     });
 
     it('отказ в подтверждении отменяет сброс', async () => {
-      vi.stubGlobal('confirm', vi.fn(() => false));
+      vi.stubGlobal(
+        'confirm',
+        vi.fn(() => false),
+      );
       const { removeMetadata, close } = setup();
 
       await removeMetadata(close);

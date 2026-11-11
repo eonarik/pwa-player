@@ -1,4 +1,14 @@
 .
+├── docs
+│   ├── architecture.md
+│   ├── conventions.md
+│   ├── data-model.md
+│   ├── plugins.md
+│   ├── README.md
+│   ├── server.md
+│   ├── services.md
+│   ├── stores.md
+│   └── STRUCTURE.md
 ├── e2e
 │   ├── core
 │   │   ├── 01-bootstrap.spec.ts
@@ -54,14 +64,8 @@
 │       ├── 22-logii-tops.spec.ts
 │       ├── 23-logii-upload-track.spec.ts
 │       └── 24-logii-gallery.spec.ts
-├── public
-│   ├── apple-touch-icon-180x180.png
-│   ├── favicon.ico
-│   ├── logo.webp
-│   ├── maskable-icon-512x512.png
-│   ├── pwa-192x192.png
-│   ├── pwa-512x512.png
-│   └── pwa-64x64.png
+├── scripts
+│   └── generate-docs-manifest.ts
 ├── server
 │   ├── src
 │   │   ├── core
@@ -94,6 +98,7 @@
 │   │   │   └── yandexApi.js
 │   │   ├── index.mjs
 │   │   └── modules.js
+│   ├── ecosystem.config.js
 │   ├── package.json
 │   └── tsconfig.json
 ├── src
@@ -175,6 +180,7 @@
 │   │   │   ├── AppDrawer.vue
 │   │   │   └── AppLoader.vue
 │   │   ├── library
+│   │   │   ├── metadata
 │   │   │   ├── AlbumSelect.vue
 │   │   │   ├── BatchAddToPlaylistButton.vue
 │   │   │   ├── BatchDownloadButton.vue
@@ -194,15 +200,20 @@
 │   │   │   ├── MetadataCandidatesModal.vue
 │   │   │   ├── MetadataMenu.vue
 │   │   │   ├── PlaylistSubmenu.vue
+│   │   │   ├── RemoteMetadataModal.vue
 │   │   │   ├── SyncIssuesModal.vue
 │   │   │   ├── TextEditorModal.vue
 │   │   │   ├── TrackActions.vue
+│   │   │   ├── TrackDownloadItem.vue
+│   │   │   ├── TrackListHeader.vue
 │   │   │   ├── TrackListItem.vue
 │   │   │   ├── TrackListPage.vue
 │   │   │   ├── TrackList.vue
+│   │   │   ├── TrackMetadataMenu.vue
 │   │   │   ├── TrackMetadataModal.vue
 │   │   │   ├── TrackResolvedItem.vue
-│   │   │   └── TrackRow.vue
+│   │   │   ├── TrackRow.vue
+│   │   │   └── TrackSearchResults.vue
 │   │   ├── player
 │   │   │   ├── FullPlayer.vue
 │   │   │   ├── NowPlayingInfo.vue
@@ -293,10 +304,11 @@
 │   │   ├── useButtonAs.ts
 │   │   ├── useClipboardWatcher.spec.ts
 │   │   ├── useClipboardWatcher.ts
+│   │   ├── useCollectionActions.spec.ts
+│   │   ├── useCollectionActions.ts
 │   │   ├── useCollectionView.ts
 │   │   ├── useDocumentTitle.ts
 │   │   ├── useDominantColor.ts
-│   │   ├── useDownloadOrchestrator.ts
 │   │   ├── useFolderSync.ts
 │   │   ├── useItemHeight.ts
 │   │   ├── useKeyboardShortcuts.ts
@@ -309,12 +321,20 @@
 │   │   ├── usePluginsList.ts
 │   │   ├── usePwaUpdate.ts
 │   │   ├── useSoftTtlCache.ts
+│   │   ├── useTrackCapabilities.spec.ts
+│   │   ├── useTrackCapabilities.ts
 │   │   ├── useTrackDisplay.ts
-│   │   ├── useTrackDownload.ts
+│   │   ├── useTrackDownloadAction.spec.ts
+│   │   ├── useTrackDownloadAction.ts
 │   │   ├── useTrackEndOnVisibility.ts
+│   │   ├── useTrackFilter.spec.ts
+│   │   ├── useTrackFilter.ts
+│   │   ├── useTrackMetadataActions.spec.ts
+│   │   ├── useTrackMetadataActions.ts
 │   │   ├── useTrackPlayability.ts
 │   │   └── useVirtualList.ts
 │   ├── directives
+│   │   ├── tooltip.spec.ts
 │   │   └── tooltip.ts
 │   ├── navigation
 │   │   ├── menu.ts
@@ -333,8 +353,12 @@
 │   │   │   ├── settings.ts
 │   │   │   └── types.ts
 │   │   ├── podcasts
+│   │   │   ├── components
+│   │   │   ├── composables
 │   │   │   ├── AddPodcastModal.vue
 │   │   │   ├── constants.ts
+│   │   │   ├── episodeTrack.spec.ts
+│   │   │   ├── episodeTrack.ts
 │   │   │   ├── extension.ts
 │   │   │   ├── index.ts
 │   │   │   ├── manifest.ts
@@ -346,6 +370,7 @@
 │   │   │   ├── PodcastsView.vue
 │   │   │   └── types.ts
 │   │   ├── radio
+│   │   │   ├── browser
 │   │   │   ├── AddStationModal.vue
 │   │   │   ├── constants.ts
 │   │   │   ├── extension.ts
@@ -391,13 +416,15 @@
 │   │   │   ├── restoreUnavailable.ts
 │   │   │   ├── ZvukService.ts
 │   │   │   └── ZvukView.vue
+│   │   ├── contextDeps.spec.ts
+│   │   ├── contextDeps.ts
 │   │   ├── context.ts
 │   │   ├── extensions.spec.ts
 │   │   ├── extensions.ts
 │   │   ├── lookup.spec.ts
 │   │   ├── lookup.ts
+│   │   ├── registry.spec.ts
 │   │   ├── registry.ts
-│   │   ├── remoteLoader.ts
 │   │   ├── settingsTypes.ts
 │   │   ├── storage.ts
 │   │   └── types.ts
@@ -417,21 +444,36 @@
 │   │   ├── backup
 │   │   │   ├── BackupService.migration.spec.ts
 │   │   │   ├── BackupService.spec.ts
-│   │   │   └── BackupService.ts
+│   │   │   ├── BackupService.ts
+│   │   │   ├── collect.ts
+│   │   │   ├── restore.ts
+│   │   │   ├── schema.spec.ts
+│   │   │   └── schema.ts
 │   │   ├── collections
 │   │   │   └── ensureTrackInLibrary.ts
 │   │   ├── covers
 │   │   │   ├── CoverBlobCache.ts
 │   │   │   └── findCoverInDirectory.ts
 │   │   ├── download
+│   │   │   ├── active-downloads.spec.ts
+│   │   │   ├── active-downloads.ts
+│   │   │   ├── batch.spec.ts
+│   │   │   ├── batch.ts
 │   │   │   ├── DownloadOrchestrator.ts
 │   │   │   ├── DownloadSpaceService.ts
 │   │   │   ├── downloadUrlToFile.ts
 │   │   │   ├── getFileFromPath.ts
+│   │   │   ├── manage.spec.ts
+│   │   │   ├── manage.ts
 │   │   │   ├── PermissionService.ts
 │   │   │   ├── scanDirectory.ts
+│   │   │   ├── single-track.spec.ts
+│   │   │   ├── single-track.ts
 │   │   │   ├── SyncService.ts
 │   │   │   └── types.ts
+│   │   ├── events
+│   │   │   ├── bus.spec.ts
+│   │   │   └── bus.ts
 │   │   ├── files
 │   │   │   ├── FileHandlerRegistry.ts
 │   │   │   └── setupHandlers.ts
@@ -514,13 +556,16 @@
 │   │   │   ├── playerPersistence.ts
 │   │   │   ├── playerRestore.ts
 │   │   │   └── timeLoop.ts
+│   │   ├── uiSettings
+│   │   │   ├── index.ts
+│   │   │   ├── schema.spec.ts
+│   │   │   └── schema.ts
 │   │   ├── collections.ts
 │   │   ├── dislikes.ts
 │   │   ├── history.spec.ts
 │   │   ├── history.ts
 │   │   ├── playlists.ts
-│   │   ├── uiSettings.metadataProviderOrder.spec.ts
-│   │   └── uiSettings.ts
+│   │   └── uiSettings.metadataProviderOrder.spec.ts
 │   ├── test
 │   │   ├── audioMockState.ts
 │   │   ├── mockAudio.ts
@@ -530,9 +575,9 @@
 │   │   ├── collection.ts
 │   │   ├── filter.ts
 │   │   ├── folder.ts
+│   │   ├── ids.spec.ts
 │   │   ├── ids.ts
 │   │   ├── index.ts
-│   │   ├── library.ts
 │   │   ├── metadata.ts
 │   │   ├── persistence.ts
 │   │   ├── playability.ts
@@ -555,6 +600,7 @@
 │   │   ├── hash.ts
 │   │   ├── layout.spec.ts
 │   │   ├── layout.ts
+│   │   ├── logger.spec.ts
 │   │   ├── logger.ts
 │   │   ├── mergeText.spec.ts
 │   │   ├── mergeText.ts
@@ -599,11 +645,14 @@
 │   ├── workers
 │   │   └── metadata.worker.ts
 │   ├── App.vue
+│   ├── architecture.spec.ts
 │   ├── globals.d.ts
 │   ├── main.ts
 │   └── version.ts
 ├── add-path-comments.sh
 ├── CHANGELOG.md
+├── docker-compose.yml
+├── Dockerfile
 ├── env.d.ts
 ├── eslint.config.ts
 ├── index.html
@@ -611,7 +660,6 @@
 ├── playwright.config.ts
 ├── README.md
 ├── ROADMAP.md
-├── SCTRUCTURE.md
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
@@ -620,4 +668,4 @@
 ├── vitest.config.ts
 └── vitest.setup.ts
 
-88 directories, 533 files
+95 directories, 574 files

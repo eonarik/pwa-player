@@ -18,7 +18,7 @@ import { downloadTrackInternal, MAX_DOWNLOAD_ATTEMPTS } from './single-track';
  */
 const h = vi.hoisted(() => ({
   loadPlugin: vi.fn(async (_id: string): Promise<unknown> => ({})),
-  createPluginContext: vi.fn((_id: string) => ({} as unknown as PluginContext)),
+  createPluginContext: vi.fn((_id: string) => ({}) as unknown as PluginContext),
   updateTrackSources: vi.fn((_id: TrackId, _sources: TrackSource[]) => undefined),
   getPluginDir: vi.fn(async (_id: string) => ({ name: 'downloads' }) as unknown as FileSystemDirectoryHandle),
   parse: vi.fn(async (_file: File) => null as ParsedId3 | null),
@@ -98,6 +98,7 @@ function makeTrack(...sources: TrackSource[]): Track {
     coverUrl: null,
     sources,
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };
@@ -371,17 +372,15 @@ describe('отмена', () => {
     const started = deferred();
     let sawAbort = false;
 
-    h.downloadTrack.mockImplementation(
-      (_c, _t, _s, options) => {
-        started.resolve();
-        return new Promise<DownloadedTrackInfo>((_resolve, reject) => {
-          options.signal?.addEventListener('abort', () => {
-            sawAbort = true;
-            reject(new DOMException('Aborted', 'AbortError'));
-          });
+    h.downloadTrack.mockImplementation((_c, _t, _s, options) => {
+      started.resolve();
+      return new Promise<DownloadedTrackInfo>((_resolve, reject) => {
+        options.signal?.addEventListener('abort', () => {
+          sawAbort = true;
+          reject(new DOMException('Aborted', 'AbortError'));
         });
-      },
-    );
+      });
+    });
 
     const { promise } = download(makeTrack(cloudSource()), controller.signal);
     await started.promise;
@@ -417,9 +416,9 @@ describe('отмена', () => {
       throw new DOMException('Aborted', 'AbortError');
     });
 
-    await expect(
-      downloadTrackInternal(track, controller.signal, { active, retryDelayMs: 0 }),
-    ).rejects.toThrow('Aborted');
+    await expect(downloadTrackInternal(track, controller.signal, { active, retryDelayMs: 0 })).rejects.toThrow(
+      'Aborted',
+    );
     expect(active.has(track.id)).toBe(false);
   });
 });

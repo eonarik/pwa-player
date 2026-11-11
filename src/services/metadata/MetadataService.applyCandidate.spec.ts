@@ -8,7 +8,7 @@ import { isStreamingPlugin, loadPlugin } from '@/plugins/registry';
 import { hasLocalSource, hasStreamingSource } from '@/services/library/selectors';
 import type { Track } from '@/types/track';
 import type { MetadataCandidate } from '@/types/metadata';
-import { newFolderId, newMetadataCandidateId, newTrackId, newTrackSourceId } from '@/types/ids';
+import { newMetadataCandidateId, newTrackId, newTrackSourceId } from '@/types/ids';
 import type { TrackId } from '@/types/ids';
 
 // Мокаем loadPlugin.
@@ -54,6 +54,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...overrides,
@@ -82,7 +83,7 @@ function makeCandidate(overrides: Partial<MetadataCandidate> = {}): MetadataCand
  * Раньше pluginId оставался прежним (imported), из-за чего UI показывал
  * неверные кнопки («Скачать»/«Редактировать вручную» вместо «Стрим»).
  */
-describe('ЦЕЛЕВОЕ ПОВЕДЕНИЕ: applyCandidate без mergeWithTrackId (сценарий E)', () => {
+describe('ЦЕЛЕВОЕ ПОВЕДЕНИЕ: applyCandidate (внешний кандидат)', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -127,76 +128,6 @@ describe('ЦЕЛЕВОЕ ПОВЕДЕНИЕ: applyCandidate без mergeWithTrac
     expect(updated?.pluginId).toBe('zvuk');
     expect(isStreamingPlugin(updated!.pluginId)).toBe(true);
     expect(isStreamingPlugin(updated!.pluginId)).toBe(hasStreamingSource(updated));
-  });
-});
-
-describe('MetadataService.applyCandidate с mergeWithTrackId (сценарий D)', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
-  });
-
-  it('target с local-source: sources сливаются, pluginId="local" сохраняется', async () => {
-    const library = useLibraryStore();
-
-    // 1. Целевой трек с local-source
-    const targetId = newTrackId();
-    const folderId = newFolderId();
-    library.tracks[targetId] = makeTrack({
-      id: targetId,
-      pluginId: 'local',
-      artist: 'Artist',
-      title: 'Title',
-      sources: [
-        {
-          id: newTrackSourceId(),
-          pluginId: 'local',
-          priority: 10,
-          kind: 'local',
-          handle: {} as FileSystemFileHandle,
-          folderId,
-        },
-      ],
-    });
-
-    // 2. Трек-кандидат (from merged-soft), у которого extMetadata.mergeWithTrackId = targetId
-    const candidateTrackId = newTrackId();
-    const candidate = makeCandidate({
-      extMetadata: { mergeWithTrackId: targetId, trackId: 'zvuk-456' },
-    });
-    library.tracks[candidateTrackId] = makeTrack({
-      id: candidateTrackId,
-      pluginId: 'zvuk',
-      artist: 'Artist',
-      title: 'Title (variant)',
-      sources: [
-        {
-          id: newTrackSourceId(),
-          pluginId: 'zvuk',
-          priority: 30,
-          kind: 'streaming',
-          url: '/api/zvuk/stream?id=456',
-        },
-      ],
-      metadataCandidates: [candidate],
-    });
-
-    await metadataService.applyCandidate(candidateTrackId, candidate);
-
-    // 3. Трек-кандидат удалён
-    expect(library.getTrack(candidateTrackId)).toBeNull();
-
-    // 4. Target получил sources от кандидата
-    const updated = library.getTrack(targetId);
-    expect(updated?.sources.length).toBeGreaterThanOrEqual(2);
-    expect(updated?.sources.some((s) => s.kind === 'local')).toBe(true);
-    expect(updated?.sources.some((s) => s.kind === 'streaming' && s.pluginId === 'zvuk')).toBe(true);
-
-    // 5. pluginId остаётся 'local' — это правильно:
-    //    у трека есть local primary-source, UI корректно скроет «Скачать» (local.canDownload = false).
-    expect(updated?.pluginId).toBe('local');
-    expect(isStreamingPlugin(updated!.pluginId)).toBe(false);
-    expect(hasLocalSource(updated)).toBe(true);
   });
 });
 

@@ -61,7 +61,11 @@ describe('usePodcastCatalog', () => {
       await catalog.loadTop(2);
 
       expect(h.getTopPodcasts).toHaveBeenCalledWith('ru', undefined, 30);
-      expect(catalog.podcasts.value.map((p) => p.id)).toEqual(many(30).slice(15, 30).map((p) => p.id));
+      expect(catalog.podcasts.value.map((p) => p.id)).toEqual(
+        many(30)
+          .slice(15, 30)
+          .map((p) => p.id),
+      );
       expect(catalog.hasMore.value).toBe(true);
       expect(catalog.isLoading.value).toBe(false);
       expect(catalog.error.value).toBe('');

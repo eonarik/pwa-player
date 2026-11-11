@@ -28,6 +28,7 @@ export default defineConfigWithVueTs(
     'playwright.config.ts', // Конфиг Playwright
     'eslint.config.ts', // Сам конфиг ESLint
     'server/**', // Сервер (Node.js)
+    'scripts/**', // Dev-скрипты (ts-node, не часть приложения)
   ]),
 
   // 3. Настройки для фронтенда (Vue + TS)

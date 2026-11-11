@@ -1,21 +1,18 @@
 // src/services/metadata/MetadataService/apply/candidate.ts
 
-import { useLibraryStore } from '@/stores/library';
 import { loadPlugin } from '@/plugins/registry';
 import type { TrackId } from '@/types/ids';
-import { toTrackId } from '@/types/ids';
 import type { MetadataCandidate } from '@/types/metadata';
 import { logger } from '@/utils/logger';
 import type { ManualPatch } from '../types';
 import type { ManualApply } from './manual';
-import { mergeTrackInto } from './merge';
 
 /**
- * Подтверждение кандидата пользователем.
+ * Подтверждение внешнего кандидата пользователем.
  *
- * Кандидат либо ordinary (обновляем метаданные трека), либо несёт
- * `extMetadata.mergeWithTrackId` — тогда это дубль, и трек-кандидат
- * сливается в существующий.
+ * Треки-дубликаты из библиотеки живут в `Track.duplicateTrackIds` и
+ * сливаются отдельным потоком (модалка «Похожие треки»). Здесь только
+ * внешние снимки метаданных от провайдеров.
  */
 export function createCandidateApply(manual: ManualApply) {
   /** Кандидат в форме ручного патча: artist/title/album/coverUrl. */
@@ -29,20 +26,6 @@ export function createCandidateApply(manual: ManualApply) {
   }
 
   async function applyCandidate(trackId: TrackId, candidate: MetadataCandidate): Promise<void> {
-    const library = useLibraryStore();
-    const candidateTrack = library.getTrack(trackId);
-    const mergeTargetId = toTrackId(candidate.extMetadata?.mergeWithTrackId);
-
-    if (mergeTargetId && mergeTargetId !== trackId && candidateTrack) {
-      const target = library.getTrack(mergeTargetId);
-      if (target) {
-        mergeTrackInto(candidateTrack, target);
-        manual.updateManual(target.id, toManualPatch(candidate));
-        return;
-      }
-    }
-
-    // Стандартный резолв (нет mergeWithTrackId или цель не найдена).
     manual.updateManual(trackId, toManualPatch(candidate));
 
     if (candidate.extMetadata) {

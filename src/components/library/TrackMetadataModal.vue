@@ -24,7 +24,12 @@ const track = computed(() => props.track);
 
 const dropdown = useFloatingDropdown();
 const candidatesApi = useMetadataCandidates(track);
-const { candidates: candidateList, isLoading: isLoadingCandidates, selectedIndex, select: selectCandidate } = candidatesApi;
+const {
+  candidates: candidateList,
+  isLoading: isLoadingCandidates,
+  selectedIndex,
+  select: selectCandidate,
+} = candidatesApi;
 const form = useMetadataForm({ track, library, candidates: candidatesApi });
 const { artist, title, album, isDirty, allArtists, applyCandidate, save, cancel } = form;
 
@@ -87,7 +92,12 @@ onUnmounted(() => {
       </FormField>
 
       <FormField label="Артист">
-        <AutocompleteInput v-model="artist" :suggestions="allArtists" placeholder="Введите артиста..." id="track-artist" />
+        <AutocompleteInput
+          v-model="artist"
+          :suggestions="allArtists"
+          placeholder="Введите артиста..."
+          id="track-artist"
+        />
       </FormField>
 
       <div class="flex flex-col gap-1">

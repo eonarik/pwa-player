@@ -16,6 +16,7 @@ function trackStub(id?: Track['id'], extra: Partial<Track> = {}): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...extra,
@@ -71,7 +72,12 @@ describe('useAuthorTrackState', () => {
   it('isAuthorCurrent: false когда текущий трек другого автора', () => {
     const t1 = trackStub();
     const t2 = trackStub();
-    const allTracksByAuthor = ref(new Map<string, Track[]>([['logii.S/uA', [t1]], ['logii.S/uB', [t2]]]));
+    const allTracksByAuthor = ref(
+      new Map<string, Track[]>([
+        ['logii.S/uA', [t1]],
+        ['logii.S/uB', [t2]],
+      ]),
+    );
     const state = useAuthorTrackState({
       allTracksByAuthor,
       currentTrackId: ref(t2.id),
@@ -108,7 +114,12 @@ describe('useAuthorTrackState', () => {
   it('reactive: обновляет результаты при смене currentTrackId', () => {
     const t1 = trackStub();
     const t2 = trackStub();
-    const allTracksByAuthor = ref(new Map<string, Track[]>([['logii.S/uA', [t1]], ['logii.S/uB', [t2]]]));
+    const allTracksByAuthor = ref(
+      new Map<string, Track[]>([
+        ['logii.S/uA', [t1]],
+        ['logii.S/uB', [t2]],
+      ]),
+    );
     const currentTrackId = ref(t1.id);
 
     const state = useAuthorTrackState({

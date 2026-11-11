@@ -21,10 +21,11 @@ export function isSameSource(a: TrackSource, b: TrackSource): boolean {
 
 /**
  * "Строгое" совпадение: нормализованные artist и title равны.
- * Используется в TrackMerger.merge, чтобы решить merged-strict vs merged-soft.
+ * Используется в TrackMerger.merge, чтобы решить merged-strict vs linked-duplicate.
  *
  * Обрати внимание: title с суффиксом "(Official Video)" — это НЕ strict,
- * это soft (кандидат). Пользователь решает через MetadataCandidatesModal.
+ * это linked-duplicate (трек-дубликат). Пользователь решает через модалку
+ * «Похожие треки».
  */
 export function isStrictMatch(incoming: Track, existing: Track): boolean {
   return (

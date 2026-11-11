@@ -12,7 +12,7 @@ export function apply(result: MergeResult, deps: ApplyDeps): string | null {
   const { writer } = deps;
   const pluginId = result.track.sources[0]?.pluginId ?? null;
 
-  if (result.action === 'created' || result.action === 'merged-soft') {
+  if (result.action === 'created' || result.action === 'linked-duplicate') {
     if (result.album) {
       writer.addAlbums([result.album]);
     }
@@ -45,7 +45,7 @@ export function applyMany(many: MergeManyResult, deps: ApplyManyDeps): string[] 
   const createdTracks: Track[] = [];
 
   for (const result of many.results) {
-    if (result.action === 'created' || result.action === 'merged-soft') {
+    if (result.action === 'created' || result.action === 'linked-duplicate') {
       createdTracks.push(result.track);
       const pid = result.track.sources[0]?.pluginId;
       if (pid) pluginIds.add(pid);
@@ -62,6 +62,18 @@ export function applyMany(many: MergeManyResult, deps: ApplyManyDeps): string[] 
     }
     for (const [pid, tracks] of byPlugin) {
       writer.addTracks(tracks, pid);
+    }
+  }
+
+  // Симметричные обратные ссылки для linked-duplicate: у найденного дубля
+  // дописываем id нового трека. Делаем после addTracks, чтобы трек уже был
+  // в сторе.
+  for (const result of many.results) {
+    if (result.action === 'linked-duplicate' && result.matchedTrackId !== null) {
+      const matched = writer.getTrack(result.matchedTrackId);
+      if (matched && !matched.duplicateTrackIds.includes(result.track.id)) {
+        writer.updateTrackDuplicates(result.matchedTrackId, [...matched.duplicateTrackIds, result.track.id]);
+      }
     }
   }
 

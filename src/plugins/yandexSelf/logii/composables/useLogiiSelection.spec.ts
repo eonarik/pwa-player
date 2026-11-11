@@ -59,7 +59,11 @@ function setup(urlPath: string, season: UseLogiiSeasonResult = seasonStub(), fol
   const route = useLogiiRoute(ref(urlPath));
   const byId: Record<string, FolderRef> = {};
   for (const f of folders) byId[f.id] = f;
-  return useLogiiSelection(season, route, computed(() => byId));
+  return useLogiiSelection(
+    season,
+    route,
+    computed(() => byId),
+  );
 }
 
 describe('useLogiiSelection', () => {

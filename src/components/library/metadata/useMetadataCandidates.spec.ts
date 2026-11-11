@@ -25,6 +25,7 @@ function trackStub(title = 'Song'): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };
@@ -68,7 +69,9 @@ describe('useMetadataCandidates', () => {
 
   it('select — возвращает кандидата и ставит индекс', async () => {
     const t = trackStub();
-    const c = [{ id: 'c1' as never, artist: 'A', title: 'B', album: '', coverUrl: null, similarity: 0.9, provider: 'iTunes' }];
+    const c = [
+      { id: 'c1' as never, artist: 'A', title: 'B', album: '', coverUrl: null, similarity: 0.9, provider: 'iTunes' },
+    ];
     h.fetchCandidates.mockImplementation(async () => c);
 
     const { selectedIndex, load, select } = useMetadataCandidates(ref(t));

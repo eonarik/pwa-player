@@ -66,11 +66,7 @@ describe('sanitizeProviderOrder', () => {
   });
 
   it('выбрасывает не-строки и дубликаты, порядок сохраняет', () => {
-    expect(sanitizeProviderOrder(['zvuk', 42, 'deezer', 'zvuk', null, 'itunes'])).toEqual([
-      'zvuk',
-      'deezer',
-      'itunes',
-    ]);
+    expect(sanitizeProviderOrder(['zvuk', 42, 'deezer', 'zvuk', null, 'itunes'])).toEqual(['zvuk', 'deezer', 'itunes']);
   });
 
   it('пустой массив — валидное значение (не null)', () => {

@@ -163,6 +163,16 @@ export function updateTrackMetadataCandidates(s: LibraryStore, id: TrackId, cand
   }
 }
 
+export function updateTrackDuplicates(s: LibraryStore, id: TrackId, duplicateTrackIds: TrackId[]): void {
+  const track = s.tracks[id];
+  if (!track) return;
+  s.tracks[id] = { ...track, duplicateTrackIds };
+  const pluginIds = new Set(track.sources.map((src) => src.pluginId));
+  for (const pid of pluginIds) {
+    librarySaveService.scheduleSave(pid);
+  }
+}
+
 export function updateTrackMetadata(
   s: LibraryStore,
   id: TrackId,

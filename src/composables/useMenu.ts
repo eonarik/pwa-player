@@ -5,12 +5,14 @@ import { onMounted, onUnmounted, ref, watch, type ComponentPublicInstance, type 
 interface MenuPosition {
   top: number;
   left: number;
+  width: number | null;
 }
 
 interface UseMenuOptions {
   width?: number;
   offset?: number;
   align?: 'right' | 'left';
+  fullWidth?: boolean;
 }
 
 interface UseMenuReturn {
@@ -27,12 +29,12 @@ const EDGE_MARGIN = 8;
 const activeMenuId = ref<string | null>(null);
 
 export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
-  const { width = 256, offset = 4, align = 'right' } = options;
+  const { width = 256, offset = 4, align = 'right', fullWidth = false } = options;
   const menuId = `menu-${Math.random().toString(36).slice(2, 9)}`;
 
   const isOpen = ref(false);
   const triggerRef = ref<HTMLElement | null>(null);
-  const position = ref<MenuPosition>({ top: 0, left: 0 });
+  const position = ref<MenuPosition>({ top: 0, left: 0, width: null });
 
   function setTriggerRef(el: Element | ComponentPublicInstance | null): void {
     if (!el) {
@@ -55,13 +57,15 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
-    let left = align === 'right' ? rect.right - width : rect.left;
-    const maxLeft = window.innerWidth - width - EDGE_MARGIN;
+    const targetWidth = fullWidth ? rect.width : (width ?? 256);
+    let left = align === 'right' ? rect.right - targetWidth : rect.left;
+    const maxLeft = window.innerWidth - targetWidth - EDGE_MARGIN;
     left = Math.max(EDGE_MARGIN, Math.min(left, maxLeft));
 
     position.value = {
       top: rect.bottom + offset,
       left,
+      width: targetWidth,
     };
   }
 

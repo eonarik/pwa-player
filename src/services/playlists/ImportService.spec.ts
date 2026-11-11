@@ -32,6 +32,7 @@ function makeTrack(artist: string, title: string, albumId = null): Track {
       },
     ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: true,
   };

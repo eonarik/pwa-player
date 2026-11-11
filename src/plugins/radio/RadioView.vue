@@ -107,6 +107,7 @@ function playStation(station: SavedStation): void {
       },
     ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };

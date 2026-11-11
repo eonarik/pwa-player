@@ -42,8 +42,7 @@ class PwaServiceImpl implements PwaService {
       onNeedRefresh: () => {
         this.needRefresh.value = true;
       },
-      onOfflineReady: () => {
-      },
+      onOfflineReady: () => {},
       onRegisteredSW: (_swUrl, reg) => {
         if (!reg) return;
         this.registration.value = reg;

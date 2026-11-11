@@ -35,14 +35,7 @@ export function createId3Apply(persistence: MetadataPersistence) {
     const nextTitle = isManual ? track.title : parsed.title || track.title;
     const nextAlbum = isManual ? (track.raw?.album ?? '') : parsed.album || track.raw?.album || '';
 
-    const nextAlbumId = attachAlbum(
-      library,
-      writer,
-      nextAlbum,
-      nextArtist,
-      parsed.coverUrl ?? null,
-      track.albumId,
-    );
+    const nextAlbumId = attachAlbum(library, writer, nextAlbum, nextArtist, parsed.coverUrl ?? null, track.albumId);
 
     // Blob из ID3 — только в Album.coverBlob (если есть альбом).
     // «Кто первый» — не перезаписываем существующий.

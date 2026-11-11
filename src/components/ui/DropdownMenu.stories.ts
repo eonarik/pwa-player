@@ -8,6 +8,7 @@ const meta: Meta<typeof DropdownMenu> = {
   component: DropdownMenu,
   argTypes: {
     width: { control: 'number' },
+    fullWidth: { control: 'boolean' },
     align: { control: 'select', options: ['left', 'right'] },
   },
 };
@@ -35,6 +36,31 @@ export const Default: Story = {
             <button class="block w-full px-4 py-2 text-left text-sm text-red-400 transition hover:bg-hover-bg" @click="close">Удалить</button>
           </template>
         </DropdownMenu>
+      </div>
+    `,
+  }),
+};
+
+export const FullWidth: Story = {
+  args: { fullWidth: true, align: 'right' },
+  render: (args) => ({
+    components: { DropdownMenu },
+    setup: () => ({ args }),
+    template: `
+      <div class="flex justify-center p-10 h-[300px]">
+        <div class="w-[400px]">
+          <DropdownMenu v-bind="args">
+            <template #trigger="{ toggle, setTriggerRef }">
+              <button :ref="setTriggerRef" type="button" class="rounded-btn bg-card-bg px-4 py-2 text-sm text-fg transition hover:bg-hover-bg" @click.stop="toggle">
+                Открыть меню на полную ширину
+              </button>
+            </template>
+            <template #default="{ close }">
+              <button class="block w-full px-4 py-2 text-left text-sm text-fg transition hover:bg-hover-bg" @click="close">Пункт 1</button>
+              <button class="block w-full px-4 py-2 text-left text-sm text-fg transition hover:bg-hover-bg" @click="close">Пункт 2</button>
+            </template>
+          </DropdownMenu>
+        </div>
       </div>
     `,
   }),

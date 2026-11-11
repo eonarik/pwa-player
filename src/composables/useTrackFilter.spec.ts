@@ -16,6 +16,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...overrides,
@@ -30,10 +31,7 @@ describe('useTrackFilter', () => {
   });
 
   it('preFilter фильтрует треки', () => {
-    const tracks = ref([
-      makeTrack({ artist: 'A' }),
-      makeTrack({ artist: 'B' }),
-    ]);
+    const tracks = ref([makeTrack({ artist: 'A' }), makeTrack({ artist: 'B' })]);
     const { preFilteredTracks } = useTrackFilter(tracks, (t) => t.artist === 'A');
     expect(preFilteredTracks.value.length).toBe(1);
     expect(preFilteredTracks.value[0]!.artist).toBe('A');
@@ -53,10 +51,7 @@ describe('useTrackFilter', () => {
   });
 
   it('sourceFilter = "yandex" фильтрует по плагину', () => {
-    const tracks = ref([
-      makeTrack({ pluginId: 'yandex:Music' }),
-      makeTrack({ pluginId: 'local' }),
-    ]);
+    const tracks = ref([makeTrack({ pluginId: 'yandex:Music' }), makeTrack({ pluginId: 'local' })]);
     const { sourceFilter, filteredTracks } = useTrackFilter(tracks);
     expect(filteredTracks.value.length).toBe(2);
     sourceFilter.value = 'yandex';
@@ -65,10 +60,7 @@ describe('useTrackFilter', () => {
   });
 
   it('sourceFilter = "all" возвращает все пресфильтрованные', () => {
-    const tracks = ref([
-      makeTrack({ pluginId: 'yandex:Music' }),
-      makeTrack({ pluginId: 'local' }),
-    ]);
+    const tracks = ref([makeTrack({ pluginId: 'yandex:Music' }), makeTrack({ pluginId: 'local' })]);
     const { sourceFilter, filteredTracks } = useTrackFilter(tracks);
     sourceFilter.value = 'all';
     expect(filteredTracks.value.length).toBe(2);

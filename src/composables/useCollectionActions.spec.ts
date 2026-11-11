@@ -26,6 +26,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...overrides,
@@ -92,7 +93,9 @@ describe('useCollectionActions', () => {
     let resolveRun: () => void;
     const runFn = vi.fn().mockImplementation((_t: Track[], ctx: { setProgress: (p: unknown) => void }) => {
       ctx.setProgress({ done: 0, total: 1 });
-      return new Promise<void>((r) => { resolveRun = r; });
+      return new Promise<void>((r) => {
+        resolveRun = r;
+      });
     });
     const action: PluginCollectionAction = {
       id: 'act1',

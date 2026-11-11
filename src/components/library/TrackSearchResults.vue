@@ -40,11 +40,7 @@ function indexOfTrack(trackId: string): number {
           @select="() => emit('select-track', track.id)"
         >
           <template #actions>
-            <slot
-              name="track-actions"
-              :track="track"
-              :index="indexOfTrack(track.id)"
-            >
+            <slot name="track-actions" :track="track" :index="indexOfTrack(track.id)">
               <TrackActions :track="track" />
             </slot>
           </template>

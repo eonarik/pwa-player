@@ -31,9 +31,7 @@ const emit = defineEmits<{
       @click="emit('find')"
     >
       <span v-if="isSearching">Поиск…</span>
-      <span v-else
-        >Найти в интернете<br /><span class="text-fg-subtle text-xs">сбросит ручные правки</span></span
-      >
+      <span v-else>Найти в интернете<br /><span class="text-fg-subtle text-xs">сбросит ручные правки</span></span>
     </button>
 
     <template v-if="hasMetadataEdits">

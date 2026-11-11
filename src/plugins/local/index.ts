@@ -98,6 +98,7 @@ const localPlugin: LibrarySource = {
         coverUrl: t.coverUrl,
         sources: [{ ...t.source, id: newTrackSourceId() }],
         metadataCandidates: [],
+        duplicateTrackIds: [],
         raw: {
           artist: t.artist,
           title: t.title,

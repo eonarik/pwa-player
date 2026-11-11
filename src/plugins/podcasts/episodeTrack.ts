@@ -31,15 +31,13 @@ export function episodeToTrack(
     coverUrl: ep.image || options.fallbackCover,
     sources: [source],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     duration: ep.durationSec ?? undefined,
   };
 }
 
-export function episodesToTracks(
-  episodes: Episode[],
-  options: EpisodeTrackOptions,
-): Track[] {
+export function episodesToTracks(episodes: Episode[], options: EpisodeTrackOptions): Track[] {
   return episodes.map((ep) => episodeToTrack(ep, options));
 }

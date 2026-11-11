@@ -5,6 +5,7 @@ import type { Track } from '@/types/track';
 import type { FolderRef } from '@/types/folder';
 import type { AlbumId, FolderId, TrackId } from '@/types/ids';
 import { sortService } from '@/services/sort/SortService';
+import { normalizeMatchString } from '@/services/playlists/PlaylistMatcher';
 import type { LibraryRefs } from './state';
 
 export function createLibraryComputed(refs: LibraryRefs) {
@@ -23,7 +24,7 @@ export function createLibraryComputed(refs: LibraryRefs) {
 
   /**
    * Индекс `artistKey → Track[]` для быстрого поиска кандидатов при merge.
-   * artistKey = artist.trim().toLowerCase().
+   * artistKey = normalizeMatchString(artist) — так же, как в findBestMatch.
    *
    * Используется в history.recordPlay, dislikes.dislike — чтобы не строить
    * индекс на каждый play (O(N) → O(1) для одиночных операций).
@@ -31,7 +32,7 @@ export function createLibraryComputed(refs: LibraryRefs) {
   const tracksByArtist = computed<Map<string, Track[]>>(() => {
     const index = new Map<string, Track[]>();
     for (const track of Object.values(tracks.value)) {
-      const artistKey = (track.artist || '').trim().toLowerCase();
+      const artistKey = normalizeMatchString(track.artist);
       const list = index.get(artistKey) || [];
       list.push(track);
       index.set(artistKey, list);

@@ -49,6 +49,14 @@ export interface Track {
   sources: TrackSource[];
   metadataCandidates: MetadataCandidate[];
 
+  /**
+   * Ссылки на треки-дубликаты из библиотеки (другая папка/источник, похожая
+   * сигнатура artist/title). Связь симметричная: если A в списке у B, то и B
+   * в списке у A. Основной трек выбирает пользователь в модалке «Похожие
+   * треки», после слияния ссылки удаляются вместе с дублем.
+   */
+  duplicateTrackIds: TrackId[];
+
   // --- Первичные метаданные (для сброса) ---
   raw: RawMetadata | null;
 

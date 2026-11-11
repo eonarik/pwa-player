@@ -72,6 +72,16 @@ export class MetadataService {
     return this.applyMod.applyCandidate(trackId, candidate);
   }
 
+  /** Выбор основного трека в группе дубликатов (для предвыбора radio). */
+  pickPrimaryTrackId(ids: TrackId[]): TrackId | null {
+    return this.applyMod.pickPrimaryTrackId(ids);
+  }
+
+  /** Склеить группу дубликатов в выбранный основной трек. */
+  applyDuplicates(primaryId: TrackId, duplicateIds: TrackId[]): void {
+    this.applyMod.applyDuplicates(primaryId, duplicateIds);
+  }
+
   reset(trackId: TrackId): Promise<void> {
     return this.resetMod.reset(trackId);
   }

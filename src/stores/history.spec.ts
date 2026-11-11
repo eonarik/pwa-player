@@ -35,6 +35,7 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
       },
     ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...overrides,
@@ -78,7 +79,7 @@ describe('history.recordPlay: оптимизация', () => {
     expect(applySpy).toHaveBeenCalled();
   });
 
-  it('для трека в библиотеке с расходящимися artist/title, вызывает merge/apply (merged-soft)', async () => {
+  it('для трека в библиотеке с расходящимися artist/title, вызывает merge/apply (linked-duplicate)', async () => {
     const library = useLibraryStore();
     const history = useHistoryStore();
 

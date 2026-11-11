@@ -37,6 +37,7 @@ function trackWithSource(pluginId: string | null): Track {
         ]
       : [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };

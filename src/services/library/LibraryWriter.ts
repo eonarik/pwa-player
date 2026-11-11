@@ -39,6 +39,13 @@ export interface LibraryWriter {
   updateTrackMetadataCandidates(id: TrackId, candidates: MetadataCandidate[]): Promise<void>;
 
   /**
+   * Полностью заменяет список ссылок на треки-дубликаты.
+   * Используется при linked-duplicate (обратная симметричная ссылка) и в
+   * модалке «Похожие треки» после выбора основного.
+   */
+  updateTrackDuplicates(id: TrackId, duplicateTrackIds: TrackId[]): Promise<void>;
+
+  /**
    * Удаляет конкретный source у трека (по source.id).
    * Используется при удалении файла на Диске (без force-скана).
    * Если sources станет пустым — трек остаётся в library (сирота),

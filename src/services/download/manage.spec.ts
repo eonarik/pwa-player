@@ -10,11 +10,15 @@ import { removeDownloaded, scanDownloads } from './manage';
 
 const h = vi.hoisted(() => ({
   loadPlugin: vi.fn(async (_id: string): Promise<unknown> => ({})),
-  createPluginContext: vi.fn((_id: string) => ({} as unknown as PluginContext)),
+  createPluginContext: vi.fn((_id: string) => ({}) as unknown as PluginContext),
   updateTrackSources: vi.fn((_id: TrackId, _sources: TrackSource[]) => undefined),
   getPluginDir: vi.fn(async (_id: string) => ({ name: 'downloads' }) as unknown as FileSystemDirectoryHandle),
-  removeDownloaded: vi.fn(async (_c: PluginContext, _t: Track, _s: TrackSource, _d: FileSystemDirectoryHandle) => undefined),
-  scanDownloadDir: vi.fn(async (_c: PluginContext, _d: FileSystemDirectoryHandle) => undefined as unknown as ScanResult),
+  removeDownloaded: vi.fn(
+    async (_c: PluginContext, _t: Track, _s: TrackSource, _d: FileSystemDirectoryHandle) => undefined,
+  ),
+  scanDownloadDir: vi.fn(
+    async (_c: PluginContext, _d: FileSystemDirectoryHandle) => undefined as unknown as ScanResult,
+  ),
   saveCache: vi.fn(async (_c: PluginContext) => undefined),
 }));
 
@@ -64,6 +68,7 @@ function makeTrack(...sources: TrackSource[]): Track {
     coverUrl: null,
     sources,
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };

@@ -2,15 +2,16 @@
 
 import type { Track, TrackSource } from '@/types/track';
 import type { Album } from '@/types/album';
-import type { RawMetadata, MetadataCandidate } from '@/types/metadata';
+import type { RawMetadata } from '@/types/metadata';
 import type { PluginTrackPayload } from '@/types/plugin';
 import type { AlbumId, TrackId } from '@/types/ids';
-import { newMetadataCandidateId, newTrackId, newTrackSourceId } from '@/types/ids';
+import { newTrackId, newTrackSourceId } from '@/types/ids';
 import { findBestMatch } from '@/services/playlists/PlaylistMatcher';
+import { normalizeMatchString } from '@/services/playlists/PlaylistMatcher';
 import { resolveAlbumByName } from '../EntityGraph';
 import { isSameSource, isStrictMatch } from './utils';
 
-export type MergeAction = 'created' | 'merged-strict' | 'merged-soft';
+export type MergeAction = 'created' | 'merged-strict' | 'linked-duplicate';
 
 export interface MergeResult {
   track: Track;
@@ -146,6 +147,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     coverUrl: incoming.coverUrl,
     sources: isVoidSource ? [] : [source],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw,
     hasId3Tags: incoming.hasId3Tags,
     duration: incoming.duration,
@@ -166,6 +168,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
       coverUrl: albumId ? null : incoming.coverUrl,
       sources: isVoidSource ? [] : [source],
       metadataCandidates: [],
+      duplicateTrackIds: [],
       raw,
       hasId3Tags: incoming.hasId3Tags,
       metaSource: incoming.metaSource,
@@ -205,19 +208,10 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
   const albumRes = resolveAlbumByName(incoming.album, incoming.artist, incoming.coverUrl, ctx.existingAlbums);
   const albumId: AlbumId | null = albumRes?.album.id ?? null;
 
-  const candidate: MetadataCandidate = {
-    id: newMetadataCandidateId(),
-    artist: incoming.artist,
-    title: incoming.title,
-    album: incoming.album,
-    coverUrl: incoming.coverUrl,
-    similarity: score,
-    provider: incoming.provider ?? 'unknown',
-    extMetadata: {
-      mergeWithTrackId: bestMatch.id,
-    },
-  };
-
+  // Soft-совпадение: создаём физический трек и прописываем симметричную связь
+  // дубликатов. Пользователь выберет основного в модалке «Похожие треки»,
+  // после чего mergeTrackInto склеит пару. Метаданные при этом не дублируются
+  // в кандидатах — второй трек резолвится по duplicateTrackIds из библиотеки.
   const track: Track = {
     id: newTrackId(),
     pluginId: source.pluginId,
@@ -226,7 +220,8 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
     albumId,
     coverUrl: albumId ? null : incoming.coverUrl,
     sources: isVoidSource ? [] : [source],
-    metadataCandidates: [candidate],
+    metadataCandidates: [],
+    duplicateTrackIds: [bestMatch.id],
     raw,
     hasId3Tags: incoming.hasId3Tags,
     metaSource: incoming.metaSource,
@@ -237,7 +232,7 @@ export function merge(incoming: PluginTrackPayload, ctx: MergeContext): MergeRes
 
   return {
     track,
-    action: 'merged-soft',
+    action: 'linked-duplicate',
     album: albumRes?.album ?? null,
     matchedTrackId: bestMatch.id,
   };
@@ -247,6 +242,8 @@ export function mergeMany(incoming: PluginTrackPayload[], ctx: MergeContext): Me
   const results: MergeResult[] = [];
   const albums = new Map<AlbumId, Album>(ctx.existingAlbums.map((a) => [a.id, a]));
 
+  // Работаем на копии индексов: mergeMany достраивает их по мере обработки
+  // payload'ов и не должен мутировать индексы вызвавшей стороны.
   const libraryIndex = new Map<string, Track[]>();
   for (const [key, list] of ctx.libraryIndex) {
     libraryIndex.set(key, [...list]);
@@ -264,14 +261,42 @@ export function mergeMany(incoming: PluginTrackPayload[], ctx: MergeContext): Me
 
     results.push(result);
 
-    const artistKey = (result.track.artist || '').trim().toLowerCase();
+    // Обновляем ОБА индекса после каждого merge, чтобы следующие payload
+    // видели треки, созданные предыдущими payload.
+
+    // 1. Обновляем libraryIndex по artist для findBestMatch.
+    // Ключ должен строиться через normalizeMatchString - так же, как в
+    // buildLibraryIndex и findBestMatch. Иначе artist с диакритикой или
+    // лишними пробелами не найдётся при поиске.
+    // При merged-strict заменяем запись на актуальный снимок трека (с новым
+    // source) - иначе следующий payload склеится со «старым» снимком и
+    // потеряет источник.
+    const artistKey = normalizeMatchString(result.track.artist);
     const list = libraryIndex.get(artistKey) || [];
-    if (!list.some((t) => t.id === result.track.id)) {
+    if (result.action === 'merged-strict') {
+      const idx = list.findIndex((t) => t.id === result.track.id);
+      if (idx !== -1) list[idx] = result.track;
+    } else if (!list.some((t) => t.id === result.track.id)) {
       list.push(result.track);
-      libraryIndex.set(artistKey, list);
+    }
+    libraryIndex.set(artistKey, list);
+
+    // При linked-duplicate прописываем обратную ссылку у найденного дубля во
+    // всех списках индекса — следующий payload должен видеть, что трек уже
+    // связан, иначе одна группа превратится в несколько парных связей.
+    if (result.action === 'linked-duplicate' && result.matchedTrackId) {
+      for (const tracks of libraryIndex.values()) {
+        const idx = tracks.findIndex((t) => t.id === result.matchedTrackId);
+        if (idx === -1) continue;
+        const matched = tracks[idx]!;
+        if (!matched.duplicateTrackIds.includes(result.track.id)) {
+          tracks[idx] = { ...matched, duplicateTrackIds: [...matched.duplicateTrackIds, result.track.id] };
+        }
+      }
     }
 
-    if (result.action === 'created' || result.action === 'merged-soft') {
+    // 2. Обновляем sourceIndex по sourceKey для поиска дубликатов файлов
+    if (result.action === 'created' || result.action === 'linked-duplicate') {
       if (result.track.sources[0]) {
         sourceIndex.set(sourceKey(result.track.sources[0]), result.track);
       }

@@ -7,6 +7,7 @@ import type { Track } from '@/types/track';
 import type { FolderId, TrackId } from '@/types/ids';
 import { useLibraryStore } from '../store';
 import { mergeMany, applyMany, saveCachesForPlugins, sourceKey } from '@/services/library/TrackMerger';
+import { normalizeMatchString } from '@/services/playlists/PlaylistMatcher';
 import {
   addTracks,
   removeTrack,
@@ -14,6 +15,7 @@ import {
   updateTrackSources,
   updateTrackAlbumId,
   updateTrackMetadataCandidates,
+  updateTrackDuplicates,
   updateTrackMetadata,
 } from './tracks';
 import { addAlbums, addOrUpdateAlbum, removeAlbum } from './albums';
@@ -127,6 +129,9 @@ export function createLibraryWriter(): LibraryWriter {
     },
     async updateTrackMetadataCandidates(id, candidates) {
       updateTrackMetadataCandidates(store(), id, candidates);
+    },
+    async updateTrackDuplicates(id, duplicateTrackIds) {
+      updateTrackDuplicates(store(), id, duplicateTrackIds);
     },
     async updateTrackMetadata(id, patch) {
       updateTrackMetadata(store(), id, patch);
@@ -269,7 +274,7 @@ function applySetLibrary(
 
   const libraryIndex = new Map<string, Track[]>();
   for (const track of Object.values(s.tracks)) {
-    const artistKey = (track.artist || '').trim().toLowerCase();
+    const artistKey = normalizeMatchString(track.artist);
     const list = libraryIndex.get(artistKey) || [];
     list.push(track);
     libraryIndex.set(artistKey, list);

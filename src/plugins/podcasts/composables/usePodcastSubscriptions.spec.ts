@@ -6,12 +6,10 @@ import type { Episode, Podcast, Subscription } from '../types';
 import { usePodcastSubscriptions } from './usePodcastSubscriptions';
 
 const h = vi.hoisted(() => ({
-  fetchFeed: vi.fn(
-    async (_feedUrl: string): Promise<{ podcast: Podcast; episodes: Episode[] }> => ({
-      podcast: {} as Podcast,
-      episodes: [] as Episode[],
-    }),
-  ),
+  fetchFeed: vi.fn(async (_feedUrl: string): Promise<{ podcast: Podcast; episodes: Episode[] }> => ({
+    podcast: {} as Podcast,
+    episodes: [] as Episode[],
+  })),
   getSubscriptions: vi.fn(async (): Promise<Subscription[]> => []),
   addSubscription: vi.fn(async (_sub: Subscription): Promise<boolean> => true),
   removeSubscription: vi.fn(async (_feedUrl: string): Promise<boolean> => true),

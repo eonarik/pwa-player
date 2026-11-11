@@ -133,7 +133,11 @@ describe('episodesToTracks', () => {
   });
 
   it('обёртка с id3 и metadata пустая', () => {
-    const tracks = episodesToTracks([ep('a')], { podcastTitle: 'Мой подкаст', fallbackCover: null, pluginId: 'podcasts' });
+    const tracks = episodesToTracks([ep('a')], {
+      podcastTitle: 'Мой подкаст',
+      fallbackCover: null,
+      pluginId: 'podcasts',
+    });
     expect(tracks[0]!.hasId3Tags).toBe(false);
     expect(tracks[0]!.metadataCandidates).toEqual([]);
     expect(tracks[0]!.raw).toBeNull();

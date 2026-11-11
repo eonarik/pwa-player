@@ -34,12 +34,14 @@ function folderStub(overrides: Partial<FolderRef> = {}): FolderRef {
   };
 }
 
-function setup(options: {
-  urlPath?: string;
-  seasonFolder?: FolderRef | null;
-  folders?: FolderRef[];
-  scanFolder?: unknown;
-} = {}) {
+function setup(
+  options: {
+    urlPath?: string;
+    seasonFolder?: FolderRef | null;
+    folders?: FolderRef[];
+    scanFolder?: unknown;
+  } = {},
+) {
   const seasonFolder = ref<FolderRef | null>(options.seasonFolder === undefined ? folderStub() : options.seasonFolder);
   const byId: Record<string, FolderRef> = {};
   for (const f of options.folders ?? []) byId[f.id] = f;

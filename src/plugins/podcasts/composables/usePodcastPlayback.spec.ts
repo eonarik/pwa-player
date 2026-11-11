@@ -61,11 +61,17 @@ function podcastTrack(
     title,
     albumId: null,
     coverUrl: null,
-    sources:
-      options.sources ?? [
-        { id: asTrackSourceId(`s-${artist}-${title}`), pluginId, priority: 30, kind: 'streaming', url: 'https://cdn/e1.mp3' },
-      ],
+    sources: options.sources ?? [
+      {
+        id: asTrackSourceId(`s-${artist}-${title}`),
+        pluginId,
+        priority: 30,
+        kind: 'streaming',
+        url: 'https://cdn/e1.mp3',
+      },
+    ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };

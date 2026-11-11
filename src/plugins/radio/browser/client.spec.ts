@@ -2,12 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RadioBrowserClient } from '../RadioBrowserClient';
-import {
-  COUNTRIES_STORAGE_KEY,
-  COUNTRIES_TTL_MS,
-  TAGS_STORAGE_KEY,
-  readCache,
-} from './api';
+import { COUNTRIES_STORAGE_KEY, COUNTRIES_TTL_MS, TAGS_STORAGE_KEY, readCache } from './api';
 import type { RadioCountry } from './types';
 
 function json(data: unknown): Response {
@@ -36,7 +31,10 @@ const RAW_COUNTRIES = [
   { name: '', iso_3166_1: '??', stationcount: 1 },
 ];
 
-const RAW_TAGS = [{ name: 'rock', stationcount: 500 }, { name: 'jazz', stationcount: 1 }];
+const RAW_TAGS = [
+  { name: 'rock', stationcount: 500 },
+  { name: 'jazz', stationcount: 1 },
+];
 
 const RAW_STATIONS = [
   {

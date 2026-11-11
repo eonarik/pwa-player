@@ -1,12 +1,20 @@
 <!-- src/components/library/MetadataCandidatesModal.vue -->
+<!--
+  Модалка «Похожие треки»: показывает группы треков-дубликатов из библиотеки
+  (связи через Track.duplicateTrackIds). Каждая группа раскрыта как строка,
+  внутри — трек-кандидаты в выпадашке. Кнопка «Сделать основным» для выбора.
+-->
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useLibraryStore, createLibraryWriter } from '@/stores/library';
+import { computed, ref, watch } from 'vue';
+import { useLibraryStore } from '@/stores/library';
 import { metadataService } from '@/services/metadata/MetadataService';
+import { getPluginName } from '@/plugins/lookup';
 import ModalLayout from '@/components/ui/ModalLayout.vue';
 import Button from '@/components/ui/Button.vue';
 import CoverImage from '@/components/ui/CoverImage.vue';
+import DropdownMenu from '@/components/ui/DropdownMenu.vue';
+import Icon from '@/components/ui/Icon.vue';
 import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 
@@ -20,12 +28,66 @@ const emit = defineEmits<{
 
 const library = useLibraryStore();
 
-const tracksWithCandidates = computed(() => {
-  return props.trackIds
-    .map((id) => library.getTrack(id))
-    .filter((t): t is Track => Boolean(t) && Boolean(t?.metadataCandidates?.length))
-    .sort((a, b) => a.title.localeCompare(b.title, 'ru'));
+/**
+ * Группы дубликатов, найденные BFS по duplicateTrackIds среди входного
+ * множества. Каждая группа — связный компонент графа (A-B-C = одна группа).
+ */
+const groups = computed<Track[][]>(() => {
+  const idSet = new Set(props.trackIds);
+  const visited = new Set<TrackId>();
+  const result: Track[][] = [];
+
+  for (const id of props.trackIds) {
+    if (visited.has(id)) continue;
+
+    const track = library.getTrack(id);
+    if (!track) continue;
+
+    // BFS: обходим связный компонент дубликатов (только внутри trackIds)
+    const queue: Track[] = [track];
+    const component: Track[] = [];
+    visited.add(id);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      component.push(current);
+
+      for (const dupId of current.duplicateTrackIds) {
+        if (visited.has(dupId) || !idSet.has(dupId)) continue;
+        const dup = library.getTrack(dupId);
+        if (!dup) continue;
+        visited.add(dupId);
+        queue.push(dup);
+      }
+    }
+
+    if (component.length >= 2) {
+      result.push(component);
+    }
+  }
+
+  return result;
 });
+
+/** Выбор основного трека в группе: groupId → primaryId. */
+const primaryByGroup = ref<Map<number, TrackId>>(new Map());
+
+/** Исключённые кандидаты (не склеивать): groupId → Set<trackId>. */
+const excludedByGroup = ref<Map<number, Set<TrackId>>>(new Map());
+
+function resetSelections() {
+  const next = new Map<number, TrackId>();
+  const excluded = new Map<number, Set<TrackId>>();
+  groups.value.forEach((group, idx) => {
+    const id = metadataService.pickPrimaryTrackId(group.map((t) => t.id));
+    if (id) next.set(idx, id);
+    excluded.set(idx, new Set());
+  });
+  primaryByGroup.value = next;
+  excludedByGroup.value = excluded;
+}
+
+watch(groups, resetSelections, { immediate: true });
 
 function getAlbumName(track: Track): string {
   if (!track.albumId) return 'Без альбома';
@@ -33,105 +95,218 @@ function getAlbumName(track: Track): string {
   return album?.name ?? 'Без альбома';
 }
 
-function onApply(trackId: TrackId, candidateId: string) {
-  const track = library.getTrack(trackId);
-  if (!track) return;
-  const candidate = track.metadataCandidates.find((c) => c.id === candidateId);
-  if (!candidate) return;
-
-  void metadataService.applyCandidate(trackId, candidate);
+/** Трек, выбранный основным в группе (для строки-триггера). */
+function primaryTrackOf(group: Track[], groupIdx: number): Track {
+  const id = primaryByGroup.value.get(groupIdx);
+  return group.find((t) => t.id === id) ?? group[0]!;
 }
 
-function onDismiss(trackId: TrackId, candidateId: string) {
-  const track = library.getTrack(trackId);
-  if (!track) return;
-  const next = track.metadataCandidates.filter((c) => c.id !== candidateId);
-  void createLibraryWriter().updateTrackMetadataCandidates(trackId, next);
+/** Кандидаты в выпадашке: все, кроме текущего основного и исключённых. */
+function candidatesOf(group: Track[], groupIdx: number): Track[] {
+  const primaryId = primaryByGroup.value.get(groupIdx) ?? group[0]?.id;
+  const excluded = excludedByGroup.value.get(groupIdx);
+  return group.filter((t) => t.id !== primaryId && !excluded?.has(t.id));
+}
+
+/** Треки, которые пользователь решил не склеивать (отобразить отдельно). */
+function excludedTracksOf(group: Track[], groupIdx: number): Track[] {
+  const excluded = excludedByGroup.value.get(groupIdx);
+  if (!excluded || excluded.size === 0) return [];
+  return group.filter((t) => excluded.has(t.id));
+}
+
+/** Отображаемое имя источника трека. */
+function getSourceLabel(track: Track | undefined): string {
+  if (!track?.sources[0]) return '';
+  return getPluginName(track.sources[0].pluginId, track.sources[0].pluginId);
+}
+
+function setPrimary(groupIdx: number, trackId: TrackId) {
+  primaryByGroup.value.set(groupIdx, trackId);
+}
+
+function excludeCandidate(groupIdx: number, trackId: TrackId) {
+  let set = excludedByGroup.value.get(groupIdx);
+  if (!set) {
+    set = new Set();
+    excludedByGroup.value.set(groupIdx, set);
+  }
+  set.add(trackId);
+  // Пересоздаём Map для реактивности Vue
+  excludedByGroup.value = new Map(excludedByGroup.value);
+}
+
+function restoreCandidate(groupIdx: number, trackId: TrackId) {
+  const set = excludedByGroup.value.get(groupIdx);
+  if (!set) return;
+  set.delete(trackId);
+  excludedByGroup.value = new Map(excludedByGroup.value);
+}
+
+function applyAll() {
+  groups.value.forEach((group, idx) => {
+    const primaryId = primaryByGroup.value.get(idx);
+    if (!primaryId) return;
+    const excluded = excludedByGroup.value.get(idx);
+    const duplicateIds = group.filter((t) => t.id !== primaryId && !excluded?.has(t.id)).map((t) => t.id);
+    if (duplicateIds.length === 0) return;
+    metadataService.applyDuplicates(primaryId, duplicateIds);
+  });
+  emit('close');
 }
 </script>
 
 <template>
-  <ModalLayout title="Проблемные совпадения" max-width="lg" @close="emit('close')">
-    <div v-if="tracksWithCandidates.length === 0" class="py-8 text-center text-sm text-fg-muted">
-      Нет треков с альтернативными метаданными
-    </div>
+  <ModalLayout title="Похожие треки" max-width="lg" @close="emit('close')">
+    <div v-if="groups.length === 0" class="py-8 text-center text-sm text-fg-muted">Похожие треки не найдены</div>
 
-    <div v-else class="flex flex-col gap-6">
+    <div v-else class="flex flex-col gap-4">
       <p class="text-xs text-fg-muted">
-        Для следующих треков найдены похожие метаданные. Примените, если это тот же трек.
+        Найдены дубликаты: {{ groups.length }}
+        {{ groups.length === 1 ? 'группа' : groups.length < 5 ? 'группы' : 'групп' }}. Выберите основной трек в каждой
+        группе — остальные будут склеены в него.
       </p>
 
-      <div
-        v-for="track in tracksWithCandidates"
-        :key="track.id"
-        class="flex flex-col gap-3 border-b border-hover-bg pb-4 last:border-b-0 last:pb-0"
-      >
-        <div class="flex items-center gap-3">
-          <div class="h-10 w-10 shrink-0 overflow-hidden rounded-btn bg-card-bg">
-            <CoverImage
-              v-if="track.albumId"
-              :album-id="track.albumId"
-              :alt="track.title"
-              fallback-icon-class="h-5 w-5"
-            />
-            <CoverImage v-else :src="track.coverUrl" :alt="track.title" fallback-icon-class="h-5 w-5" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-fg">{{ track.artist }} — {{ track.title }}</p>
-            <p class="truncate text-xs text-fg-muted">{{ getAlbumName(track) }}</p>
-          </div>
-          <span class="shrink-0 rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold text-active">Основной</span>
-        </div>
+      <!-- Выпадашка с кандидатами -->
+      <template v-for="(group, groupIdx) in groups" :key="group[0]?.id">
+        <DropdownMenu fullWidth align="right">
+          <template #trigger="{ toggle, setTriggerRef }">
+            <div
+              :ref="setTriggerRef"
+              class="flex flex-col gap-1 rounded-btn border border-hover-bg bg-card-bg p-2"
+              :data-testid="`dup-group-${groupIdx}`"
+            >
+              <!-- Строка-триггер: текущий основной трек -->
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="h-8 w-8 shrink-0 overflow-hidden rounded-btn bg-bg">
+                    <CoverImage
+                      v-if="primaryTrackOf(group, groupIdx).albumId"
+                      :album-id="primaryTrackOf(group, groupIdx).albumId"
+                      :alt="primaryTrackOf(group, groupIdx).title"
+                      fallback-icon-class="h-4 w-4"
+                    />
+                    <CoverImage
+                      v-else
+                      :src="primaryTrackOf(group, groupIdx).coverUrl"
+                      :alt="primaryTrackOf(group, groupIdx).title"
+                      fallback-icon-class="h-4 w-4"
+                    />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-medium text-fg">
+                      {{ primaryTrackOf(group, groupIdx).artist }} — {{ primaryTrackOf(group, groupIdx).title }}
+                    </p>
+                    <p class="truncate text-xs text-fg-muted">
+                      {{ getAlbumName(primaryTrackOf(group, groupIdx)) }}
+                      <span class="text-fg-subtle mx-1">·</span>
+                      {{ getSourceLabel(primaryTrackOf(group, groupIdx)) }}
+                    </p>
+                  </div>
+                  <span
+                    class="shrink-0 rounded bg-active/20 px-1.5 py-0.5 text-[10px] font-bold text-active"
+                    data-testid="primary-badge"
+                    >Основной</span
+                  >
+                </div>
 
-        <div class="flex flex-col gap-2 pl-4">
+                <button
+                  type="button"
+                  class="flex shrink-0 items-center gap-1 rounded-btn bg-bg-elevated px-2 py-1 text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg"
+                  :data-testid="`dup-trigger-${groupIdx}`"
+                  @click.stop="toggle"
+                >
+                  {{ group.length - 1 }} похожих
+                  <Icon name="chevron-down" class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <div class="flex flex-col gap-1 p-2">
+            <div
+              v-for="track in candidatesOf(group, groupIdx)"
+              :key="track.id"
+              class="group flex items-center gap-2 rounded-btn p-2 transition hover:bg-hover-bg"
+              :data-testid="`dup-candidate-${track.id}`"
+            >
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-2 text-left"
+                @click="setPrimary(groupIdx, track.id)"
+              >
+                <div class="h-8 w-8 shrink-0 overflow-hidden rounded-btn bg-bg">
+                  <CoverImage
+                    v-if="track.albumId"
+                    :album-id="track.albumId"
+                    :alt="track.title"
+                    fallback-icon-class="h-4 w-4"
+                  />
+                  <CoverImage v-else :src="track.coverUrl" :alt="track.title" fallback-icon-class="h-4 w-4" />
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm text-fg">{{ track.artist }} — {{ track.title }}</p>
+                  <p class="truncate text-xs text-fg-muted">
+                    {{ getAlbumName(track) }}
+                    <span class="text-fg-subtle mx-1">·</span>
+                    {{ getSourceLabel(track) }}
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="shrink-0 rounded-btn border border-transparent px-2 py-1 text-[10px] text-fg-muted opacity-0 transition hover:border-active hover:text-active group-hover:opacity-100"
+                :data-testid="`dup-exclude-${track.id}`"
+                title="Не склеивать этот трек"
+                @click.stop="excludeCandidate(groupIdx, track.id)"
+              >
+                Не склеивать
+              </button>
+            </div>
+          </div>
+        </DropdownMenu>
+
+        <!-- Исключённые из склейки кандидаты этого трека -->
+        <div v-if="excludedTracksOf(group, groupIdx).length" class="flex flex-col gap-1 pl-10">
           <div
-            v-for="candidate in track.metadataCandidates"
-            :key="candidate.id"
-            class="flex items-center gap-3 rounded-btn bg-card-bg p-2 transition hover:bg-hover-bg"
+            v-for="track in excludedTracksOf(group, groupIdx)"
+            :key="track.id"
+            class="flex items-center gap-2 rounded-btn bg-bg/60 p-2 opacity-70"
+            :data-testid="`dup-excluded-row-${track.id}`"
           >
-            <div class="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-bg">
-              <CoverImage :src="candidate.coverUrl" :alt="candidate.title" fallback-icon-class="h-5 w-5" />
+            <div class="h-6 w-6 shrink-0 overflow-hidden rounded-btn bg-bg">
+              <CoverImage
+                v-if="track.albumId"
+                :album-id="track.albumId"
+                :alt="track.title"
+                fallback-icon-class="h-3 w-3"
+              />
+              <CoverImage v-else :src="track.coverUrl" :alt="track.title" fallback-icon-class="h-3 w-3" />
             </div>
-
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm text-fg">
-                <span v-if="candidate.artist">{{ candidate.artist }} — </span>{{ candidate.title }}
-              </p>
-              <p class="truncate text-xs text-fg-muted">
-                {{ candidate.album || 'Без альбома' }}
-                <span class="text-fg-subtle mx-1">·</span>
-                {{ candidate.provider }}
-                <span class="text-fg-subtle mx-1">·</span>
-                {{ Math.round(candidate.similarity * 100) }}%
-              </p>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                class="rounded-btn px-2 py-1 text-[10px] font-medium text-active transition hover:bg-active/10"
-                data-testid="candidate-apply"
-                @click="onApply(track.id, candidate.id)"
-              >
-                Это он
-              </button>
-              <button
-                type="button"
-                class="rounded-btn px-2 py-1 text-[10px] text-fg-muted transition hover:bg-red-500/10 hover:text-red-400"
-                data-testid="candidate-dismiss"
-                @click="onDismiss(track.id, candidate.id)"
-              >
-                Не он
-              </button>
-            </div>
+            <p class="min-w-0 flex-1 truncate text-xs text-fg-muted line-through">
+              {{ track.artist }} — {{ track.title }}
+            </p>
+            <button
+              type="button"
+              class="shrink-0 rounded-btn px-2 py-0.5 text-[10px] text-active transition hover:underline"
+              :data-testid="`dup-restore-${track.id}`"
+              @click="restoreCandidate(groupIdx, track.id)"
+            >
+              Вернуть
+            </button>
           </div>
         </div>
-      </div>
+      </template>
     </div>
 
     <template #footer>
-      <div class="flex items-center justify-end">
-        <Button variant="ghost" @click="emit('close')">Закрыть</Button>
+      <div class="flex items-center justify-end gap-2">
+        <Button variant="ghost" @click="emit('close')">Отмена</Button>
+        <Button variant="primary" data-testid="apply-duplicates" :disabled="groups.length === 0" @click="applyAll">
+          Применить ({{ groups.length }})
+        </Button>
       </div>
     </template>
   </ModalLayout>

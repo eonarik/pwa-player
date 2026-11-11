@@ -181,7 +181,9 @@
 [data-theme='tiffany'] .track-cover {
   border: 1px solid rgba(92, 223, 229, 0.3);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 [data-theme='tiffany'] .list-row:hover .track-cover,

@@ -20,13 +20,7 @@ import {
 } from './browser/api';
 import type { RadioCountry, RadioStation, RadioStationSearchQuery, RadioTag } from './browser/types';
 
-export type {
-  RadioCountry,
-  RadioSortOrder,
-  RadioStation,
-  RadioStationSearchQuery,
-  RadioTag,
-} from './browser/types';
+export type { RadioCountry, RadioSortOrder, RadioStation, RadioStationSearchQuery, RadioTag } from './browser/types';
 
 /**
  * Клиент radio-browser.info.
@@ -168,10 +162,7 @@ export class RadioBrowserClient {
   }
 
   /** Станции по тегу через /json/stations/bytag/<tag>. */
-  async getStationsByTag(
-    tag: string,
-    options: { limit?: number; hideBroken?: boolean } = {},
-  ): Promise<RadioStation[]> {
+  async getStationsByTag(tag: string, options: { limit?: number; hideBroken?: boolean } = {}): Promise<RadioStation[]> {
     const limit = options.limit ?? 20;
     const hideBroken = options.hideBroken !== false;
 

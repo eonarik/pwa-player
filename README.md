@@ -90,6 +90,18 @@ yarn test:unit --run
 - Soft: `artist` совпадает, `title` — подстрока (например, `"Song"` и `"Song (Remaster)"`). Создаётся трек-кандидат с `metadataCandidates`.
 - Иначе: создаётся новый трек.
 
+## Документация
+
+Полная архитектурная документация для разработчиков и онбординга:
+
+- [Архитектура](docs/architecture.md) — ядро, плагины, жизненный цикл данных
+- [Модель данных](docs/data-model.md) — все типы и интерфейсы
+- [Плагины](docs/plugins.md) — контракт LibrarySource, таблица плагинов
+- [Сервер](docs/server.md) — маршруты Express
+- [Stores](docs/stores.md) — Pinia stores
+- [Сервисы](docs/services.md) — сервисы ядра
+- [Соглашения](docs/conventions.md) — правила проекта
+
 ## Лицензия
 
 MIT

@@ -4,7 +4,7 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import Spinner from '@/components/ui/Spinner.vue';
-import Textarea from "@/components/ui/Textarea.vue";
+import Textarea from '@/components/ui/Textarea.vue';
 
 const props = defineProps<{
   vibe: string;

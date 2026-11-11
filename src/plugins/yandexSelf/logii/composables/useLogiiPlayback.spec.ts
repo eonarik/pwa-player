@@ -17,6 +17,7 @@ function trackStub(id?: Track['id']): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };
@@ -36,11 +37,13 @@ function folderStub(audioTracks: Track[] = []): LogiiTrackItem {
 
 const author: LogiiAuthorItem = { folderName: 'uA', urlPath: 'logii.S/uA' };
 
-function setup(options: {
-  currentFolder?: LogiiTrackItem | null;
-  allTracksByAuthor?: Map<string, Track[]>;
-  player?: Partial<LogiiPlayerApi>;
-} = {}) {
+function setup(
+  options: {
+    currentFolder?: LogiiTrackItem | null;
+    allTracksByAuthor?: Map<string, Track[]>;
+    player?: Partial<LogiiPlayerApi>;
+  } = {},
+) {
   const player: LogiiPlayerApi = {
     setQueue: vi.fn(),
     playAll: vi.fn(),

@@ -53,6 +53,7 @@ function trackStub(title = 'Title'): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
   };
@@ -61,7 +62,10 @@ function trackStub(title = 'Title'): Track {
 function setup(options: { libraryTrack?: Track | null } = {}) {
   const track = ref(trackStub());
   const libraryTrack = ref<Track | null>(options.libraryTrack === undefined ? track.value : options.libraryTrack);
-  const api = useTrackDownloadAction(track, computed(() => libraryTrack.value));
+  const api = useTrackDownloadAction(
+    track,
+    computed(() => libraryTrack.value),
+  );
   return { ...api, track, libraryTrack, close: vi.fn() };
 }
 

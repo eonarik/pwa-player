@@ -13,10 +13,7 @@ export interface UseTrackFilterReturn {
   filteredTracks: ComputedRef<Track[]>;
 }
 
-export function useTrackFilter(
-  tracks: Ref<Track[]>,
-  preFilter?: (t: Track) => boolean,
-): UseTrackFilterReturn {
+export function useTrackFilter(tracks: Ref<Track[]>, preFilter?: (t: Track) => boolean): UseTrackFilterReturn {
   const sourceFilter = ref<string>('all');
 
   const preFilteredTracks = computed<Track[]>(() => {

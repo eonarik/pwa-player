@@ -87,6 +87,7 @@ function toPlayableTrack(zvukTrack: ZvukTrack): Track {
       },
     ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     duration: zvukTrack.duration,

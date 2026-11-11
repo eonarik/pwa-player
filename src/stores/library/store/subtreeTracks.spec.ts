@@ -19,6 +19,7 @@ function makeTrack(id: TrackId): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: true,
   };

@@ -38,6 +38,7 @@ function trackStub(overrides: Partial<Track> = {}): Track {
     coverUrl: null,
     sources: [],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     ...overrides,
@@ -55,14 +56,14 @@ function candidatesStub(overrides: Partial<MetadataCandidates> = {}): MetadataCa
   };
 }
 
-function libraryStub(overrides: {
-  getAlbum?: (id: AlbumId) => Album | null;
-  tracks?: Record<string, Track>;
-} = {}) {
+function libraryStub(
+  overrides: {
+    getAlbum?: (id: AlbumId) => Album | null;
+    tracks?: Record<string, Track>;
+  } = {},
+) {
   return {
-    getAlbum:
-      overrides.getAlbum ??
-      ((_id: AlbumId) => null),
+    getAlbum: overrides.getAlbum ?? ((_id: AlbumId) => null),
     tracks: overrides.tracks ?? {},
   };
 }
@@ -75,7 +76,11 @@ describe('useMetadataForm', () => {
 
   it('исходные значения из трека', () => {
     const t = trackStub();
-    const { artist, title, album: _album } = useMetadataForm({
+    const {
+      artist,
+      title,
+      album: _album,
+    } = useMetadataForm({
       track: ref(t),
       library: libraryStub(),
       candidates: candidatesStub(),
@@ -129,7 +134,15 @@ describe('useMetadataForm', () => {
   });
 
   it('save: с выбранным кандидатом — applyCandidate', async () => {
-    const cand = { id: 'c1' as never, artist: 'CandArtist', title: 'CandTitle', album: 'CandAlbum', coverUrl: null, similarity: 0.9, provider: 'iTunes' };
+    const cand = {
+      id: 'c1' as never,
+      artist: 'CandArtist',
+      title: 'CandTitle',
+      album: 'CandAlbum',
+      coverUrl: null,
+      similarity: 0.9,
+      provider: 'iTunes',
+    };
     await useMetadataForm({
       track: ref(trackStub({ title: 'New Title' })),
       library: libraryStub(),

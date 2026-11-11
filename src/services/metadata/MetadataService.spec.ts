@@ -36,6 +36,7 @@ describe('MetadataService.reset', () => {
       coverUrl: null,
       sources: [],
       metadataCandidates: [],
+      duplicateTrackIds: [],
       raw: {
         artist: 'Artist A',
         title: 'Track 1',

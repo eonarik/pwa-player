@@ -5,11 +5,12 @@ import { createRemoteApply } from './remote';
 import { createId3Apply } from './id3';
 import { createManualApply } from './manual';
 import { createCandidateApply } from './candidate';
+import { applyDuplicates, pickPrimaryTrackId } from './duplicates';
 
 /**
  * Модуль применения метаданных. Собирает из подмодулей единый API:
  * `applyRemote`, `applyPatch`, `applyFromFile`, `updateManual`,
- * `applyCandidate`, `invokeApplyCandidate`.
+ * `applyCandidate`, `invokeApplyCandidate`, `applyDuplicates`.
  *
  * Все функции используют общую среду: `persistence`, `useLibraryStore`,
  * `createLibraryWriter`, `eventBus` — каждый подмодуль импортирует
@@ -28,8 +29,9 @@ export function createMetadataApply(persistence: MetadataPersistence) {
     updateManual: manual.updateManual,
     applyCandidate: candidate.applyCandidate,
     invokeApplyCandidate: candidate.invokeApplyCandidate,
+    applyDuplicates,
+    pickPrimaryTrackId,
   };
 }
 
 export type MetadataApply = ReturnType<typeof createMetadataApply>;
-

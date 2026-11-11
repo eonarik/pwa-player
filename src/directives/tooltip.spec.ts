@@ -33,8 +33,7 @@ function mountTarget(initialText: string | null) {
 
   const app: App = createApp(
     defineComponent({
-      setup: () => () =>
-        withDirectives(h('div', { 'data-testid': 'tip-target' }), [[tooltip, text.value]]),
+      setup: () => () => withDirectives(h('div', { 'data-testid': 'tip-target' }), [[tooltip, text.value]]),
     }),
   );
   app.mount(host);

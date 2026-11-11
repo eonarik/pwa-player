@@ -13,6 +13,7 @@ export async function restoreTrack(persisted: PersistedTrack): Promise<Track | n
     coverUrl: persisted.coverUrl,
     sources: persisted.sources,
     metadataCandidates: persisted.metadataCandidates ?? [],
+    duplicateTrackIds: persisted.duplicateTrackIds ?? [],
     raw: persisted.raw ?? null,
     hasId3Tags: persisted.hasId3Tags ?? false,
     duration: persisted.duration,

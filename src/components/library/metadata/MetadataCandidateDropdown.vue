@@ -70,10 +70,7 @@ const emit = defineEmits<{
             <CoverImage :src="c.coverUrl" :alt="c.title" fallback-icon-class="h-4 w-4" />
           </div>
           <div class="min-w-0 flex-1">
-            <span
-              class="block truncate"
-              :class="selectedIndex === i ? 'text-active font-medium' : 'text-fg'"
-            >
+            <span class="block truncate" :class="selectedIndex === i ? 'text-active font-medium' : 'text-fg'">
               {{ c.artist }} — {{ c.title }}
             </span>
             <span class="block truncate text-xs text-fg-muted">{{ candidateAlbumLabel(c) }}</span>

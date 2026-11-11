@@ -111,7 +111,12 @@ export async function downloadTrackInternal(
  * приоритетом 10 (ниже cloud/streaming-источников нет — локальный выигрывает),
  * остальные источники сохраняются, порядок пересобирается по priority.
  */
-function attachLocalSource(track: Track, pluginId: string, cloudSource: CloudTrackSource, handle: FileSystemFileHandle): void {
+function attachLocalSource(
+  track: Track,
+  pluginId: string,
+  cloudSource: CloudTrackSource,
+  handle: FileSystemFileHandle,
+): void {
   const localSource: TrackSource = {
     id: newTrackSourceId(),
     pluginId,

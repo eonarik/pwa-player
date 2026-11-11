@@ -41,7 +41,6 @@ export function useLogiiAuthorsCrud({
   router,
   confirmFn = window.confirm.bind(window),
 }: UseLogiiAuthorsCrudDeps): UseLogiiAuthorsCrudResult {
-
   async function openCreateModal(): Promise<void> {
     if (!seasonFolder.value || isWriting.value) return;
 
@@ -128,9 +127,7 @@ export function useLogiiAuthorsCrud({
   async function onDeleteAuthor(author: LogiiAuthorItem): Promise<void> {
     if (isWriting.value) return;
 
-    const confirmed = confirmFn(
-      `Удалить автора «${author.folderName}» и всё его содержимое? Это действие необратимо.`,
-    );
+    const confirmed = confirmFn(`Удалить автора «${author.folderName}» и всё его содержимое? Это действие необратимо.`);
     if (!confirmed) return;
 
     const seasonPath = seasonFolder.value?.urlPath ?? '';

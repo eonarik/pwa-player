@@ -18,14 +18,7 @@ export function createManualApply(persistence: MetadataPersistence) {
 
     const writer = createLibraryWriter();
 
-    const nextAlbumId = attachAlbum(
-      library,
-      writer,
-      patch.album,
-      patch.artist,
-      patch.coverUrl ?? null,
-      null,
-    );
+    const nextAlbumId = attachAlbum(library, writer, patch.album, patch.artist, patch.coverUrl ?? null, null);
 
     // Обложка альбома живёт на альбоме. Локальный blob-URL превращаем в
     // обложку альбома, иначе — берём обложку альбома (или null для трека).

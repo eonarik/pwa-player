@@ -170,7 +170,10 @@ function findCycles(graph: Map<string, Set<string>>): string[][] {
 }
 
 function relative(fullPath: string): string {
-  return fullPath.slice(SRC_ROOT.length + 1).split(/[\\/]/).join('/');
+  return fullPath
+    .slice(SRC_ROOT.length + 1)
+    .split(/[\\/]/)
+    .join('/');
 }
 
 describe('архитектура графа импортов', () => {

@@ -2,7 +2,13 @@
 
 import { computed, type Ref } from 'vue';
 import type { Track } from '@/types/track';
-import { isLinearContent, isLiveStream, isStreamingPlugin, pluginCanDownload, pluginIdFromSource } from '@/plugins/registry';
+import {
+  isLinearContent,
+  isLiveStream,
+  isStreamingPlugin,
+  pluginCanDownload,
+  pluginIdFromSource,
+} from '@/plugins/registry';
 
 /**
  * Что разрешено делать с треком. Всё выводится из плагина первого (приоритетного)

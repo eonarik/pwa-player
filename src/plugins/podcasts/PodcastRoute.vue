@@ -64,6 +64,7 @@ function episodeToTrack(ep: Episode): Track {
       },
     ],
     metadataCandidates: [],
+    duplicateTrackIds: [],
     raw: null,
     hasId3Tags: false,
     duration: ep.durationSec ?? undefined,
