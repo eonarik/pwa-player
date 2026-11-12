@@ -1,17 +1,23 @@
 <!-- src/views/HomeView.vue -->
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePluginsList } from '@/composables/usePluginsList';
 import { usePluginActions } from '@/composables/usePluginActions';
+import { useLibraryStore } from '@/stores/library';
 import PluginCard from './home/PluginCard.vue';
+import MetadataCandidatesButton from '@/components/library/MetadataCandidatesButton.vue';
 import type { PluginManifest } from '@/plugins/types';
 import { logger } from '@/utils/logger';
 import { toggleDiagnosticsPanel } from '@/utils/pluginDiagnostics';
 
 const route = useRoute();
 const router = useRouter();
+const library = useLibraryStore();
+
+/** Все треки библиотеки — для MetadataCandidatesButton, который сам решает по duplicateTrackIds. */
+const allTracks = computed(() => Object.values(library.tracks));
 
 const { plugins, isOffline, sessionStatus, isChecking, loadPlugins } = usePluginsList();
 
@@ -67,7 +73,10 @@ onMounted(async () => {
 <template>
   <div class="flex h-full flex-col overflow-y-auto p-6">
     <div class="mx-auto w-full max-w-2xl">
-      <h1 class="mb-1 text-2xl font-medium text-fg">CUEI Media Player</h1>
+      <div class="mb-4 flex items-center justify-between">
+        <h1 class="text-2xl font-medium text-fg">CUEI Media Player</h1>
+        <MetadataCandidatesButton :tracks="allTracks" />
+      </div>
       <p class="mb-6 text-sm text-fg-muted">Выберите источник музыки</p>
 
       <div v-if="plugins.length === 0" class="flex flex-col gap-3 text-sm text-fg-muted">

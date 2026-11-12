@@ -1,7 +1,7 @@
 <!-- src/plugins/yandexSelf/logii/LogiiVibeBlock.vue -->
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import Textarea from '@/components/ui/Textarea.vue';
@@ -16,33 +16,12 @@ const props = defineProps<{
 
 const isEditingVibe = ref(false);
 const vibeDraft = ref('');
-const vibeTextareaRef = ref<HTMLTextAreaElement | null>(null);
-
-const VIBE_MIN_ROWS = 1;
-const VIBE_MAX_ROWS = 10;
 
 const currentVibe = computed(() => props.vibe);
-
-function autosizeVibe(): void {
-  const el = vibeTextareaRef.value;
-  if (!el) return;
-  el.style.height = 'auto';
-  const style = window.getComputedStyle(el);
-  const lineHeight = parseFloat(style.lineHeight) || 20;
-  const paddingTop = parseFloat(style.paddingTop) || 0;
-  const paddingBottom = parseFloat(style.paddingBottom) || 0;
-  const borderTop = parseFloat(style.borderTopWidth) || 0;
-  const borderBottom = parseFloat(style.borderBottomWidth) || 0;
-  const rows = Math.max(VIBE_MIN_ROWS, Math.min(VIBE_MAX_ROWS, Math.ceil(el.scrollHeight / lineHeight)));
-  const height = rows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
-  el.style.height = `${height}px`;
-  el.style.overflowY = rows >= VIBE_MAX_ROWS ? 'auto' : 'hidden';
-}
 
 function startEdit(): void {
   vibeDraft.value = currentVibe.value;
   isEditingVibe.value = true;
-  nextTick(() => autosizeVibe());
 }
 
 function cancelEdit(): void {
@@ -55,12 +34,7 @@ async function saveVibe(): Promise<void> {
   if (ok) isEditingVibe.value = false;
 }
 
-watch(
-  () => isEditingVibe.value,
-  (editing) => {
-    if (editing) nextTick(() => autosizeVibe());
-  },
-);
+
 </script>
 
 <template>
@@ -86,7 +60,6 @@ watch(
 
     <template v-else-if="isEditingVibe">
       <Textarea
-        ref="vibeTextareaRef"
         v-model="vibeDraft"
         :rows="1"
         :min-rows="1"

@@ -253,7 +253,7 @@ test.describe('Core: Склейка треков из разных папок', 
       .toEqual({ folderA: 1, folderB: 1 });
   });
 
-  test('разные title ([extended suffix]) → merged-soft → 2 tracks с candidate; резолв через UI', async ({ page }) => {
+  test('разные title ([extended suffix]) → linked-duplicate → 2 tracks с связками; резолв через UI', async ({ page }) => {
     await page.route('**/api/auth/me', (r) =>
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) }),
     );
@@ -390,26 +390,36 @@ test.describe('Core: Склейка треков из разных папок', 
     await expect(folderB).toBeVisible();
     await folderB.click();
 
-    // 3. Проверяем, что есть 2 трека (yandex + yandex-self), и у yandex есть candidate.
+    // 3. Soft-совпадение (title1 — подстрока title2) → linked-duplicate:
+    //    2 трека с симметричными связками duplicateTrackIds, без кандидатов.
     await expect
       .poll(
         async () => {
           const lib = await getIDBValue<any>(page, 'player:library');
           if (!lib?.tracks) return null;
           const tracks = Object.values(lib.tracks).filter((t: any) => t.title.includes('Track 1'));
-          const withCandidates = tracks.filter((t: any) => t.metadataCandidates?.length > 0);
-          return { total: tracks.length, withCandidates: withCandidates.length };
+          if (tracks.length !== 2) return { total: tracks.length, withDuplicates: 0 };
+          const ids = new Set(tracks.map((t: any) => t.id));
+          const withDuplicates = tracks.filter((t: any) =>
+            (t.duplicateTrackIds ?? []).some((d: string) => ids.has(d)),
+          ).length;
+          return { total: 2, withDuplicates };
         },
         { timeout: 10000 },
       )
-      .toEqual({ total: 2, withCandidates: 1 });
+      .toEqual({ total: 2, withDuplicates: 2 });
 
-    // 4. Открываем «Проблемные совпадения».
-    await expect(page.locator('[aria-label="Проблемные совпадения"]')).toBeVisible({ timeout: 10000 });
-    await page.locator('[aria-label="Проблемные совпадения"]').click();
+    // 4. Переходим на HomeView — MetadataCandidatesButton ищет по всей библиотеке.
+    await page.goto('/');
+    await waitForAppBootstrap(page);
 
-    // 5. Кликаем «Это он».
-    await page.getByTestId('candidate-apply').first().click();
+    // Кнопка «Похожие треки» видна с бейджем (duplicatesGroupCount > 0)
+    await expect(page.locator('[aria-label="Похожие треки"]')).toBeVisible({ timeout: 10000 });
+    await page.locator('[aria-label="Похожие треки"]').click();
+
+    // 5. Применяем склейку: основной выбран автоматически (pickPrimaryTrackId).
+    await expect(page.getByTestId('apply-duplicates')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('apply-duplicates').click();
 
     // 6. Один трек, 2 sources.
     await expect

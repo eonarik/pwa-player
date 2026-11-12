@@ -116,7 +116,7 @@ const filteredArtists = computed(() => {
   return list;
 });
 
-const { viewMode, setItems, sections, letters, onLetterSelect } = useCollectionView<ArtistGroup>({
+const { viewMode, gridRef, setItems, sections, letters, onLetterSelect } = useCollectionView<ArtistGroup>({
   storageKey: 'artists:viewMode',
   getGroupKey: (artist) => artist.name.charAt(0).toUpperCase(),
   sortItems: (a, b) => compareStrings(a.name, b.name),

@@ -18,21 +18,51 @@ const isDuplicatesOpen = ref(false);
 const isRemoteOpen = ref(false);
 
 /**
- * Количество групп дубликатов (BFS-компонентов) среди входных треков.
- * Совпадает с логикой groups в MetadataCandidatesModal.
+ * Все треки библиотеки, участвующие в дубль-связках (duplicateTrackIds).
+ * Собираем BFS по всей библиотеке, а не только среди props.tracks —
+ * чтобы пользователь мог резолвить дубликаты из разных плагинов/папок.
  */
+const allDuplicateTrackIds = computed<TrackId[]>(() => {
+  const allTracks = Object.values(library.tracks);
+  const visited = new Set<TrackId>();
+  const result: TrackId[] = [];
+
+  for (const track of allTracks) {
+    if (visited.has(track.id)) continue;
+    if (!track.duplicateTrackIds || track.duplicateTrackIds.length === 0) continue;
+
+    // BFS: обходим связный компонент графа дубликатов
+    const queue: Track[] = [track];
+    visited.add(track.id);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      result.push(current.id);
+
+      for (const dupId of current.duplicateTrackIds) {
+        if (visited.has(dupId)) continue;
+        const dup = library.getTrack(dupId);
+        if (!dup) continue;
+        visited.add(dupId);
+        queue.push(dup);
+      }
+    }
+  }
+
+  return result;
+});
+
+/** Количество групп дубликатов (BFS-компонентов >= 2 трека) по всей библиотеке. */
 const duplicatesGroupCount = computed(() => {
-  const idSet = new Set(props.tracks.map((t) => t.id));
+  const allTracks = Object.values(library.tracks);
   const visited = new Set<TrackId>();
   let groups = 0;
 
-  for (const t of props.tracks) {
-    if (visited.has(t.id)) continue;
+  for (const track of allTracks) {
+    if (visited.has(track.id)) continue;
+    if (!track.duplicateTrackIds || track.duplicateTrackIds.length === 0) continue;
 
-    const track = library.getTrack(t.id);
-    if (!track || !track.duplicateTrackIds || track.duplicateTrackIds.length === 0) continue;
-
-    // BFS: обходим связный компонент дубликатов (только внутри tracks)
+    // BFS: обходим связный компонент
     const queue: Track[] = [track];
     const component: Track[] = [];
     visited.add(track.id);
@@ -42,7 +72,7 @@ const duplicatesGroupCount = computed(() => {
       component.push(current);
 
       for (const dupId of current.duplicateTrackIds) {
-        if (visited.has(dupId) || !idSet.has(dupId)) continue;
+        if (visited.has(dupId)) continue;
         const dup = library.getTrack(dupId);
         if (!dup) continue;
         visited.add(dupId);
@@ -96,7 +126,7 @@ const remoteCount = computed(() => {
 
     <MetadataCandidatesModal
       v-if="isDuplicatesOpen"
-      :track-ids="tracks.map((t) => t.id)"
+      :track-ids="allDuplicateTrackIds"
       @close="isDuplicatesOpen = false"
     />
     <RemoteMetadataModal

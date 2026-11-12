@@ -22,7 +22,9 @@
 │   │   ├── 10-albums-crud.spec.ts
 │   │   ├── 11-toasts.spec.ts
 │   │   ├── 12-playlist-sharing.spec.ts
-│   │   └── 13-clipboard-watcher.spec.ts
+│   │   ├── 13-clipboard-watcher.spec.ts
+│   │   ├── 14-metadata-same-title.spec.ts
+│   │   └── 15-physical-tracks-merge.spec.ts
 │   ├── fixtures
 │   │   └── mp3_15s_sample_file_236KB.mp3
 │   ├── helpers
@@ -610,6 +612,8 @@
 │   │   ├── playlistBlueprint.ts
 │   │   ├── playlistParser.spec.ts
 │   │   ├── playlistParser.ts
+│   │   ├── pluginDiagnostics.spec.ts
+│   │   ├── pluginDiagnostics.ts
 │   │   ├── pluralize.ts
 │   │   ├── sort.ts
 │   │   └── urlPath.ts
@@ -668,4 +672,4 @@
 ├── vitest.config.ts
 └── vitest.setup.ts
 
-95 directories, 574 files
+95 directories, 578 files

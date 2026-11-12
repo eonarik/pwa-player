@@ -31,9 +31,11 @@ const library = useLibraryStore();
 /**
  * Группы дубликатов, найденные BFS по duplicateTrackIds среди входного
  * множества. Каждая группа — связный компонент графа (A-B-C = одна группа).
+ * Входной массив trackIds может содержать не все связи, поэтому BFS идёт
+ * по всей библиотеке: если трек A связан с B, а B не в props.trackIds,
+ * всё равно найдём группу A-B.
  */
 const groups = computed<Track[][]>(() => {
-  const idSet = new Set(props.trackIds);
   const visited = new Set<TrackId>();
   const result: Track[][] = [];
 
@@ -43,7 +45,7 @@ const groups = computed<Track[][]>(() => {
     const track = library.getTrack(id);
     if (!track) continue;
 
-    // BFS: обходим связный компонент дубликатов (только внутри trackIds)
+    // BFS: обходим связный компонент дубликатов по всей библиотеке
     const queue: Track[] = [track];
     const component: Track[] = [];
     visited.add(id);
@@ -53,7 +55,7 @@ const groups = computed<Track[][]>(() => {
       component.push(current);
 
       for (const dupId of current.duplicateTrackIds) {
-        if (visited.has(dupId) || !idSet.has(dupId)) continue;
+        if (visited.has(dupId)) continue;
         const dup = library.getTrack(dupId);
         if (!dup) continue;
         visited.add(dupId);
