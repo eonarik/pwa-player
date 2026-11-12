@@ -8,6 +8,7 @@ import { usePluginActions } from '@/composables/usePluginActions';
 import PluginCard from './home/PluginCard.vue';
 import type { PluginManifest } from '@/plugins/types';
 import { logger } from '@/utils/logger';
+import { toggleDiagnosticsPanel } from '@/utils/pluginDiagnostics';
 
 const route = useRoute();
 const router = useRouter();
@@ -69,7 +70,16 @@ onMounted(async () => {
       <h1 class="mb-1 text-2xl font-medium text-fg">CUEI Media Player</h1>
       <p class="mb-6 text-sm text-fg-muted">Выберите источник музыки</p>
 
-      <div v-if="plugins.length === 0" class="text-sm text-fg-muted">Плагины не найдены</div>
+      <div v-if="plugins.length === 0" class="flex flex-col gap-3 text-sm text-fg-muted">
+        <div>Плагины не найдены</div>
+        <button
+          type="button"
+          class="self-start rounded-btn border border-fg-muted/30 px-3 py-1.5 text-sm text-fg"
+          @click="toggleDiagnosticsPanel"
+        >
+          Детали диагностики
+        </button>
+      </div>
 
       <div v-else class="flex flex-col gap-2">
         <PluginCard

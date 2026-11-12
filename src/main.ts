@@ -143,9 +143,13 @@ window.addEventListener('unhandledrejection', (event) => {
 bootstrap().catch((err) => {
   logger.error('[Bootstrap Fatal Error]', err);
 
+  // Safari iOS без DevTools: показываем причину прямо на экране.
+  const reason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  const cause = err instanceof Error && err.cause instanceof Error ? `\n${err.cause.message}` : '';
+
   const textEl = document.getElementById('app-boot-loader-text');
   if (textEl) {
-    textEl.textContent = 'Ошибка инициализации приложения. Проверьте консоль.';
+    textEl.textContent = `Ошибка инициализации приложения. Проверьте консоль.${reason}${cause}`;
   }
   const spinner = document.getElementById('app-boot-spinner');
   if (spinner) {

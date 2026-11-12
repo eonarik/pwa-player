@@ -5,6 +5,7 @@ import { getPlugins, loadPlugin, setPluginDisconnected, isPluginActivated } from
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import type { PluginManifest, LibrarySource } from '@/plugins/types';
 import { logger } from '@/utils/logger';
+import { diagError, diagInfo } from '@/utils/pluginDiagnostics';
 
 export type SessionStatus = 'checking' | 'ok' | 'expired' | 'unavailable';
 
@@ -118,7 +119,9 @@ export function usePluginsList() {
 
   async function loadPlugins(): Promise<void> {
     const metas: PluginMeta[] = [];
-    for (const manifest of getPlugins()) {
+    const manifests = getPlugins();
+    diagInfo(`getPlugins(): ${manifests.length} [${manifests.map((m) => m.id).join(', ')}]`);
+    for (const manifest of manifests) {
       if (manifest.requiresActivation && !isPluginActivated(manifest.id)) continue;
       try {
         const plugin = await loadPlugin(manifest.id);
@@ -130,10 +133,12 @@ export function usePluginsList() {
         });
       } catch (err) {
         logger.warn(`[home] failed to load plugin ${manifest.id}`, err);
+        diagError(`loadPlugins ${manifest.id}`, err);
       }
     }
 
     if (isUnmounted) return;
+    diagInfo(`pluginMetas заполнено: ${metas.length}`);
     pluginMetas.value = metas;
 
     for (const meta of metas) {

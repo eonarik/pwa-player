@@ -2,6 +2,7 @@
 
 import { ref } from 'vue';
 import { logger } from '@/utils/logger';
+import { diagError, diagInfo } from '@/utils/pluginDiagnostics';
 import type { LibrarySource, PluginManifest } from './types';
 
 const manifestModules = import.meta.glob<{ manifest: PluginManifest }>('./*/manifest.ts', {
@@ -15,25 +16,38 @@ interface RegisteredPlugin {
 
 const registry = new Map<string, RegisteredPlugin>();
 
+try {
+  const globPaths = Object.keys(manifestModules);
+  diagInfo(`glob ./*/manifest.ts: найдено ${globPaths.length} файлов`);
+} catch (err) {
+  diagError('glob keys', err);
+}
+
 for (const [path, mod] of Object.entries(manifestModules)) {
-  const manifest = mod.manifest;
+  try {
+    const manifest = mod.manifest;
 
-  if (!manifest) {
-    logger.warn(`[plugins] ${path} не экспортирует manifest`);
-    continue;
+    if (!manifest) {
+      logger.warn(`[plugins] ${path} не экспортирует manifest`);
+      diagInfo(`${path}: нет экспорта manifest`);
+      continue;
+    }
+
+    if (!manifest.enabled) {
+      logger.info(`[plugins] ${manifest.id} отключён (enabled: false)`);
+      continue;
+    }
+
+    if (registry.has(manifest.id)) {
+      logger.warn(`[plugins] дубликат id "${manifest.id}" (${path}), пропускаю`);
+      continue;
+    }
+
+    registry.set(manifest.id, { manifest, loaded: null });
+  } catch (err) {
+    // Safari iOS может вернуть модуль с битым манифестом — не роняем весь реестр.
+    diagError(`register ${path}`, err);
   }
-
-  if (!manifest.enabled) {
-    logger.info(`[plugins] ${manifest.id} отключён (enabled: false)`);
-    continue;
-  }
-
-  if (registry.has(manifest.id)) {
-    logger.warn(`[plugins] дубликат id "${manifest.id}" (${path}), пропускаю`);
-    continue;
-  }
-
-  registry.set(manifest.id, { manifest, loaded: null });
 }
 
 const disconnectedCache = new Map<string, boolean>();
@@ -67,13 +81,19 @@ export async function loadPlugin(id: string): Promise<LibrarySource> {
     return entry.loaded;
   }
 
-  const mod = await entry.manifest.entry();
-  entry.loaded = mod.default;
+  try {
+    const mod = await entry.manifest.entry();
+    entry.loaded = mod.default;
 
-  disconnectedCache.set(id, mod.default.isDisconnected?.() ?? false);
-  disconnectedVersion.value++;
+    disconnectedCache.set(id, mod.default.isDisconnected?.() ?? false);
+    disconnectedVersion.value++;
 
-  return mod.default;
+    return mod.default;
+  } catch (err) {
+    // Safari iOS может отказать в загрузке динамического чанка (SW/Content-Type/кэш).
+    diagError(`entry() ${id}`, err);
+    throw err;
+  }
 }
 
 export function resetPlugin(id: string): void {
