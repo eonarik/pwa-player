@@ -149,6 +149,15 @@ async function restoreAccess(): Promise<void> {
 
     <section>
       <SectionTitle text="Метаданные" />
+
+      <div class="bg-card-bg px-4 py-3 mt-2 mb-2">
+        <Checkbox
+          v-model="autoFetchMetadata"
+          label="Автопоиск при воспроизведении"
+          description="Искать обложку и теги в фоне при старте трека"
+        />
+      </div>
+
       <MetadataProvidersList />
 
       <div class="flex items-center justify-between gap-4 bg-card-bg px-4 py-3 mt-2">
@@ -165,14 +174,6 @@ async function restoreAccess(): Promise<void> {
             @keydown.enter="commitMetadata"
           />
         </div>
-      </div>
-
-      <div class="bg-card-bg px-4 py-3 mt-2">
-        <Checkbox
-          v-model="autoFetchMetadata"
-          label="Автопоиск при воспроизведении"
-          description="Искать обложку и теги в фоне при старте трека"
-        />
       </div>
     </section>
 
@@ -198,7 +199,7 @@ async function restoreAccess(): Promise<void> {
     <section>
       <SectionTitle text="Отображение" />
       <div class="bg-card-bg px-4 py-3">
-        <Checkbox v-model="showSource" label="Показывать источник" description="Путь к папке в списках треков" />
+        <Checkbox v-model="showSource" label="Показывать источник трека" />
       </div>
     </section>
 
@@ -209,7 +210,7 @@ async function restoreAccess(): Promise<void> {
         <Checkbox
           v-model="autoDownloadTracks"
           label="Автоскачивание при воспроизведении"
-          description="Автоматически скачивать треки из облака при их запуске (для офлайн-доступа)"
+          description="Автоматически скачивать треки из облака при их запуске (для офлайн-доступа). Кроме треков, помеченных как 'stream'"
         />
       </div>
 

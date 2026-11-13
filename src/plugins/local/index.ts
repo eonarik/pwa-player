@@ -33,7 +33,11 @@ const localPlugin: LibrarySource = {
     }
     const handle = await fileSystemService.pickDirectory();
     if (!handle) throw new Error('cancelled');
-    await fileSystemService.addHandle(handle);
+    const added = await fileSystemService.addHandle(handle);
+    if (!added) {
+      localStorage.setItem(CONNECTED_KEY, 'true');
+      return;
+    }
     localStorage.setItem(CONNECTED_KEY, 'true');
   },
 

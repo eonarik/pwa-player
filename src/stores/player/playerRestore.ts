@@ -5,6 +5,7 @@ import { resolveTrackSource } from '@/services/audio/resolveTrackSource';
 import { persistenceService } from '@/services/persistence/PersistenceService';
 import { restoreTracks } from '@/services/persistence/restore';
 import { useLibraryStore } from '@/stores/library';
+import { logger } from '@/utils/logger';
 import type { Track } from '@/types/track';
 
 export interface RestoredPlayerState {
@@ -66,6 +67,7 @@ export async function applyRestoredPlayback(
   tracks: Track[],
   currentIndex: number,
   setCurrentTime: (t: number) => void,
+  onAllSourcesFailed?: () => void,
 ): Promise<void> {
   const playback = await persistenceService.loadPlayback();
   const track = tracks[currentIndex];
@@ -77,14 +79,27 @@ export async function applyRestoredPlayback(
   const sortedSources = [...track.sources].sort((a, b) => a.priority - b.priority);
   if (sortedSources.length === 0) return;
 
-  let source: string | File;
-  try {
-    source = await resolveTrackSource(track, sortedSources[0]!);
-  } catch {
+  // Пробуем источники по priority — как в playAt. Раньше резолвился только
+  // первый: при недоступном handle/сессии плеер молча оставался с «пустым»
+  // currentTrack, а последующий play() давал тишину без load().
+  let resolvedSource: string | File | null = null;
+  let lastError: unknown = null;
+  for (const source of sortedSources) {
+    try {
+      resolvedSource = await resolveTrackSource(track, source);
+      break;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (resolvedSource === null) {
+    logger.error('[player] restore: all sources failed for track', track.id, lastError);
+    onAllSourcesFailed?.();
     return;
   }
 
-  audioService.load(source);
+  audioService.load(resolvedSource);
 
   await new Promise<void>((resolve) => {
     const unsub = audioService.on('loadedmetadata', () => {

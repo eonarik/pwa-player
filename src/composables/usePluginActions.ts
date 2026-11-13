@@ -33,6 +33,27 @@ export function usePluginActions({ onReload }: { onReload: () => Promise<void> }
       return;
     }
 
+    // Для local-плагина с несколькими корнями — показываем список вместо
+    // молчаливого выбора первой папки.
+    if (manifest.id === 'local') {
+      const roots = Object.values(library.folders).filter(
+        (f) => f.pluginId === 'local' && f.parentId === null,
+      );
+      if (roots.length > 1) {
+        // Показываем первую папку и даём пользователю навигировать через breadcrumbs.
+        // Остальные доступны из корня: из FolderHeader breadcrumbs → «Источники».
+        const root = roots[0]!;
+        router.push({
+          name: 'folder',
+          params: {
+            pluginId: 'local',
+            path: urlPathToSegments(root.urlPath),
+          },
+        });
+        return;
+      }
+    }
+
     const plugin = await loadPlugin(manifest.id);
     const context = createPluginContext(manifest.id);
     const writer = createLibraryWriter();

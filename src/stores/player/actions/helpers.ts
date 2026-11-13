@@ -2,6 +2,7 @@
 
 import { useDislikesStore } from '@/stores/dislikes';
 import { getPlayability } from '@/services/library/selectors';
+import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';
 import { isPluginDisconnected, pluginIdFromSource } from '@/plugins/registry';
 import type { Track } from '@/types/track';
 import type { ShouldSkipFn } from './types';
@@ -19,9 +20,9 @@ export function createHelpers() {
 
     const playability = getPlayability(track, {
       isPluginDisconnected: isAnyPluginDisconnected(track),
-      isDownloading: false,
+      isDownloading: downloadOrchestrator.isDownloading(track.id),
     });
-    if (playability === 'missing') return true;
+    if (playability === 'missing' || playability === 'downloading') return true;
     return false;
   }
 

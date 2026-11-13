@@ -18,8 +18,15 @@ export function createErrors(
   const { queue, currentIndex, isPlaying, repeatMode } = refs;
   const { shouldSkipAuto } = helpers;
 
-  function handleAuthError(error: AuthError, track: Track): void {
-    const pluginId = track.sources[0] ? pluginIdFromSource(track.sources[0].pluginId) : '';
+  function handleAuthError(error: AuthError, track: Track, failedSourceId?: string): void {
+    // Предлагаем подключить источник, от которого прилетел AuthError.
+    // Если id упавшего источника неизвестен — берём приоритетный (низкий
+    // priority пробуются первым в playAt).
+    const failedSource = failedSourceId ? track.sources.find((s) => s.id === failedSourceId) : undefined;
+    const prioritySource =
+      failedSource ??
+      ([...track.sources].sort((a, b) => a.priority - b.priority)[0] as (typeof track.sources)[number] | undefined);
+    const pluginId = prioritySource ? pluginIdFromSource(prioritySource.pluginId) : '';
     if (!pluginId) return;
     const provider = apiClient.getProvider(pluginId);
     const hasRefresh = provider?.hasRefreshToken() ?? false;

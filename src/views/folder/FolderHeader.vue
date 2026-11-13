@@ -34,7 +34,7 @@ defineProps<{
         </span>
         <span v-else-if="isScanning" class="text-xs text-fg-subtle">Сканирование…</span>
 
-        <FolderActionsMenu :folder="currentFolder" :subtree-tracks="subtreeTracks" :current-tracks="currentTracks" />
+        <FolderActionsMenu v-if="currentFolder" :folder="currentFolder" :subtree-tracks="subtreeTracks" :current-tracks="currentTracks" />
       </div>
     </div>
   </div>

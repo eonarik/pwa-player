@@ -19,7 +19,7 @@ interface ProviderRow {
 }
 
 const uiSettings = useUiSettingsStore();
-const { metadataProviderOrder, metadataProviderEnabled } = storeToRefs(uiSettings);
+const { autoFetchMetadata, metadataProviderOrder, metadataProviderEnabled } = storeToRefs(uiSettings);
 
 const allProviders = computed<{ id: string; label: string }[]>(() => {
   const builtin = BUILTIN_METADATA_PROVIDERS.map((id) => ({
@@ -128,7 +128,7 @@ function moveDown(index: number): void {
         v-for="(row, index) in rows"
         :key="row.id"
         class="flex items-center gap-2 bg-card-bg px-3 py-2 rounded-btn transition"
-        :class="row.enabled ? '' : 'opacity-60'"
+        :class="row.enabled && autoFetchMetadata ? '' : 'opacity-60'"
       >
         <button
           type="button"
@@ -169,6 +169,8 @@ function moveDown(index: number): void {
       Нет доступных источников метаданных.
     </div>
 
-    <p v-if="enabledCount === 0" class="text-xs text-amber-400 px-1">Все источники выключены. Автопоиск отключён.</p>
+    <p v-if="autoFetchMetadata && enabledCount === 0" class="text-xs text-amber-400 px-1">
+      Все источники выключены. Автопоиск отключён.
+    </p>
   </div>
 </template>

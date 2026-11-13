@@ -87,7 +87,7 @@ export const usePlayerStore = defineStore('player', () => {
       retryPlayback: () => {
         if (currentIndex.value >= 0) void actions.playAt(currentIndex.value);
       },
-      handleAuthError: (error, track) => actions.handleAuthError(error, track),
+      handleAuthError: (error, track, failedSourceId) => actions.handleAuthError(error, track, failedSourceId),
       skipToNextOnError: actions.skipToNextOnError,
       getIsRestoring: () => isRestoring,
     },
@@ -134,6 +134,11 @@ export const usePlayerStore = defineStore('player', () => {
 
       await applyRestoredPlayback(restored.tracks, restored.currentIndex, (t: number) => {
         currentTime.value = Math.round(t * 10) / 10;
+      }, () => {
+        // Все источники сохранённого трека недоступны после F5 (сессия истекла,
+        // файл удалён, handle потерян). Пробуем следующий playable-трек, иначе
+        // очищаем плеер — не оставляем «залипший» currentTrack без аудио.
+        actions.skipToNextOnError();
       });
 
       return true;

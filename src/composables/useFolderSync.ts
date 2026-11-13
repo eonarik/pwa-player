@@ -1,7 +1,7 @@
 // src/composables/useFolderSync.ts
 
 import { ref, watch, onUnmounted, type Ref } from 'vue';
-import { loadPlugin, pluginIdFromSource } from '@/plugins/registry';
+import { loadPlugin, pluginIdFromSource, setPluginDisconnected } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { isScanning as isFolderScanning } from '@/utils/folderStatus';
 import { syncService } from '@/services/download/SyncService';
@@ -13,18 +13,26 @@ import { logger } from '@/utils/logger';
 export interface UseFolderSyncReturn {
   canRefresh: Ref<boolean>;
   canRefreshFromDevice: Ref<boolean>;
+  /** Идёт полная перезагрузка данных с сервера */
   isRefreshing: Ref<boolean>;
+  /** Идёт загрузка с устройства (scanDownloadDir) */
   isRefreshingFromDevice: Ref<boolean>;
+  /** Идёт быстрая (поверхностная) синхронизация */
   isShallowRefreshing: Ref<boolean>;
+  /** Идёт сканирование папки загрузки устройства */
   isScanning: Ref<boolean>;
+  /** Идёт полное сканирование плагина */
   isPluginScanning: Ref<boolean>;
+  /** Есть проблемы синхронизации, требующие внимания пользователя */
   needsAttention: Ref<boolean>;
   refreshFromCloud: () => Promise<void>;
   refreshFromCloudShallow: () => Promise<void>;
   refreshFromDevice: () => Promise<void>;
 }
 
-export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSyncReturn {
+export function useFolderSync(
+  currentFolder: Ref<FolderRef | null>,
+): UseFolderSyncReturn {
   const canRefresh = ref(false);
   const canRefreshFromDevice = ref(false);
   const isRefreshing = ref(false);
@@ -125,7 +133,17 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
       if (plugin.isDisconnected?.()) {
         toastService.info('Подключение к источнику...');
         const context = createPluginContext(pluginId);
-        await plugin.connect(context);
+        try {
+          await plugin.connect(context);
+        } catch (err) {
+          // OAuth-редирект и отмена пользователем — не ошибка синка.
+          if (err instanceof Error && (err.message === 'cancelled' || err.message === 'redirect')) return;
+          throw err;
+        }
+        // connect() обновил флаги плагина, но кэш disconnected в реестре
+        // (isPluginDisconnected) инвалидируется только через setPluginDisconnected —
+        // иначе playability-оценки треков остаются «needs-reconnect».
+        setPluginDisconnected(pluginId, false);
       }
       if (!plugin.scanFolder) return;
 
@@ -175,7 +193,17 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
       if (plugin.isDisconnected?.()) {
         toastService.info('Подключение к источнику...');
         const context = createPluginContext(pluginId);
-        await plugin.connect(context);
+        try {
+          await plugin.connect(context);
+        } catch (err) {
+          // OAuth-редирект и отмена пользователем — не ошибка синка.
+          if (err instanceof Error && (err.message === 'cancelled' || err.message === 'redirect')) return;
+          throw err;
+        }
+        // connect() обновил флаги плагина, но кэш disconnected в реестре
+        // (isPluginDisconnected) инвалидируется только через setPluginDisconnected —
+        // иначе playability-оценки треков остаются «needs-reconnect».
+        setPluginDisconnected(pluginId, false);
       }
       if (!plugin.scanFolder) return;
 
@@ -208,11 +236,17 @@ export function useFolderSync(currentFolder: Ref<FolderRef | null>): UseFolderSy
     isRefreshingFromDevice.value = true;
     needsAttention.value = false;
     try {
-      await syncService.syncAll();
-      if (syncService.issueCount.value > 0) {
-        toastService.info('Найдены расхождения. Проверьте, что добавить или пометить как «в облаке».');
-      } else {
-        toastService.info('Сканирование устройства завершено');
+      const pluginId = currentFolder.value?.pluginId;
+      if (pluginId) {
+        // Синхронизируем только плагин текущей папки. syncAll() сканировал
+        // все canDownload-плагины: долго, прогресс не привязан к папке,
+        // issueCount смешивал расхождения всех источников.
+        await syncService.scanPlugin(pluginIdFromSource(pluginId));
+        if (syncService.issueCount.value > 0) {
+          toastService.info('Найдены расхождения. Проверьте, что добавить или пометить как «в облаке».');
+        } else {
+          toastService.info('Сканирование устройства завершено');
+        }
       }
     } catch (err) {
       logger.error('[folder-sync] device refresh failed', err);

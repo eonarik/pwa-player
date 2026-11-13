@@ -80,6 +80,7 @@ export function createNavigation(refs: PlayerActionsRefs, helpers: Helpers, erro
     currentTime.value = 0;
 
     let lastError: Error | null = null;
+    let authFailed = false;
 
     for (const source of sortedSources) {
       try {
@@ -89,12 +90,23 @@ export function createNavigation(refs: PlayerActionsRefs, helpers: Helpers, erro
         return;
       } catch (err) {
         if (err instanceof AuthError) {
-          handleAuthError(err, track);
-          return;
+          // Не выходим из цикла: другие источники могут быть живы
+          // (например, yandexDisk с истёкшей сессией + zvuk streaming).
+          handleAuthError(err, track, source.id);
+          authFailed = true;
+          lastError = err;
+          continue;
         }
         lastError = err instanceof Error ? err : new Error(String(err));
         logger.warn(`[player] Source ${source.id} failed, trying next...`, err);
       }
+    }
+
+    if (authFailed) {
+      // Все источники перебраны, ни один не заиграл, но среди падений был
+      // AuthError — тост «Подключить?» уже показан, тишину не добавляем.
+      logger.error('[player] All sources failed for track (auth)', track.id, lastError);
+      return;
     }
 
     logger.error('[player] All sources failed for track', track.id, lastError);

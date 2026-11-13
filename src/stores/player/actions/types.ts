@@ -42,7 +42,7 @@ export interface PlayerActions {
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   handleTrackEnd: () => void;
-  handleAuthError: (error: AuthError, track: Track) => void;
+  handleAuthError: (error: AuthError, track: Track, failedSourceId?: string) => void;
   skipToNextOnError: () => void;
   removeTracksByPlugin: (pluginId: string) => void;
 }

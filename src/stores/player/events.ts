@@ -26,7 +26,7 @@ export interface AudioEventsCallbacks {
   handleTrackEnd: () => void;
   updateTrackDuration: (trackId: TrackId, duration: number) => void;
   retryPlayback: () => void;
-  handleAuthError: (error: import('@/services/api/errors').AuthError, track: Track) => void;
+  handleAuthError: (error: import('@/services/api/errors').AuthError, track: Track, failedSourceId?: string) => void;
   skipToNextOnError: () => void;
   getIsRestoring: () => boolean;
 }
@@ -112,6 +112,11 @@ export function bindAudioEvents(refs: AudioEventsRefs, callbacks: AudioEventsCal
       logger.error('[player] audio error:', message);
       isPlaying.value = false;
       callbacks.stopTimeLoop();
+
+      // Во время восстановления после F5 пользователь ещё не взаимодействовал:
+      // нативный error (например, autoplay-блок, отдающий ошибку через
+      // error-событие) не должен скипать трек — оставляем паузу.
+      if (callbacks.getIsRestoring()) return;
 
       // Никаких тостов здесь: единственный источник тоста
       // «Не удалось воспроизвести трек (все источники недоступны)» — playAt
