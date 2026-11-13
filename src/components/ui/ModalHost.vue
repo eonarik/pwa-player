@@ -3,8 +3,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import { modalService } from '@/services/ui/ModalService';
-import Input from '@/components/ui/Input.vue';
-import Button from '@/components/ui/Button.vue';
+import Input from '@/components/atoms/Input.vue';
+import Button from '@/components/atoms/Button.vue';
 
 const active = modalService.active;
 

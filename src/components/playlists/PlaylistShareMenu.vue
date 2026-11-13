@@ -3,10 +3,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useLibraryStore } from '@/stores/library';
-import IconButton from '@/components/ui/IconButton.vue';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import Button from '@/components/ui/Button.vue';
-import Icon from '@/components/ui/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import Button from '@/components/atoms/Button.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import { toastService } from '@/services/ui/ToastService';
 import { exportToM3U, exportToJSON } from '@/utils/playlistParser';
 import { downloadTextFile } from '@/utils/downloadFile';

@@ -6,9 +6,9 @@ import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { toastService } from '@/services/ui/ToastService';
 import { modalService } from '@/services/ui/ModalService';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import Spinner from '@/components/ui/Spinner.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import type { TextFileRef } from '@/plugins/types';
 import { logger } from '@/utils/logger';
 

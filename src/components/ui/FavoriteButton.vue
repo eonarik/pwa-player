@@ -3,9 +3,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { usePlaylistsStore } from '@/stores/playlists';
-import IconButton from './IconButton.vue';
+import IconButton from '../atoms/IconButton.vue';
 import type { Track } from '@/types/track';
-import Icon from './Icon.vue';
+import Icon from '../atoms/Icon.vue';
 
 const props = withDefaults(
   defineProps<{

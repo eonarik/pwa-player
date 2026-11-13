@@ -9,11 +9,11 @@ import { syncService } from '@/services/download/SyncService';
 import { getPlugins } from '@/plugins/registry';
 import { toastService } from '@/services/ui/ToastService';
 import { themeService, type ThemeId } from '@/services/ui/ThemeService';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import Select from '@/components/ui/Select.vue';
-import Input from '@/components/ui/Input.vue';
-import Checkbox from '@/components/ui/Checkbox.vue';
-import Button from '@/components/ui/Button.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
+import Select from '@/components/atoms/Select.vue';
+import Input from '@/components/atoms/Input.vue';
+import Checkbox from '@/components/atoms/Checkbox.vue';
+import Button from '@/components/atoms/Button.vue';
 import MetadataProvidersList from './MetadataProvidersList.vue';
 
 const uiSettings = useUiSettingsStore();

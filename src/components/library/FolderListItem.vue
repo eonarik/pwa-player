@@ -7,9 +7,9 @@ import { useLibraryStore } from '@/stores/library';
 import { usePlayerStore } from '@/stores/player';
 import { isScanning, isPending, isError, isScanned, getErrorMessage, getProgress } from '@/utils/folderStatus';
 import { pluralize } from '@/utils/pluralize';
-import ListRow from '@/components/ui/ListRow.vue';
-import Icon from '@/components/ui/Icon.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import ListRow from '@/components/molecules/ListRow.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import type { FolderRef } from '@/types/folder';
 import type { IconName } from '@/components/icons';
 

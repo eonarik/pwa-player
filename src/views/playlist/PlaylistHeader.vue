@@ -3,7 +3,7 @@
 <script setup lang="ts">
 import BatchDownloadButton from '@/components/library/BatchDownloadButton.vue';
 import PlaylistShareMenu from '@/components/playlists/PlaylistShareMenu.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import type { Playlist } from '@/types/collection';
 import type { Track } from '@/types/track';
 

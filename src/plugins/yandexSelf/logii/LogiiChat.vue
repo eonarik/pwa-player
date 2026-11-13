@@ -4,10 +4,10 @@
 import { ref, nextTick, watch, onMounted } from 'vue';
 import type { LogiiComment } from './parseLogii';
 import { getNickname, setNickname } from './useLogiiData';
-import IconButton from '@/components/ui/IconButton.vue';
-import Icon from '@/components/ui/Icon.vue';
-import Spinner from '@/components/ui/Spinner.vue';
-import Textarea from '@/components/ui/Textarea.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
+import Textarea from '@/components/atoms/Textarea.vue';
 
 const props = withDefaults(
   defineProps<{

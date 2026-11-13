@@ -14,6 +14,7 @@
 | `stores.md`       | Pinia stores: состояние, действия, подписки                           |
 | `services.md`     | Сервисы ядра: audio, library, metadata, download, persistence, backup |
 | `conventions.md`  | Соглашения проекта: UUID, реляционные связи, именование               |
+| `storybook.md`    | Storybook: слои компонентов, темы, правила написания stories          |
 
 ## Как обновлять
 

@@ -4,9 +4,9 @@
 import { computed, reactive } from 'vue';
 import { syncService } from '@/services/download/SyncService';
 import { useLibraryStore } from '@/stores/library';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import Checkbox from '@/components/ui/Checkbox.vue';
-import Button from '@/components/ui/Button.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import Checkbox from '@/components/atoms/Checkbox.vue';
+import Button from '@/components/atoms/Button.vue';
 import { getPluginName } from '@/plugins/lookup';
 import type { SelectedIssues } from '@/services/download/types';
 import type { TrackId } from '@/types/ids';

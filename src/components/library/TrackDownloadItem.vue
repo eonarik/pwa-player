@@ -2,7 +2,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 const props = defineProps<{
   /** Трек есть в библиотеке — иначе иконка не показывается. */

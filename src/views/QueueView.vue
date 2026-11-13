@@ -7,9 +7,9 @@ import { usePlayerStore } from '@/stores/player';
 import { pluralize } from '@/utils/pluralize';
 import TrackListPage from '@/components/library/TrackListPage.vue';
 import TrackActions from '@/components/library/TrackActions.vue';
-import Button from '@/components/ui/Button.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Button from '@/components/atoms/Button.vue';
+import EmptyState from '@/components/molecules/EmptyState.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { Track } from '@/types/track';
 
 const player = usePlayerStore();

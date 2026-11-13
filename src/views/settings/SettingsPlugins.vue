@@ -7,7 +7,7 @@ import { activatePluginByCode } from '@/plugins/registry';
 import { getAllSettingsSchemas, type PluginSettingsEntry } from '@/plugins/extensions';
 import { toastService } from '@/services/ui/ToastService';
 import PluginSettingsSection from '@/components/settings/PluginSettingsSection.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
 import type { PluginManifest } from '@/plugins/types';
 import { logger } from '@/utils/logger';
 

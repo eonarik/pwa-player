@@ -2,10 +2,10 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import Button from '@/components/ui/Button.vue';
-import Icon from '@/components/ui/Icon.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import Button from '@/components/atoms/Button.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import { toastService } from '@/services/ui/ToastService';
 import {
   parsePlaylistText,

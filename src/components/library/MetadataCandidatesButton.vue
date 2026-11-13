@@ -3,7 +3,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useLibraryStore } from '@/stores/library';
-import IconButton from '@/components/ui/IconButton.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import MetadataCandidatesModal from './MetadataCandidatesModal.vue';
 import RemoteMetadataModal from './RemoteMetadataModal.vue';
 import type { Track } from '@/types/track';

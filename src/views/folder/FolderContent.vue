@@ -9,8 +9,8 @@ import MarkdownText from '@/components/ui/MarkdownText.vue';
 import type { ArtistGroup } from '@/composables/useLibrarySearch';
 import type { Track } from '@/types/track';
 import type { FolderFile } from '@/types/folder';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import Icon from '@/components/ui/Icon.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 const props = defineProps<{
   hasFolders: boolean;

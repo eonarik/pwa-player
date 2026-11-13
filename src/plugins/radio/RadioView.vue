@@ -9,8 +9,8 @@ import { getSavedStations, addSavedStation, removeSavedStation, type SavedStatio
 import RadioSavedList from './RadioSavedList.vue';
 import RadioCatalog from './RadioCatalog.vue';
 import AddStationModal from './AddStationModal.vue';
-import Button from '@/components/ui/Button.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Button from '@/components/atoms/Button.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import { newTrackId, newTrackSourceId } from '@/types/ids';
 import type { Track } from '@/types/track';
 

@@ -10,11 +10,11 @@ import { computed, ref, watch } from 'vue';
 import { useLibraryStore } from '@/stores/library';
 import { metadataService } from '@/services/metadata/MetadataService';
 import { getPluginName } from '@/plugins/lookup';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import Button from '@/components/ui/Button.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import Button from '@/components/atoms/Button.vue';
 import CoverImage from '@/components/ui/CoverImage.vue';
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import Icon from '@/components/ui/Icon.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 

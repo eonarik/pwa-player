@@ -4,8 +4,8 @@
 import { storeToRefs } from 'pinia';
 import { usePlayerStore } from '@/stores/player';
 import { MENU_ITEMS } from '@/navigation/menu';
-import Icon from '@/components/ui/Icon.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import type { MenuItem } from '@/navigation/menu';
 import { getExtensionMenuItems } from '@/plugins/extensions';
 import { computed } from 'vue';

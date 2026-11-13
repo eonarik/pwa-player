@@ -2,10 +2,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import Icon from '@/components/ui/Icon.vue';
-import Input from '@/components/ui/Input.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import Input from '@/components/atoms/Input.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
 import type { RadioSortOrder, RadioTag } from './RadioService';
 
 export type RadioCountryEntry = {

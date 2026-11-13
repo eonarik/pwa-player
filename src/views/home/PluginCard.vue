@@ -1,7 +1,7 @@
 <!-- src/views/home/PluginCard.vue -->
 
 <script setup lang="ts">
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { DisplayPlugin, SessionStatus } from '@/composables/usePluginsList';
 import { computed } from 'vue';
 

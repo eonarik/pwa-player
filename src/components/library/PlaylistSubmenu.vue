@@ -7,7 +7,7 @@ import { usePlaylistsStore } from '@/stores/playlists';
 import { toastService } from '@/services/ui/ToastService';
 import { FAVORITES_PLAYLIST_ID } from '@/types/collection';
 import type { PlaylistId } from '@/types/ids';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { Track } from '@/types/track';
 
 const props = defineProps<{

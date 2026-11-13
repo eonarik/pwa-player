@@ -2,7 +2,7 @@
 
 <script setup lang="ts">
 import type { PluginCollectionAction, CollectionActionProgress } from '@/plugins/types';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 const props = withDefaults(
   defineProps<{

@@ -1,8 +1,8 @@
 <!-- src/plugins/yandexSelf/logii/LogiiAuthorRow.vue -->
 
 <script setup lang="ts">
-import Icon from '@/components/ui/Icon.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import { authorAvatarColor } from './authorColor';
 import type { LogiiAuthorItem } from './useLogiiData';
 

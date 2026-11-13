@@ -4,8 +4,8 @@
 import type { Ref } from 'vue';
 import type { MetadataCandidate } from '@/types/metadata';
 import CoverImage from '@/components/ui/CoverImage.vue';
-import Icon from '@/components/ui/Icon.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import type { FloatingDropdownStyle } from './useFloatingDropdown';
 import { candidateAlbumLabel, candidateSourceLabel, selectedCandidateLabel } from './candidateLabels';
 

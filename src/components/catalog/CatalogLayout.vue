@@ -1,10 +1,10 @@
 <!-- src/components/catalog/CatalogLayout.vue -->
 
 <script setup lang="ts">
-import SearchInput from '@/components/ui/SearchInput.vue';
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import Icon from '@/components/ui/Icon.vue';
+import SearchInput from '@/components/molecules/SearchInput.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 withDefaults(
   defineProps<{

@@ -14,7 +14,7 @@ import { useLogiiRefresh } from './composables/useLogiiRefresh';
 import LogiiAuthorsColumn from './LogiiAuthorsColumn.vue';
 import LogiiFoldersColumn from './LogiiFoldersColumn.vue';
 import LogiiPanel from './LogiiPanel.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 
 const props = defineProps<{
   urlPath: string;

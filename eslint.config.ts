@@ -17,6 +17,7 @@ export default defineConfigWithVueTs(
   // 2. Игнорируем то, что не относится к коду приложения
   globalIgnores([
     '**/dist/**',
+    '**/storybook-static/**', // Storybook build artifacts
     '**/dist-ssr/**',
     '**/coverage/**',
     '**/.storybook/**', // Storybook
@@ -41,7 +42,45 @@ export default defineConfigWithVueTs(
     },
   },
 
-  // 4. Настройки для тестов
+  // 4. Границы слоёв UI: atoms -> molecules -> ui (органимы)
+  //    Атом не знает про сторы/сервисы/плагины и не импоррует молекулы/органимы.
+  //    Молекула не знает про сторы/сервисы/плагины и не импоррует органимы.
+  {
+    name: 'app/ui-layer-atoms',
+    files: ['src/components/atoms/**/*.vue'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@/stores/*'], message: 'Атом не может зависеть от сторов.' },
+            { group: ['@/services/*'], message: 'Атом не может зависеть от сервисов.' },
+            { group: ['@/plugins/*'], message: 'Атом не может зависеть от плагинов.' },
+            { group: ['../molecules/*', '../ui/*'], message: 'Атом не может импортировать молекулы и органимы.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: 'app/ui-layer-molecules',
+    files: ['src/components/molecules/**/*.vue'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@/stores/*'], message: 'Молекула не может зависеть от сторов.' },
+            { group: ['@/services/*'], message: 'Молекула не может зависеть от сервисов.' },
+            { group: ['@/plugins/*'], message: 'Молекула не может зависеть от плагинов.' },
+            { group: ['../ui/*'], message: 'Молекула не может импортировать органимы.' },
+          ],
+        },
+      ],
+    },
+  },
+
+  // 5. Настройки для тестов
   {
     name: 'app/tests',
     files: ['src/**/*.spec.ts', 'src/**/__tests__/*', 'e2e/**/*.ts'],
@@ -52,15 +91,15 @@ export default defineConfigWithVueTs(
     },
   },
 
-  // 5. Правила Vitest
+  // 6. Правила Vitest
   {
     ...pluginVitest.configs.recommended,
     files: ['src/**/__tests__/*', 'src/**/*.spec.ts'],
   },
 
-  // 6. Отключаем правила, которые уже проверил Oxlint
+  // 7. Отключаем правила, которые уже проверил Oxlint
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
-  // 7. Отключаем правила форматирования (Prettier этим занимается)
+  // 8. Отключаем правила форматирования (Prettier этим занимается)
   skipFormatting,
 );

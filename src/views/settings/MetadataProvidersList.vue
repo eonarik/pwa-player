@@ -8,9 +8,9 @@ import { useUiSettingsStore } from '@/stores/uiSettings';
 import { getPlugins } from '@/plugins/registry';
 import { getPluginName } from '@/plugins/lookup';
 import { BUILTIN_METADATA_PROVIDERS } from '@/services/metadata/MetadataService/constants';
-import Icon from '@/components/ui/Icon.vue';
-import IconButton from '@/components/ui/IconButton.vue';
-import Checkbox from '@/components/ui/Checkbox.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import Checkbox from '@/components/atoms/Checkbox.vue';
 
 interface ProviderRow {
   id: string;

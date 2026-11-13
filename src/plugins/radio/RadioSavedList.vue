@@ -1,11 +1,11 @@
 <!-- src/plugins/radio/RadioSavedList.vue -->
 
 <script setup lang="ts">
-import Button from '@/components/ui/Button.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
-import ListContainer from '@/components/ui/ListContainer.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Button from '@/components/atoms/Button.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
+import EmptyState from '@/components/molecules/EmptyState.vue';
+import ListContainer from '@/components/molecules/ListContainer.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { SavedStation } from './index';
 
 const props = defineProps<{

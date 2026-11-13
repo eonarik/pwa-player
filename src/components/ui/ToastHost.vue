@@ -2,8 +2,8 @@
 
 <script setup lang="ts">
 import { toastService } from '@/services/ui/ToastService';
-import Icon from '@/components/ui/Icon.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import type { Toast, ToastType } from '@/services/ui/ToastService';
 
 const toasts = toastService.toasts;

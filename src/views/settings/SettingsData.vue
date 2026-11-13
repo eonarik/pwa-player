@@ -10,9 +10,9 @@ import { backupService, type BackupDomain } from '@/services/backup/BackupServic
 import { toastService } from '@/services/ui/ToastService';
 import { yandexSelfService } from '@/plugins/yandexSelf/YandexSelfService';
 import { downloadTextFile } from '@/utils/downloadFile';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import Checkbox from '@/components/ui/Checkbox.vue';
-import Button from '@/components/ui/Button.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
+import Checkbox from '@/components/atoms/Checkbox.vue';
+import Button from '@/components/atoms/Button.vue';
 import SettingsActionRow from '@/components/ui/SettingsActionRow.vue';
 import { useLibraryStore } from '@/stores/library';
 import { logger } from '@/utils/logger';

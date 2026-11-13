@@ -2,8 +2,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 
 const props = defineProps<{
   canRefresh: boolean;

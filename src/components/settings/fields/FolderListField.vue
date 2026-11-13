@@ -2,7 +2,7 @@
 
 <script setup lang="ts">
 import type { PluginSettingsFolderList } from '@/plugins/settingsTypes';
-import Button from '@/components/ui/Button.vue';
+import Button from '@/components/atoms/Button.vue';
 
 defineProps<{
   field: PluginSettingsFolderList;

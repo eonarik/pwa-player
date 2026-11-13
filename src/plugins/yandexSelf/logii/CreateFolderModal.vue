@@ -2,11 +2,11 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import FormField from '@/components/ui/FormField.vue';
-import InputWithAffix from '@/components/ui/InputWithAffix.vue';
-import Button from '@/components/ui/Button.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import FormField from '@/components/molecules/FormField.vue';
+import InputWithAffix from '@/components/molecules/InputWithAffix.vue';
+import Button from '@/components/atoms/Button.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import { modalService } from '@/services/ui/ModalService';
 import { logger } from '@/utils/logger';
 

@@ -7,7 +7,7 @@ import TextField from './fields/TextField.vue';
 import NumberField from './fields/NumberField.vue';
 import ToggleField from './fields/ToggleField.vue';
 import FolderListField from './fields/FolderListField.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
 
 defineProps<{
   section: PluginSettingsSection;

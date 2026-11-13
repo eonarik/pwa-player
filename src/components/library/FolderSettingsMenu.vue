@@ -3,9 +3,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { useUiSettingsStore } from '@/stores/uiSettings';
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import Checkbox from '@/components/ui/Checkbox.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import Checkbox from '@/components/atoms/Checkbox.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 
 const uiSettings = useUiSettingsStore();
 const { showSource, showFiles, autoFetchMetadata, autoDownloadTracks } = storeToRefs(uiSettings);

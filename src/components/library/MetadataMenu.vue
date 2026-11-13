@@ -1,8 +1,8 @@
 <!-- src/components/library/MetadataMenu.vue -->
 
 <script setup lang="ts">
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import Icon from '@/components/ui/Icon.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 defineProps<{
   isLoading: boolean;

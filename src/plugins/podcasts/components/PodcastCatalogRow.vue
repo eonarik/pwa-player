@@ -2,7 +2,7 @@
 
 <script setup lang="ts">
 import AddRemoveButton from '@/components/ui/AddRemoveButton.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { Podcast } from '../types';
 
 defineProps<{

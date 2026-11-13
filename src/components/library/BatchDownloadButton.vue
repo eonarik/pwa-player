@@ -3,8 +3,8 @@
 <script setup lang="ts">
 import { computed, toRef } from 'vue';
 import { useBatchDownload } from '@/composables/useBatchDownload';
-import Button from '@/components/ui/Button.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Button from '@/components/atoms/Button.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { Track } from '@/types/track';
 
 const props = defineProps<{

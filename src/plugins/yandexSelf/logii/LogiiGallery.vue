@@ -2,9 +2,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import Icon from '@/components/ui/Icon.vue';
-import IconButton from '@/components/ui/IconButton.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import { toastService } from '@/services/ui/ToastService';
 import { yandexSelfService } from '../YandexSelfService';
 import { loadPlugin } from '@/plugins/registry';

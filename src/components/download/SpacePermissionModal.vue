@@ -4,8 +4,8 @@
 import { ref } from 'vue';
 import { downloadSpaceService } from '@/services/download/DownloadSpaceService';
 import { toastService } from '@/services/ui/ToastService';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import Button from '@/components/ui/Button.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import Button from '@/components/atoms/Button.vue';
 
 const emit = defineEmits<{
   (e: 'close'): void;

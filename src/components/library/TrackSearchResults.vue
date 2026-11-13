@@ -5,7 +5,7 @@ import type { ArtistGroup } from '@/composables/useLibrarySearch';
 import type { Track } from '@/types/track';
 import TrackListItem from './TrackListItem.vue';
 import TrackActions from './TrackActions.vue';
-import ListContainer from '@/components/ui/ListContainer.vue';
+import ListContainer from '@/components/molecules/ListContainer.vue';
 
 const props = defineProps<{
   groups: ArtistGroup[];

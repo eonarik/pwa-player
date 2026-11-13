@@ -6,12 +6,12 @@ import { toastService } from '@/services/ui/ToastService';
 import { podcastService } from './PodcastService';
 import { addSubscription, isSubscribed } from './PodcastStorage';
 import { parseOpml } from './parseOpml';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import FormField from '@/components/ui/FormField.vue';
-import Input from '@/components/ui/Input.vue';
-import Button from '@/components/ui/Button.vue';
-import Spinner from '@/components/ui/Spinner.vue';
-import ProgressBar from '@/components/ui/ProgressBar.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import FormField from '@/components/molecules/FormField.vue';
+import Input from '@/components/atoms/Input.vue';
+import Button from '@/components/atoms/Button.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
+import ProgressBar from '@/components/molecules/ProgressBar.vue';
 import { logger } from '@/utils/logger';
 
 const emit = defineEmits<{

@@ -2,13 +2,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import SearchInput from '@/components/ui/SearchInput.vue';
+import SearchInput from '@/components/molecules/SearchInput.vue';
 import FolderSortMenu from '@/components/library/FolderSortMenu.vue';
 import FolderSyncMenu from '@/components/library/FolderSyncMenu.vue';
 import FolderSettingsMenu from '@/components/library/FolderSettingsMenu.vue';
 import MetadataMenu from '@/components/library/MetadataMenu.vue';
 import MetadataCandidatesButton from '@/components/library/MetadataCandidatesButton.vue';
-import Divider from '@/components/ui/Divider.vue';
+import Divider from '@/components/atoms/Divider.vue';
 import type { Track } from '@/types/track';
 
 const props = defineProps<{

@@ -11,8 +11,8 @@ import TrackListPage from '@/components/library/TrackListPage.vue';
 import ShowSourceCheckbox from '@/components/ui/ShowSourceCheckbox.vue';
 import type { Track } from '@/types/track';
 import type { AlbumId } from '@/types/ids';
-import EmptyState from '@/components/ui/EmptyState.vue';
-import Icon from '@/components/ui/Icon.vue';
+import EmptyState from '@/components/molecules/EmptyState.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 const route = useRoute();
 const library = useLibraryStore();

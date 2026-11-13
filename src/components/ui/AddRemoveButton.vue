@@ -1,7 +1,7 @@
 <!-- src/components/ui/AddRemoveButton.vue -->
 
 <script setup lang="ts">
-import IconButton from './IconButton.vue';
+import IconButton from '../atoms/IconButton.vue';
 
 withDefaults(
   defineProps<{

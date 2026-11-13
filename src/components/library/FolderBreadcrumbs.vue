@@ -5,7 +5,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useLibraryStore } from '@/stores/library';
-import IconButton from '@/components/ui/IconButton.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import { urlPathToSegments } from '@/utils/urlPath';
 import type { FolderRef } from '@/types/folder';
 

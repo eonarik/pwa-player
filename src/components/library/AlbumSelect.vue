@@ -3,7 +3,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useLibraryStore } from '@/stores/library';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import CoverImage from '@/components/ui/CoverImage.vue';
 import type { Album } from '@/types/album';
 

@@ -1,8 +1,8 @@
 <!-- src/components/library/FileListItem.vue -->
 
 <script setup lang="ts">
-import ListRow from '@/components/ui/ListRow.vue';
-import Icon from '@/components/ui/Icon.vue';
+import ListRow from '@/components/molecules/ListRow.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { TextFileRef } from '@/plugins/types';
 
 defineProps<{

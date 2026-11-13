@@ -1,8 +1,8 @@
 <!-- src/components/library/BatchAddToPlaylistButton.vue -->
 
 <script setup lang="ts">
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import IconButton from '@/components/ui/IconButton.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 import PlaylistSubmenu from './PlaylistSubmenu.vue';
 import type { Track } from '@/types/track';
 

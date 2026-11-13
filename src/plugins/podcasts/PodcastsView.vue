@@ -7,10 +7,10 @@ import { usePlayerStore } from '@/stores/player';
 import { getSubscriptions, removeSubscription } from './PodcastStorage';
 import type { Subscription } from './types';
 import { PLUGIN_ID } from './constants';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import Button from '@/components/ui/Button.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
-import Icon from '@/components/ui/Icon.vue';
+import SectionTitle from '@/components/molecules/SectionTitle.vue';
+import Button from '@/components/atoms/Button.vue';
+import EmptyState from '@/components/molecules/EmptyState.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import AddPodcastModal from './AddPodcastModal.vue';
 import { episodeToTrack } from './episodeTrack';
 

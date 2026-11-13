@@ -28,8 +28,8 @@ import SpacePermissionModal from '@/components/download/SpacePermissionModal.vue
 import AppDrawer from '@/components/layout/AppDrawer.vue';
 import FeedbackModal from '@/components/ui/FeedbackModal.vue';
 import AppLoader from '@/components/layout/AppLoader.vue';
-import IconButton from '@/components/ui/IconButton.vue';
-import Icon from '@/components/ui/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import { telemetry } from '@/services/telemetry';
 import type { AlbumId, PlaylistId } from '@/types/ids';
 

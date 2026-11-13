@@ -4,14 +4,14 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { usePlayerStore } from '@/stores/player';
 import { zvukService, type ZvukTrack, type ZvukSearchType } from './ZvukService';
-import SearchInput from '@/components/ui/SearchInput.vue';
-import PageHeader from '@/components/ui/PageHeader.vue';
+import SearchInput from '@/components/molecules/SearchInput.vue';
+import PageHeader from '@/components/molecules/PageHeader.vue';
 import TrackRow from '@/components/library/TrackRow.vue';
 import TrackActions from '@/components/library/TrackActions.vue';
 import BatchAddToPlaylistButton from '@/components/library/BatchAddToPlaylistButton.vue';
-import Icon from '@/components/ui/Icon.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import EmptyState from '@/components/molecules/EmptyState.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import { newTrackId, newTrackSourceId } from '@/types/ids';
 import type { Track } from '@/types/track';
 

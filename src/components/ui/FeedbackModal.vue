@@ -3,11 +3,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { toastService } from '@/services/ui/ToastService';
-import ModalLayout from './ModalLayout.vue';
-import Button from './Button.vue';
-import FormField from './FormField.vue';
-import Input from './Input.vue';
-import Textarea from './Textarea.vue';
+import ModalLayout from '../molecules/ModalLayout.vue';
+import Button from '../atoms/Button.vue';
+import FormField from '../molecules/FormField.vue';
+import Input from '../atoms/Input.vue';
+import Textarea from '../atoms/Textarea.vue';
 import { logger } from '@/utils/logger';
 
 const emit = defineEmits<{

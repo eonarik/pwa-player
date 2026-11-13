@@ -14,8 +14,8 @@ import PlayerProgressBar from './PlayerProgressBar.vue';
 import CoverImage from '@/components/ui/CoverImage.vue';
 import DislikeButton from '@/components/ui/DislikeButton.vue';
 import FavoriteButton from '@/components/ui/FavoriteButton.vue';
-import IconButton from '@/components/ui/IconButton.vue';
-import Icon from '@/components/ui/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 defineProps<{
   title: string;

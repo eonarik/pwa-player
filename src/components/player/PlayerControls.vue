@@ -8,8 +8,8 @@ import { isLinearContent, isLiveStream } from '@/plugins/registry';
 import PlayerProgressBar from './PlayerProgressBar.vue';
 import NowPlayingInfo from './NowPlayingInfo.vue';
 import TrackReactionButtons from '../ui/TrackReactionButtons.vue';
-import IconButton from '@/components/ui/IconButton.vue';
-import Icon from '@/components/ui/Icon.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 const emit = defineEmits<{
   (e: 'open'): void;

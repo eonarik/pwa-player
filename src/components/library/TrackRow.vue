@@ -2,10 +2,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import ListRow from '@/components/ui/ListRow.vue';
-import PlayingIndicator from '@/components/ui/PlayingIndicator.vue';
+import ListRow from '@/components/molecules/ListRow.vue';
+import PlayingIndicator from '@/components/atoms/PlayingIndicator.vue';
 import TrackCover from '@/components/ui/TrackCover.vue';
-import Spinner from '@/components/ui/Spinner.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
 import { useDislikesStore } from '@/stores/dislikes';
 import { useTrackDisplay } from '@/composables/useTrackDisplay';
 import { downloadOrchestrator } from '@/services/download/DownloadOrchestrator';

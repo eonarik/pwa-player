@@ -4,7 +4,7 @@
 import { computed } from 'vue';
 import { useDislikesStore } from '@/stores/dislikes';
 import { usePlayerStore } from '@/stores/player';
-import IconButton from './IconButton.vue';
+import IconButton from '../atoms/IconButton.vue';
 import type { Track } from '@/types/track';
 
 const props = withDefaults(

@@ -4,7 +4,7 @@
 import { ref } from 'vue';
 import { pwaService } from '@/services/pwa/PwaService';
 import { toastService } from '@/services/ui/ToastService';
-import Button from '@/components/ui/Button.vue';
+import Button from '@/components/atoms/Button.vue';
 
 const appVersion = __APP_VERSION__;
 const buildHash = __BUILD_HASH__;

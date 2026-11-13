@@ -7,7 +7,7 @@ import { type SavedStation } from './index';
 import RadioFilters, { type RadioCountryEntry } from './RadioFilters.vue';
 import CatalogLayout from '@/components/catalog/CatalogLayout.vue';
 import AddRemoveButton from '@/components/ui/AddRemoveButton.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 
 const props = defineProps<{
   savedStationIds: Set<string>;

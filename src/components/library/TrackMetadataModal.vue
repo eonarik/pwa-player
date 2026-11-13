@@ -3,12 +3,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
 import { useLibraryStore } from '@/stores/library';
-import AutocompleteInput from '@/components/ui/AutocompleteInput.vue';
+import AutocompleteInput from '@/components/molecules/AutocompleteInput.vue';
 import AlbumSelect from '@/components/library/AlbumSelect.vue';
-import ModalLayout from '@/components/ui/ModalLayout.vue';
-import FormField from '@/components/ui/FormField.vue';
-import Input from '@/components/ui/Input.vue';
-import Button from '@/components/ui/Button.vue';
+import ModalLayout from '@/components/molecules/ModalLayout.vue';
+import FormField from '@/components/molecules/FormField.vue';
+import Input from '@/components/atoms/Input.vue';
+import Button from '@/components/atoms/Button.vue';
 import MetadataCandidateDropdown from './metadata/MetadataCandidateDropdown.vue';
 import { useFloatingDropdown } from './metadata/useFloatingDropdown';
 import { useMetadataCandidates } from './metadata/useMetadataCandidates';

@@ -5,7 +5,7 @@ import { computed } from 'vue';
 import { useLibraryStore } from '@/stores/library';
 import TrackRow from './TrackRow.vue';
 import TrackActions from './TrackActions.vue';
-import Icon from '@/components/ui/Icon.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import type { Track } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 

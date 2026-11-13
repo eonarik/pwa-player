@@ -2,9 +2,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import Icon from '@/components/ui/Icon.vue';
-import Spinner from '@/components/ui/Spinner.vue';
-import Textarea from '@/components/ui/Textarea.vue';
+import Icon from '@/components/atoms/Icon.vue';
+import Spinner from '@/components/atoms/Spinner.vue';
+import Textarea from '@/components/atoms/Textarea.vue';
 
 const props = defineProps<{
   vibe: string;

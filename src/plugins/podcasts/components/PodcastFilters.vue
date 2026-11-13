@@ -1,8 +1,8 @@
 <!-- src/plugins/podcasts/components/PodcastFilters.vue -->
 
 <script setup lang="ts">
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import Icon from '@/components/ui/Icon.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import { PODCAST_COUNTRIES as COUNTRIES, PODCAST_GENRES as GENRES } from '../constants';
 
 defineProps<{

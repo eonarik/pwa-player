@@ -1,7 +1,7 @@
 <!-- src/plugins/yandexSelf/logii/LogiiPanelHeader.vue -->
 
 <script setup lang="ts">
-import IconButton from '@/components/ui/IconButton.vue';
+import IconButton from '@/components/atoms/IconButton.vue';
 
 export type LogiiTab = 'track' | 'chat' | 'gallery';
 

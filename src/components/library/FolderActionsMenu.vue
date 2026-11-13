@@ -3,8 +3,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import DropdownMenu from '@/components/ui/DropdownMenu.vue';
-import Icon from '@/components/ui/Icon.vue';
+import DropdownMenu from '@/components/molecules/DropdownMenu.vue';
+import Icon from '@/components/atoms/Icon.vue';
 import { getExtensionFolderActions } from '@/plugins/extensions';
 import { toastService } from '@/services/ui/ToastService';
 import { urlPathToSegments } from '@/utils/urlPath';
@@ -13,8 +13,8 @@ import { useBatchDownload } from '@/composables/useBatchDownload';
 import type { FolderRef } from '@/types/folder';
 import type { Track } from '@/types/track';
 import type { PluginFolderAction } from '@/plugins/types';
-import Divider from '../ui/Divider.vue';
-import IconButton from '../ui/IconButton.vue';
+import Divider from '../atoms/Divider.vue';
+import IconButton from '../atoms/IconButton.vue';
 import { logger } from '@/utils/logger';
 
 const props = defineProps<{
