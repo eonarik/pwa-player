@@ -14,6 +14,8 @@ export interface ScanFolderDeps {
   pluginId: string;
   service: IYandexService;
   storage: PluginStorage;
+  /** Значение по умолчанию для ScanFolderOptions.fileExcludeKinds (Логии: []). */
+  fileExcludeKinds?: Array<'audio'>;
 }
 
 export function canForceScan(folderId: FolderId, writer: LibraryWriter): boolean {
@@ -80,6 +82,7 @@ export async function scanFolderImpl(
 ): Promise<PluginSnapshot> {
   const { pluginId, service, storage } = deps;
   const writer = context.writer;
+  const fileExcludeKinds = options.fileExcludeKinds ?? deps.fileExcludeKinds;
 
   const basePathMap = buildFullPathMap(storage, writer, pluginId);
   storage.setPathMap(basePathMap);
@@ -157,6 +160,8 @@ export async function scanFolderImpl(
             await writer.setLibrary({ folders, tracks }, pluginId);
             await applyLocalMatchesForFolders(pluginId, context, folders);
           },
+      ...(options.onAfterFileScan ? { onAfterFileScan: options.onAfterFileScan } : {}),
+      ...(options.onAfterFolderScan ? { onAfterFolderScan: options.onAfterFolderScan } : {}),
     };
 
     const { snapshot, pathMap: newPaths } = await scanAll(pluginId, service, basePathMap, folderId, remotePath, {
@@ -166,6 +171,7 @@ export async function scanFolderImpl(
       startFolderName,
       startParentId: folder?.parentId ?? null,
       isFolderScanned: (id) => writer.getFolder(id)?.scanState === 'scanned',
+      ...(fileExcludeKinds ? { fileExcludeKinds } : {}),
     });
 
     storage.setPathMap({ ...storage.getPathMap(), ...newPaths });

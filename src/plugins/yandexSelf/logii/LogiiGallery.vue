@@ -7,6 +7,7 @@ import IconButton from '@/components/atoms/IconButton.vue';
 import Spinner from '@/components/atoms/Spinner.vue';
 import { toastService } from '@/services/ui/ToastService';
 import { yandexSelfService } from '../YandexSelfService';
+import { markPendingDelete } from './composables/useLogiiChanges';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import type { LogiiTrackItem } from './useLogiiData';
@@ -139,6 +140,8 @@ async function onDeleteImage(index: number, e: MouseEvent): Promise<void> {
 
   try {
     const remotePath = `${props.folder.urlPath}/${image.name}`;
+    // CUEI-0022: штатное удаление картинки не должно попадать в removed-события
+    markPendingDelete(remotePath);
     await yandexSelfService.removeResource(remotePath);
 
     const plugin = await loadPlugin('yandex-self');

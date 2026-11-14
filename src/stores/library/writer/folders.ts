@@ -12,6 +12,19 @@ export function setFolders(s: LibraryStore, folders: PluginFolderPayload[], sour
   for (const folder of folders) {
     const existing = s.folders[folder.id];
 
+    // Фолбэк на существующие files нужен для resume-скана облачных плагинов:
+    // 1) skipScanned пропускает scanned-папки, и они не попадают в снимок (scan.ts).
+    // 2) onChunk может прислать partial-снимок без scanState, но папка уже scanned.
+    // В обоих случаях пустой files из снимка не должен затирать известное содержимое.
+    // Ядро (local) и force-скан отдают scanState undefined / 'pending' — там files: []
+    // означает реально пустую папку, фолбэк не применяется.
+    const isExistingScanned = existing?.scanState === 'scanned';
+    const isIncomingScanned = folder.scanState === 'scanned';
+    const keepExistingFiles =
+      isExistingScanned &&
+      (isIncomingScanned || folder.scanState === undefined) &&
+      (!folder.files || folder.files.length === 0);
+
     s.folders[folder.id] = {
       id: folder.id,
       pluginId: sourceId,
@@ -19,7 +32,7 @@ export function setFolders(s: LibraryStore, folders: PluginFolderPayload[], sour
       parentId: folder.parentId,
       urlPath: folder.urlPath,
       trackIds: existing?.trackIds ?? folder.trackIds ?? [],
-      files: folder.files ?? existing?.files ?? [],
+      files: keepExistingFiles ? existing.files : folder.files ?? existing?.files ?? [],
       scanState: existing?.scanState ?? folder.scanState ?? 'pending',
       scanProgress: existing?.scanProgress,
       scanError: existing?.scanError,

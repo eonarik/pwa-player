@@ -1,6 +1,7 @@
 <!-- src/plugins/yandexSelf/logii/LogiiAuthorRow.vue -->
 
 <script setup lang="ts">
+import { ref, watch } from 'vue';
 import Icon from '@/components/atoms/Icon.vue';
 import IconButton from '@/components/atoms/IconButton.vue';
 import { authorAvatarColor } from './authorColor';
@@ -14,6 +15,7 @@ const props = withDefaults(
     hasTracks: boolean;
     isAuthorCurrent: boolean;
     isAuthorPlaying: boolean;
+    isNavigated: boolean;
   }>(),
   {},
 );
@@ -47,15 +49,59 @@ function initialOf(name: string): string {
 function avatarColor(): string {
   return authorAvatarColor(props.author.folderName);
 }
+
+// --- Teleport-кнопки: позиционирование относительно строки ---
+
+const rowRef = ref<HTMLElement | null>(null);
+const buttonPos = ref<{ x: number; y: number } | null>(null);
+const isHovering = ref(false);
+
+function updatePosition(): void {
+  if (!rowRef.value) {
+    buttonPos.value = null;
+    return;
+  }
+  const rect = rowRef.value.getBoundingClientRect();
+  buttonPos.value = {
+    x: rect.right,
+    y: rect.top + rect.height / 2,
+  };
+}
+
+function onRowEnter(): void {
+  isHovering.value = true;
+  updatePosition();
+}
+
+function onRowLeave(): void {
+  isHovering.value = false;
+}
+
+function onScrollOrResize(): void {
+  updatePosition();
+}
+
+watch(() => rowRef.value, () => {
+  updatePosition();
+});
+
+window.addEventListener('scroll', onScrollOrResize, true);
+window.addEventListener('resize', onScrollOrResize);
 </script>
 
 <template>
-  <div class="group relative" :data-testid="rowTestId()">
+  <div
+    ref="rowRef"
+    class="group relative"
+    :data-testid="rowTestId()"
+    @mouseenter="onRowEnter"
+    @mouseleave="onRowLeave"
+  >
     <button
       type="button"
-      class="flex w-full items-center rounded-btn transition"
+      class="flex w-full items-center rounded-btn border-l-2 border-transparent transition"
       :class="[
-        isAuthorCurrent ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg',
+        isNavigated ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg',
         isCollapsed ? 'justify-center px-1 py-2' : 'gap-2 px-2 py-1.5',
       ]"
       :title="isCollapsed ? author.folderName : undefined"
@@ -97,28 +143,38 @@ function avatarColor(): string {
       <span v-if="!isCollapsed" class="truncate text-sm">{{ author.folderName }}</span>
     </button>
 
-    <div
-      v-if="!isCollapsed"
-      class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pr-1 opacity-0 transition group-hover:opacity-100 bg-bg-elevated/80"
-    >
-      <IconButton
-        icon="pencil"
-        variant="ghost"
-        size="md"
-        label="Переименовать автора"
-        :disabled="isWriting"
-        :data-testid="renameTestId()"
-        @click="emit('rename', $event)"
-      />
-      <IconButton
-        icon="trash"
-        variant="danger"
-        size="md"
-        label="Удалить автора"
-        :disabled="isWriting"
-        :data-testid="deleteTestId()"
-        @click="emit('delete', $event)"
-      />
-    </div>
+    <!-- Кнопки переименования/удаления, телепортированные в body -->
+    <Teleport to="body">
+      <div
+        v-if="isHovering && !isCollapsed && buttonPos"
+        class="fixed z-[100] flex items-center gap-0.5 rounded-l-btn bg-bg-elevated transition-opacity duration-200"
+        :style="{
+          left: buttonPos.x + 'px',
+          top: buttonPos.y + 'px',
+          transform: 'translateY(-50%)',
+        }"
+        @mouseenter="isHovering = true"
+        @mouseleave="isHovering = false"
+      >
+        <IconButton
+          icon="pencil"
+          variant="ghost"
+          size="md"
+          label="Переименовать автора"
+          :disabled="isWriting"
+          :data-testid="renameTestId()"
+          @click="emit('rename', $event)"
+        />
+        <IconButton
+          icon="trash"
+          variant="danger"
+          size="md"
+          label="Удалить автора"
+          :disabled="isWriting"
+          :data-testid="deleteTestId()"
+          @click="emit('delete', $event)"
+        />
+      </div>
+    </Teleport>
   </div>
 </template>

@@ -9,6 +9,8 @@ export interface DiskItem {
   name: string;
   path: string;
   isAudio?: boolean;
+  modified?: string;
+  size?: number;
 }
 
 export const VIBE_CONTENT = `Вайб трека
@@ -79,6 +81,8 @@ export async function mockLogii(page: Page, options: LogiiMockOptions): Promise<
           name: i.name,
           path: i.path,
           isAudio: i.isAudio ?? false,
+          modified: i.modified,
+          size: i.size,
         })),
       }),
     });
@@ -403,13 +407,12 @@ export async function openFolder(page: Page, folderName: string): Promise<void> 
   await page.getByText(folderName, { exact: true }).first().click();
 }
 
-const TAB_IDS: Record<'Трек' | 'Чат' | 'Галерея', string> = {
+const TAB_IDS: Record<'Трек' | 'Галерея', string> = {
   Трек: 'track',
-  Чат: 'chat',
   Галерея: 'gallery',
 };
 
-export async function clickTab(page: Page, tab: 'Трек' | 'Чат' | 'Галерея'): Promise<void> {
+export async function clickTab(page: Page, tab: 'Трек' | 'Галерея'): Promise<void> {
   await page.getByTestId(`logii-tab-${TAB_IDS[tab]}`).click();
 }
 

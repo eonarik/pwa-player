@@ -32,7 +32,7 @@ function onConfirm() {
 
   if (opts.type === 'input') {
     modalService.confirm(inputValue.value);
-  } else if (opts.type === 'confirm') {
+  } else if (opts.type === 'confirm' || opts.type === 'custom') {
     modalService.confirm(true);
   }
 }
@@ -63,7 +63,15 @@ function onKeydown(e: KeyboardEvent) {
       @click="onBackdropClick"
       @keydown="onKeydown"
     >
-      <component :is="options.component" v-if="options.type === 'custom' && options.component" v-bind="options.props" />
+      <component
+        :is="options.component"
+        v-if="options.type === 'custom' && options.component"
+        :key="active!.id"
+        v-bind="options.props"
+        @close="onCancel"
+        @cancel="onCancel"
+        @confirm="onConfirm"
+      />
 
       <form v-else class="w-full max-w-sm bg-bg-elevated p-5 shadow-xl rounded-card" @submit.prevent="onConfirm">
         <div class="mb-1 flex items-start justify-between gap-4">

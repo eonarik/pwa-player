@@ -97,6 +97,6 @@ src/plugins/<plugin-name>/
 ## Релизы
 
 - Версия в `package.json` semver.
-- Changelog: `changelog/<номер>.md` для каждого релиза + сводный `CHANGELOG.md`.
+- Changelog: `changelog/<номер>.md` для каждого релиза + сводный `CHANGELOG.md`. Патч-релизы кладутся в файл минорной версии (0.19.2 → `changelog/0.19.md`), отдельных файлов для патчей не создаем.
 - Структура проекта обновляется через `yarn tree-generate` → `docs/STRUCTURE.md`.
 - AST-манифест документации: `yarn docs:manifest` → `docs/.manifest.json`.

@@ -14,6 +14,10 @@ export interface FolderFile {
   urlPath: string;
   ext: string;
   url?: string;
+  /** ISO-дата изменения файла из источника (для детекции изменений в Логиях). */
+  modified?: string | null;
+  /** Размер файла в байтах (для детекции изменений). */
+  size?: number;
 }
 
 export interface FolderRef {

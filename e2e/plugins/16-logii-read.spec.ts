@@ -51,7 +51,7 @@ test.describe('Logii: read-only (навигация + intro + vibe + чат + г
 
     // Входим в сезон
     await openLogiiSeason(page, '2024-11-08');
-    await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/${SEASON.replace('.', '\\.')}$`));
+    await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/${SEASON.replace('.', '.')}$`));
 
     // Авторы видны
     await expect(page.getByText('userA', { exact: true }).first()).toBeVisible();
@@ -59,7 +59,11 @@ test.describe('Logii: read-only (навигация + intro + vibe + чат + г
 
     // Входим к userA
     await openAuthor(page, 'userA');
-    await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/${SEASON.replace('.', '\\.')}/userA$`));
+    await expect(page).toHaveURL(new RegExp(`/folder/yandex-self/${SEASON.replace('.', '.')}/userA$`));
+
+    // Ждём завершения синхронизации (scanFolder с дебаунсом 500 мс).
+    // Intro-файл появится после скана папки автора.
+    await expect(page.getByTestId('logii-folder-intro')).toBeVisible({ timeout: 15000 });
 
     // Intro (имя файла) и топ-папка "1" видны в колонке 2
     await expect(page.getByText('intro.logii.txt', { exact: true }).first()).toBeVisible();
@@ -73,6 +77,10 @@ test.describe('Logii: read-only (навигация + intro + vibe + чат + г
   test('чат в intro содержит комментарии intro', async ({ page }) => {
     await openLogiiSeason(page, '2024-11-08');
     await openAuthor(page, 'userA');
+
+    // Ждём завершения синхронизации после входа в автора.
+    await expect(page.getByTestId('logii-folder-intro')).toBeVisible({ timeout: 15000 });
+
     await page.getByText('intro.logii.txt', { exact: true }).first().click();
 
     // В intro-режиме табы не рендерятся (LogiiPanel.vue: `v-if="!isIntro"`).
@@ -86,14 +94,12 @@ test.describe('Logii: read-only (навигация + intro + vibe + чат + г
     await openAuthor(page, 'userA');
     await openFolder(page, '1');
 
-    // Таб "Трек" по умолчанию — видим vibe и трек
+    // В табе "Трек" по умолчанию — видим vibe и трек и чат сразу (без переключения табов)
     await expect(page.getByText('Вайб трека')).toBeVisible();
     await expect(page.getByText('track1', { exact: false })).toBeVisible();
 
-    // Чат
-    await clickTab(page, 'Чат');
+    // Чат на том же экране
     await expect(page.getByText('Первый комментарий')).toBeVisible();
-    await expect(page.getByText('Привет!')).toHaveCount(0);
 
     // Галерея
     await clickTab(page, 'Галерея');

@@ -3,7 +3,7 @@
 <script setup lang="ts">
 import IconButton from '@/components/atoms/IconButton.vue';
 
-export type LogiiTab = 'track' | 'chat' | 'gallery';
+export type LogiiTab = 'track' | 'gallery';
 
 defineProps<{
   authorName: string | null;
@@ -27,11 +27,10 @@ const emit = defineEmits<{
 
 const TABS: Array<{ id: LogiiTab; label: string }> = [
   { id: 'track', label: 'Трек' },
-  { id: 'chat', label: 'Чат' },
   { id: 'gallery', label: 'Галерея' },
 ];
 
-function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery: number }): number {
+function countFor(tab: LogiiTab, counts: { track: number; gallery: number }): number {
   return counts[tab];
 }
 </script>
@@ -77,6 +76,8 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
       @click="emit('refresh')"
     />
 
+    <slot name="header-actions" />
+
     <div v-if="!isIntro" class="flex shrink-0 gap-1">
       <button
         v-for="tab in TABS"
@@ -90,11 +91,11 @@ function countFor(tab: LogiiTab, counts: { track: number; chat: number; gallery:
       >
         <span>{{ tab.label }}</span>
         <span
-          v-if="countFor(tab.id, { track: trackCount, chat: chatCount, gallery: galleryCount }) > 0"
+          v-if="countFor(tab.id, { track: trackCount, gallery: galleryCount }) > 0"
           class="rounded-full bg-hover-bg px-1.5 py-0.5 text-[10px] tabular-nums"
           :class="activeTab === tab.id ? 'bg-active/20 text-active' : 'text-fg-muted'"
         >
-          {{ countFor(tab.id, { track: trackCount, chat: chatCount, gallery: galleryCount }) }}
+          {{ countFor(tab.id, { track: trackCount, gallery: galleryCount }) }}
         </span>
       </button>
     </div>

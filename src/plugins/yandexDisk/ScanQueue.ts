@@ -14,6 +14,8 @@ export interface ScanQueueDeps {
   storage: PluginStorage;
   context: PluginContext;
   onLibraryUpdate: (snapshot: PluginSnapshot) => Promise<void>;
+  /** Файлы, которые НЕ попадают в files снимка (см. ScanAllOptions). */
+  fileExcludeKinds?: Array<'audio'>;
 }
 
 export class ScanQueue {
@@ -187,6 +189,7 @@ export class ScanQueue {
               startFolderName: folder.name,
               startParentId: folder.parentId ?? null,
               isFolderScanned: (id) => this.isFolderScanned(id),
+              ...(this.deps.fileExcludeKinds ? { fileExcludeKinds: this.deps.fileExcludeKinds } : {}),
             },
           );
 

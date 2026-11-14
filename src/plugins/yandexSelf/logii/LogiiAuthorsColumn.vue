@@ -60,6 +60,10 @@ function onPlayAuthor(author: LogiiAuthorItem, e: MouseEvent): void {
   e.stopPropagation();
   emit('play-author', author);
 }
+
+function isAuthorNavigated(author: LogiiAuthorItem): boolean {
+  return props.currentAuthorName === author.folderName;
+}
 </script>
 
 <template>
@@ -107,6 +111,7 @@ function onPlayAuthor(author: LogiiAuthorItem, e: MouseEvent): void {
           :has-tracks="hasTracks(a.urlPath)"
           :is-author-current="isAuthorCurrent(a.urlPath)"
           :is-author-playing="isAuthorPlaying(a.urlPath)"
+          :is-navigated="isAuthorNavigated(a)"
           @select="emit('select', a)"
           @play="onPlayAuthor(a, $event)"
           @rename="openRenameModal(a)"

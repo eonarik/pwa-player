@@ -16,12 +16,30 @@ export function isTextFile(name: string): boolean {
   return name.toLowerCase().endsWith('.txt');
 }
 
+export interface FileScanResult {
+  urlPath: string;
+  name: string;
+  ext: string;
+  modified: string | null;
+  size: number | undefined;
+}
+
 export interface ScanProgressCallback {
   onStart: (folderId: FolderId) => void;
   onDone: (folderId: FolderId) => void;
   onError: (folderId: FolderId, error: unknown) => void;
   onFolderDiscovered?: (folder: PluginSnapshot['folders'][number]) => void;
   onChunk?: (folders: PluginSnapshot['folders'], tracks: PluginSnapshot['tracks']) => void | Promise<void>;
+  /** Вызывается после обработки каждого файла (до рекурсии в детей). */
+  onAfterFileScan?: (file: FileScanResult) => void | Promise<void>;
+  /** Вызывается после обхода всех файлов текущей папки (до рекурсии в детей).
+      scannedFiles — список urlPath всех видимых файлов этой папки. */
+  onAfterFolderScan?: (
+    folderUrlPath: string,
+    scannedFiles: Array<{ urlPath: string; modified: string | null; size: number | undefined }>,
+  ) => void | Promise<void>;
+  /** Вызывается после завершения всей ветки (папка + все дети). */
+  onAfterSubtreeScan?: (rootUrlPath: string) => void | Promise<void>;
 }
 
 export interface ScanAllOptions {
@@ -31,6 +49,13 @@ export interface ScanAllOptions {
   startFolderName?: string;
   startParentId?: FolderId | null;
   isFolderScanned?: (folderId: FolderId) => boolean;
+  /**
+   * Расширения файлов, которые НЕ попадают в files снимка.
+   * По умолчанию ['.audio'] — аудио уходит только в tracks (поведение ядра).
+   * yandex-self передает []: в снимке нужны все файлы, включая аудио,
+   * с modified/size для детекции изменений в Логиях.
+   */
+  fileExcludeKinds?: Array<'audio'>;
 }
 
 export interface ScanAllResult {
@@ -165,6 +190,8 @@ export async function scanAll(
       const response = await service.listResources(normalizedRemote);
       const items = response._embedded?.items || response.items || [];
 
+      const folderFiles: Array<{ urlPath: string; modified: string | null; size: number | undefined }> = [];
+
       for (const item of items) {
         if (item.type === 'dir') {
           const childRemote = toRemotePath(item.path);
@@ -181,13 +208,16 @@ export async function scanAll(
             urlPath: childUrl,
             files: [],
           };
+
+          if (skipScanned && options.isFolderScanned?.(childFolderId)) {
+            // Папка уже просканирована — не перезаписываем её files пустым массивом
+            // (иначе resume-скан затрёт содержимое в setLibrary).
+            continue;
+          }
+
           folders.push(folder);
           pendingFolders.push(folder);
           pathMap[childFolderId] = childRemote;
-
-          if (skipScanned && options.isFolderScanned?.(childFolderId)) {
-            continue;
-          }
 
           progress?.onFolderDiscovered?.(folder);
 
@@ -195,6 +225,8 @@ export async function scanAll(
             childDirs.push({ id: childFolderId, name: item.name, remotePath: childRemote });
           }
         } else if (item.type === 'file') {
+          const isHidden = item.name.startsWith('.') && item.name.indexOf('.', 1) !== -1;
+
           if (item.isAudio) {
             const guessed = guessMetadataFromFilename(item.name);
             const track = {
@@ -217,8 +249,38 @@ export async function scanAll(
             };
             tracks.push(track);
             pendingTracks.push(track);
+
+            // Аудио дублируется в files, если плагин просит полный снимок файлов
+            // (Логии: детекция изменений по modified/size для всех файлов).
+            const keepAudio = !(options.fileExcludeKinds ?? ['audio']).includes('audio');
+            if (keepAudio && currentFolder && !isHidden) {
+              const dotIndex = item.name.lastIndexOf('.');
+              const ext = dotIndex !== -1 ? item.name.slice(dotIndex).toLowerCase() : '';
+              if (!currentFolder.files) currentFolder.files = [];
+              const fileEntry = {
+                name: item.name,
+                urlPath: toUrlPath(item.path),
+                ext,
+                modified: item.modified ?? null,
+                size: item.size,
+              };
+              currentFolder.files.push(fileEntry);
+            }
+
+            // Вызываем onAfterFileScan для ВСЕХ файлов, даже если audio excluded из snapshot.
+            if (!isHidden) {
+              const dotIndex = item.name.lastIndexOf('.');
+              const ext = dotIndex !== -1 ? item.name.slice(dotIndex).toLowerCase() : '';
+              const fileResult: FileScanResult = {
+                urlPath: toUrlPath(item.path),
+                name: item.name,
+                ext,
+                modified: item.modified ?? null,
+                size: item.size,
+              };
+              await progress?.onAfterFileScan?.(fileResult);
+            }
           } else {
-            const isHidden = item.name.startsWith('.') && item.name.indexOf('.', 1) !== -1;
             if (currentFolder && !isHidden) {
               const dotIndex = item.name.lastIndexOf('.');
               const ext = dotIndex !== -1 ? item.name.slice(dotIndex).toLowerCase() : '';
@@ -233,23 +295,40 @@ export async function scanAll(
               }
 
               if (!currentFolder.files) currentFolder.files = [];
-              currentFolder.files.push({
+              const fileEntry = {
                 name: item.name,
                 urlPath: toUrlPath(item.path),
                 ext,
                 url: fileUrl,
-              });
+                modified: item.modified ?? null,
+                size: item.size,
+              };
+              currentFolder.files.push(fileEntry);
+              folderFiles.push({ urlPath: fileEntry.urlPath, modified: fileEntry.modified, size: fileEntry.size });
+
+              // Вызываем onAfterFileScan для текстовых файлов
+              const fileResult: FileScanResult = {
+                urlPath: fileEntry.urlPath,
+                name: fileEntry.name,
+                ext: fileEntry.ext,
+                modified: fileEntry.modified,
+                size: fileEntry.size,
+              };
+              await progress?.onAfterFileScan?.(fileResult);
             }
           }
         }
       }
+
+      // Колбэк: все файлы папки обработаны (проверка удалённых на уровне).
+      await progress?.onAfterFolderScan?.(toUrlPath(normalizedRemote), folderFiles);
 
       scheduleFlush();
 
       if (options.recursive && childDirs.length > 0) {
         await mapWithConcurrency(
           childDirs,
-          5,
+          2,
           async (child) => {
             if (service.isCancelled?.()) return;
             await walk(child.remotePath, child.id);
@@ -257,6 +336,9 @@ export async function scanAll(
           { shouldStop: () => service.isCancelled?.() ?? false },
         );
       }
+
+      // Колбэк: вся ветка обработана.
+      progress?.onAfterSubtreeScan?.(toUrlPath(normalizedRemote));
     } catch (err) {
       if (service.isCancelled?.()) return;
       logger.error(`[${pluginId}] scan: failed to scan "${remotePath}"`, err);

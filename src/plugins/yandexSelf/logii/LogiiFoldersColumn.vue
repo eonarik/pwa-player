@@ -1,7 +1,7 @@
 <!-- src/plugins/yandexSelf/logii/LogiiFoldersColumn.vue -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { sortService } from '@/services/sort/SortService';
 import Icon from '@/components/atoms/Icon.vue';
@@ -22,6 +22,7 @@ import { logger } from '@/utils/logger';
 const props = defineProps<{
   folders: LogiiTrackItem[];
   currentFolderName: string | null;
+  isCurrentTopPlaying: boolean;
   hasAuthorIntro: boolean;
   authorIntroFileName: string | null;
   currentAuthorName: string | null;
@@ -46,6 +47,10 @@ const sortIcon = computed(() => (sortService.dir.value === 'asc' ? 'arrow-down' 
 const sortLabel = computed(() => sortService.dirLabel);
 
 const isIntroActive = computed(() => Boolean(props.currentAuthorName) && props.currentFolderName === null);
+
+function isTopPlaying(f: LogiiTrackItem): boolean {
+  return props.isCurrentTopPlaying && props.currentFolderName === f.folderName;
+}
 
 // --- Создание топов ---
 
@@ -178,6 +183,61 @@ async function onDeleteFolder(folder: LogiiTrackItem, e: MouseEvent): Promise<vo
     });
   }
 }
+
+// --- Teleport-кнопки: позиционирование относительно строки папки ---
+
+const hoveredRowRef = ref<HTMLElement | null>(null);
+const buttonPos = ref<{ x: number; y: number } | null>(null);
+const isHoveringRow = ref(false);
+const hoveredFolder = ref<LogiiTrackItem | null>(null);
+const hoveredFolderIndex = ref(0);
+
+function updateFolderButtonPosition(): void {
+  if (!hoveredRowRef.value) {
+    buttonPos.value = null;
+    return;
+  }
+  const rect = hoveredRowRef.value.getBoundingClientRect();
+  buttonPos.value = {
+    x: rect.right,
+    y: rect.top + rect.height / 2,
+  };
+}
+
+function onFolderRowEnter(el: HTMLElement | null, folder: LogiiTrackItem, index: number): void {
+  hoveredRowRef.value = el;
+  hoveredFolder.value = folder;
+  hoveredFolderIndex.value = index;
+  isHoveringRow.value = true;
+  updateFolderButtonPosition();
+}
+
+function onFolderRowLeave(): void {
+  isHoveringRow.value = false;
+}
+
+function onFolderScrollOrResize(): void {
+  updateFolderButtonPosition();
+}
+
+watch(() => hoveredRowRef.value, () => {
+  updateFolderButtonPosition();
+});
+
+window.addEventListener('scroll', onFolderScrollOrResize, true);
+window.addEventListener('resize', onFolderScrollOrResize);
+
+function handleRenameFromTeleport(e: MouseEvent): void {
+  if (hoveredFolder.value) {
+    openRenameModal(hoveredFolder.value, e);
+  }
+}
+
+function handleDeleteFromTeleport(e: MouseEvent): void {
+  if (hoveredFolder.value) {
+    onDeleteFolder(hoveredFolder.value, e);
+  }
+}
 </script>
 
 <template>
@@ -217,23 +277,39 @@ async function onDeleteFolder(folder: LogiiTrackItem, e: MouseEvent): Promise<vo
       </div>
 
       <div
-        v-for="f in sortedFolders"
+        v-for="(f, index) in sortedFolders"
         :key="f.urlPath"
         class="group relative"
         :data-testid="`folder-row-${f.folderName}`"
+        @mouseenter="onFolderRowEnter($event.currentTarget as HTMLElement, f, index)"
+        @mouseleave="onFolderRowLeave"
       >
         <button
           type="button"
-          class="flex w-full items-center gap-2 rounded-btn px-2 py-1.5 text-left text-sm transition"
-          :class="currentFolderName === f.folderName ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg'"
+          class="flex w-full items-center gap-2 rounded-btn border-l-2 border-transparent px-2 py-1.5 text-left text-sm transition"
+          :class="[
+            currentFolderName === f.folderName ? 'bg-active/10 text-active' : 'text-fg hover:bg-hover-bg',
+            isTopPlaying(f) ? 'border-active' : 'border-transparent',
+          ]"
           :data-testid="`logii-folder-${f.folderName}`"
           @click="emit('select', f)"
         >
           <span class="truncate">{{ f.folderName }}</span>
         </button>
+      </div>
 
+      <!-- Кнопки переименования/удаления, телепортированные в body -->
+      <Teleport to="body">
         <div
-          class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pr-1 opacity-0 transition group-hover:opacity-100 bg-bg-elevated/80"
+          v-if="isHoveringRow && buttonPos && hoveredFolder"
+          class="fixed z-[100] flex items-center gap-0.5 rounded-l-btn bg-bg-elevated transition-opacity duration-200"
+          :style="{
+            left: buttonPos.x + 'px',
+            top: buttonPos.y + 'px',
+            transform: 'translateY(-50%)',
+          }"
+          @mouseenter="isHoveringRow = true"
+          @mouseleave="isHoveringRow = false"
         >
           <IconButton
             icon="pencil"
@@ -241,8 +317,8 @@ async function onDeleteFolder(folder: LogiiTrackItem, e: MouseEvent): Promise<vo
             size="md"
             label="Переименовать топ"
             :disabled="isWriting"
-            :data-testid="`folder-rename-${f.folderName}`"
-            @click="openRenameModal(f, $event)"
+            :data-testid="'folder-rename-' + (hoveredFolderIndex + 1)"
+            @click="handleRenameFromTeleport($event)"
           />
           <IconButton
             icon="trash"
@@ -250,11 +326,11 @@ async function onDeleteFolder(folder: LogiiTrackItem, e: MouseEvent): Promise<vo
             size="md"
             label="Удалить топ"
             :disabled="isWriting"
-            :data-testid="`folder-delete-${f.folderName}`"
-            @click="onDeleteFolder(f, $event)"
+            :data-testid="'folder-delete-' + hoveredFolder.folderName"
+            @click="handleDeleteFromTeleport($event)"
           />
         </div>
-      </div>
+      </Teleport>
 
       <p v-if="sortedFolders.length === 0" class="px-3 py-2 text-center text-xs text-fg-muted">—</p>
     </div>

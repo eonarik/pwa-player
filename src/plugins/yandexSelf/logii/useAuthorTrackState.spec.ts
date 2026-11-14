@@ -136,4 +136,19 @@ describe('useAuthorTrackState', () => {
     expect(state.isAuthorCurrent('logii.S/uA')).toBe(false);
     expect(state.isAuthorCurrent('logii.S/uB')).toBe(true);
   });
+
+  // CUEI-0009: playback-статусы не зависят от навигации (открытый автор),
+  // навигационный статус вычисляется вне composable по currentAuthorName.
+  it('playback-статусы независимы от навигации: нет трека => playing=false даже при active isPlaying', () => {
+    const t = trackStub();
+    const allTracksByAuthor = ref(new Map<string, Track[]>([['logii.S/uA', [t]]]));
+    const state = useAuthorTrackState({
+      allTracksByAuthor,
+      currentTrackId: ref(null),
+      isPlaying: ref(true),
+    });
+
+    expect(state.isAuthorPlaying('logii.S/uA')).toBe(false);
+    expect(state.isAuthorCurrent('logii.S/uA')).toBe(false);
+  });
 });

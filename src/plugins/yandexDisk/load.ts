@@ -13,6 +13,8 @@ export interface LoadDeps {
   service: IYandexService;
   storage: PluginStorage;
   onPendingFolders: (folders: PluginSnapshot['folders']) => void;
+  /** Файлы, которые НЕ попадают в files снимка (см. ScanAllOptions). */
+  fileExcludeKinds?: Array<'audio'>;
 }
 
 export async function loadImpl(deps: LoadDeps, context: PluginContext, options?: LoadOptions): Promise<PluginSnapshot> {
@@ -65,6 +67,7 @@ export async function loadImpl(deps: LoadDeps, context: PluginContext, options?:
     skipScanned: true,
     startFolderName: manifestName,
     isFolderScanned: (id) => writer.getFolder(id)?.scanState === 'scanned',
+    ...(deps.fileExcludeKinds ? { fileExcludeKinds: deps.fileExcludeKinds } : {}),
   });
 
   storage.setPathMap({ ...currentPathMap, ...pathMap });

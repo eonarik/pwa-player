@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import { yandexSelfService } from '../YandexSelfService';
+import { markPendingDelete, markPendingMove } from './composables/useLogiiChanges';
 import { toastService } from '@/services/ui/ToastService';
 import type { FolderId } from '@/types/ids';
 import { logger } from '@/utils/logger';
@@ -68,6 +69,10 @@ export function useYandexSelfWrites() {
     isWriting.value = true;
 
     try {
+      // CUEI-0022: переименование — штатная операция, следующий скан не должен
+      // выдавать перемещённые файлы за removed+added
+      markPendingMove(oldUrlPath, newUrlPath);
+
       await yandexSelfService.moveResource(oldUrlPath, newUrlPath);
 
       const writer = (await import('@/stores/library')).createLibraryWriter();
@@ -92,6 +97,10 @@ export function useYandexSelfWrites() {
     isWriting.value = true;
 
     try {
+      // CUEI-0022: штатное удаление не должно попадать в removed-события
+      // ближайшего refresh-скана сезона
+      markPendingDelete(path);
+
       await yandexSelfService.removeResource(path);
 
       const lib = (await import('@/stores/library')).useLibraryStore();

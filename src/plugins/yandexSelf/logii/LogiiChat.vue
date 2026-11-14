@@ -5,9 +5,8 @@ import { ref, nextTick, watch, onMounted } from 'vue';
 import type { LogiiComment } from './parseLogii';
 import { getNickname, setNickname } from './useLogiiData';
 import IconButton from '@/components/atoms/IconButton.vue';
-import Icon from '@/components/atoms/Icon.vue';
 import Spinner from '@/components/atoms/Spinner.vue';
-import Textarea from '@/components/atoms/Textarea.vue';
+import Textarea from '@/components/atoms/Textarea.vue';import Divider from '@/components/atoms/Divider.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -139,21 +138,8 @@ async function removeComment(index: number): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-3">
-    <!-- Ник (глобальный) -->
-    <div class="flex flex-col gap-1">
-      <label class="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">Твой ник</label>
-      <input
-        v-model="nickname"
-        type="text"
-        placeholder="Как тебя подписать? (сохраняется для всех чатов)"
-        class="rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
-        :disabled="isSaving"
-        data-testid="logii-nickname-input"
-      />
-    </div>
-
-    <!-- Лента -->
-    <div ref="scrollRef" class="flex max-h-[50vh] flex-col gap-3 overflow-y-auto rounded-card bg-card-bg p-3">
+    <!-- Лента комментариев -->
+    <div ref="scrollRef" class="flex flex-col rounded-card bg-card-bg">
       <div v-if="isLoading" class="flex items-center justify-center gap-2 py-10 text-xs text-fg-muted">
         <Spinner size="sm" />
         Загружаем чат…
@@ -164,78 +150,79 @@ async function removeComment(index: number): Promise<void> {
       </div>
 
       <template v-else>
-        <div
-          v-for="(c, index) in comments"
-          :key="index"
-          class="group flex flex-col gap-0.5 rounded-btn bg-bg-elevated/50 px-3 py-2"
-          :data-testid="`logii-comment-${index}`"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <p class="text-xs font-medium text-active">{{ c.nickname }}</p>
-            <div class="flex items-center gap-1">
-              <p v-if="c.time" class="text-[10px] text-fg-subtle">{{ formatCommentTime(c.time) }}</p>
+        <template v-for="(c, index) in comments" :key="index">
+          <Divider v-if="index > 0" :vertical="false" :withMargin="false" />
+          <div
+            class="relative group flex flex-col gap-0.5 rounded-btn bg-bg-elevated/50 px-4 pt-2 pb-3"
+            :data-testid="`logii-comment-${index}`"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-xs font-medium text-active">
+                {{ c.nickname }}
+                <span v-if="c.time" class="text-[10px] pl-2 text-fg-subtle">{{ formatCommentTime(c.time) }}</span>
+              </p>
               <template v-if="editingIndex !== index">
-                <button
-                  type="button"
-                  class="rounded-btn p-0.5 text-fg-subtle opacity-0 transition hover:bg-hover-bg hover:text-fg group-hover:opacity-100"
-                  :disabled="isSaving"
-                  aria-label="Редактировать комментарий"
-                  :data-testid="`logii-comment-edit-${index}`"
-                  @click="startEdit(index)"
+                <div
+                  class="absolute top-1 right-1 flex items-center gap-0.5 pr-1 opacity-0 transition group-hover:opacity-100 bg-bg-elevated/80"
                 >
-                  <Icon name="pencil" w="w-3.5" h="h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  class="rounded-btn p-0.5 text-fg-subtle opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-                  :disabled="isSaving"
-                  aria-label="Удалить комментарий"
-                  :data-testid="`logii-comment-delete-${index}`"
-                  @click="removeComment(index)"
-                >
-                  <Icon name="trash" w="w-3.5" h="h-3.5" />
-                </button>
+                  <IconButton
+                    :icon="'pencil'"
+                    class="hover:bg-hover-bg hover:text-fg transition"
+                    :disabled="isSaving"
+                    aria-label="Редактировать комментарий"
+                    :data-testid="`logii-comment-edit-${index}`"
+                    @click="startEdit(index)"
+                  />
+                  <IconButton
+                    class="hover:bg-hover-bg hover:text-red-400 transition"
+                    :icon="'trash'"
+                    :disabled="isSaving"
+                    aria-label="Удалить комментарий"
+                    :data-testid="`logii-comment-delete-${index}`"
+                    @click="removeComment(index)"
+                  />
+                </div>
               </template>
             </div>
-          </div>
 
-          <template v-if="editingIndex === index">
-            <Textarea
-              ref="editingTextareaRef"
-              v-model="editingText"
-              :rows="1"
-              :min-rows="1"
-              :max-rows="10"
-              auto-resize
-              :disabled="isSaving"
-              data-testid="logii-comment-edit-input"
-              class="mt-1"
-            />
-            <div class="mt-1 flex justify-end gap-2">
-              <button
-                type="button"
-                class="rounded-btn px-2 py-0.5 text-xs text-fg-muted transition hover:text-fg disabled:opacity-50"
+            <template v-if="editingIndex === index">
+              <Textarea
+                ref="editingTextareaRef"
+                v-model="editingText"
+                :rows="1"
+                :min-rows="1"
+                :max-rows="10"
+                auto-resize
                 :disabled="isSaving"
-                data-testid="logii-comment-cancel"
-                @click="cancelEdit"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                class="rounded-btn bg-accent px-2 py-0.5 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
-                :disabled="isSaving || !editingText.trim()"
-                data-testid="logii-comment-save"
-                @click="saveEdit(index)"
-              >
-                <Spinner v-if="isSaving" size="sm" />
-                <span v-else>Сохранить</span>
-              </button>
-            </div>
-          </template>
+                data-testid="logii-comment-edit-input"
+                class="mt-1"
+              />
+              <div class="mt-1 flex justify-end gap-2">
+                <button
+                  type="button"
+                  class="rounded-btn px-2 py-0.5 text-xs text-fg-muted transition hover:text-fg disabled:opacity-50"
+                  :disabled="isSaving"
+                  data-testid="logii-comment-cancel"
+                  @click="cancelEdit"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  class="rounded-btn bg-accent px-2 py-0.5 text-xs font-medium text-bg transition hover:bg-accent-hover disabled:opacity-50"
+                  :disabled="isSaving || !editingText.trim()"
+                  data-testid="logii-comment-save"
+                  @click="saveEdit(index)"
+                >
+                  <Spinner v-if="isSaving" size="sm" />
+                  <span v-else>Сохранить</span>
+                </button>
+              </div>
+            </template>
 
-          <p v-else class="whitespace-pre-line text-sm text-fg">{{ c.text }}</p>
-        </div>
+            <p v-else class="whitespace-pre-line text-sm text-fg">{{ c.text }}</p>
+          </div>
+        </template>
       </template>
 
       <div
@@ -247,9 +234,19 @@ async function removeComment(index: number): Promise<void> {
       </div>
     </div>
 
-    <!-- Ввод -->
+    <!-- Никнейм и ввод -->
     <div class="flex flex-col gap-1">
-      <div class="flex items-end gap-2">
+      <label class="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">Твой ник</label>
+      <input
+        v-model="nickname"
+        type="text"
+        placeholder="Как тебя подписать? (сохраняется для всех чатов)"
+        class="rounded-btn bg-card-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:bg-hover-bg focus:outline-none"
+        :disabled="isSaving"
+        data-testid="logii-nickname-input"
+      />
+
+      <div class="flex items-end gap-2 mt-2">
         <Textarea
           v-model="draft"
           :rows="1"

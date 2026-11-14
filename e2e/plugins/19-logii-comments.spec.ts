@@ -1,7 +1,7 @@
 // e2e/plugins/19-logii-comments.spec.ts
 
 import { test, expect } from '@playwright/test';
-import { mockLogii, bootstrapLogii, openLogiiSeason, clickTab, type DiskItem } from '../helpers/logii-helpers';
+import { mockLogii, bootstrapLogii, openLogiiSeason, type DiskItem } from '../helpers/logii-helpers';
 
 const SEASON = 'logii.2024-11-08';
 
@@ -20,7 +20,6 @@ test.describe('Logii: комментарии', () => {
     await mockLogii(page, { diskTree: TREE });
     await bootstrapLogii(page);
     await openLogiiSeason(page, '2024-11-08');
-    await clickTab(page, 'Чат');
   });
 
   test('редактирование комментария', async ({ page }) => {

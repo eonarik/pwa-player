@@ -19,6 +19,21 @@ export interface LogiiRefreshDeps {
   folders: ComputedRef<Record<string, FolderRef>>;
   router: LogiiRouter;
   reloadTrack: (force?: boolean) => Promise<void>;
+  /** Инициализация скана для diff-уведомлений. */
+  initScan?: (prevSnapshot: import('./useLogiiChanges').LogiiSeasonSnapshot | null) => Promise<void>;
+  /** Колбэк: файл обработан. */
+  onAfterFileScan?: (file: import('@/plugins/yandexDisk/scan').FileScanResult) => void | Promise<void>;
+  /** Колбэк: все файлы папки обработаны. */
+  onAfterFolderScan?: (
+    folderUrlPath: string,
+    scannedFiles: Array<{ urlPath: string; modified: string | null; size: number | undefined }>,
+  ) => void | Promise<void>;
+  /** Финализация скана: обновить снимок. */
+  finalizeScan?: (seasonUrlPath: string) => Promise<void>;
+  /** Применить результат скана: diff, сохранить. */
+  applyScanResult?: () => void;
+  /** Путь сезона для finalizeScan. */
+  seasonUrlPath?: ComputedRef<string>;
 }
 
 export interface LogiiRefresh {
@@ -41,7 +56,24 @@ export function useLogiiRefresh(deps: LogiiRefreshDeps): LogiiRefresh {
         return;
       }
       const context = createPluginContext(LOGII_PLUGIN_ID);
-      await plugin.scanFolder(context, deps.seasonFolder.value.id, { recursive: true, force: true });
+
+      if (deps.initScan) {
+        await deps.initScan(null); // prevSnapshot будет прочитан внутри runFullCheck или здесь
+      }
+
+      await plugin.scanFolder(context, deps.seasonFolder.value.id, {
+        recursive: true,
+        force: true,
+        ...(deps.onAfterFileScan ? { onAfterFileScan: deps.onAfterFileScan } : {}),
+        ...(deps.onAfterFolderScan ? { onAfterFolderScan: deps.onAfterFolderScan } : {}),
+      });
+
+      if (deps.finalizeScan && deps.seasonUrlPath?.value) {
+        await deps.finalizeScan(deps.seasonUrlPath.value);
+      }
+      if (deps.applyScanResult) {
+        deps.applyScanResult();
+      }
 
       const nav = resolveLogiiNavigationAfterRefresh({
         seasonUrlPath: deps.route.seasonUrlPath.value,

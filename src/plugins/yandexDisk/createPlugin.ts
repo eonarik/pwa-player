@@ -20,8 +20,13 @@ export interface YandexPluginOptions {
   name: string;
   icon: string;
   service: IYandexService;
+  /**
+   * Расширения файлов, которые НЕ попадают в files снимка при скане.
+   * Пустой массив — в снимке все файлы, включая аудио (Логии).
+   * По умолчанию undefined -> поведение ядра (аудио только в tracks).
+   */
+  fileExcludeKinds?: Array<'audio'>;
 }
-
 interface ServiceWithSetConnected extends IYandexService {
   setConnected?(val: boolean): void;
 }
@@ -30,7 +35,7 @@ function hasSetConnected(service: IYandexService): service is ServiceWithSetConn
   return typeof (service as ServiceWithSetConnected).setConnected === 'function';
 }
 
-export function createYandexPlugin({ id, name, icon, service }: YandexPluginOptions): LibrarySource {
+export function createYandexPlugin({ id, name, icon, service, fileExcludeKinds }: YandexPluginOptions): LibrarySource {
   let cancelled = false;
   service.isCancelled = () => cancelled;
   service.setCancelled = (val: boolean) => {
@@ -49,6 +54,7 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
         service,
         storage,
         context,
+        fileExcludeKinds,
         onLibraryUpdate: async (snapshot) => {
           await context.writer.setLibrary(snapshot, id);
         },
@@ -63,7 +69,7 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
     // Запоминаем, какие папки были в library до скана.
     const beforeIds = new Set(context.writer.getFoldersBySource(id).map((f) => f.id));
 
-    const snapshot = await scanFolderImpl({ pluginId: id, service, storage }, context, folderId, options);
+    const snapshot = await scanFolderImpl({ pluginId: id, service, storage, fileExcludeKinds }, context, folderId, options);
 
     // Shallow force scan: рекурсивно сканируем НОВЫХ детей (которых не было до скана).
     if (options.force && !options.recursive) {
@@ -140,11 +146,12 @@ export function createYandexPlugin({ id, name, icon, service }: YandexPluginOpti
 
     async load(context, options) {
       await storage.load();
-      return loadImpl(
+      return       loadImpl(
         {
           pluginId: id,
           service,
           storage,
+          fileExcludeKinds,
           onPendingFolders: (folders) => {
             const queue = getOrCreateQueue(context);
             for (const f of folders) {

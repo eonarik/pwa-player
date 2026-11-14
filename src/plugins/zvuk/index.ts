@@ -1,11 +1,12 @@
 // src/plugins/zvuk/index.ts
 
-import type { LibrarySource, PluginContext, PluginSnapshot, FetchedMetadata } from '../types';
+import type { LibrarySource, PluginContext, PluginSnapshot, FetchedMetadata, SearchCandidate } from '../types';
 import type { TrackSource } from '@/types/track';
 import type { TrackId } from '@/types/ids';
 import { newTrackSourceId } from '@/types/ids';
 import { useLibraryStore, createLibraryWriter } from '@/stores/library';
 import { pluginIdFromSource } from '@/plugins/registry';
+import { zvukService } from './ZvukService';
 import { logger } from '@/utils/logger';
 
 const ZVUK_PLUGIN_ID = 'zvuk';
@@ -35,6 +36,34 @@ const zvukPlugin: LibrarySource = {
       throw new Error('[zvuk] buildStreamUrl: source must be streaming');
     }
     return source.url;
+  },
+
+  async searchTracks(query: string): Promise<SearchCandidate[]> {
+    const results = await zvukService.search(query, ['tracks']);
+    return results.tracks.map((t) => ({
+      pluginId: ZVUK_PLUGIN_ID,
+      trackId: t.id,
+      artist: t.artists.map((a) => a.title).join(', ') || 'Unknown',
+      title: t.title,
+      album: t.release?.title ?? undefined,
+      durationMs: t.duration * 1000,
+      coverUrl: t.release?.image?.src ?? null,
+    }));
+  },
+
+  async fetchAudioBlob(candidate: SearchCandidate): Promise<Blob | null> {
+    // Кандидат должен принадлежать этому плагину.
+    if (candidate.pluginId !== ZVUK_PLUGIN_ID) return null;
+
+    try {
+      const url = `/api/zvuk/stream?id=${encodeURIComponent(candidate.trackId)}`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch (err) {
+      logger.warn('[zvuk] fetchAudioBlob failed', err);
+      return null;
+    }
   },
 
   async disconnect(_context: PluginContext): Promise<void> {

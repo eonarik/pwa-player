@@ -49,6 +49,7 @@ import IconFeedback from './IconFeedback.vue';
 import IconAlertTriangle from './IconAlertTriangle.vue';
 import IconWarning from './IconWarning.vue';
 import IconGrid from './IconGrid.vue';
+import IconBell from './IconBell.vue';
 
 export const ICONS: Record<string, Component> = {
   x: IconX,
@@ -98,6 +99,7 @@ export const ICONS: Record<string, Component> = {
   'alert-triangle': IconAlertTriangle,
   warning: IconWarning,
   grid: IconGrid,
+  bell: IconBell,
 };
 
 export type IconName = keyof typeof ICONS;

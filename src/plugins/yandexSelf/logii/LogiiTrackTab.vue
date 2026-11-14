@@ -10,10 +10,13 @@ import TrackActions from '@/components/library/TrackActions.vue';
 import Icon from '@/components/atoms/Icon.vue';
 import Spinner from '@/components/atoms/Spinner.vue';
 import { toastService } from '@/services/ui/ToastService';
+import { modalService } from '@/services/ui/ModalService';
 import { yandexSelfService } from '../YandexSelfService';
+import { markPendingDelete } from './composables/useLogiiChanges';
 import { loadPlugin } from '@/plugins/registry';
 import { createPluginContext } from '@/plugins/context';
 import LogiiVibeBlock from './LogiiVibeBlock.vue';
+import StreamSearchModal from './StreamSearchModal.vue';
 import type { LogiiTrackItem } from './useLogiiData';
 import type { LogiiData } from './parseLogii';
 import type { Track } from '@/types/track';
@@ -101,6 +104,56 @@ async function onFilesSelected(e: Event): Promise<void> {
   }
 }
 
+// --- Поиск в стриминговых провайдерах (CUEI-0005) ---
+
+const takenNames = computed(() => {
+  const names = new Set<string>();
+  for (const t of props.folder.audioTracks) {
+    for (const src of t.sources) {
+      if (src.kind === 'cloud' && src.pluginId === 'yandex-self') {
+        const fileName = src.remotePath.split('/').pop();
+        if (fileName) names.add(fileName);
+      }
+    }
+  }
+  for (const f of props.folder.imageFiles) {
+    names.add(f.name);
+  }
+  return Array.from(names);
+});
+
+async function openStreamSearch(): Promise<void> {
+  await modalService.show<null>({
+    title: 'Найти в стримингах',
+    type: 'custom',
+    component: StreamSearchModal,
+    props: {
+      folderUrlPath: props.folder.urlPath,
+      takenNames: takenNames.value,
+      onUpload: async (fileName: string, blob: Blob) => {
+        await uploadBlobToFolder(fileName, blob);
+      },
+    },
+    disableBackdropClose: true,
+  });
+}
+
+async function uploadBlobToFolder(fileName: string, blob: Blob): Promise<void> {
+  if (!props.folder.urlPath) return;
+
+  const file = new File([blob], fileName, { type: 'audio/mpeg' });
+  await yandexSelfService.uploadFile(props.folder.urlPath, fileName, file);
+
+  // Rescan folder to pick up the new track
+  const plugin = await loadPlugin('yandex-self');
+  if (plugin.scanFolder) {
+    const context = createPluginContext('yandex-self');
+    await plugin.scanFolder(context, props.folder.folderId, { recursive: false, force: true });
+  }
+
+  toastService.success(`Трек «${fileName}» добавлен`);
+}
+
 // --- Удаление трека ---
 
 function getRemotePath(track: Track): string | null {
@@ -127,6 +180,9 @@ async function onDeleteTrack(track: Track): Promise<void> {
   deletingTrackId.value = track.id;
 
   try {
+    // CUEI-0022: штатное удаление трека не должно попадать в removed-события
+    markPendingDelete(remotePath);
+
     await yandexSelfService.removeResource(remotePath);
 
     const source = track.sources.find(
@@ -167,6 +223,16 @@ async function onDeleteTrack(track: Track): Promise<void> {
               Загрузить треки
             </template>
             <span v-if="isUploading" class="ml-1">{{ uploadProgress.done }} / {{ uploadProgress.total }}</span>
+          </button>
+          <button
+            type="button"
+            class="rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50"
+            :disabled="isUploading"
+            data-testid="logii-stream-search"
+            @click="openStreamSearch"
+          >
+            <Icon name="search" w="w-3.5" h="h-3.5" class="mr-1 inline" />
+            Найти в стримингах
           </button>
           <button
             v-if="tracks.length > 0"

@@ -109,6 +109,12 @@ export interface LoadOptions {
 export interface ScanFolderOptions {
   recursive: boolean;
   force?: boolean;
+  /** Расширения файлов, которые НЕ попадают в files снимка. */
+  fileExcludeKinds?: Array<'audio'>;
+  /** Колбэк: файл обработан (для итеративного diff). */
+  onAfterFileScan?: import('./yandexDisk/scan').ScanProgressCallback['onAfterFileScan'];
+  /** Колбэк: все файлы папки обработаны. */
+  onAfterFolderScan?: import('./yandexDisk/scan').ScanProgressCallback['onAfterFolderScan'];
 }
 
 export interface DownloadTrackOptions {
@@ -144,6 +150,19 @@ export interface FetchedMetadata {
   similarity: number;
   confident: boolean;
   extMetadata?: Record<string, unknown>;
+}
+
+/** Кандидат, найденный поиском плагина (стриминг-каталог). */
+export interface SearchCandidate {
+  /** id плагина-источника. */
+  pluginId: string;
+  /** id трека внутри плагина. */
+  trackId: string;
+  artist: string;
+  title: string;
+  album?: string;
+  durationMs?: number;
+  coverUrl?: string | null;
 }
 
 export interface LibrarySource {
@@ -218,6 +237,19 @@ export interface LibrarySource {
   ): Promise<{ content: string; modified: string | null } | null>;
 
   fetchMetadata?(artist: string, title: string): Promise<FetchedMetadata | null>;
+
+  /**
+   * Поиск треков в каталоге плагина.
+   * Реализуют стриминговые плагины (zvuk и т.п.).
+   * Ядро не знает конкретных плагинов — опрашивает всех, кто реализует метод.
+   */
+  searchTracks?(query: string): Promise<SearchCandidate[]>;
+
+  /**
+   * Физический звук кандидата из `searchTracks` (blob для переноса в другие плагины).
+   * Возвращает Promise<Blob> или null, если скачивание недоступно.
+   */
+  fetchAudioBlob?(candidate: SearchCandidate): Promise<Blob | null>;
 
   applyCandidate?(trackId: TrackId, extMetadata: Record<string, unknown>): void | Promise<void>;
 

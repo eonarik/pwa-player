@@ -186,11 +186,10 @@ test.describe('Logii: read-only (сезон и трек)', () => {
     await expect(page.getByTestId('logii-go-to-parent')).toBeVisible();
 
     await expect(page.getByTestId('logii-tab-track')).toBeVisible();
-    await expect(page.getByTestId('logii-tab-chat')).toBeVisible();
     await expect(page.getByTestId('logii-tab-gallery')).toBeVisible();
   });
 
-  test('клик по треку → LogiiView (табы, чат)', async ({ page }) => {
+  test('клик по треку → LogiiView (табы, объединённый трек+чат)', async ({ page }) => {
     const seasonRow = page.locator('[data-testid^="folder-row-"]').filter({ hasText: '2024-11-08' });
     await seasonRow.click();
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08$/);
@@ -206,12 +205,11 @@ test.describe('Logii: read-only (сезон и трек)', () => {
     await expect(page).toHaveURL(/\/folder\/yandex-self\/logii\.2024-11-08\/userA\/1$/);
 
     await expect(page.getByTestId('logii-tab-track')).toBeVisible();
-    await expect(page.getByTestId('logii-tab-chat')).toBeVisible();
     await expect(page.getByTestId('logii-tab-gallery')).toBeVisible();
 
     await expect(page.getByText('Вайб трека')).toBeVisible();
 
-    await page.getByTestId('logii-tab-chat').click();
+    // Чат на том же экране, без переключения табов
     await expect(page.getByText('Первый комментарий')).toBeVisible();
 
     await page.getByTestId('logii-comment-new-input').fill('Привет из теста');

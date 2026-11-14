@@ -194,16 +194,21 @@ export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<stri
 
   const effectiveFileName = ref<string | null>(logiiFileName.value);
 
+  // CUEI-0023: discard stale response if folder changed during load
+  let requestId = 0;
+
   async function reload(forceRefresh = false): Promise<void> {
     if (!trackUrlPath.value) {
       data.value = null;
       return;
     }
+    const thisRequest = ++requestId;
     isLoading.value = true;
     error.value = '';
     try {
       effectiveFileName.value = logiiFileName.value;
       const file = await readLogiiFile(trackUrlPath.value, logiiFileName.value, forceRefresh);
+      if (thisRequest !== requestId) return;
       if (!file) {
         data.value = { vibe: '', comments: [] };
         return;
@@ -211,10 +216,13 @@ export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<stri
       effectiveFileName.value = file.fileName;
       data.value = parseLogii(file.content);
     } catch (err) {
+      if (thisRequest !== requestId) return;
       logger.error('[logii] reload failed', err);
       error.value = 'Не удалось загрузить трек';
     } finally {
-      isLoading.value = false;
+      if (thisRequest === requestId) {
+        isLoading.value = false;
+      }
     }
   }
 
