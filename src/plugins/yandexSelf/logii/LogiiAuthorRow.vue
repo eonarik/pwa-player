@@ -16,6 +16,7 @@ const props = withDefaults(
     isAuthorCurrent: boolean;
     isAuthorPlaying: boolean;
     isNavigated: boolean;
+    isEditMode: boolean;
   }>(),
   {},
 );
@@ -146,7 +147,7 @@ window.addEventListener('resize', onScrollOrResize);
     <!-- Кнопки переименования/удаления, телепортированные в body -->
     <Teleport to="body">
       <div
-        v-if="isHovering && !isCollapsed && buttonPos"
+        v-if="isHovering && !isCollapsed && buttonPos && isEditMode"
         class="fixed z-[100] flex items-center gap-0.5 rounded-l-btn bg-bg-elevated transition-opacity duration-200"
         :style="{
           left: buttonPos.x + 'px',

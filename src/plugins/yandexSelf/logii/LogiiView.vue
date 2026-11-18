@@ -12,6 +12,7 @@ import { useLogiiNavigation } from './composables/useLogiiNavigation';
 import { useLogiiPlayback } from './composables/useLogiiPlayback';
 import { useLogiiRefresh } from './composables/useLogiiRefresh';
 import { useLogiiChanges } from './composables/useLogiiChanges';
+import { useEditMode } from './composables/useEditMode';
 import LogiiAuthorsColumn from './LogiiAuthorsColumn.vue';
 import LogiiFoldersColumn from './LogiiFoldersColumn.vue';
 import LogiiPanel from './LogiiPanel.vue';
@@ -27,6 +28,7 @@ const props = defineProps<{
 const router = useRouter();
 const player = usePlayerStore();
 const library = useLibraryStore();
+const { isEditMode } = useEditMode();
 
 const folders = computed(() => library.folders);
 
@@ -270,6 +272,7 @@ async function onSendComment(text: string): Promise<void> {
         :is-collapsed="isAuthorsCollapsed"
         :all-tracks-by-author="allTracksByAuthor"
         :season-folder="seasonFolder"
+        :is-edit-mode="isEditMode"
         @select="goToAuthor"
         @toggle-collapsed="isAuthorsCollapsed = !isAuthorsCollapsed"
         @play-author="playAuthor"
@@ -284,6 +287,7 @@ async function onSendComment(text: string): Promise<void> {
         :author-intro-file-name="authorIntroFileName"
         :author-folder="currentAuthorFolder"
         :season-folder="seasonFolder"
+        :is-edit-mode="isEditMode"
         @select="goToFolder"
         @select-intro="goToIntro"
       />
@@ -297,6 +301,7 @@ async function onSendComment(text: string): Promise<void> {
         :is-refreshing="isRefreshing"
         :error="trackError"
         :can-go-to-parent="canGoToParent"
+        :is-edit-mode="isEditMode"
         :on-retry="reloadTrack"
         :on-refresh="onRefresh"
         :on-go-to-parent="goToParent"
@@ -306,6 +311,7 @@ async function onSendComment(text: string): Promise<void> {
         :on-send-comment="onSendComment"
         :on-update-comment="updateComment"
         :on-delete-comment="deleteComment"
+        @update:is-edit-mode="isEditMode = $event"
       >
         <template #header-actions>
           <LogiiChangesButton

@@ -62,8 +62,10 @@
 │       ├── 17-logii-play-author.spec.ts
 │       ├── 18-logii-refresh-back.spec.ts
 │       ├── 19-logii-comments.spec.ts
+│       ├── 20-logii-changes.spec.ts
 │       ├── 20-logii-create-season.spec.ts
 │       ├── 21-logii-authors.spec.ts
+│       ├── 21-logii-stream-search.spec.ts
 │       ├── 22-logii-tops.spec.ts
 │       ├── 23-logii-upload-track.spec.ts
 │       └── 24-logii-gallery.spec.ts
@@ -164,6 +166,7 @@
 │   │   │   ├── IconArrowLeft.vue
 │   │   │   ├── IconArrowUp.vue
 │   │   │   ├── IconArtist.vue
+│   │   │   ├── IconBell.vue
 │   │   │   ├── IconCheck.vue
 │   │   │   ├── IconChevronDown.vue
 │   │   │   ├── IconChevronLeft.vue
@@ -396,6 +399,8 @@
 │   │   │   ├── RadioSavedList.vue
 │   │   │   ├── RadioService.ts
 │   │   │   └── RadioView.vue
+│   │   ├── __tests__
+│   │   │   └── candidateFileName.spec.ts
 │   │   ├── yandexDisk
 │   │   │   ├── backgroundScan.ts
 │   │   │   ├── concurrency.ts
@@ -439,6 +444,7 @@
 │   │   ├── lookup.ts
 │   │   ├── registry.spec.ts
 │   │   ├── registry.ts
+│   │   ├── searchStreams.ts
 │   │   ├── settingsTypes.ts
 │   │   ├── storage.ts
 │   │   └── types.ts
@@ -665,148 +671,6 @@
 │   ├── globals.d.ts
 │   ├── main.ts
 │   └── version.ts
-├── storybook-static
-│   ├── assets
-│   │   ├── AddRemoveButton-Bb__I2Ad.js
-│   │   ├── AlphabetIndex-BIsDcwTy.css
-│   │   ├── AlphabetIndex.stories-DL086u0D.js
-│   │   ├── AutocompleteInput-CReaOXyq.js
-│   │   ├── AutocompleteInput.stories-BtKrwHcE.js
-│   │   ├── Avatar.stories-CRsqtQ4-.js
-│   │   ├── Badge.stories-0mdkluOV.js
-│   │   ├── Button-Czb1u3Rx.js
-│   │   ├── Button.stories-BFLipINW.js
-│   │   ├── Checkbox-BSLpmE3J.js
-│   │   ├── Checkbox.stories-DDb5L79L.js
-│   │   ├── CoverImage-CsG9EbrX.js
-│   │   ├── CoverImage.stories-Co6IAfFT.js
-│   │   ├── CoverPicker.stories-CHd_HzW6.js
-│   │   ├── createPlugin-BC4K3--t.js
-│   │   ├── DemoView-BbS6hZeV.js
-│   │   ├── Divider-Bkr2TEWW.js
-│   │   ├── Divider.stories-CW4C6S4K.js
-│   │   ├── DropdownMenu-CRspRTYu.js
-│   │   ├── DropdownMenu.stories-B9PQ5p1X.js
-│   │   ├── EmptyState-D5XkBHsR.js
-│   │   ├── EmptyState.stories-BodMsw8s.js
-│   │   ├── episodeTrack-DPhyodwM.js
-│   │   ├── extension-CpDqYZmQ.js
-│   │   ├── extension-CrxxPbk7.js
-│   │   ├── extension-DBuTjQdw.js
-│   │   ├── extension-DtM7xcaX.js
-│   │   ├── extension-RXmtAwl_.js
-│   │   ├── fallback-barbie-cover-hIogO7Vx.jpg
-│   │   ├── fallback-default-cover-qbQ_L16l.webp
-│   │   ├── fallback-neon-cover-lYb2Cv60.webp
-│   │   ├── fallback-radio-cover-BzWAg-xA.png
-│   │   ├── fallback-tiffany-cover-CaXqpqie.jpg
-│   │   ├── fluffy-clouds-CjvFoLmi.jpg
-│   │   ├── FormField-BTvuMjFz.js
-│   │   ├── FormField.stories-CuYCQunw.js
-│   │   ├── IconButton-4jpniXrZ.js
-│   │   ├── IconButton.stories-D1CSpW5W.js
-│   │   ├── Icon-CIX18BiG.js
-│   │   ├── IconGallery.stories-Ds1fOFxO.js
-│   │   ├── Icon.stories-YXEZSU0v.js
-│   │   ├── iframe-CbBKyjiU.css
-│   │   ├── iframe-KLx_99Fx.js
-│   │   ├── index-BqFt87G3.js
-│   │   ├── index-C6iEUzUn.js
-│   │   ├── index-CDaDENmo.js
-│   │   ├── index-CHJlrsMz.js
-│   │   ├── index-Di4q7vpO.js
-│   │   ├── index-DQxM--Xi.js
-│   │   ├── index-fGtO0XAo.js
-│   │   ├── index-IUvClnQs.js
-│   │   ├── Input-DGR2dFOk.js
-│   │   ├── Input.stories-Dzyz7Z6a.js
-│   │   ├── InputWithAffix-B56HOAFn.js
-│   │   ├── InputWithAffix.stories-Dl7uRF7-.js
-│   │   ├── Label-D60oUQYU.js
-│   │   ├── Label.stories-DC6hKkvH.js
-│   │   ├── LinkButton.stories-BCEPJ6wu.js
-│   │   ├── ListContainer-D51S9M5D.js
-│   │   ├── ListContainer.stories-Dkca7gcN.js
-│   │   ├── ListRow-BcWRad06.js
-│   │   ├── ListRow-QldPAAa2.css
-│   │   ├── ListRow.stories-CvBOry_D.js
-│   │   ├── LogiiView-DBSWNpBV.js
-│   │   ├── lookup-7o1tNJGU.js
-│   │   ├── metadata.worker-Gu6xOMwd.js
-│   │   ├── ModalHost.stories-BkXP3arz.js
-│   │   ├── ModalLayout-1BMdcDqo.js
-│   │   ├── ModalLayout.stories-Cln4Yiix.js
-│   │   ├── ModalService-DzHl0aab.js
-│   │   ├── PageHeader-CrniuCre.js
-│   │   ├── PageHeader.stories-BuHIulDu.js
-│   │   ├── PlayingIndicator-3uSF8xo8.js
-│   │   ├── PlayingIndicator.stories-Dawl0xRz.js
-│   │   ├── _plugin-vue_export-helper-DlAUqK2U.js
-│   │   ├── PodcastCatalog-CrR4SeYN.js
-│   │   ├── PodcastRoute-BRR1nXat.js
-│   │   ├── PodcastService-CFiRsehF.js
-│   │   ├── PodcastsView-CEPSIsO2.js
-│   │   ├── preload-helper-PPVm8Dsz.js
-│   │   ├── ProgressBar-bHoDsGKI.js
-│   │   ├── ProgressBar.stories-D-tKLv8v.js
-│   │   ├── RadioBrowserClient-FWgob7cV.js
-│   │   ├── RadioService-D_uSesTd.js
-│   │   ├── RadioView-BTTc_tdD.js
-│   │   ├── sber-zvuk-Bi_NENq7.png
-│   │   ├── SearchInput.stories-DajMRfGU.js
-│   │   ├── SearchInput-WPZLCipx.js
-│   │   ├── SectionTitle-1D7frSP0.js
-│   │   ├── SectionTitle.stories-BWObR5we.js
-│   │   ├── Select.stories-CcL-74CU.js
-│   │   ├── Spinner-CyuUrpme.js
-│   │   ├── Spinner.stories-DO2-17Rg.js
-│   │   ├── Textarea-CWsbeIdG.js
-│   │   ├── Textarea.stories-DYbYpOhB.js
-│   │   ├── tiffany-floral-corner-o4BrDjx6.png
-│   │   ├── tiffany-marble-bg-BP7_03Dp.avif
-│   │   ├── ToastHost.stories-DvDkrAM3.js
-│   │   ├── ToastService-Ynf0auyx.js
-│   │   ├── Toggle.stories-RkpbN0Fr.js
-│   │   ├── Toolbar.stories-ClDmOjC7.js
-│   │   ├── TrackActions-4yJNECbu.js
-│   │   ├── TrackCover-BLhn8KAy.js
-│   │   ├── TrackCover.stories-BhVvYesK.js
-│   │   ├── useButtonAs-CcYIF8Vz.js
-│   │   ├── ViewToggle.stories-Dt9_ESaM.js
-│   │   ├── yandex-disk-BDFQ7T17.png
-│   │   └── ZvukView-BpEdbGh1.js
-│   ├── sb-addons
-│   │   └── common-manager-bundle.js
-│   ├── sb-common-assets
-│   │   ├── favicon.svg
-│   │   ├── favicon-wrapper.svg
-│   │   ├── nunito-sans-bold-italic.woff2
-│   │   ├── nunito-sans-bold.woff2
-│   │   ├── nunito-sans-italic.woff2
-│   │   └── nunito-sans-regular.woff2
-│   ├── sb-manager
-│   │   ├── globals.js
-│   │   ├── globals-runtime.js
-│   │   ├── manager-stores.js
-│   │   └── runtime.js
-│   ├── apple-touch-icon-180x180.png
-│   ├── favicon.ico
-│   ├── favicon.svg
-│   ├── favicon-wrapper.svg
-│   ├── iframe.html
-│   ├── index.html
-│   ├── index.json
-│   ├── logo.webp
-│   ├── maskable-icon-512x512.png
-│   ├── nunito-sans-bold-italic.woff2
-│   ├── nunito-sans-bold.woff2
-│   ├── nunito-sans-italic.woff2
-│   ├── nunito-sans-regular.woff2
-│   ├── project.json
-│   ├── pwa-192x192.png
-│   ├── pwa-512x512.png
-│   ├── pwa-64x64.png
-│   └── vite-inject-mocker-entry.js
 ├── add-path-comments.sh
 ├── CHANGELOG.md
 ├── docker-compose.yml
@@ -826,4 +690,4 @@
 ├── vitest.config.ts
 └── vitest.setup.ts
 
-102 directories, 725 files
+98 directories, 593 files

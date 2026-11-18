@@ -19,6 +19,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const props = defineProps<{
   folder: LogiiTrackItem;
   images: FolderFile[];
+  isEditMode: boolean;
 }>();
 
 const fullscreenIndex = ref<number | null>(null);
@@ -162,7 +163,7 @@ async function onDeleteImage(index: number, e: MouseEvent): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex items-center justify-between gap-2">
+    <div v-if="isEditMode" class="flex items-center justify-between gap-2">
       <p class="text-xs text-fg-muted">Картинки</p>
       <button
         type="button"
@@ -187,6 +188,9 @@ async function onDeleteImage(index: number, e: MouseEvent): Promise<void> {
         data-testid="logii-gallery-upload-input"
         @change="onFilesSelected"
       />
+    </div>
+    <div v-else class="flex items-center justify-between gap-2">
+      <p class="text-xs text-fg-muted">Картинки</p>
     </div>
 
     <div v-if="images.length === 0" class="py-8 text-center text-xs text-fg-muted">Картинок нет.</div>
@@ -214,7 +218,7 @@ async function onDeleteImage(index: number, e: MouseEvent): Promise<void> {
           <Icon v-else name="image" w="w-8" h="h-8" class="text-fg-subtle" />
         </button>
 
-        <div class="absolute right-1 top-1 opacity-0 transition group-hover:opacity-100">
+        <div v-if="isEditMode" class="absolute right-1 top-1 opacity-0 transition group-hover:opacity-100">
           <IconButton
             icon="trash"
             variant="danger"

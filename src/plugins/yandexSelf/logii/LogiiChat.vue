@@ -13,11 +13,12 @@ const props = withDefaults(
     comments: LogiiComment[];
     isSaving: boolean;
     isLoading?: boolean;
+    isEditMode?: boolean;
     trackUrlPath?: string;
     onUpdateComment: (index: number, text: string) => Promise<boolean>;
     onDeleteComment: (index: number) => Promise<boolean>;
   }>(),
-  { isLoading: false, trackUrlPath: '' },
+  { isLoading: false, isEditMode: false, trackUrlPath: '' },
 );
 
 const emit = defineEmits<{
@@ -163,6 +164,7 @@ async function removeComment(index: number): Promise<void> {
               </p>
               <template v-if="editingIndex !== index">
                 <div
+                  v-if="isEditMode"
                   class="absolute top-1 right-1 flex items-center gap-0.5 pr-1 opacity-0 transition group-hover:opacity-100 bg-bg-elevated/80"
                 >
                   <IconButton

@@ -362,6 +362,7 @@ export async function bootstrapLogii(page: Page): Promise<void> {
     sessionStorage.clear();
     localStorage.setItem('plugin-activated:yandex-self', 'true');
     localStorage.setItem('logii:nickname', 'tester');
+    localStorage.setItem('logii:editMode', 'true');
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForAppBootstrap(page);

@@ -23,6 +23,7 @@ const props = defineProps<{
   isCollapsed: boolean;
   allTracksByAuthor: Map<string, Track[]>;
   seasonFolder: FolderRef | null;
+  isEditMode: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -76,7 +77,7 @@ function isAuthorNavigated(author: LogiiAuthorItem): boolean {
         <p v-if="!isCollapsed" class="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">Авторы</p>
         <div class="flex items-center gap-0.5">
           <IconButton
-            v-if="!isCollapsed && seasonFolder"
+            v-if="!isCollapsed && seasonFolder && isEditMode"
             icon="plus"
             variant="ghost"
             size="sm"
@@ -112,6 +113,7 @@ function isAuthorNavigated(author: LogiiAuthorItem): boolean {
           :is-author-current="isAuthorCurrent(a.urlPath)"
           :is-author-playing="isAuthorPlaying(a.urlPath)"
           :is-navigated="isAuthorNavigated(a)"
+          :is-edit-mode="isEditMode"
           @select="emit('select', a)"
           @play="onPlayAuthor(a, $event)"
           @rename="openRenameModal(a)"

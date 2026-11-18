@@ -28,6 +28,7 @@ const props = defineProps<{
   currentAuthorName: string | null;
   authorFolder: FolderRef | null;
   seasonFolder: FolderRef | null;
+  isEditMode: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -262,7 +263,7 @@ function handleDeleteFromTeleport(e: MouseEvent): void {
         <p class="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">Папки</p>
         <div class="flex items-center gap-0.5">
           <IconButton
-            v-if="authorFolder"
+            v-if="authorFolder && isEditMode"
             icon="plus"
             variant="ghost"
             size="sm"
@@ -301,7 +302,7 @@ function handleDeleteFromTeleport(e: MouseEvent): void {
       <!-- Кнопки переименования/удаления, телепортированные в body -->
       <Teleport to="body">
         <div
-          v-if="isHoveringRow && buttonPos && hoveredFolder"
+          v-if="isHoveringRow && buttonPos && hoveredFolder && isEditMode"
           class="fixed z-[100] flex items-center gap-0.5 rounded-l-btn bg-bg-elevated transition-opacity duration-200"
           :style="{
             left: buttonPos.x + 'px',

@@ -11,6 +11,7 @@ const props = defineProps<{
   title: string;
   isLoading: boolean;
   isSaving: boolean;
+  isEditMode: boolean;
   onUpdateVibe: (text: string) => Promise<boolean>;
 }>();
 
@@ -42,7 +43,7 @@ async function saveVibe(): Promise<void> {
     <div class="mb-2 flex items-center justify-between">
       <p class="text-sm font-medium text-fg">{{ title }}</p>
       <button
-        v-if="!isEditingVibe && !isLoading"
+        v-if="!isEditingVibe && !isLoading && isEditMode"
         type="button"
         class="rounded-btn bg-card-bg px-2 py-1 text-xs text-fg-muted transition hover:bg-hover-bg hover:text-fg"
         data-testid="logii-vibe-edit"

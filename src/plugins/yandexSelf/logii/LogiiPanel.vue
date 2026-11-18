@@ -19,6 +19,7 @@ const props = defineProps<{
   isRefreshing: boolean;
   error: string;
   canGoToParent: boolean;
+  isEditMode: boolean;
   onRetry: () => void;
   onRefresh: () => void;
   onGoToParent: () => void;
@@ -28,6 +29,10 @@ const props = defineProps<{
   onSendComment: (text: string) => Promise<void>;
   onUpdateComment: (index: number, text: string) => Promise<boolean>;
   onDeleteComment: (index: number) => Promise<boolean>;
+}>();
+
+const emit = defineEmits<{
+  (e: 'update:isEditMode', value: boolean): void;
 }>();
 
 const activeTab = ref<LogiiTab>('track');
@@ -55,9 +60,11 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
       :gallery-count="galleryCount"
       :can-go-to-parent="canGoToParent"
       :is-intro="Boolean(folder?.isIntro)"
+      :is-edit-mode="isEditMode"
       @update:active-tab="activeTab = $event"
       @refresh="onRefresh()"
       @go-to-parent="onGoToParent()"
+      @update:is-edit-mode="emit('update:isEditMode', $event)"
     >
       <template #header-actions>
         <slot name="header-actions" />
@@ -84,6 +91,7 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
             :data="data"
             :is-loading="isLoading"
             :is-saving="isSaving"
+            :is-edit-mode="isEditMode"
             :on-update-vibe="onUpdateVibe"
             :on-send-comment="onSendComment"
             :on-update-comment="onUpdateComment"
@@ -97,6 +105,7 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
                 :data="data"
                 :is-loading-vibe="isLoading"
                 :is-saving="isSaving"
+                :is-edit-mode="isEditMode"
                 :update-vibe="onUpdateVibe"
                 :on-play-track="onPlayTrack"
                 :on-play-all="onPlayAll"
@@ -107,6 +116,7 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
                 :comments="comments"
                 :is-saving="isSaving"
                 :is-loading="isLoading"
+                :is-edit-mode="isEditMode"
                 :track-url-path="folder.urlPath"
                 :on-update-comment="onUpdateComment"
                 :on-delete-comment="onDeleteComment"
@@ -114,7 +124,7 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
               />
             </template>
 
-            <LogiiGallery v-else :images="images" :folder="folder" />
+            <LogiiGallery v-else :images="images" :folder="folder" :is-edit-mode="isEditMode" />
           </template>
         </template>
       </div>

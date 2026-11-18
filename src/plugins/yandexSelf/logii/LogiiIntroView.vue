@@ -12,6 +12,7 @@ const props = defineProps<{
   data: LogiiData | null;
   isLoading: boolean;
   isSaving: boolean;
+  isEditMode: boolean;
   onUpdateVibe: (text: string) => Promise<boolean>;
   onSendComment: (text: string) => Promise<void>;
   onUpdateComment: (index: number, text: string) => Promise<boolean>;
@@ -29,6 +30,7 @@ const comments = computed(() => props.data?.comments ?? []);
       :title="vibeTitle"
       :is-loading="isLoading"
       :is-saving="isSaving"
+      :is-edit-mode="isEditMode"
       :on-update-vibe="onUpdateVibe"
     />
 
@@ -36,6 +38,7 @@ const comments = computed(() => props.data?.comments ?? []);
       :comments="comments"
       :is-saving="isSaving"
       :is-loading="isLoading"
+      :is-edit-mode="isEditMode"
       :track-url-path="folder.urlPath"
       :on-update-comment="onUpdateComment"
       :on-delete-comment="onDeleteComment"

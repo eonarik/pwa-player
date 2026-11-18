@@ -27,6 +27,7 @@ const props = defineProps<{
   data: LogiiData | null;
   isLoadingVibe: boolean;
   isSaving: boolean;
+  isEditMode: boolean;
   updateVibe: (text: string) => Promise<boolean>;
   onPlayTrack: (index: number) => void;
   onPlayAll: () => void;
@@ -211,6 +212,7 @@ async function onDeleteTrack(track: Track): Promise<void> {
         <p class="text-sm font-medium text-fg">Аудио</p>
         <div class="flex items-center gap-2">
           <button
+            v-if="isEditMode"
             type="button"
             class="rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50"
             :disabled="isUploading"
@@ -225,6 +227,7 @@ async function onDeleteTrack(track: Track): Promise<void> {
             <span v-if="isUploading" class="ml-1">{{ uploadProgress.done }} / {{ uploadProgress.total }}</span>
           </button>
           <button
+            v-if="isEditMode"
             type="button"
             class="rounded-btn bg-card-bg px-3 py-1.5 text-xs font-medium text-fg transition hover:bg-hover-bg disabled:opacity-50"
             :disabled="isUploading"
@@ -260,7 +263,7 @@ async function onDeleteTrack(track: Track): Promise<void> {
         >
           <template #actions>
             <button
-              v-if="getRemotePath(track)"
+              v-if="isEditMode && getRemotePath(track)"
               type="button"
               class="rounded-btn p-1.5 text-fg-subtle transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
               :disabled="deletingTrackId !== null"
@@ -295,6 +298,7 @@ async function onDeleteTrack(track: Track): Promise<void> {
       :title="vibeTitle"
       :is-loading="isLoadingVibe"
       :is-saving="isSaving"
+      :is-edit-mode="isEditMode"
       :on-update-vibe="updateVibe"
     />
   </div>

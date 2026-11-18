@@ -2,6 +2,7 @@
 
 <script setup lang="ts">
 import IconButton from '@/components/atoms/IconButton.vue';
+import Toggle from '@/components/atoms/Toggle.vue';
 
 export type LogiiTab = 'track' | 'gallery';
 
@@ -17,12 +18,15 @@ defineProps<{
   canGoToParent: boolean;
   /** Intro — не показываем табы. */
   isIntro?: boolean;
+  /** Режим редактирования: показывает create/update/delete кнопки. */
+  isEditMode?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:activeTab', value: LogiiTab): void;
   (e: 'refresh'): void;
   (e: 'go-to-parent'): void;
+  (e: 'update:isEditMode', value: boolean): void;
 }>();
 
 const TABS: Array<{ id: LogiiTab; label: string }> = [
@@ -64,6 +68,14 @@ function countFor(tab: LogiiTab, counts: { track: number; gallery: number }): nu
         </template>
         <template v-else>Выберите трек</template>
       </p>
+    </div>
+
+    <div class="flex items-center gap-1">
+      <Toggle
+        :model-value="isEditMode ?? false"
+        data-testid="logii-edit-mode-toggle"
+        @update:model-value="emit('update:isEditMode', $event)"
+      />
     </div>
 
     <IconButton
