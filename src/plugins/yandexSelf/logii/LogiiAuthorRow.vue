@@ -1,7 +1,5 @@
-<!-- src/plugins/yandexSelf/logii/LogiiAuthorRow.vue -->
-
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import Icon from '@/components/atoms/Icon.vue';
 import IconButton from '@/components/atoms/IconButton.vue';
 import { authorAvatarColor } from './authorColor';
@@ -17,6 +15,7 @@ const props = withDefaults(
     isAuthorPlaying: boolean;
     isNavigated: boolean;
     isEditMode: boolean;
+    isMobile?: boolean;
   }>(),
   {},
 );
@@ -70,34 +69,39 @@ function updatePosition(): void {
 }
 
 function onRowEnter(): void {
+  if (props.isMobile) return;
   isHovering.value = true;
   updatePosition();
 }
 
 function onRowLeave(): void {
+  if (props.isMobile) return;
   isHovering.value = false;
 }
 
 function onScrollOrResize(): void {
+  if (!isHovering.value) return;
   updatePosition();
 }
 
-watch(() => rowRef.value, () => {
-  updatePosition();
-});
+watch(
+  () => rowRef.value,
+  () => {
+    updatePosition();
+  },
+);
 
 window.addEventListener('scroll', onScrollOrResize, true);
 window.addEventListener('resize', onScrollOrResize);
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScrollOrResize, true);
+  window.removeEventListener('resize', onScrollOrResize);
+});
 </script>
 
 <template>
-  <div
-    ref="rowRef"
-    class="group relative"
-    :data-testid="rowTestId()"
-    @mouseenter="onRowEnter"
-    @mouseleave="onRowLeave"
-  >
+  <div ref="rowRef" class="group relative" :data-testid="rowTestId()" @mouseenter="onRowEnter" @mouseleave="onRowLeave">
     <button
       type="button"
       class="flex w-full items-center rounded-btn border-l-2 border-transparent transition"
@@ -144,10 +148,35 @@ window.addEventListener('resize', onScrollOrResize);
       <span v-if="!isCollapsed" class="truncate text-sm">{{ author.folderName }}</span>
     </button>
 
-    <!-- Кнопки переименования/удаления, телепортированные в body -->
+    <!-- На мобильном: кнопки в строке -->
+    <div
+      v-if="isMobile && !isCollapsed && isEditMode"
+      class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-l-btn bg-bg-elevated/80"
+    >
+      <IconButton
+        icon="pencil"
+        variant="ghost"
+        size="md"
+        label="Переименовать автора"
+        :disabled="isWriting"
+        :data-testid="renameTestId()"
+        @click.stop="emit('rename', $event)"
+      />
+      <IconButton
+        icon="trash"
+        variant="danger"
+        size="md"
+        label="Удалить автора"
+        :disabled="isWriting"
+        :data-testid="deleteTestId()"
+        @click.stop="emit('delete', $event)"
+      />
+    </div>
+
+    <!-- На десктопе: Teleport -->
     <Teleport to="body">
       <div
-        v-if="isHovering && !isCollapsed && buttonPos && isEditMode"
+        v-if="!isMobile && isHovering && !isCollapsed && buttonPos && isEditMode"
         class="fixed z-[100] flex items-center gap-0.5 rounded-l-btn bg-bg-elevated transition-opacity duration-200"
         :style="{
           left: buttonPos.x + 'px',

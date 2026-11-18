@@ -397,15 +397,17 @@ export async function bootstrapLogii(page: Page): Promise<void> {
 export async function openLogiiSeason(page: Page, seasonName: string): Promise<void> {
   const row = page.locator('[data-testid^="folder-row-"]').filter({ hasText: seasonName }).first();
   await expect(row).toBeVisible();
-  await row.click();
+  await row.click({ force: true });
 }
 
 export async function openAuthor(page: Page, authorName: string): Promise<void> {
-  await page.getByText(authorName, { exact: true }).first().click();
+  // Добавлен force: true, чтобы клик проходил сквозь вылетающие Teleport-кнопки
+  await page.getByTestId(`author-row-${authorName}`).click({ force: true });
 }
 
 export async function openFolder(page: Page, folderName: string): Promise<void> {
-  await page.getByText(folderName, { exact: true }).first().click();
+  // Добавлен force: true, чтобы клик проходил сквозь вылетающие Teleport-кнопки
+  await page.getByTestId(`logii-folder-${folderName}`).click({ force: true });
 }
 
 const TAB_IDS: Record<'Трек' | 'Галерея', string> = {

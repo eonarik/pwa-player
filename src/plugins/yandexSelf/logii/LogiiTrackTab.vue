@@ -28,6 +28,7 @@ const props = defineProps<{
   isLoadingVibe: boolean;
   isSaving: boolean;
   isEditMode: boolean;
+  isMobile?: boolean;
   updateVibe: (text: string) => Promise<boolean>;
   onPlayTrack: (index: number) => void;
   onPlayAll: () => void;
@@ -208,9 +209,9 @@ async function onDeleteTrack(track: Track): Promise<void> {
   <div class="flex flex-col gap-4">
     <!-- Шапка "Аудио" — всегда видна -->
     <div>
-      <div class="mb-2 flex items-center justify-between gap-2">
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p class="text-sm font-medium text-fg">Аудио</p>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <button
             v-if="isEditMode"
             type="button"
@@ -222,7 +223,8 @@ async function onDeleteTrack(track: Track): Promise<void> {
             <Spinner v-if="isUploading" size="sm" />
             <template v-else>
               <Icon name="plus" w="w-3.5" h="h-3.5" class="mr-1 inline" />
-              Загрузить треки
+              <span class="hidden md:inline">Загрузить треки</span>
+              <span class="md:hidden">Загрузить</span>
             </template>
             <span v-if="isUploading" class="ml-1">{{ uploadProgress.done }} / {{ uploadProgress.total }}</span>
           </button>
@@ -235,7 +237,8 @@ async function onDeleteTrack(track: Track): Promise<void> {
             @click="openStreamSearch"
           >
             <Icon name="search" w="w-3.5" h="h-3.5" class="mr-1 inline" />
-            Найти в стримингах
+            <span class="hidden md:inline">Найти в стримингах</span>
+            <span class="md:hidden">Найти</span>
           </button>
           <button
             v-if="tracks.length > 0"

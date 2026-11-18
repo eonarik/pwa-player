@@ -1,28 +1,25 @@
 <!-- src/plugins/yandexSelf/logii/LogiiPanel.vue -->
-
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import type { LogiiTrackItem } from './useLogiiData';
 import type { LogiiData } from './parseLogii';
-import LogiiPanelHeader, { type LogiiTab } from './LogiiPanelHeader.vue';
 import LogiiTrackTab from './LogiiTrackTab.vue';
 import LogiiChat from './LogiiChat.vue';
 import LogiiGallery from './LogiiGallery.vue';
 import LogiiIntroView from './LogiiIntroView.vue';
 
+export type LogiiTab = 'track' | 'gallery';
+
 const props = defineProps<{
-  authorName: string | null;
   folder: LogiiTrackItem | null;
   data: LogiiData | null;
   isLoading: boolean;
   isSaving: boolean;
-  isRefreshing: boolean;
   error: string;
-  canGoToParent: boolean;
   isEditMode: boolean;
+  isMobile?: boolean;
+  activeTab: LogiiTab;
   onRetry: () => void;
-  onRefresh: () => void;
-  onGoToParent: () => void;
   onPlayTrack: (index: number) => void;
   onPlayAll: () => void;
   onUpdateVibe: (text: string) => Promise<boolean>;
@@ -32,49 +29,59 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:isEditMode', value: boolean): void;
+  (e: 'update:activeTab', value: LogiiTab): void;
 }>();
 
-const activeTab = ref<LogiiTab>('track');
+const TABS: Array<{ id: LogiiTab; label: string }> = [
+  { id: 'track', label: 'Трек' },
+  { id: 'gallery', label: 'Галерея' },
+];
 
 const comments = computed(() => props.data?.comments ?? []);
 const images = computed(() => props.folder?.imageFiles ?? []);
 const trackCount = computed(() => props.folder?.audioTracks.length ?? 0);
-const chatCount = computed(() => comments.value.length);
 const galleryCount = computed(() => images.value.length);
 
-const logiiFileName = computed(() => props.folder?.logiiFileName ?? null);
-const folderName = computed(() => (props.folder && !props.folder.isIntro ? props.folder.folderName : null));
+function countFor(tab: LogiiTab): number {
+  return tab === 'track' ? trackCount.value : galleryCount.value;
+}
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-1 flex-col">
-    <LogiiPanelHeader
-      :author-name="authorName"
-      :folder-name="folderName"
-      :logii-file-name="logiiFileName"
-      :active-tab="activeTab"
-      :is-refreshing="isRefreshing"
-      :track-count="trackCount"
-      :chat-count="chatCount"
-      :gallery-count="galleryCount"
-      :can-go-to-parent="canGoToParent"
-      :is-intro="Boolean(folder?.isIntro)"
-      :is-edit-mode="isEditMode"
-      @update:active-tab="activeTab = $event"
-      @refresh="onRefresh()"
-      @go-to-parent="onGoToParent()"
-      @update:is-edit-mode="emit('update:isEditMode', $event)"
+  <div class="w-full shrink-0 flex flex-col h-full bg-bg md:flex-1 md:min-w-0">
+    <!-- Табы (только если это не Intro) -->
+    <div
+      v-if="folder && !folder.isIntro"
+      class="flex w-full border-b border-hover-bg bg-bg shrink-0 md:px-4 md:py-2 md:gap-1.5"
     >
-      <template #header-actions>
-        <slot name="header-actions" />
-      </template>
-    </LogiiPanelHeader>
+      <button
+        v-for="tab in TABS"
+        :key="tab.id"
+        type="button"
+        :data-testid="`logii-tab-${tab.id}`"
+        class="text-xs font-medium transition flex items-center justify-center gap-1.5 flex-1 py-2.5 border-b-2 md:flex-none md:rounded-btn md:px-3 md:py-1.5 md:border-b-0"
+        :class="
+          activeTab === tab.id
+            ? 'border-active text-active bg-active/5 md:bg-card-bg md:text-fg md:border-transparent'
+            : 'border-transparent text-fg-muted hover:text-fg hover:bg-hover-bg'
+        "
+        @click="emit('update:activeTab', tab.id)"
+      >
+        <span>{{ tab.label }}</span>
+        <span
+          v-if="countFor(tab.id) > 0"
+          class="rounded-full bg-hover-bg px-1.5 py-0.5 text-[10px]"
+          :class="activeTab === tab.id ? 'md:bg-active/20 md:text-active' : ''"
+        >
+          {{ countFor(tab.id) }}
+        </span>
+      </button>
+    </div>
 
+    <!-- Контент -->
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl px-4 py-4">
-        <div v-if="!folder" class="py-10 text-center text-sm text-fg-muted">Выберите папку слева.</div>
-
+        <div v-if="!folder" class="py-10 text-center text-sm text-fg-muted">Выберите папку.</div>
         <div v-else-if="error" class="text-center py-10 text-sm text-red-400">
           {{ error }}
           <div class="mt-3">
@@ -97,7 +104,6 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
             :on-update-comment="onUpdateComment"
             :on-delete-comment="onDeleteComment"
           />
-
           <template v-else>
             <template v-if="activeTab === 'track'">
               <LogiiTrackTab
@@ -106,11 +112,11 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
                 :is-loading-vibe="isLoading"
                 :is-saving="isSaving"
                 :is-edit-mode="isEditMode"
+                :is-mobile="isMobile"
                 :update-vibe="onUpdateVibe"
                 :on-play-track="onPlayTrack"
                 :on-play-all="onPlayAll"
               />
-
               <LogiiChat
                 class="mt-4"
                 :comments="comments"
@@ -123,7 +129,6 @@ const folderName = computed(() => (props.folder && !props.folder.isIntro ? props
                 @send="onSendComment"
               />
             </template>
-
             <LogiiGallery v-else :images="images" :folder="folder" :is-edit-mode="isEditMode" />
           </template>
         </template>

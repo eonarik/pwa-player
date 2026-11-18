@@ -1,7 +1,7 @@
 <!-- src/plugins/yandexSelf/logii/LogiiFoldersColumn.vue -->
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { sortService } from '@/services/sort/SortService';
 import Icon from '@/components/atoms/Icon.vue';
@@ -29,6 +29,7 @@ const props = defineProps<{
   authorFolder: FolderRef | null;
   seasonFolder: FolderRef | null;
   isEditMode: boolean;
+  isMobile?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -206,6 +207,7 @@ function updateFolderButtonPosition(): void {
 }
 
 function onFolderRowEnter(el: HTMLElement | null, folder: LogiiTrackItem, index: number): void {
+  if (props.isMobile) return;
   hoveredRowRef.value = el;
   hoveredFolder.value = folder;
   hoveredFolderIndex.value = index;
@@ -214,19 +216,29 @@ function onFolderRowEnter(el: HTMLElement | null, folder: LogiiTrackItem, index:
 }
 
 function onFolderRowLeave(): void {
+  if (props.isMobile) return;
   isHoveringRow.value = false;
 }
 
 function onFolderScrollOrResize(): void {
+  if (!isHoveringRow.value) return;
   updateFolderButtonPosition();
 }
 
-watch(() => hoveredRowRef.value, () => {
-  updateFolderButtonPosition();
-});
+watch(
+  () => hoveredRowRef.value,
+  () => {
+    updateFolderButtonPosition();
+  },
+);
 
 window.addEventListener('scroll', onFolderScrollOrResize, true);
 window.addEventListener('resize', onFolderScrollOrResize);
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onFolderScrollOrResize, true);
+  window.removeEventListener('resize', onFolderScrollOrResize);
+});
 
 function handleRenameFromTeleport(e: MouseEvent): void {
   if (hoveredFolder.value) {
@@ -242,7 +254,9 @@ function handleDeleteFromTeleport(e: MouseEvent): void {
 </script>
 
 <template>
-  <aside class="hidden w-48 shrink-0 overflow-y-auto border-r border-hover-bg bg-bg-elevated/20 md:block">
+  <aside
+    class="w-full shrink-0 h-full overflow-y-auto snap-center snap-always border-r border-hover-bg bg-bg-elevated/20 md:block md:w-48"
+  >
     <div class="p-2">
       <button
         v-if="hasAuthorIntro && authorIntroFileName"
@@ -297,12 +311,37 @@ function handleDeleteFromTeleport(e: MouseEvent): void {
         >
           <span class="truncate">{{ f.folderName }}</span>
         </button>
+
+        <!-- На мобильном: кнопки видны всегда -->
+        <div
+          v-if="isMobile && isEditMode"
+          class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 bg-bg-elevated/80 rounded-l-btn"
+        >
+          <IconButton
+            icon="pencil"
+            variant="ghost"
+            size="md"
+            label="Переименовать топ"
+            :disabled="isWriting"
+            :data-testid="'folder-rename-' + (index + 1)"
+            @click.stop="openRenameModal(f, $event)"
+          />
+          <IconButton
+            icon="trash"
+            variant="danger"
+            size="md"
+            label="Удалить топ"
+            :disabled="isWriting"
+            :data-testid="'folder-delete-' + f.folderName"
+            @click.stop="onDeleteFolder(f, $event)"
+          />
+        </div>
       </div>
 
-      <!-- Кнопки переименования/удаления, телепортированные в body -->
+      <!-- На десктопе: Teleport -->
       <Teleport to="body">
         <div
-          v-if="isHoveringRow && buttonPos && hoveredFolder && isEditMode"
+          v-if="!isMobile && isHoveringRow && buttonPos && hoveredFolder && isEditMode"
           class="fixed z-[100] flex items-center gap-0.5 rounded-l-btn bg-bg-elevated transition-opacity duration-200"
           :style="{
             left: buttonPos.x + 'px',

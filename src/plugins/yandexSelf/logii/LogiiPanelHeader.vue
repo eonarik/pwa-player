@@ -1,115 +1,84 @@
 <!-- src/plugins/yandexSelf/logii/LogiiPanelHeader.vue -->
-
 <script setup lang="ts">
+import { computed } from 'vue';
 import IconButton from '@/components/atoms/IconButton.vue';
 import Toggle from '@/components/atoms/Toggle.vue';
 
-export type LogiiTab = 'track' | 'gallery';
-
-defineProps<{
+const props = defineProps<{
+  pageIndex: number;
   authorName: string | null;
   folderName: string | null;
   logiiFileName: string | null;
-  activeTab: LogiiTab;
   isRefreshing: boolean;
-  trackCount: number;
-  chatCount: number;
-  galleryCount: number;
   canGoToParent: boolean;
-  /** Intro — не показываем табы. */
-  isIntro?: boolean;
-  /** Режим редактирования: показывает create/update/delete кнопки. */
   isEditMode?: boolean;
+  isMobile?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:activeTab', value: LogiiTab): void;
   (e: 'refresh'): void;
   (e: 'go-to-parent'): void;
+  (e: 'go-prev'): void;
   (e: 'update:isEditMode', value: boolean): void;
 }>();
 
-const TABS: Array<{ id: LogiiTab; label: string }> = [
-  { id: 'track', label: 'Трек' },
-  { id: 'gallery', label: 'Галерея' },
-];
+const breadcrumb = computed(() => {
+  const parts: string[] = [];
+  if (props.pageIndex === 0) return 'Авторы';
 
-function countFor(tab: LogiiTab, counts: { track: number; gallery: number }): number {
-  return counts[tab];
+  if (props.authorName) parts.push(props.authorName);
+
+  if (props.pageIndex === 2) {
+    if (props.folderName) parts.push(props.folderName);
+    else if (props.logiiFileName) parts.push(props.logiiFileName);
+  }
+  return parts.join(' / ') || '...';
+});
+
+function onBackClick() {
+  // На мобилке: если мы не на первом экране, листаем назад. Если на первом — выходим в парент.
+  // На десктопе: экранов нет, всегда выходим в парент (на уровень выше по файловой системе).
+  if (props.isMobile && props.pageIndex > 0) {
+    emit('go-prev');
+  } else {
+    emit('go-to-parent');
+  }
 }
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center gap-2 border-b border-hover-bg bg-bg px-4 py-2">
+  <div class="flex items-center gap-1 px-2 py-2 md:px-4 md:gap-2 shrink-0 border-b border-hover-bg bg-bg">
     <IconButton
       icon="arrow-left"
       variant="ghost"
       size="sm"
-      label="К папкам"
-      :disabled="!canGoToParent"
+      label="Назад"
       data-testid="logii-go-to-parent"
-      @click="emit('go-to-parent')"
+      @click="onBackClick"
     />
 
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-medium text-fg" data-testid="logii-panel-title">
-        <template v-if="authorName && folderName">
-          <span class="text-fg-muted">{{ authorName }}</span>
-          <span class="text-fg-subtle"> / </span>
-          <span>{{ folderName }}</span>
-        </template>
-        <template v-else-if="authorName && logiiFileName">
-          <span class="text-fg-muted">{{ authorName }}</span>
-          <span class="text-fg-subtle"> / </span>
-          <span>{{ logiiFileName }}</span>
-        </template>
-        <template v-else-if="authorName">
-          <span>{{ authorName }}</span>
-        </template>
-        <template v-else>Выберите трек</template>
-      </p>
+      <p class="truncate text-sm font-medium text-fg">{{ breadcrumb }}</p>
     </div>
 
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-1 md:gap-2">
       <Toggle
         :model-value="isEditMode ?? false"
+        class="hidden md:inline-flex"
         data-testid="logii-edit-mode-toggle"
         @update:model-value="emit('update:isEditMode', $event)"
       />
-    </div>
 
-    <IconButton
-      icon="refresh"
-      variant="ghost"
-      size="sm"
-      :label="isRefreshing ? 'Обновляем…' : 'Обновить с облака'"
-      :icon-class="isRefreshing ? 'animate-spin' : ''"
-      data-testid="logii-refresh"
-      @click="emit('refresh')"
-    />
+      <IconButton
+        icon="refresh"
+        variant="ghost"
+        size="sm"
+        :icon-class="isRefreshing ? 'animate-spin' : ''"
+        data-testid="logii-refresh"
+        @click="emit('refresh')"
+      />
 
-    <slot name="header-actions" />
-
-    <div v-if="!isIntro" class="flex shrink-0 gap-1">
-      <button
-        v-for="tab in TABS"
-        :key="tab.id"
-        type="button"
-        class="rounded-btn px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5"
-        :class="activeTab === tab.id ? 'bg-card-bg text-fg' : 'text-fg-muted hover:text-fg'"
-        :aria-label="tab.label"
-        :data-testid="`logii-tab-${tab.id}`"
-        @click="emit('update:activeTab', tab.id)"
-      >
-        <span>{{ tab.label }}</span>
-        <span
-          v-if="countFor(tab.id, { track: trackCount, gallery: galleryCount }) > 0"
-          class="rounded-full bg-hover-bg px-1.5 py-0.5 text-[10px] tabular-nums"
-          :class="activeTab === tab.id ? 'bg-active/20 text-active' : 'text-fg-muted'"
-        >
-          {{ countFor(tab.id, { track: trackCount, gallery: galleryCount }) }}
-        </span>
-      </button>
+      <slot name="header-actions" />
     </div>
   </div>
 </template>

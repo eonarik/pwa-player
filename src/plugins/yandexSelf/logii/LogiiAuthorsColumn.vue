@@ -24,6 +24,7 @@ const props = defineProps<{
   allTracksByAuthor: Map<string, Track[]>;
   seasonFolder: FolderRef | null;
   isEditMode: boolean;
+  isMobile?: boolean; // <-- добавлен проп
 }>();
 
 const emit = defineEmits<{
@@ -68,16 +69,19 @@ function isAuthorNavigated(author: LogiiAuthorItem): boolean {
 </script>
 
 <template>
+  <!-- На мобильном: страница (w-1/3), на десктопе: aside -->
   <aside
-    class="hidden shrink-0 overflow-y-auto border-r border-hover-bg bg-bg-elevated/40 transition-all duration-200 md:block"
-    :class="isCollapsed ? 'w-14' : 'w-44'"
+    class="w-full shrink-0 h-full overflow-y-auto snap-center snap-always border-r border-hover-bg bg-bg-elevated/40 transition-all duration-200 md:block md:w-44"
+    :class="isCollapsed && !isMobile ? 'w-14' : ''"
   >
     <div class="p-2">
       <div class="flex items-center justify-between pb-2 gap-1">
-        <p v-if="!isCollapsed" class="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">Авторы</p>
+        <p v-if="!isCollapsed || isMobile" class="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
+          Авторы
+        </p>
         <div class="flex items-center gap-0.5">
           <IconButton
-            v-if="!isCollapsed && seasonFolder && isEditMode"
+            v-if="(!isCollapsed || isMobile) && seasonFolder && isEditMode"
             icon="plus"
             variant="ghost"
             size="sm"
@@ -87,7 +91,9 @@ function isAuthorNavigated(author: LogiiAuthorItem): boolean {
             :icon-class="isWriting ? 'animate-spin' : ''"
             @click="openCreateModal"
           />
+          <!-- Кнопка сворачивания на мобильном не нужна, на планшете - да -->
           <button
+            v-if="!isMobile"
             type="button"
             class="w-8 h-8 rounded-btn p-0.5 text-fg-subtle transition hover:bg-hover-bg hover:text-fg"
             :aria-label="isCollapsed ? 'Развернуть авторов' : 'Свернуть авторов'"
@@ -107,13 +113,14 @@ function isAuthorNavigated(author: LogiiAuthorItem): boolean {
           v-for="a in authors"
           :key="a.urlPath"
           :author="a"
-          :is-collapsed="isCollapsed"
+          :is-collapsed="isCollapsed && !isMobile"
           :is-writing="isWriting"
           :has-tracks="hasTracks(a.urlPath)"
           :is-author-current="isAuthorCurrent(a.urlPath)"
           :is-author-playing="isAuthorPlaying(a.urlPath)"
           :is-navigated="isAuthorNavigated(a)"
           :is-edit-mode="isEditMode"
+          :is-mobile="isMobile"
           @select="emit('select', a)"
           @play="onPlayAuthor(a, $event)"
           @rename="openRenameModal(a)"

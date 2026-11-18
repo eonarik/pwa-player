@@ -1,10 +1,12 @@
-// src/plugins/yandexSelf/logii/LogiiView.vue
-
+<!-- src/plugins/yandexSelf/logii/LogiiView.vue -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
 import { useLibraryStore } from '@/stores/library';
+import { useMediaQuery } from '@/composables/useMediaQuery';
+import { storeToRefs } from 'pinia';
+import { useSwipe } from '@vueuse/core';
 import { useLogiiSeason, useLogiiTrack } from './useLogiiData';
 import { useLogiiRoute } from './composables/useLogiiRoute';
 import { useLogiiSelection } from './composables/useLogiiSelection';
@@ -12,24 +14,27 @@ import { useLogiiNavigation } from './composables/useLogiiNavigation';
 import { useLogiiPlayback } from './composables/useLogiiPlayback';
 import { useLogiiRefresh } from './composables/useLogiiRefresh';
 import { useLogiiChanges } from './composables/useLogiiChanges';
+import { useLogiiPager } from './composables/useLogiiPager';
+import { useLogiiAutoSelect } from './composables/useLogiiAutoSelect';
 import { useEditMode } from './composables/useEditMode';
 import LogiiAuthorsColumn from './LogiiAuthorsColumn.vue';
 import LogiiFoldersColumn from './LogiiFoldersColumn.vue';
-import LogiiPanel from './LogiiPanel.vue';
+import LogiiPanel, { type LogiiTab } from './LogiiPanel.vue';
+import LogiiPanelHeader from './LogiiPanelHeader.vue';
 import LogiiChangesButton from './LogiiChangesButton.vue';
 import Spinner from '@/components/atoms/Spinner.vue';
 import type { FolderRef } from '@/types/folder';
 import { urlPathToSegments } from '@/utils/urlPath';
 
-const props = defineProps<{
-  urlPath: string;
-}>();
+const props = defineProps<{ urlPath: string }>();
 
 const router = useRouter();
 const player = usePlayerStore();
+const { currentTrack } = storeToRefs(player);
 const library = useLibraryStore();
 const { isEditMode } = useEditMode();
 
+const isMobile = useMediaQuery('(max-width: 767px)');
 const folders = computed(() => library.folders);
 
 const route = useLogiiRoute(computed(() => props.urlPath));
@@ -41,6 +46,8 @@ const playback = useLogiiPlayback({
   allTracksByAuthor: season.allTracksByAuthor,
   player,
 });
+
+const activeTab = ref<LogiiTab>('track');
 
 const {
   data: logiiData,
@@ -57,7 +64,6 @@ const {
 // --- Синхронизация изменений ---
 const seasonUrlPath = computed(() => season.seasonFolder.value?.urlPath ?? '');
 const logiiFolders = computed<Record<string, FolderRef>>(() => {
-  // Собираем все папки сезона из библиотеки
   const result: Record<string, FolderRef> = {};
   if (!season.seasonFolder.value) return result;
   const seasonId = season.seasonFolder.value.id;
@@ -66,7 +72,6 @@ const logiiFolders = computed<Record<string, FolderRef>>(() => {
     if (f.id === seasonId || f.parentId === seasonId) {
       result[f.urlPath] = f;
     } else {
-      // Проверяем, является ли родитель автором сезона
       const parent = f.parentId ? folders.value[f.parentId] : undefined;
       if (parent && parent.parentId === seasonId) {
         result[f.urlPath] = f;
@@ -95,70 +100,10 @@ const { isRefreshing, onRefresh } = useLogiiRefresh({
   seasonUrlPath,
 });
 
-// Отключено: сетевой триггер скана (onMounted + watch author|folder).
-// Скан по-прежнему доступен через кнопку refresh в LogiiPanel (onRefresh).
-// let syncTimer: ReturnType<typeof setTimeout> | null = null;
-// const isSyncing = ref(false);
-
-// async function runFullCheck(): Promise<void> {
-//   if (isRefreshing.value) return;
-//   if (isSyncing.value) return;
-//
-//   isSyncing.value = true;
-//   try {
-//     const prevSnapshot = await changes.readPrevSnapshot();
-//     await changes.initScan(prevSnapshot ?? null);
-//
-//     const plugin = await import('@/plugins/registry').then((m) => m.loadPlugin('yandex-self'));
-//     if (plugin.scanFolder) {
-//       const context = await import('@/plugins/context').then((m) => m.createPluginContext('yandex-self'));
-//       await plugin.scanFolder(context, season.seasonFolder.value!.id, {
-//         recursive: true,
-//         force: true,
-//         onAfterFileScan: changes.onAfterFileScan,
-//         onAfterFolderScan: changes.onAfterFolderScan,
-//       });
-//     }
-//     await changes.finalizeScan(seasonUrlPath.value);
-//     changes.applyScanResult();
-//   } catch {
-//     // ignore — скан покажет ошибку сам
-//   } finally {
-//     isSyncing.value = false;
-//   }
-// }
-
-// function triggerSync(): void {
-//   if (syncTimer !== null) clearTimeout(syncTimer);
-//   syncTimer = setTimeout(() => {
-//     syncTimer = null;
-//     void runFullCheck();
-//   }, 500);
-// }
-
-// onMounted(() => {
-//   void runFullCheck();
-// });
-
-// watch(
-//   () => `${route.authorName.value}|${route.folderName.value}`,
-//   () => {
-//     triggerSync();
-//   },
-// );
-//   },
-// );
-
-// Интеграция applyTextChange: после reload feed modified в снимок
 watch(
   () => logiiData.value,
   () => {
-    const urlPath = currentFolderUrlPath.value;
-    const fileName = currentLogiiFileName.value;
-    if (urlPath && fileName) {
-      // logiiData обновился — feed в снимок через changes.applyTextChange
-      // (modified приходит из readLogiiFile, но мы не храним его в logiiData —
-      // вместо этого просто обновляем снимок через applyScanResult)
+    if (currentFolderUrlPath.value && currentLogiiFileName.value) {
       changes.applyScanResult();
     }
   },
@@ -172,8 +117,6 @@ function onChangeNavigate(urlPath: string): void {
 function onClearEvents(): void {
   changes.clearEvents();
 }
-
-// --- Конец синхронизации ---
 
 const { authors, allTracksByAuthor, seasonFolder, isReady } = season;
 const {
@@ -189,41 +132,104 @@ const { canGoToParent, goToParent, goToAuthor, goToIntro, goToFolder } = navigat
 const { playTrack, playAllAudio, playAuthor } = playback;
 const { authorName, folderName } = route;
 
-// CUEI-0009: в текущем топе играет трек (playback) отдельно от «топ открыт» (навигация)
 const isCurrentTopPlaying = computed(() => {
   const folder = currentFolder.value;
-  const track = player.currentTrack;
+  const track = currentTrack.value;
   return Boolean(folder && track && folder.audioTracks.some((t) => t.id === track.id));
 });
 
 const isAuthorsCollapsed = ref(false);
 
-// --- Автовыбор (объединённый) ---
-watch(
-  () => [authors.value.length, authorName.value, folderName.value] as const,
-  ([count, author, folder], prev) => {
-    // 1. Первый заход в сезон — выбрать первого автора.
-    if (!author && count > 0) {
-      goToAuthor(authors.value[0]!);
-      return;
-    }
+// --- Мобильная постраничная навигация ---
+const pager = useLogiiPager({
+  route,
+  authors,
+  authorFolders,
+  hasAuthorIntro,
+  currentFolder,
+  goToAuthor,
+  goToFolder,
+  goToIntro,
+  router,
+});
 
-    // 2. Автовыбор папки:
-    //    - если сменился автор (клик на другого) — выбираем первую папку;
-    //    - если автор тот же, а папка стала null (refresh удалил папку) — не выбираем.
-    if (author && !folder) {
-      const prevAuthor = prev?.[1] ?? null;
-      const prevFolder = prev?.[2] ?? null;
+useLogiiAutoSelect({
+  authors,
+  authorFolders,
+  authorName,
+  folderName,
+  hasAuthorIntro,
+  isMobile,
+  goToAuthor,
+  goToFolder,
+});
 
-      if (prevAuthor === author && prevFolder !== null) return;
+// --- Данные для предпросмотра экранов на мобилке (чтобы не было пустоты при свайпе) ---
+const mobileFallbackAuthor = computed(() => {
+  if (authorName.value || !isMobile.value) return null;
+  return authors.value[0] ?? null;
+});
 
-      if (authorFolders.value.length === 0) return;
-      if (hasAuthorIntro.value) return;
-      goToFolder(authorFolders.value[0]!);
+const effectiveAuthorName = computed(() => authorName.value || mobileFallbackAuthor.value?.folderName || null);
+
+const effectiveFolders = computed(() => {
+  if (authorName.value) return authorFolders.value;
+  if (mobileFallbackAuthor.value) return season.tracksByAuthor.value.get(mobileFallbackAuthor.value.urlPath) ?? [];
+  return [];
+});
+
+const effectiveIntro = computed(() => {
+  if (authorName.value) return hasAuthorIntro.value;
+  if (mobileFallbackAuthor.value) {
+    return Boolean(season.authorMeta.value.get(mobileFallbackAuthor.value.urlPath)?.logiiFileName);
+  }
+  return false;
+});
+
+const effectiveIntroFileName = computed(() => {
+  if (authorName.value) return authorIntroFileName.value;
+  if (mobileFallbackAuthor.value) {
+    return season.authorMeta.value.get(mobileFallbackAuthor.value.urlPath)?.logiiFileName ?? null;
+  }
+  return null;
+});
+
+const effectiveAuthorFolder = computed(() => {
+  if (currentAuthorFolder.value) return currentAuthorFolder.value;
+  if (mobileFallbackAuthor.value) {
+    return (
+      Object.values(folders.value).find(
+        (f) => f.pluginId === 'yandex-self' && f.urlPath === mobileFallbackAuthor.value!.urlPath,
+      ) ?? null
+    );
+  }
+  return null;
+});
+
+const mobileFallbackFolder = computed(() => {
+  if (currentFolder.value || !isMobile.value) return null;
+  if (authorName.value && !hasAuthorIntro.value && authorFolders.value.length > 0) {
+    return authorFolders.value[0] ?? null;
+  }
+  return null;
+});
+
+// --- Нативный свайп из @vueuse/core ---
+const carouselRef = ref<HTMLElement | null>(null);
+
+useSwipe(carouselRef, {
+  passive: false,
+  onSwipeEnd(_e, direction) {
+    if (!isMobile.value) return;
+
+    // Реагируем только на явные горизонтальные свайпы
+    if (direction === 'left') {
+      pager.goNext();
+    } else if (direction === 'right') {
+      pager.goPrev();
     }
   },
-  { immediate: true },
-);
+});
 
 // --- Vibe reload ---
 let lastLoadedKey = '';
@@ -259,69 +265,114 @@ async function onSendComment(text: string): Promise<void> {
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidden">
+  <div class="flex h-full overflow-hidden relative">
     <div v-if="!isReady" class="flex flex-1 items-center justify-center">
       <Spinner size="lg" text="Загружаем сезон…" />
     </div>
 
     <template v-else>
-      <LogiiAuthorsColumn
-        :authors="authors"
-        :current-author-name="authorName"
-        :is-loading="false"
-        :is-collapsed="isAuthorsCollapsed"
-        :all-tracks-by-author="allTracksByAuthor"
-        :season-folder="seasonFolder"
-        :is-edit-mode="isEditMode"
-        @select="goToAuthor"
-        @toggle-collapsed="isAuthorsCollapsed = !isAuthorsCollapsed"
-        @play-author="playAuthor"
-      />
+      <div class="flex flex-col h-full w-full">
+        <!-- ХЕДЕР (без табов, они теперь в панели) -->
 
-      <LogiiFoldersColumn
-        :folders="authorFolders"
-        :current-folder-name="folderName"
-        :is-current-top-playing="isCurrentTopPlaying"
-        :current-author-name="authorName"
-        :has-author-intro="hasAuthorIntro"
-        :author-intro-file-name="authorIntroFileName"
-        :author-folder="currentAuthorFolder"
-        :season-folder="seasonFolder"
-        :is-edit-mode="isEditMode"
-        @select="goToFolder"
-        @select-intro="goToIntro"
-      />
+        <LogiiPanelHeader
+          :page-index="pager.pageIndex.value"
+          :author-name="authorName"
+          :folder-name="folderName"
+          :logii-file-name="currentLogiiFileName"
+          :is-refreshing="isRefreshing"
+          :can-go-to-parent="canGoToParent"
+          :is-edit-mode="isEditMode"
+          :is-mobile="isMobile"
+          @refresh="onRefresh()"
+          @go-to-parent="goToParent"
+          @go-prev="pager.goPrev"
+          @update:is-edit-mode="isEditMode = $event"
+        >
+          <template #header-actions>
+            <LogiiChangesButton
+              :unread-count="changes.unreadCount.value"
+              :events="changes.pendingEvents.value"
+              @navigate="onChangeNavigate"
+              @clear="onClearEvents"
+            />
+          </template>
+        </LogiiPanelHeader>
 
-      <LogiiPanel
-        :author-name="authorName"
-        :folder="currentFolder"
-        :data="logiiData"
-        :is-loading="isLoadingTrack"
-        :is-saving="isSaving"
-        :is-refreshing="isRefreshing"
-        :error="trackError"
-        :can-go-to-parent="canGoToParent"
-        :is-edit-mode="isEditMode"
-        :on-retry="reloadTrack"
-        :on-refresh="onRefresh"
-        :on-go-to-parent="goToParent"
-        :on-play-track="playTrack"
-        :on-play-all="playAllAudio"
-        :on-update-vibe="updateVibe"
-        :on-send-comment="onSendComment"
-        :on-update-comment="updateComment"
-        :on-delete-comment="deleteComment"
-        @update:is-edit-mode="isEditMode = $event"
+        <!-- КАРУСЕЛЬ -->
+        <div ref="carouselRef" class="flex flex-1 w-full overflow-hidden">
+          <div
+            class="flex h-full w-full transition-transform duration-300 ease-out"
+            :style="isMobile ? { transform: `translateX(-${pager.pageIndex.value * 100}%)` } : {}"
+          >
+            <LogiiAuthorsColumn
+              :authors="authors"
+              :current-author-name="effectiveAuthorName"
+              :is-loading="false"
+              :is-collapsed="isAuthorsCollapsed"
+              :all-tracks-by-author="allTracksByAuthor"
+              :season-folder="seasonFolder"
+              :is-edit-mode="isEditMode"
+              :is-mobile="isMobile"
+              @select="goToAuthor"
+              @toggle-collapsed="isAuthorsCollapsed = !isAuthorsCollapsed"
+              @play-author="playAuthor"
+            />
+
+            <LogiiFoldersColumn
+              :folders="effectiveFolders"
+              :current-folder-name="folderName"
+              :is-current-top-playing="isCurrentTopPlaying"
+              :current-author-name="authorName || mobileFallbackAuthor?.folderName || null"
+              :has-author-intro="effectiveIntro"
+              :author-intro-file-name="effectiveIntroFileName"
+              :author-folder="effectiveAuthorFolder"
+              :season-folder="seasonFolder"
+              :is-edit-mode="isEditMode"
+              :is-mobile="isMobile"
+              @select="goToFolder"
+              @select-intro="goToIntro"
+            />
+
+            <!-- ПАНЕЛЬ (табы внутри) -->
+            <LogiiPanel
+              :folder="currentFolder || mobileFallbackFolder"
+              :data="logiiData"
+              :is-loading="isLoadingTrack"
+              :is-saving="isSaving"
+              :error="trackError"
+              :is-edit-mode="isEditMode"
+              :is-mobile="isMobile"
+              :active-tab="activeTab"
+              :on-retry="reloadTrack"
+              :on-play-track="playTrack"
+              :on-play-all="playAllAudio"
+              :on-update-vibe="updateVibe"
+              :on-send-comment="onSendComment"
+              :on-update-comment="updateComment"
+              :on-delete-comment="deleteComment"
+              @update:active-tab="activeTab = $event"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Индикатор страниц -->
+      <div
+        v-if="isMobile"
+        class="pointer-events-none absolute inset-x-0 bottom-2 z-30 flex items-center justify-center gap-2"
+        data-testid="logii-pager-dots"
       >
-        <template #header-actions>
-          <LogiiChangesButton
-            :unread-count="changes.unreadCount.value"
-            :events="changes.pendingEvents.value"
-            @navigate="onChangeNavigate"
-            @clear="onClearEvents"
-          />
-        </template>
-      </LogiiPanel>
+        <button
+          v-for="i in pager.pagesCount"
+          :key="i - 1"
+          type="button"
+          class="pointer-events-auto h-2 w-2 rounded-full transition"
+          :class="pager.pageIndex.value === i - 1 ? 'bg-active' : 'bg-fg-subtle/40'"
+          :aria-label="`Страница ${i}`"
+          :data-testid="`logii-pager-dot-${i - 1}`"
+          @click="pager.goToPage(i - 1)"
+        />
+      </div>
     </template>
   </div>
 </template>
