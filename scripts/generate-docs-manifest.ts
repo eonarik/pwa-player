@@ -2,14 +2,16 @@
 //
 // AST-скрипт: извлекает публичные экспорты из исходников в компактный JSON.
 // Фильтрует по слоям архитектуры, усекает signatures до существенного.
+// Поддерживает парсинг .ts, .js и .vue (script setup).
 //
 // Использование: npx tsx scripts/generate-docs-manifest.ts
-// Выход: docs/.manifest.json (~40-60 KB)
+// Выход: docs/.manifest.json (~40-100 KB)
 
 import ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { parse as parseSfc } from 'vue/compiler-sfc';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -27,12 +29,13 @@ const INCLUDE_DIRS = [
   'src/router',
   'src/utils',
   'src/shared',
+  'src/components',
   'server/src',
 ];
 
 interface ExportEntry {
   name: string;
-  kind: 'interface' | 'type' | 'class' | 'function' | 'const' | 'enum';
+  kind: 'interface' | 'type' | 'class' | 'function' | 'const' | 'enum' | 'component';
   signature: string;
   jsdoc?: string;
 }
@@ -141,6 +144,7 @@ function inferLayer(relativePath: string): string {
   if (relativePath.startsWith('src/navigation')) return 'navigation';
   if (relativePath.startsWith('src/utils')) return 'utils';
   if (relativePath.startsWith('src/shared')) return 'shared';
+  if (relativePath.startsWith('src/components')) return 'components';
   if (relativePath.startsWith('server/')) return 'server';
   return 'other';
 }
@@ -152,7 +156,8 @@ function processFile(filePath: string, program: ts.Program): FileManifest | null
   const rel = path.relative(ROOT, filePath);
   const relativePath = rel.split(path.sep).join('/');
   if (!shouldInclude(relativePath)) return null;
-  if (relativePath.includes('/logii/') && !relativePath.endsWith('index.ts')) return null;
+
+  // Убрали жесткий хардкод /logii/
   if (relativePath.includes('/test/') || relativePath.includes('/e2e/')) return null;
 
   const exports: ExportEntry[] = [];
@@ -225,6 +230,100 @@ function processFile(filePath: string, program: ts.Program): FileManifest | null
   return { file: relativePath, layer: inferLayer(relativePath), exports };
 }
 
+function processVueFile(filePath: string): FileManifest | null {
+  const rel = path.relative(ROOT, filePath);
+  const relativePath = rel.split(path.sep).join('/');
+  if (!shouldInclude(relativePath)) return null;
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const { descriptor } = parseSfc(content);
+
+  const scriptBlock = descriptor.scriptSetup || descriptor.script;
+  if (!scriptBlock) return null;
+
+  const scriptContent = scriptBlock.content;
+  const virtualFileName = filePath + '.ts';
+  const sourceFile = ts.createSourceFile(virtualFileName, scriptContent, ts.ScriptTarget.ESNext, true);
+
+  const exports: ExportEntry[] = [];
+  const componentName = path.basename(filePath, '.vue');
+
+  function extractMacro(node: ts.Node, macroName: string): string | null {
+    if (ts.isCallExpression(node)) {
+      // Обработка withDefaults(defineProps<...>(), ...)
+      if (ts.isIdentifier(node.expression) && node.expression.text === 'withDefaults') {
+        const inner = node.arguments[0];
+        if (
+          inner &&
+          ts.isCallExpression(inner) &&
+          ts.isIdentifier(inner.expression) &&
+          inner.expression.text === 'defineProps'
+        ) {
+          if (inner.typeArguments && inner.typeArguments.length > 0) {
+            return `withDefaults(defineProps<${inner.typeArguments[0].getText(sourceFile)}>(), ...)`;
+          }
+        }
+      }
+
+      // Обработка defineProps / defineEmits / defineExpose
+      if (ts.isIdentifier(node.expression) && node.expression.text === macroName) {
+        if (node.typeArguments && node.typeArguments.length > 0) {
+          return `${macroName}<${node.typeArguments[0].getText(sourceFile)}>`;
+        } else if (node.arguments.length > 0) {
+          return `${macroName}(${node.arguments[0].getText(sourceFile)})`;
+        }
+      }
+    }
+    return null;
+  }
+
+  function visit(node: ts.Node) {
+    // Ищем макросы
+    const props = extractMacro(node, 'defineProps');
+    if (props) exports.push({ name: 'props', kind: 'interface', signature: props });
+
+    const emits = extractMacro(node, 'defineEmits');
+    if (emits) exports.push({ name: 'emits', kind: 'interface', signature: emits });
+
+    const expose = extractMacro(node, 'defineExpose');
+    if (expose) exports.push({ name: 'expose', kind: 'const', signature: expose });
+
+    // Ищем обычные экспорты из <script setup> (например, интерфейсы)
+    function hasExportModifier(n: ts.Node): boolean {
+      const mods = ts.canHaveModifiers(n) ? ts.getModifiers(n) : undefined;
+      return mods?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+    }
+
+    if (ts.isInterfaceDeclaration(node) && hasExportModifier(node)) {
+      exports.push({
+        name: node.name.getText(sourceFile),
+        kind: 'interface',
+        signature: signatureHeader(node, sourceFile),
+        jsdoc: extractJsDoc(node, sourceFile),
+      });
+    }
+    if (ts.isTypeAliasDeclaration(node) && hasExportModifier(node)) {
+      exports.push({
+        name: node.name.getText(sourceFile),
+        kind: 'type',
+        signature: signatureHeader(node, sourceFile),
+        jsdoc: extractJsDoc(node, sourceFile),
+      });
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  ts.forEachChild(sourceFile, visit);
+
+  if (exports.length === 0) {
+    // Если нет props/emits/экспортов, всё равно добавляем как компонент
+    exports.push({ name: componentName, kind: 'component', signature: '<component />' });
+  }
+
+  return { file: relativePath, layer: inferLayer(relativePath), exports };
+}
+
 function collectRelevantFiles(dir: string): string[] {
   const results: string[] = [];
   if (!fs.existsSync(dir)) return results;
@@ -241,7 +340,8 @@ function collectRelevantFiles(dir: string): string[] {
         entry.name.endsWith('.ts') ||
         entry.name.endsWith('.mts') ||
         entry.name.endsWith('.js') ||
-        entry.name.endsWith('.mjs')
+        entry.name.endsWith('.mjs') ||
+        entry.name.endsWith('.vue') // <-- Добавлен .vue
       ) {
         results.push(full);
       }
@@ -259,9 +359,11 @@ const allFiles = allCandidateFiles.filter((f) => {
   return shouldInclude(rel);
 });
 
-console.log(`Scanning ${allFiles.length} files (filtered from ${allCandidateFiles.length})...`);
+const tsFiles = allFiles.filter((f) => !f.endsWith('.vue'));
 
-const program = ts.createProgram(allFiles, {
+console.log(`Scanning ${allFiles.length} files (${tsFiles.length} TS/JS, ${allFiles.length - tsFiles.length} Vue)...`);
+
+const program = ts.createProgram(tsFiles, {
   target: ts.ScriptTarget.ESNext,
   module: ts.ModuleKind.ESNext,
   moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -276,9 +378,12 @@ const program = ts.createProgram(allFiles, {
 const manifests: FileManifest[] = [];
 
 for (const file of allFiles) {
-  const manifest = processFile(file, program);
-  if (manifest) {
-    manifests.push(manifest);
+  if (file.endsWith('.vue')) {
+    const manifest = processVueFile(file);
+    if (manifest) manifests.push(manifest);
+  } else {
+    const manifest = processFile(file, program);
+    if (manifest) manifests.push(manifest);
   }
 }
 

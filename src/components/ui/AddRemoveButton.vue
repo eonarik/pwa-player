@@ -1,5 +1,4 @@
 <!-- src/components/ui/AddRemoveButton.vue -->
-
 <script setup lang="ts">
 import IconButton from '../atoms/IconButton.vue';
 
@@ -23,19 +22,21 @@ const emit = defineEmits<{
   <IconButton
     v-if="added"
     icon="x"
+    size="md"
     variant="ghost"
     :disabled="disabled"
     label="Удалить из сохранённых"
-    class="text-red-400 hover:!text-red-400"
+    class="text-red-400 hover:!text-red-400 !p-2"
     @click.stop="emit('remove')"
   />
   <IconButton
     v-else
     icon="plus"
+    size="md"
     variant="ghost"
     :disabled="disabled"
     label="Добавить в сохранённые"
-    class="text-active hover:!text-active"
+    class="text-active hover:!text-active !p-2"
     @click.stop="emit('add')"
   />
 </template>

@@ -101,8 +101,12 @@ class RadioService {
     }
   }
 
-  async searchByName(name: string, limit = 20, options: SearchStationsOptions = {}): Promise<TopStationsResult> {
-    const offset = 0;
+  async searchByName(
+    name: string,
+    limit = 20,
+    options: SearchStationsOptions & { offset?: number } = {},
+  ): Promise<TopStationsResult> {
+    const offset = options.offset ?? 0;
     const key = this.buildKey('search', name, limit, offset, options);
 
     this.isStale = false;

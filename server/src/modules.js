@@ -9,6 +9,7 @@ import * as podcasts from './plugins/podcasts/index.js';
 import * as hlsProxy from './plugins/hls-proxy/index.js';
 import * as zvuk from './plugins/zvuk/index.js';
 import * as telemetry from './plugins/telemetry/index.js';
+import * as radio from './plugins/radio/index.js';
 
 const MODULES = [
   { prefix: core.prefix, router: core.router },
@@ -20,6 +21,7 @@ const MODULES = [
   { prefix: hlsProxy.prefix, router: hlsProxy.router },
   { prefix: zvuk.prefix, router: zvuk.router },
   { prefix: telemetry.prefix, router: telemetry.router },
+  { prefix: radio.prefix, router: radio.router },
 ];
 
 export function mountModules(app) {

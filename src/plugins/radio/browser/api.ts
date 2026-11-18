@@ -3,9 +3,8 @@
 import { logger } from '@/utils/logger';
 import type { RadioStation, RadioStationSearchQuery } from './types';
 
-const API_BASE = 'https://de1.api.radio-browser.info';
+const API_BASE = '/api/radio-browser';
 const REQUEST_TIMEOUT_MS = 10_000;
-const USER_AGENT = 'CUEI/1.0 (Radio Browser Client)';
 
 /** «Свежий» TTL: до него — не обновляем. После — пробуем обновить. */
 export const COUNTRIES_TTL_MS = 24 * 60 * 60 * 1000;
@@ -83,7 +82,6 @@ export async function fetchJson<T>(url: string): Promise<T | null> {
     const res = await fetch(url, {
       headers: {
         Accept: 'application/json',
-        'User-Agent': USER_AGENT,
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

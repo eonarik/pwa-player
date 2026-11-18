@@ -1,29 +1,2092 @@
 {
  "$schema": "cuei-docs-manifest-v1",
- "generated": "2026-11-18T15:29:08.218Z",
+ "generated": "2026-11-18T20:26:31.558Z",
  "stats": {
-  "files": 286,
-  "totalExports": 790,
+  "files": 434,
+  "totalExports": 1205,
   "byKind": {
-   "function": 342,
-   "interface": 207,
-   "type": 67,
-   "const": 141,
+   "interface": 509,
+   "const": 198,
+   "type": 73,
+   "component": 13,
+   "function": 379,
    "class": 33
   },
   "layers": {
-   "composables": 46,
+   "components": 291,
+   "composables": 50,
    "navigation": 5,
-   "plugins": 213,
+   "plugins": 330,
    "services": 252,
    "shared": 3,
    "stores": 77,
    "types": 56,
    "utils": 52,
-   "server": 86
+   "server": 89
   }
  },
  "groups": {
+  "components": [
+   {
+    "file": "src/components/atoms/Badge.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'default' | 'active' | 'live' | 'danger';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'default' | 'active' | 'live' | 'danger';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'default' | 'active' | 'live' | 'danger';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    variant?: 'default' | 'active' | 'live' | 'danger';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Button.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'primary' | 'secondary' | 'ghost' | 'danger';\n    size?: 'sm' | 'md' | 'lg';\n    disabled?: boolean;\n    type?: 'button' | 'submit' | 'reset';\n    href?: string;\n    to?: string | object;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'primary' | 'secondary' | 'ghost' | 'danger';\n    size?: 'sm' | 'md' | 'lg';\n    disabled?: boolean;\n    type?: 'button' | 'submit' | 'reset';\n    href?: string;\n    to?: string | object;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'primary' | 'secondary' | 'ghost' | 'danger';\n    size?: 'sm' | 'md' | 'lg';\n    disabled?: boolean;\n    type?: 'button' | 'submit' | 'reset';\n    href?: string;\n    to?: string | object;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    variant?: 'primary' | 'secondary' | 'ghost' | 'danger';\n    size?: 'sm' | 'md' | 'lg';\n    disabled?: boolean;\n    type?: 'button' | 'submit' | 'reset';\n    href?: string;\n    to?: string | object;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Checkbox.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: boolean;\n    label?: string;\n    description?: string;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: boolean;\n    label?: string;\n    description?: string;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: boolean;\n    label?: string;\n    description?: string;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: boolean;\n    label?: string;\n    description?: string;\n    disabled?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: boolean): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Divider.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  vertical?: boolean;\n  withMargin?: boolean;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Icon.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    name: IconName;\n    w?: string;\n    h?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    name: IconName;\n    w?: string;\n    h?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    name: IconName;\n    w?: string;\n    h?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    name: IconName;\n    w?: string;\n    h?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/IconButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    variant?: 'default' | 'ghost' | 'danger' | 'active';\n    disabled?: boolean;\n    label?: string;\n    tooltip?: string;\n    as?: 'button' | 'a';\n    href?: string;\n    to?: string | object;\n    icon?: IconName;\n    iconClass?: string;\n    iconW?: string;\n    iconH?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    variant?: 'default' | 'ghost' | 'danger' | 'active';\n    disabled?: boolean;\n    label?: string;\n    tooltip?: string;\n    as?: 'button' | 'a';\n    href?: string;\n    to?: string | object;\n    icon?: IconName;\n    iconClass?: string;\n    iconW?: string;\n    iconH?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    variant?: 'default' | 'ghost' | 'danger' | 'active';\n    disabled?: boolean;\n    label?: string;\n    tooltip?: string;\n    as?: 'button' | 'a';\n    href?: string;\n    to?: string | object;\n    icon?: IconName;\n    iconClass?: string;\n    iconW?: string;\n    iconH?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    variant?: 'default' | 'ghost' | 'danger' | 'active';\n    disabled?: boolean;\n    label?: string;\n    tooltip?: string;\n    as?: 'button' | 'a';\n    href?: string;\n    to?: string | object;\n    icon?: IconName;\n    iconClass?: string;\n    iconW?: string;\n    iconH?: string;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'click', event: MouseEvent): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Input.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string): void;\n}>"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "defineExpose({\n  focus() {\n    inputElement.value?.focus();\n  },\n})"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Label.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    text?: string;\n    for?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    text?: string;\n    for?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    text?: string;\n    for?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    text?: string;\n    for?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/LinkButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  disabled?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'click', event: MouseEvent): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Select.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    options: Array<{ value: string; label: string }>;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    options: Array<{ value: string; label: string }>;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    options: Array<{ value: string; label: string }>;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: string;\n    options: Array<{ value: string; label: string }>;\n    disabled?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Spinner.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    text?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    text?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    text?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    size?: 'sm' | 'md' | 'lg';\n    text?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Textarea.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    placeholder?: string;\n    rows?: number;\n    disabled?: boolean;\n    maxlength?: number;\n    resize?: boolean;\n    /** Авто-высота по содержимому. */\n    autoResize?: boolean;\n    /** Мин. строк при autoResize (default 1). */\n    minRows?: number;\n    /** Макс. строк при autoResize (default 10), дальше — скролл. */\n    maxRows?: number;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    placeholder?: string;\n    rows?: number;\n    disabled?: boolean;\n    maxlength?: number;\n    resize?: boolean;\n    /** Авто-высота по содержимому. */\n    autoResize?: boolean;\n    /** Мин. строк при autoResize (default 1). */\n    minRows?: number;\n    /** Макс. строк при autoResize (default 10), дальше — скролл. */\n    maxRows?: number;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    placeholder?: string;\n    rows?: number;\n    disabled?: boolean;\n    maxlength?: number;\n    resize?: boolean;\n    /** Авто-высота по содержимому. */\n    autoResize?: boolean;\n    /** Мин. строк при autoResize (default 1). */\n    minRows?: number;\n    /** Макс. строк при autoResize (default 10), дальше — скролл. */\n    maxRows?: number;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: string;\n    placeholder?: string;\n    rows?: number;\n    disabled?: boolean;\n    maxlength?: number;\n    resize?: boolean;\n    /** Авто-высота по содержимому. */\n    autoResize?: boolean;\n    /** Мин. строк при autoResize (default 1). */\n    minRows?: number;\n    /** Макс. строк при autoResize (default 10), дальше — скролл. */\n    maxRows?: number;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string): void;\n}>"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "defineExpose({\n  focus() {\n    el.value?.focus();\n  },\n})"
+     }
+    ]
+   },
+   {
+    "file": "src/components/atoms/Toggle.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: boolean;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: boolean;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: boolean;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: boolean;\n    disabled?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: boolean): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/catalog/CatalogLayout.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    backLabel: string;\n    listTitle: string;\n    searchQuery: string;\n    showClear: boolean;\n    isLoading: boolean;\n    isLoadingMore?: boolean;\n    isStale: boolean;\n    error: string;\n    isEmpty: boolean;\n    emptyLabel?: string;\n    limitOptions?: number[];\n    currentLimit: number;\n    hasMore: boolean;\n    isMobile?: boolean;\n    activeFiltersCount?: number;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    backLabel: string;\n    listTitle: string;\n    searchQuery: string;\n    showClear: boolean;\n    isLoading: boolean;\n    isLoadingMore?: boolean;\n    isStale: boolean;\n    error: string;\n    isEmpty: boolean;\n    emptyLabel?: string;\n    limitOptions?: number[];\n    currentLimit: number;\n    hasMore: boolean;\n    isMobile?: boolean;\n    activeFiltersCount?: number;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    backLabel: string;\n    listTitle: string;\n    searchQuery: string;\n    showClear: boolean;\n    isLoading: boolean;\n    isLoadingMore?: boolean;\n    isStale: boolean;\n    error: string;\n    isEmpty: boolean;\n    emptyLabel?: string;\n    limitOptions?: number[];\n    currentLimit: number;\n    hasMore: boolean;\n    isMobile?: boolean;\n    activeFiltersCount?: number;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    backLabel: string;\n    listTitle: string;\n    searchQuery: string;\n    showClear: boolean;\n    isLoading: boolean;\n    isLoadingMore?: boolean;\n    isStale: boolean;\n    error: string;\n    isEmpty: boolean;\n    emptyLabel?: string;\n    limitOptions?: number[];\n    currentLimit: number;\n    hasMore: boolean;\n    isMobile?: boolean;\n    activeFiltersCount?: number;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:searchQuery', value: string): void;\n  (e: 'clear'): void;\n  (e: 'back'): void;\n  (e: 'update:currentLimit', value: number): void;\n  (e: 'load-more'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/download/SpacePermissionModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/icons/IconHeart.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    filled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    filled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    filled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    filled?: boolean;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/icons/IconThumbsDown.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    filled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    filled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    filled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    filled?: boolean;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/icons/index.ts",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "ICONS",
+      "kind": "const",
+      "signature": "export const ICONS: Record<string, Component>"
+     },
+     {
+      "name": "IconName",
+      "kind": "type",
+      "signature": "export type IconName = keyof typeof ICONS;"
+     }
+    ]
+   },
+   {
+    "file": "src/components/layout/AppDrawer.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{ open: boolean }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n  (e: 'open-feedback'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/layout/AppLoader.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "AppLoader",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/AlbumSelect.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  modelValue: string;\n  artistFilter?: string;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/BatchAddToPlaylistButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  tracks: Track[];\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/BatchDownloadButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  tracks: Track[];\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FileListItem.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  file: TextFileRef;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'open'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FileLocationFilter.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    options?: FilterOption[];\n    /** Использовать ли дефолтные кнопки (Локальные / Облачные), если options не переданы */\n    useDefaults?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    options?: FilterOption[];\n    /** Использовать ли дефолтные кнопки (Локальные / Облачные), если options не переданы */\n    useDefaults?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    options?: FilterOption[];\n    /** Использовать ли дефолтные кнопки (Локальные / Облачные), если options не переданы */\n    useDefaults?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    options?: FilterOption[];\n    /** Использовать ли дефолтные кнопки (Локальные / Облачные), если options не переданы */\n    useDefaults?: boolean;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderActionsMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folder: FolderRef | null;\n  /** Все треки в поддереве (для «Скачать всё» — рекурсивно). */\n  subtreeTracks: Track[];\n  /** Треки только текущей папки (для «Добавить в плейлист» — нерекурсивно). */\n  currentTracks: Track[];\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderBreadcrumbs.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "FolderBreadcrumbs",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderList.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "FolderList",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderListItem.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folder: FolderRef;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'open', folder: FolderRef): void;\n  (e: 'play', folder: FolderRef, event: Event): void;\n  (e: 'retry', folder: FolderRef): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderSettingsMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "FolderSettingsMenu",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderSortMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "FolderSortMenu",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/FolderSyncMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  canRefresh: boolean;\n  canRefreshFromDevice: boolean;\n  isRefreshing: boolean;\n  isRefreshingFromDevice: boolean;\n  isShallowRefreshing: boolean;\n  needsAttention?: boolean;\n  hasBackgroundScan?: boolean;\n  isScanning?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'refresh-cloud'): void;\n  (e: 'refresh-cloud-shallow'): void;\n  (e: 'refresh-device'): void;\n  (e: 'cancel-background-scan'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/ImagePreviewModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  file: TextFileRef;\n  pluginId: string;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/MetadataCandidatesButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  tracks: Track[];\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/MetadataCandidatesModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  trackIds: TrackId[];\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/MetadataMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  isLoading: boolean;\n  progress: { done: number; total: number };\n  stats: { found: number; checked: number; total: number };\n  hasUnchecked: boolean;\n  /** Есть ли треки, у которых метаданные были изменены (вручную/авто) */\n  hasEdits?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'search'): void;\n  (e: 'cancel'): void;\n  (e: 'reset'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/PlaylistSubmenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  tracks: Track[];\n  inDropdown?: boolean;\n  forceOpen?: boolean;\n  testIdPrefix?: string;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/RemoteMetadataModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  trackIds: TrackId[];\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/SyncIssuesModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TextEditorModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  file: TextFileRef;\n  pluginId: string;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackActions.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  track: Track;\n  playlistId?: string;\n  queueIndex?: number;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'removed-from-playlist'): void;\n  (e: 'removed-from-queue'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackDownloadItem.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  /** Трек есть в библиотеке — иначе иконка не показывается. */\n  isKnown: boolean;\n  /** Файл уже на устройстве. */\n  isDownloaded: boolean;\n  isDownloading: boolean;\n  label: string;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{ (e: 'click'): void }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackList.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  tracks: Track[];\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select', index: number): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackListHeader.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    visibleCollectionActions: PluginCollectionAction[];\n    actionProgress: Record<string, CollectionActionProgress | null>;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    visibleCollectionActions: PluginCollectionAction[];\n    actionProgress: Record<string, CollectionActionProgress | null>;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    visibleCollectionActions: PluginCollectionAction[];\n    actionProgress: Record<string, CollectionActionProgress | null>;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    subtitle?: string;\n    visibleCollectionActions: PluginCollectionAction[];\n    actionProgress: Record<string, CollectionActionProgress | null>;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'run-action', action: PluginCollectionAction): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackListItem.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    testIdPrefix?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    testIdPrefix?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    testIdPrefix?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    testIdPrefix?: string;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select', index: number): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackListPage.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    tracks: Track[];\n    showSearch?: boolean;\n    showFilter?: boolean;\n    showPlayAll?: boolean;\n    showBatchAdd?: boolean;\n    preFilter?: (t: Track) => boolean;\n    customSelect?: boolean;\n    itemKey?: (track: Track, index: number) => string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    tracks: Track[];\n    showSearch?: boolean;\n    showFilter?: boolean;\n    showPlayAll?: boolean;\n    showBatchAdd?: boolean;\n    preFilter?: (t: Track) => boolean;\n    customSelect?: boolean;\n    itemKey?: (track: Track, index: number) => string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    tracks: Track[];\n    showSearch?: boolean;\n    showFilter?: boolean;\n    showPlayAll?: boolean;\n    showBatchAdd?: boolean;\n    preFilter?: (t: Track) => boolean;\n    customSelect?: boolean;\n    itemKey?: (track: Track, index: number) => string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    subtitle?: string;\n    tracks: Track[];\n    showSearch?: boolean;\n    showFilter?: boolean;\n    showPlayAll?: boolean;\n    showBatchAdd?: boolean;\n    preFilter?: (t: Track) => boolean;\n    customSelect?: boolean;\n    itemKey?: (track: Track, index: number) => string;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select-track', index: number): void;\n  (e: 'select-search-track', trackId: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackMetadataMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  /** Прямой эфир: метаданные не показываются вовсе. */\n  isLive: boolean;\n  /** Линейный контент (радио/подкаст): поиск и правка метаданных недоступны. */\n  isLinear: boolean;\n  isSearching: boolean;\n  hasMetadataEdits: boolean;\n  /** Стриминг: удалять метаданные нельзя. */\n  isStreaming: boolean;\n  candidateCount: number;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'find'): void;\n  (e: 'edit'): void;\n  (e: 'remove'): void;\n  (e: 'candidates'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackMetadataModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  track: Track;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackResolvedItem.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  trackId: TrackId;\n  index: number;\n  isCurrent: boolean;\n  isPlaying: boolean;\n  playlistId?: string;\n  metaLabel?: string;\n  snapshot?: {\n    title: string;\n    artist: string;\n    album?: string;\n  };\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select'): void;\n  (e: 'removed'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackRow.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    showDownload?: boolean;\n    testIdPrefix?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    showDownload?: boolean;\n    testIdPrefix?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    showDownload?: boolean;\n    testIdPrefix?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    track: Track;\n    index: number;\n    isCurrent: boolean;\n    isPlaying: boolean;\n    showDownload?: boolean;\n    testIdPrefix?: string;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/TrackSearchResults.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  groups: ArtistGroup[];\n  flatTracks: Track[];\n  isCurrent: (trackId: string) => boolean;\n  isPlaying: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select-track', trackId: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/metadata/MetadataCandidateDropdown.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  candidates: MetadataCandidate[];\n  isLoading: boolean;\n  selectedIndex: number | null;\n  isOpen: boolean;\n  position: FloatingDropdownStyle;\n  triggerRef: Ref<HTMLElement | null>;\n  dropdownRef: Ref<HTMLElement | null>;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  toggle: [];\n  select: [index: number];\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/metadata/candidateLabels.ts",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "NO_CANDIDATE_LABEL",
+      "kind": "const",
+      "signature": "export const NO_CANDIDATE_LABEL"
+     },
+     {
+      "name": "selectedCandidateLabel",
+      "kind": "function",
+      "signature": "export function selectedCandidateLabel(candidates: MetadataCandidate[], index: number | null): string ..."
+     },
+     {
+      "name": "candidateAlbumLabel",
+      "kind": "function",
+      "signature": "export function candidateAlbumLabel(c: MetadataCandidate): string ..."
+     },
+     {
+      "name": "candidateSourceLabel",
+      "kind": "function",
+      "signature": "export function candidateSourceLabel(c: MetadataCandidate): string ..."
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/metadata/useFloatingDropdown.ts",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "FloatingDropdownStyle",
+      "kind": "interface",
+      "signature": "export interface FloatingDropdownStyle extends CSSProperties { top: string; left: string; width: string; }",
+      "jsdoc": "Стиль teleported-панели: совместим с :style, но с обязательными осями."
+     },
+     {
+      "name": "FloatingDropdown",
+      "kind": "interface",
+      "signature": "export interface FloatingDropdown { isOpen: Ref<boolean>; triggerRef: Ref<HTMLElement | null>; dropdownRef: Ref<HTMLElement | null>; position: Ref<FloatingDropdownStyle>; toggle: () => void; close: () => void; }"
+     },
+     {
+      "name": "useFloatingDropdown",
+      "kind": "function",
+      "signature": "export function useFloatingDropdown(): FloatingDropdown ...",
+      "jsdoc": "Позиционирование teleported-выпадашки под триггером: ширина по триггеру, удержание в границах вьюпорта, пересчёт при scroll/resize, закрытие по клику вне триггера и панели."
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/metadata/useMetadataCandidates.ts",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "MetadataCandidates",
+      "kind": "interface",
+      "signature": "export interface MetadataCandidates { candidates: Ref<MetadataCandidate[]>; isLoading: Ref<boolean>; selectedIndex: Ref<number | null>; load: () => Promise<void>; select: (index: number) => MetadataCandidate | null; }"
+     },
+     {
+      "name": "useMetadataCandidates",
+      "kind": "function",
+      "signature": "export function useMetadataCandidates(track: Ref<Track>): MetadataCandidates ...",
+      "jsdoc": "Список вариантов из интернета + выбор одного из них."
+     }
+    ]
+   },
+   {
+    "file": "src/components/library/metadata/useMetadataForm.ts",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "MetadataFormLibrary",
+      "kind": "interface",
+      "signature": "export interface MetadataFormLibrary { getAlbum(id: AlbumId): Album | null; tracks: Record<string, Track>; }"
+     },
+     {
+      "name": "MetadataForm",
+      "kind": "interface",
+      "signature": "export interface MetadataForm { artist: Ref<string>; title: Ref<string>; album: Ref<string>; isDirty: ComputedRef<boolean>; allArtists: ComputedRef<string[]>; applyCandidate: (candidate: MetadataCandidate) => void; save: () => Promise<void>; cancel: () => void; }"
+     },
+     {
+      "name": "useMetadataForm",
+      "kind": "function",
+      "signature": "export function useMetadataForm(deps: ...",
+      "jsdoc": "Ручное редактирование метаданных: три поля, «грязность» для защитного закрытия и сохранение через кандидата (сохраняет провайдер) либо вручную."
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/AlphabetIndex.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  letters: string[];\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select', letter: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/AutocompleteInput.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    suggestions: string[];\n    placeholder?: string;\n    id?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    suggestions: string[];\n    placeholder?: string;\n    id?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    suggestions: string[];\n    placeholder?: string;\n    id?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: string;\n    suggestions: string[];\n    placeholder?: string;\n    id?: string;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/Avatar.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    src?: string | null;\n    alt?: string;\n    size?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    src?: string | null;\n    alt?: string;\n    size?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    src?: string | null;\n    alt?: string;\n    size?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    src?: string | null;\n    alt?: string;\n    size?: 'sm' | 'md' | 'lg';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/BottomSheet.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  isOpen: boolean;\n  title: string;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/CoverPicker.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  modelValue: string | undefined;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string | undefined): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/DropdownMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    /** Ширина dropdown в px */\n    width?: number;\n    /** true — растянуть на всю ширину триггера (для модалок с широкими строками) */\n    fullWidth?: boolean;\n    /** Выравнивание: right — по правому краю кнопки, left — по левому */\n    align?: 'right' | 'left';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    /** Ширина dropdown в px */\n    width?: number;\n    /** true — растянуть на всю ширину триггера (для модалок с широкими строками) */\n    fullWidth?: boolean;\n    /** Выравнивание: right — по правому краю кнопки, left — по левому */\n    align?: 'right' | 'left';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    /** Ширина dropdown в px */\n    width?: number;\n    /** true — растянуть на всю ширину триггера (для модалок с широкими строками) */\n    fullWidth?: boolean;\n    /** Выравнивание: right — по правому краю кнопки, left — по левому */\n    align?: 'right' | 'left';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    /** Ширина dropdown в px */\n    width?: number;\n    /** true — растянуть на всю ширину триггера (для модалок с широкими строками) */\n    fullWidth?: boolean;\n    /** Выравнивание: right — по правому краю кнопки, left — по левому */\n    align?: 'right' | 'left';\n  }>"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "defineExpose({ close })"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/EmptyState.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    description?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    description?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    description?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    description?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/FormField.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    label?: string;\n    hint?: string;\n    error?: string;\n    id?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    label?: string;\n    hint?: string;\n    error?: string;\n    id?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    label?: string;\n    hint?: string;\n    error?: string;\n    id?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    label?: string;\n    hint?: string;\n    error?: string;\n    id?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/InputWithAffix.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n    prefix?: string;\n    suffix?: string;\n    /** data-testid для `<input>` (прокидывается в нативный input, не в обёртку). */\n    testId?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n    prefix?: string;\n    suffix?: string;\n    /** data-testid для `<input>` (прокидывается в нативный input, не в обёртку). */\n    testId?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n    prefix?: string;\n    suffix?: string;\n    /** data-testid для `<input>` (прокидывается в нативный input, не в обёртку). */\n    testId?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    modelValue: string;\n    type?: string;\n    placeholder?: string;\n    disabled?: boolean;\n    id?: string;\n    autofocus?: boolean;\n    prefix?: string;\n    suffix?: string;\n    /** data-testid для `<input>` (прокидывается в нативный input, не в обёртку). */\n    testId?: string;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: string): void;\n}>"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "defineExpose({\n  focus() {\n    inputElement.value?.focus();\n  },\n})"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/ListContainer.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/ListRow.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    active?: boolean;\n    disliked?: boolean;\n    downloadProgress?: number | null;\n    downloaded?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    active?: boolean;\n    disliked?: boolean;\n    downloadProgress?: number | null;\n    downloaded?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    active?: boolean;\n    disliked?: boolean;\n    downloadProgress?: number | null;\n    downloaded?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    active?: boolean;\n    disliked?: boolean;\n    downloadProgress?: number | null;\n    downloaded?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'click'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/ModalLayout.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n    disableBackdropClose?: boolean;\n    fullscreen?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n    disableBackdropClose?: boolean;\n    fullscreen?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n    disableBackdropClose?: boolean;\n    fullscreen?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n    disableBackdropClose?: boolean;\n    fullscreen?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/PageHeader.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    subtitle?: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    subtitle?: string;\n    maxWidth?: 'sm' | 'md' | 'lg';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/ProgressBar.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    value: number;\n    max?: number;\n    size?: 'sm' | 'md';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    value: number;\n    max?: number;\n    size?: 'sm' | 'md';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    value: number;\n    max?: number;\n    size?: 'sm' | 'md';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    value: number;\n    max?: number;\n    size?: 'sm' | 'md';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/SearchInput.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    alwaysOpen?: boolean;\n    placeholder?: string;\n    testId?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    alwaysOpen?: boolean;\n    placeholder?: string;\n    testId?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    alwaysOpen?: boolean;\n    placeholder?: string;\n    testId?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    alwaysOpen?: boolean;\n    placeholder?: string;\n    testId?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/SectionTitle.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    text?: string;\n    paddingX?: 'none' | 'px-4';\n    paddingBottom?: 'none' | 'pb-2';\n    clickable?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    text?: string;\n    paddingX?: 'none' | 'px-4';\n    paddingBottom?: 'none' | 'pb-2';\n    clickable?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    text?: string;\n    paddingX?: 'none' | 'px-4';\n    paddingBottom?: 'none' | 'pb-2';\n    clickable?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    text?: string;\n    paddingX?: 'none' | 'px-4';\n    paddingBottom?: 'none' | 'pb-2';\n    clickable?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'click'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/Toolbar.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'default' | 'border';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'default' | 'border';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    variant?: 'default' | 'border';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    variant?: 'default' | 'border';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/molecules/ViewToggle.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  modelValue: 'grid' | 'list';\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:modelValue', value: 'grid' | 'list'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/player/FullPlayer.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  title: string;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/player/NowPlayingInfo.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null;\n    coverClass?: string;\n    fallbackIconClass?: string;\n    showArtist?: boolean;\n    align?: 'left' | 'center';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null;\n    coverClass?: string;\n    fallbackIconClass?: string;\n    showArtist?: boolean;\n    align?: 'left' | 'center';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null;\n    coverClass?: string;\n    fallbackIconClass?: string;\n    showArtist?: boolean;\n    align?: 'left' | 'center';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    track: Track | null;\n    coverClass?: string;\n    fallbackIconClass?: string;\n    showArtist?: boolean;\n    align?: 'left' | 'center';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/player/PlayerControls.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'open'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/player/PlayerProgressBar.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    currentTime: number;\n    duration: number;\n    size?: 'sm' | 'lg';\n    interactive?: boolean;\n    showTime?: boolean;\n    showTimeOnHover?: boolean;\n    expandOnHover?: boolean;\n    timePosition?: 'fixed' | 'floating';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    currentTime: number;\n    duration: number;\n    size?: 'sm' | 'lg';\n    interactive?: boolean;\n    showTime?: boolean;\n    showTimeOnHover?: boolean;\n    expandOnHover?: boolean;\n    timePosition?: 'fixed' | 'floating';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    currentTime: number;\n    duration: number;\n    size?: 'sm' | 'lg';\n    interactive?: boolean;\n    showTime?: boolean;\n    showTimeOnHover?: boolean;\n    expandOnHover?: boolean;\n    timePosition?: 'fixed' | 'floating';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    currentTime: number;\n    duration: number;\n    size?: 'sm' | 'lg';\n    interactive?: boolean;\n    showTime?: boolean;\n    showTimeOnHover?: boolean;\n    expandOnHover?: boolean;\n    timePosition?: 'fixed' | 'floating';\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'seek', time: number): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/playlists/ImportPlaylistModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n  (e: 'imported', payload: { playlistId: PlaylistId; stats: ImportStats }): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/playlists/PlaylistShareMenu.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{ playlist: Playlist }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/settings/PluginSettingsSection.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  section: PluginSettingsSection;\n  disabled?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'action', id: string, payload?: unknown): void;\n  (e: 'change', id: string, value: unknown): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/settings/fields/ActionField.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  field: PluginSettingsAction;\n  disabled?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'action', id: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/settings/fields/FolderListField.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  field: PluginSettingsFolderList;\n  disabled?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'action', id: string, payload: unknown): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/settings/fields/NumberField.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  field: PluginSettingsNumber;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'change', id: string, value: number): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/settings/fields/TextField.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  field: PluginSettingsText;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'change', id: string, value: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/settings/fields/ToggleField.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  field: PluginSettingsToggle;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'change', id: string, value: boolean): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/AddRemoveButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    added: boolean;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    added: boolean;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    added: boolean;\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    added: boolean;\n    disabled?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'add'): void;\n  (e: 'remove'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/CoverImage.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    src?: string | null;\n    albumId?: AlbumId | null;\n    alt?: string;\n    fallbackIconClass?: string;\n    variant?: 'album' | 'artist';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    src?: string | null;\n    albumId?: AlbumId | null;\n    alt?: string;\n    fallbackIconClass?: string;\n    variant?: 'album' | 'artist';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    src?: string | null;\n    albumId?: AlbumId | null;\n    alt?: string;\n    fallbackIconClass?: string;\n    variant?: 'album' | 'artist';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    src?: string | null;\n    albumId?: AlbumId | null;\n    alt?: string;\n    fallbackIconClass?: string;\n    variant?: 'album' | 'artist';\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'error'): void;\n  (e: 'load'): void;\n}>"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "defineExpose({ hasError })"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/DislikeButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    mode?: 'toggle' | 'skip';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    mode?: 'toggle' | 'skip';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    mode?: 'toggle' | 'skip';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    mode?: 'toggle' | 'skip';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/FavoriteButton.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/FeedbackModal.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/MarkdownText.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  source: string;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/ModalHost.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "ModalHost",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/SettingsActionRow.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    description?: string;\n    variant?: 'default' | 'danger';\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    description?: string;\n    variant?: 'default' | 'danger';\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title: string;\n    description?: string;\n    variant?: 'default' | 'danger';\n    disabled?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title: string;\n    description?: string;\n    variant?: 'default' | 'danger';\n    disabled?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'click'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/ShowSourceCheckbox.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "ShowSourceCheckbox",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/ToastHost.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "ToastHost",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/TrackCover.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{ track: Track; size?: string }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/TrackReactionButtons.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    dislikeMode?: 'toggle' | 'skip';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    dislikeMode?: 'toggle' | 'skip';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    dislikeMode?: 'toggle' | 'skip';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    track: Track | null | undefined;\n    size?: 'sm' | 'md' | 'lg';\n    dislikeMode?: 'toggle' | 'skip';\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/VirtualGrid.types.ts",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "VirtualGridMode",
+      "kind": "type",
+      "signature": "export type VirtualGridMode = 'grid' | 'list';"
+     },
+     {
+      "name": "VirtualGridSection",
+      "kind": "interface",
+      "signature": "export interface VirtualGridSection<T> { title: string; items: T[]; }"
+     }
+    ]
+   },
+   {
+    "file": "src/components/ui/VirtualGrid.vue",
+    "layer": "components",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    sections: VirtualGridSection<T>[];\n    mode?: VirtualGridMode;\n    forcedColumns?: number;\n    minColumnWidth?: number;\n    aspectRatio?: number;\n    listRowHeight?: number;\n    headerHeight?: number;\n    gap?: number;\n    sectionGap?: number;\n    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    sections: VirtualGridSection<T>[];\n    mode?: VirtualGridMode;\n    forcedColumns?: number;\n    minColumnWidth?: number;\n    aspectRatio?: number;\n    listRowHeight?: number;\n    headerHeight?: number;\n    gap?: number;\n    sectionGap?: number;\n    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    sections: VirtualGridSection<T>[];\n    mode?: VirtualGridMode;\n    forcedColumns?: number;\n    minColumnWidth?: number;\n    aspectRatio?: number;\n    listRowHeight?: number;\n    headerHeight?: number;\n    gap?: number;\n    sectionGap?: number;\n    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    sections: VirtualGridSection<T>[];\n    mode?: VirtualGridMode;\n    forcedColumns?: number;\n    minColumnWidth?: number;\n    aspectRatio?: number;\n    listRowHeight?: number;\n    headerHeight?: number;\n    gap?: number;\n    sectionGap?: number;\n    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'item-click', item: T): void;\n  (e: 'item-play', item: T): void;\n}>"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "defineExpose({ scrollToLetter })"
+     }
+    ]
+   }
+  ],
   "composables": [
    {
     "file": "src/composables/useAlbumCover.ts",
@@ -219,6 +2282,18 @@
     ]
    },
    {
+    "file": "src/composables/useMediaQuery.ts",
+    "layer": "composables",
+    "exports": [
+     {
+      "name": "useMediaQuery",
+      "kind": "function",
+      "signature": "export function useMediaQuery(query: string): Ref<boolean> ...",
+      "jsdoc": "Реактивный `window.matchMedia(query).matches`. Инициализируется синхронно (в браузере), чтобы `watch` с `immediate: true` увидел корректное значение на первом рендере. SSR не поддерживается (проект..."
+     }
+    ]
+   },
+   {
     "file": "src/composables/useMediaSession.ts",
     "layer": "composables",
     "exports": [
@@ -339,6 +2414,28 @@
       "kind": "function",
       "signature": "export function useSoftTtlCache<T>(options: SoftTtlCacheOptions): SoftTtlCache<T> ...",
       "jsdoc": "Soft-TTL кеш в localStorage. Особенности: - Не удаляет просроченные записи (они нужны как fallback при ошибке сети). - Single-entry: одна запись на ключ. Новый `write` перезаписывает. - `read` возв..."
+     }
+    ]
+   },
+   {
+    "file": "src/composables/useSwipe.ts",
+    "layer": "composables",
+    "exports": [
+     {
+      "name": "UseSwipeOptions",
+      "kind": "interface",
+      "signature": "export interface UseSwipeOptions { onSwipeLeft?: () => void; onSwipeRight?: () => void; /** Минимальное смещение по X (px), чтобы считать жест свайпом. По умолчанию 50. */ threshold?: number; /** Если задано — свайп обрабатывается только при `true`. */ enabled?: Ref<boolean> | (() => boolean); }"
+     },
+     {
+      "name": "UseSwipeHandlers",
+      "kind": "interface",
+      "signature": "export interface UseSwipeHandlers { onTouchStart: (e: TouchEvent) => void; onTouchMove: (e: TouchEvent) => void; onTouchEnd: (e: TouchEvent) => void; }"
+     },
+     {
+      "name": "useSwipe",
+      "kind": "function",
+      "signature": "export function useSwipe(options: UseSwipeOptions): UseSwipeHandlers ...",
+      "jsdoc": "Простой горизонтальный свайп без preview. `onTouchStart`/`onTouchMove` только определяют направление (горизонтальный или вертикальный жест). На `onTouchEnd` — если горизонтальный жест и смещение бо..."
      }
     ]
    },
@@ -695,6 +2792,39 @@
     ]
    },
    {
+    "file": "src/plugins/podcasts/AddPodcastModal.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n  (e: 'added'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/podcasts/PodcastCatalog.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "PodcastCatalog",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/podcasts/PodcastRoute.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "PodcastRoute",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
     "file": "src/plugins/podcasts/PodcastService.ts",
     "layer": "plugins",
     "exports": [
@@ -783,6 +2913,49 @@
       "name": "clearPodcastCaches",
       "kind": "function",
       "signature": "export function clearPodcastCaches(): void ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/podcasts/PodcastsView.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "PodcastsView",
+      "kind": "component",
+      "signature": "<component />"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/podcasts/components/PodcastCatalogRow.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  podcast: Podcast;\n  /** Трек этого подкаста стоит в плеере (независимо от того, играет или на паузе). */\n  isCurrent: boolean;\n  /** Трек этого подкаста сейчас воспроизводится. */\n  isPlaying: boolean;\n  isSubscribed: boolean;\n  /** Лента этого подкаста грузится. */\n  isLoadingSubscription: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'open'): void;\n  (e: 'toggle-play'): void;\n  (e: 'add'): void;\n  (e: 'remove'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/podcasts/components/PodcastFilters.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  country: string;\n  genre: string;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:country', value: string): void;\n  (e: 'update:genre', value: string): void;\n}>"
      }
     ]
    },
@@ -949,6 +3122,17 @@
     ]
    },
    {
+    "file": "src/plugins/radio/AddStationModal.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n  (e: 'add', station: SavedStation): void;\n}>"
+     }
+    ]
+   },
+   {
     "file": "src/plugins/radio/RadioBrowserClient.ts",
     "layer": "plugins",
     "exports": [
@@ -962,6 +3146,59 @@
       "name": "radioBrowserClient",
       "kind": "const",
       "signature": "export const radioBrowserClient"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/radio/RadioCatalog.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  savedStationIds: Set<string>;\n  currentTrackTitle: string | null;\n  isPlaying: boolean;\n  isMobile?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'add', station: SavedStation): void;\n  (e: 'play', station: SavedStation): void;\n  (e: 'remove', station: SavedStation): void;\n  (e: 'back'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/radio/RadioFilters.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "RadioCountryEntry",
+      "kind": "type",
+      "signature": "export type RadioCountryEntry = { name: string; code: string; stationCount: number; };"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  countries: RadioCountryEntry[];\n  tags: RadioTag[];\n  countriesError: boolean;\n  tagsError: boolean;\n  topOrder: RadioSortOrder;\n  topCountry: string;\n  topTags: string[];\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:topOrder', value: RadioSortOrder): void;\n  (e: 'update:topCountry', value: string): void;\n  (e: 'update:topTags', value: string[]): void;\n  (e: 'retry-countries'): void;\n  (e: 'retry-tags'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/radio/RadioSavedList.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  stations: SavedStation[];\n  currentTrackTitle: string | null;\n  isPlaying: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'play', station: SavedStation): void;\n  (e: 'remove', station: SavedStation): void;\n  (e: 'add-by-url'): void;\n}>"
      }
     ]
    },
@@ -983,6 +3220,17 @@
       "name": "radioService",
       "kind": "const",
       "signature": "export const radioService"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/radio/RadioView.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "RadioView",
+      "kind": "component",
+      "signature": "<component />"
      }
     ]
    },
@@ -1826,6 +4074,702 @@
     ]
    },
    {
+    "file": "src/plugins/yandexSelf/logii/CreateFolderModal.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title?: string;\n    label?: string;\n    placeholder?: string;\n    namePrefix?: string;\n    initialName?: string;\n    validateName?: (name: string) => string | null;\n    submitLabel?: string;\n    onSubmit: (finalName: string) => Promise<string | null>;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    title?: string;\n    label?: string;\n    placeholder?: string;\n    namePrefix?: string;\n    initialName?: string;\n    validateName?: (name: string) => string | null;\n    submitLabel?: string;\n    onSubmit: (finalName: string) => Promise<string | null>;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    title?: string;\n    label?: string;\n    placeholder?: string;\n    namePrefix?: string;\n    initialName?: string;\n    validateName?: (name: string) => string | null;\n    submitLabel?: string;\n    onSubmit: (finalName: string) => Promise<string | null>;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    title?: string;\n    label?: string;\n    placeholder?: string;\n    namePrefix?: string;\n    initialName?: string;\n    validateName?: (name: string) => string | null;\n    submitLabel?: string;\n    onSubmit: (finalName: string) => Promise<string | null>;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/CreateTopsModal.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "CreateTopsResult",
+      "kind": "interface",
+      "signature": "export interface CreateTopsResult { count: number; introName: string | null; }"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    onSubmit: (result: CreateTopsResult) => Promise<boolean>;\n    hasIntro?: boolean;\n    defaultCount?: number;\n    defaultIntroName?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    onSubmit: (result: CreateTopsResult) => Promise<boolean>;\n    hasIntro?: boolean;\n    defaultCount?: number;\n    defaultIntroName?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    onSubmit: (result: CreateTopsResult) => Promise<boolean>;\n    hasIntro?: boolean;\n    defaultCount?: number;\n    defaultIntroName?: string;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    onSubmit: (result: CreateTopsResult) => Promise<boolean>;\n    hasIntro?: boolean;\n    defaultCount?: number;\n    defaultIntroName?: string;\n  }>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiAuthorRow.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    author: LogiiAuthorItem;\n    isCollapsed: boolean;\n    isWriting: boolean;\n    hasTracks: boolean;\n    isAuthorCurrent: boolean;\n    isAuthorPlaying: boolean;\n    isNavigated: boolean;\n    isEditMode: boolean;\n    isMobile?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    author: LogiiAuthorItem;\n    isCollapsed: boolean;\n    isWriting: boolean;\n    hasTracks: boolean;\n    isAuthorCurrent: boolean;\n    isAuthorPlaying: boolean;\n    isNavigated: boolean;\n    isEditMode: boolean;\n    isMobile?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    author: LogiiAuthorItem;\n    isCollapsed: boolean;\n    isWriting: boolean;\n    hasTracks: boolean;\n    isAuthorCurrent: boolean;\n    isAuthorPlaying: boolean;\n    isNavigated: boolean;\n    isEditMode: boolean;\n    isMobile?: boolean;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    author: LogiiAuthorItem;\n    isCollapsed: boolean;\n    isWriting: boolean;\n    hasTracks: boolean;\n    isAuthorCurrent: boolean;\n    isAuthorPlaying: boolean;\n    isNavigated: boolean;\n    isEditMode: boolean;\n    isMobile?: boolean;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select'): void;\n  (e: 'play', event: MouseEvent): void;\n  (e: 'rename', event: MouseEvent): void;\n  (e: 'delete', event: MouseEvent): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiAuthorsColumn.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  authors: LogiiAuthorItem[];\n  currentAuthorName: string | null;\n  isLoading: boolean;\n  isCollapsed: boolean;\n  allTracksByAuthor: Map<string, Track[]>;\n  seasonFolder: FolderRef | null;\n  isEditMode: boolean;\n  isMobile?: boolean; // <-- добавлен проп\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select', author: LogiiAuthorItem): void;\n  (e: 'toggle-collapsed'): void;\n  (e: 'play-author', author: LogiiAuthorItem): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiChangesButton.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  unreadCount: number;\n  events: LogiiChangeEvent[];\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'navigate', urlPath: string): void;\n  (e: 'clear'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiChat.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    comments: LogiiComment[];\n    isSaving: boolean;\n    isLoading?: boolean;\n    isEditMode?: boolean;\n    trackUrlPath?: string;\n    onUpdateComment: (index: number, text: string) => Promise<boolean>;\n    onDeleteComment: (index: number) => Promise<boolean>;\n  }>(), ...)"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "withDefaults(defineProps<{\n    comments: LogiiComment[];\n    isSaving: boolean;\n    isLoading?: boolean;\n    isEditMode?: boolean;\n    trackUrlPath?: string;\n    onUpdateComment: (index: number, text: string) => Promise<boolean>;\n    onDeleteComment: (index: number) => Promise<boolean>;\n  }>(), ...)"
+     },
+     {
+      "name": "expose",
+      "kind": "const",
+      "signature": "withDefaults(defineProps<{\n    comments: LogiiComment[];\n    isSaving: boolean;\n    isLoading?: boolean;\n    isEditMode?: boolean;\n    trackUrlPath?: string;\n    onUpdateComment: (index: number, text: string) => Promise<boolean>;\n    onDeleteComment: (index: number) => Promise<boolean>;\n  }>(), ...)"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n    comments: LogiiComment[];\n    isSaving: boolean;\n    isLoading?: boolean;\n    isEditMode?: boolean;\n    trackUrlPath?: string;\n    onUpdateComment: (index: number, text: string) => Promise<boolean>;\n    onDeleteComment: (index: number) => Promise<boolean>;\n  }>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'send', text: string): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiFoldersColumn.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folders: LogiiTrackItem[];\n  currentFolderName: string | null;\n  isCurrentTopPlaying: boolean;\n  hasAuthorIntro: boolean;\n  authorIntroFileName: string | null;\n  currentAuthorName: string | null;\n  authorFolder: FolderRef | null;\n  seasonFolder: FolderRef | null;\n  isEditMode: boolean;\n  isMobile?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'select', folder: LogiiTrackItem): void;\n  (e: 'select-intro'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiGallery.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folder: LogiiTrackItem;\n  images: FolderFile[];\n  isEditMode: boolean;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiIntroView.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folder: LogiiTrackItem;\n  data: LogiiData | null;\n  isLoading: boolean;\n  isSaving: boolean;\n  isEditMode: boolean;\n  onUpdateVibe: (text: string) => Promise<boolean>;\n  onSendComment: (text: string) => Promise<void>;\n  onUpdateComment: (index: number, text: string) => Promise<boolean>;\n  onDeleteComment: (index: number) => Promise<boolean>;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiPanel.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiTab",
+      "kind": "type",
+      "signature": "export type LogiiTab = 'track' | 'gallery';"
+     },
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folder: LogiiTrackItem | null;\n  data: LogiiData | null;\n  isLoading: boolean;\n  isSaving: boolean;\n  error: string;\n  isEditMode: boolean;\n  isMobile?: boolean;\n  activeTab: LogiiTab;\n  onRetry: () => void;\n  onPlayTrack: (index: number) => void;\n  onPlayAll: () => void;\n  onUpdateVibe: (text: string) => Promise<boolean>;\n  onSendComment: (text: string) => Promise<void>;\n  onUpdateComment: (index: number, text: string) => Promise<boolean>;\n  onDeleteComment: (index: number) => Promise<boolean>;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'update:activeTab', value: LogiiTab): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiPanelHeader.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  pageIndex: number;\n  authorName: string | null;\n  folderName: string | null;\n  logiiFileName: string | null;\n  isRefreshing: boolean;\n  canGoToParent: boolean;\n  isEditMode?: boolean;\n  isMobile?: boolean;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'refresh'): void;\n  (e: 'go-to-parent'): void;\n  (e: 'go-prev'): void;\n  (e: 'update:isEditMode', value: boolean): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiTrackTab.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folder: LogiiTrackItem;\n  data: LogiiData | null;\n  isLoadingVibe: boolean;\n  isSaving: boolean;\n  isEditMode: boolean;\n  isMobile?: boolean;\n  updateVibe: (text: string) => Promise<boolean>;\n  onPlayTrack: (index: number) => void;\n  onPlayAll: () => void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiVibeBlock.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  vibe: string;\n  title: string;\n  isLoading: boolean;\n  isSaving: boolean;\n  isEditMode: boolean;\n  onUpdateVibe: (text: string) => Promise<boolean>;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/LogiiView.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{ urlPath: string }>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/StreamSearchModal.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "props",
+      "kind": "interface",
+      "signature": "defineProps<{\n  folderUrlPath: string;\n  takenNames: string[];\n  /** Загрузить blob в папку Логий (реализация на стороне родителя). */\n  onUpload: (fileName: string, blob: Blob) => Promise<void>;\n}>"
+     },
+     {
+      "name": "emits",
+      "kind": "interface",
+      "signature": "defineEmits<{\n  (e: 'close'): void;\n}>"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/authorColor.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "hashToHue",
+      "kind": "function",
+      "signature": "export function hashToHue(name: string): number ...",
+      "jsdoc": "Возвращает hue (0..359) из имени автора. Детерминированно: одно имя → один цвет навсегда."
+     },
+     {
+      "name": "authorAvatarColor",
+      "kind": "function",
+      "signature": "export function authorAvatarColor(name: string): string ...",
+      "jsdoc": "Цвет аватара автора. Используется для фона круглого аватара в LogiiAuthorsColumn. Насыщенность/светлота фиксированы, чтобы читался белый текст при любом hue."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useEditMode.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "useEditMode",
+      "kind": "function",
+      "signature": "export function useEditMode(): ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiAutoSelect.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "UseLogiiAutoSelectDeps",
+      "kind": "interface",
+      "signature": "export interface UseLogiiAutoSelectDeps { authors: Ref<LogiiAuthorItem[]>; authorFolders: Ref<LogiiTrackItem[]>; authorName: Ref<string | null>; folderName: Ref<string | null>; hasAuthorIntro: Ref<boolean>; isMobile: Ref<boolean>; goToAuthor: (author: LogiiAuthorItem) => void; goToFolder: (folder: LogiiTrackItem) => void; }"
+     },
+     {
+      "name": "useLogiiAutoSelect",
+      "kind": "function",
+      "signature": "export function useLogiiAutoSelect(deps: UseLogiiAutoSelectDeps): void ...",
+      "jsdoc": "Автовыбор автора и папки при заходе в сезон. На десктопе: первый заход — выбрать первого автора; смена автора — выбрать первую папку. На мобильном автовыбор отключён: пользователь сам выбирает чере..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiChanges.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "markPendingDelete",
+      "kind": "function",
+      "signature": "export function markPendingDelete(urlPath: string): void ..."
+     },
+     {
+      "name": "markPendingMove",
+      "kind": "function",
+      "signature": "export function markPendingMove(oldUrlPath: string, newUrlPath: string): void ...",
+      "jsdoc": "Отметить штатное перемещение (rename) поддерева oldUrlPath -> newUrlPath."
+     },
+     {
+      "name": "LogiiFileEntry",
+      "kind": "interface",
+      "signature": "export interface LogiiFileEntry { urlPath: string; name: string; ext: string; modified: string | null; size: number | undefined; }"
+     },
+     {
+      "name": "LogiiSeasonSnapshot",
+      "kind": "interface",
+      "signature": "export interface LogiiSeasonSnapshot { seasonUrlPath: string; updatedAt: number; files: Map<string, LogiiFileEntry>; // urlPath -> entry }"
+     },
+     {
+      "name": "LogiiChangeEventKind",
+      "kind": "type",
+      "signature": "export type LogiiChangeEventKind = 'added' | 'modified' | 'removed';"
+     },
+     {
+      "name": "LogiiChangeEvent",
+      "kind": "interface",
+      "signature": "export interface LogiiChangeEvent { kind: LogiiChangeEventKind; file: LogiiFileEntry; folderUrlPath: string; }"
+     },
+     {
+      "name": "diffSnapshots",
+      "kind": "function",
+      "signature": "export function diffSnapshots( prev: LogiiSeasonSnapshot | null, next: LogiiSeasonSnapshot, ): LogiiChangeEvent[] ..."
+     },
+     {
+      "name": "UseLogiiChangesDeps",
+      "kind": "interface",
+      "signature": "export interface UseLogiiChangesDeps { seasonUrlPath: Ref<string>; folders: Ref<Record<string, FolderRef>>; }"
+     },
+     {
+      "name": "LogiiChangesResult",
+      "kind": "interface",
+      "signature": "export interface LogiiChangesResult { isSyncing: Ref<boolean>; pendingEvents: Ref<LogiiChangeEvent[]>; unreadCount: Ref<number>; /** Применить результат скана: построить снимок, diff, сохранить. */ applyScanResult: () => void; /** Применить изменение текста (из readLogiiFile) без скана. */ applyTextChange: (remotePath: string, modified: string | null) => void; /** Сбросить события. */ clearEven..."
+     },
+     {
+      "name": "useLogiiChanges",
+      "kind": "function",
+      "signature": "export function useLogiiChanges(deps: UseLogiiChangesDeps): LogiiChangesResult ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiNavigation.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiRouter",
+      "kind": "interface",
+      "signature": "export interface LogiiRouter { push(to: RouteLocationRaw): void; replace(to: RouteLocationRaw): void; }"
+     },
+     {
+      "name": "LogiiNavigation",
+      "kind": "interface",
+      "signature": "export interface LogiiNavigation { canGoToParent: ComputedRef<boolean>; goToParent: () => void; goToAuthor: (author: LogiiAuthorItem) => void; goToIntro: () => void; goToFolder: (folder: LogiiTrackItem) => void; }"
+     },
+     {
+      "name": "LogiiNavigationDeps",
+      "kind": "interface",
+      "signature": "export interface LogiiNavigationDeps { route: LogiiRoute; currentAuthor: ComputedRef<LogiiAuthorItem | null>; folders: ComputedRef<Record<string, FolderRef>>; router: LogiiRouter; }"
+     },
+     {
+      "name": "useLogiiNavigation",
+      "kind": "function",
+      "signature": "export function useLogiiNavigation(deps: LogiiNavigationDeps): LogiiNavigation ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiPager.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiPagerDeps",
+      "kind": "interface",
+      "signature": "export interface LogiiPagerDeps { route: LogiiRoute; authors: Ref<LogiiAuthorItem[]>; authorFolders: Ref<LogiiTrackItem[]>; hasAuthorIntro: Ref<boolean>; currentFolder: Ref<LogiiTrackItem | null>; goToAuthor: (author: LogiiAuthorItem) => void; goToFolder: (folder: LogiiTrackItem) => void; goToIntro: () => void; router: { replace: (to: RouteLocationRaw) => void }; }"
+     },
+     {
+      "name": "LogiiPager",
+      "kind": "interface",
+      "signature": "export interface LogiiPager { pageIndex: ComputedRef<number>; pagesCount: number; canGoNext: ComputedRef<boolean>; canGoPrev: ComputedRef<boolean>; goNext: () => void; goPrev: () => void; goToPage: (index: number) => void; }"
+     },
+     {
+      "name": "useLogiiPager",
+      "kind": "function",
+      "signature": "export function useLogiiPager(deps: LogiiPagerDeps): LogiiPager ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiPlayback.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiPlayerApi",
+      "kind": "interface",
+      "signature": "export interface LogiiPlayerApi { setQueue(tracks: Track[], index: number): void; playAll(tracks: Track[]): void; toggle(): void; readonly currentTrack: Track | null; readonly isPlaying: boolean; }"
+     },
+     {
+      "name": "LogiiPlayback",
+      "kind": "interface",
+      "signature": "export interface LogiiPlayback { playTrack: (index: number) => void; playAllAudio: () => void; playAuthor: (author: LogiiAuthorItem) => void; }"
+     },
+     {
+      "name": "LogiiPlaybackDeps",
+      "kind": "interface",
+      "signature": "export interface LogiiPlaybackDeps { currentFolder: ComputedRef<LogiiTrackItem | null>; allTracksByAuthor: Ref<Map<string, Track[]>>; player: LogiiPlayerApi; }"
+     },
+     {
+      "name": "useLogiiPlayback",
+      "kind": "function",
+      "signature": "export function useLogiiPlayback(deps: LogiiPlaybackDeps): LogiiPlayback ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiRefresh.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiRefreshDeps",
+      "kind": "interface",
+      "signature": "export interface LogiiRefreshDeps { seasonFolder: Ref<FolderRef | null>; route: LogiiRoute; folders: ComputedRef<Record<string, FolderRef>>; router: LogiiRouter; reloadTrack: (force?: boolean) => Promise<void>; /** Инициализация скана для diff-уведомлений. */ initScan?: (prevSnapshot: import('./useLogiiChanges').LogiiSeasonSnapshot | null) => Promise<void>; /** Колбэк: файл обработан. */ onAfte..."
+     },
+     {
+      "name": "LogiiRefresh",
+      "kind": "interface",
+      "signature": "export interface LogiiRefresh { isRefreshing: Ref<boolean>; onRefresh: () => Promise<void>; }"
+     },
+     {
+      "name": "useLogiiRefresh",
+      "kind": "function",
+      "signature": "export function useLogiiRefresh(deps: LogiiRefreshDeps): LogiiRefresh ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiRoute.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiRoute",
+      "kind": "interface",
+      "signature": "export interface LogiiRoute { segments: ComputedRef<string[]>; seasonIndex: ComputedRef<number>; seasonUrlPath: ComputedRef<string>; authorName: ComputedRef<string | null>; folderName: ComputedRef<string | null>; }"
+     },
+     {
+      "name": "useLogiiRoute",
+      "kind": "function",
+      "signature": "export function useLogiiRoute(urlPath: Ref<string>): LogiiRoute ...",
+      "jsdoc": "Разбор urlPath вида `<...>/logii.<season>/<author>/<folder>`. Сегменты до маркера сезона — путь родителя, `logii.*` — сам сезон."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/composables/useLogiiSelection.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiSelection",
+      "kind": "interface",
+      "signature": "export interface LogiiSelection { currentAuthor: ComputedRef<LogiiAuthorItem | null>; authorFolders: ComputedRef<LogiiTrackItem[]>; authorIntro: ComputedRef<LogiiTrackItem | null>; hasAuthorIntro: ComputedRef<boolean>; authorIntroFileName: ComputedRef<string | null>; currentFolder: ComputedRef<LogiiTrackItem | null>; currentFolderUrlPath: ComputedRef<string>; currentLogiiFileName: ComputedRef<s..."
+     },
+     {
+      "name": "useLogiiSelection",
+      "kind": "function",
+      "signature": "export function useLogiiSelection( season: UseLogiiSeasonResult, route: LogiiRoute, folders: ComputedRef<Record<string, FolderRef>>, ): LogiiSelection ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/logiiApi.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "invalidateLogiiCache",
+      "kind": "function",
+      "signature": "export async function invalidateLogiiCache(trackUrlPath?: string): Promise<void> ..."
+     },
+     {
+      "name": "readLogiiFile",
+      "kind": "function",
+      "signature": "export async function readLogiiFile( trackUrlPath: string, fileName: string | null, forceRefresh = false, ): Promise< ..."
+     },
+     {
+      "name": "writeLogiiFile",
+      "kind": "function",
+      "signature": "export async function writeLogiiFile( trackUrlPath: string, fileName: string | null, content: string, ): Promise< ..."
+     },
+     {
+      "name": "clearLogiiCache",
+      "kind": "function",
+      "signature": "export async function clearLogiiCache(trackUrlPath: string): Promise<void> ...",
+      "jsdoc": "Удаляет кеш для конкретного трека (по urlPath). Вызывается, например, при force scan, если хочется перечитать."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/navigation.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiNavLevel",
+      "kind": "type",
+      "signature": "export type LogiiNavLevel = 'folder' | 'author' | 'season' | 'root';"
+     },
+     {
+      "name": "LogiiNavResult",
+      "kind": "interface",
+      "signature": "export interface LogiiNavResult { /** Куда переходить после refresh. */ level: LogiiNavLevel; /** * Куда навигировать: * - 'folder' / 'author' / 'season' → urlPath (относительно плагина yandex-self); * - 'root' → пустая строка '' (caller сам решает, что делать). */ urlPath: string; }"
+     },
+     {
+      "name": "LogiiNavContext",
+      "kind": "interface",
+      "signature": "export interface LogiiNavContext { seasonUrlPath: string; authorName: string | null; folderName: string | null; folders: Record<string, FolderRef>; }"
+     },
+     {
+      "name": "resolveLogiiNavigationAfterRefresh",
+      "kind": "function",
+      "signature": "export function resolveLogiiNavigationAfterRefresh(ctx: LogiiNavContext): LogiiNavResult ...",
+      "jsdoc": "После рекурсивного refresh сезона (scanFolder с force: true) проверяет, что текущая цепочка «сезон → автор → трек-папка» ещё существует. Возвращает ближайший существующий уровень: - 'folder' — теку..."
+     },
+     {
+      "name": "resolveSeasonParentUrlPath",
+      "kind": "function",
+      "signature": "export function resolveSeasonParentUrlPath(seasonUrlPath: string, folders: Record<string, FolderRef>): string ...",
+      "jsdoc": "Возвращает urlPath родительской папки для `logii.<season>`. Если сезон лежит в корне плагина — возвращает '' (корень FolderView). Нужно для кнопки «К папкам» в LogiiPanelHeader."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/parseLogii.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "LogiiComment",
+      "kind": "interface",
+      "signature": "export interface LogiiComment { nickname: string; time: string | null; text: string; }"
+     },
+     {
+      "name": "LogiiData",
+      "kind": "interface",
+      "signature": "export interface LogiiData { vibe: string; comments: LogiiComment[]; }"
+     },
+     {
+      "name": "parseLogii",
+      "kind": "function",
+      "signature": "export function parseLogii(content: string): LogiiData ..."
+     },
+     {
+      "name": "stringifyLogii",
+      "kind": "function",
+      "signature": "export function stringifyLogii(data: LogiiData): string ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/useAuthorTrackState.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "UseAuthorTrackStateResult",
+      "kind": "interface",
+      "signature": "export interface UseAuthorTrackStateResult { isAuthorPlaying: (urlPath: string) => boolean; isAuthorCurrent: (urlPath: string) => boolean; hasTracks: (urlPath: string) => boolean; }",
+      "jsdoc": "Composable для playback-статуса автора. Принимает реактивные зависимости и возвращает булевы функции."
+     },
+     {
+      "name": "useAuthorTrackState",
+      "kind": "function",
+      "signature": "export function useAuthorTrackState( ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/useLogiiAuthorsCrud.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "RouterApi",
+      "kind": "interface",
+      "signature": "export interface RouterApi { replace: (to: RouteLocationRaw) => void; }"
+     },
+     {
+      "name": "UseLogiiAuthorsCrudDeps",
+      "kind": "interface",
+      "signature": "export interface UseLogiiAuthorsCrudDeps { seasonFolder: Ref<FolderRef | null>; currentAuthorName: Ref<string | null>; isWriting: Ref<boolean>; renameFolder: (oldUrlPath: string, newUrlPath: string) => Promise<boolean>; removeResource: (path: string, parentUrlPath: string) => Promise<boolean>; router: RouterApi; confirmFn?: (message: string) => boolean; }"
+     },
+     {
+      "name": "UseLogiiAuthorsCrudResult",
+      "kind": "interface",
+      "signature": "export interface UseLogiiAuthorsCrudResult { openCreateModal: () => Promise<void>; openRenameModal: (author: LogiiAuthorItem) => Promise<void>; onDeleteAuthor: (author: LogiiAuthorItem) => Promise<void>; }"
+     },
+     {
+      "name": "useLogiiAuthorsCrud",
+      "kind": "function",
+      "signature": "export function useLogiiAuthorsCrud( ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/useLogiiData.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "getNickname",
+      "kind": "function",
+      "signature": "export function getNickname(): string ..."
+     },
+     {
+      "name": "setNickname",
+      "kind": "function",
+      "signature": "export function setNickname(nickname: string): void ..."
+     },
+     {
+      "name": "LogiiSeasonItem",
+      "kind": "interface",
+      "signature": "export interface LogiiSeasonItem { folderName: string; displayName: string; urlPath: string; }"
+     },
+     {
+      "name": "LogiiAuthorItem",
+      "kind": "interface",
+      "signature": "export interface LogiiAuthorItem { folderName: string; urlPath: string; }"
+     },
+     {
+      "name": "LogiiTrackItem",
+      "kind": "interface",
+      "signature": "export interface LogiiTrackItem { folderName: string; urlPath: string; folderId: FolderId; isIntro: boolean; audioTracks: Track[]; imageFiles: FolderFile[]; logiiFileName: string | null; }"
+     },
+     {
+      "name": "UseLogiiSeasonResult",
+      "kind": "interface",
+      "signature": "export interface UseLogiiSeasonResult { authors: Ref<LogiiAuthorItem[]>; tracksByAuthor: Ref<Map<string, LogiiTrackItem[]>>; allTracksByAuthor: Ref<Map<string, Track[]>>; authorMeta: Ref<Map<string, LogiiTrackItem>>; seasonFolder: Ref<FolderRef | null>; isReady: Ref<boolean>; }"
+     },
+     {
+      "name": "useLogiiSeason",
+      "kind": "function",
+      "signature": "export function useLogiiSeason(seasonUrlPath: Ref<string>): UseLogiiSeasonResult ..."
+     },
+     {
+      "name": "UseLogiiTrackResult",
+      "kind": "interface",
+      "signature": "export interface UseLogiiTrackResult { data: Ref<LogiiData | null>; isLoading: Ref<boolean>; isSaving: Ref<boolean>; error: Ref<string>; reload: (forceRefresh?: boolean) => Promise<void>; appendComment: (text: string) => Promise<boolean>; updateComment: (index: number, text: string) => Promise<boolean>; deleteComment: (index: number) => Promise<boolean>; updateVibe: (text: string) => Promise<bo..."
+     },
+     {
+      "name": "useLogiiTrack",
+      "kind": "function",
+      "signature": "export function useLogiiTrack(trackUrlPath: Ref<string>, logiiFileName: Ref<string | null>): UseLogiiTrackResult ..."
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/yandexSelf/logii/useYandexSelfWrites.ts",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "useYandexSelfWrites",
+      "kind": "function",
+      "signature": "export function useYandexSelfWrites() ..."
+     }
+    ]
+   },
+   {
     "file": "src/plugins/yandexSelf/manifest.ts",
     "layer": "plugins",
     "exports": [
@@ -1874,6 +4818,17 @@
       "name": "zvukService",
       "kind": "const",
       "signature": "export const zvukService"
+     }
+    ]
+   },
+   {
+    "file": "src/plugins/zvuk/ZvukView.vue",
+    "layer": "plugins",
+    "exports": [
+     {
+      "name": "ZvukView",
+      "kind": "component",
+      "signature": "<component />"
      }
     ]
    },
@@ -5395,6 +8350,33 @@
       "name": "podcastsRoutes",
       "kind": "const",
       "signature": "export const podcastsRoutes"
+     }
+    ]
+   },
+   {
+    "file": "server/src/plugins/radio/index.js",
+    "layer": "server",
+    "exports": [
+     {
+      "name": "prefix",
+      "kind": "const",
+      "signature": "export const prefix"
+     },
+     {
+      "name": "router",
+      "kind": "const",
+      "signature": "export const router"
+     }
+    ]
+   },
+   {
+    "file": "server/src/plugins/radio/routes.js",
+    "layer": "server",
+    "exports": [
+     {
+      "name": "radioRoutes",
+      "kind": "const",
+      "signature": "export const radioRoutes"
      }
     ]
    },
